@@ -53,11 +53,20 @@ Long project instructions remain in their source files rather than being duplica
   <nguyenvoanhkhoa9487@gmail.com> and verified with `git var GIT_AUTHOR_IDENT`.
   GitHub CLI (`gh`) is unavailable. The user authorized an initial direct push
   to establish `main`; the previously empty remote has no base for a bootstrap
-  PR. The conversation update uses branch `docs/conversation-memory`.
+  PR. Conversation commit `5579be7` was merged through PR #1; fetching origin
+  and checking ancestry verified it is included in main at `f3b4601`.
+  The next discussion record uses branch `docs/requirements-discussion`.
   No GitHub PR tool is available in this session, so automated PR creation is
   currently blocked; a pushed branch can be opened for review through GitHub.
 
 ## Product context for recovery
+
+Latest confirmed clarification: the target is to visualize every user-written
+Java program as correctly as possible, not recognize fixed source or algorithm
+templates. Build reusable tracing of language constructs and their combinations.
+Coverage limitations are implementation boundaries, not a restriction of the
+product to canned examples. Never guess missing runtime facts. This clarification
+is also recorded in the requirements; no tracing implementation is claimed.
 
 The product is an educational Java execution visualization application. Confirmed
 stack: Java 21/Spring Boot/Maven, React/TypeScript/Vite, TanStack Query/Router,
@@ -186,10 +195,73 @@ preserve user messages and label assistant summaries explicitly.
     PR creation is blocked by unavailable GitHub CLI and PR tools. Read this
     file when resuming; do not infer an automatic memory-loading mechanism.
 
-## Verification and handoff
+13. User: "ok I merged it. now continue our conversation. tell me what do you
+    think about the requirements"
+    Assistant verified the prior memory commit was merged into origin/main.
+    Assistant assessment (product discussion, not approved specification changes):
+
+    "My view: the requirements explain the product's purpose well, but several
+    behaviors still need precise definitions before implementation.
+
+    What is strong:
+    - The learning goal is concrete: see how your own Java code changes state.
+    - Correctness has clear priority: actual execution facts, preserved aliases,
+      distinct recursive frames, and honest limits on visualization.
+    - Recorded playback, synchronized highlighting, and separate presentation
+      state give the application a consistent foundation.
+    - Acceptance cases cover failures, backward playback, and ambiguous
+      structures, alongside successful sorting examples.
+
+    What needs clarification:
+    1. Supported Java coverage. 'Arrays', 'strings', and 'maps' describe families.
+       Each needs supported types, operations, combinations, and examples.
+    2. Exact stepping behavior. For `a[i] = a[j] + 1`, define which reads,
+       calculation, and write produce clicks, and what each click highlights.
+    3. Separate test inputs. Define how students enter cases, whether cases run
+       independently, whether expected output is included, and how results appear.
+    4. Custom mappings. Define how students choose root/value/link fields and
+       understand why a mapping needs correction after edits.
+    5. Grid readability. Define grouping, selecting recursive frames, and handling
+       more structures than fit onscreen while preserving shared identities.
+    6. Completion boundaries. Every V1 family needs an agreed support matrix;
+       'broader coverage' alone cannot tell us when V1 is finished.
+
+    One document issue matters: it mixes confirmed requirements, proposed tools,
+    and historical implementation claims. For example, Monaco is proposed but
+    appears as a settled choice in the workflow. Missing prototype/spec files
+    also prevent treating historical claims as verified work in this repository.
+
+    I would keep the full agreed V1 scope and clarify it in small parts. My
+    suggested first discussion is the exact Step experience for a short array
+    program. That connects the educational experience to the tracing contract."
+
+    Memory delivery: one documentation part on docs/requirements-discussion.
+    No product requirements or implementation files were changed. PR automation
+    remains unavailable; publication should provide a manual PR link.
+
+14. User: "ok, we have to be clear one important thing. this project is not
+    template recognice like we write the same code every time and it will
+    visualize. Our app is designed to visualize every code we write as correct
+    as possible."
+    Assistant response: "Understood. The goal is to visualize the Java code the
+    user actually writes, including programs we have never seen before.
+    The engine must understand supported Java operations and record their real
+    execution. Renaming variables, changing inputs, or writing a different
+    algorithm must not require adding a matching template. Algorithms are test
+    cases; language capabilities are what we implement.
+    'As correctly as possible' means showing captured facts faithfully and
+    explaining missing coverage, never inventing execution steps. My earlier
+    coverage discussion concerns implementation progress, not limiting users
+    to predefined programs. This is now explicit in requirements and memory."
+    Delivery: one documentation part on the existing requirements discussion
+    branch; updated requirements and both memory files. No application changes.
+
+## Latest verification notes
 
 This is documentation-only work. Baseline publication and clean working tree
 were verified after the initial push. Conversation updates must pass Git
-whitespace checks and preserve the existing instructions and requirements.
+whitespace checks and preserve unrelated instructions and requirements. The
+latest edit adds only the user's explicit general-code clarification and memory.
 No application tests or builds have been run or claimed. Verify the current
-branch and remote refs when resuming. No PR or merge is claimed for this update.
+branch and remote refs when resuming. The previous memory PR merge is verified;
+no PR creation or merge is claimed for the new discussion branch.

@@ -4,6 +4,8 @@
 
 Build an educational website where a user writes Java code and watches its execution through visual representations of variables and data structures. For example, a variable appears as a labeled box, an array appears as indexed boxes, and a user-written sorting algorithm animates comparisons and changes step by step.
 
+**Confirmed product direction, 2026-10-06:** aim to visualize every Java program the user writes as correctly as possible, within the execution policy. Users must not have to reproduce a known example or algorithm template. Analyze language constructs and capture their actual execution; derive visualizations from those facts. Coverage grows through reusable Java capabilities and their combinations. Current tracing limitations describe unfinished or unsupported coverage, not a template-based definition of the product. This direction does not claim that every Java construct is already implemented or that missing facts may be approximated.
+
 The frontend must use TypeScript, React, Vite, TanStack Query, Axios, and TanStack Router. The backend must use Java 21, Spring Boot, and Maven. Execution uses Docker Desktop with WSL2 and Linux runner containers for Windows-local V1. Development will be assisted by Codex in VS Code. The selected frontend baseline is Node.js 22, React/React DOM 19.3, and Vite 8. Exact patch versions and remaining dependencies must be pinned and installation-tested during setup.
 
 The audience includes Java beginners and algorithm students. The primary learning outcome is understanding algorithm behavior by observing synchronized code and diagram changes. V1 runs locally on Windows; server deployment is a future extension. There is no fixed deadline. Establish correct variables and arrays before adding the other structure categories.
@@ -18,6 +20,8 @@ The audience includes Java beginners and algorithm students. The primary learnin
 - **Needs technical validation:** composable language coverage, broader instrumentation, library operation coverage, and tree/heap representation.
 
 ### Confirmed clarification decisions
+
+- The user reiterated on 2026-10-06: "this project is not template recognice like we write the same code every time and it will visualize. Our app is designed to visualize every code we write as correct as possible." Treat general user-authored Java visualization as the product goal. Algorithm names, exact source text, identifier names, formatting, and prewritten examples must not determine tracing eligibility. Supported language constructs and their verified combinations determine current capture coverage; unavailable coverage must be explained accurately. Starter examples are conveniences and acceptance cases, never the engine's recognition mechanism. Existing isolation restrictions and safe partial/output-only behavior remain in force.
 
 - Latest scope clarification, 2026-10-06: all discussed product features belong to V1. This includes broader array/string/map/set/tree/heap coverage, separate test inputs, automatic structure discovery, confirmed custom mappings, object-graph fallback, synchronized grid panels and evidence-based suggested-view rankings. Earlier V2 deferrals for these features are superseded. Deliver incrementally; V1 is not complete until the agreed coverage and workflows are verified. Exact supported operations and limits still require specification; this is not arbitrary-Java support or a claim of implementation.
 
