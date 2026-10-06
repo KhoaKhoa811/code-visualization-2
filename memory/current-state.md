@@ -22,8 +22,8 @@ Long project instructions remain in their source files rather than being duplica
 ## Current scope
 
 - Active milestone: Milestone 0, repository and specifications; incomplete.
-- Approved task: backfill the conversation record and maintain it during the
-  requirements discussion, following the user's latest request. The companion
+- Approved task: Part 1, define observable Step behavior using short Java
+  examples and intermediate states in specs/trace-format.md. The companion
   `next-steps.md` records remaining work under the project delivery instructions.
 - No application implementation, dependency installation, or additional milestone
   work has been approved in this conversation.
@@ -46,7 +46,9 @@ Long project instructions remain in their source files rather than being duplica
 - Before the initial memory task, the only project files found were `AGENTS.md` and
   `requirements/PROJECT_REQUIREMENTS.md`, both untracked. Preserve their contents.
 - The baseline includes `memory/current-state.md` and `memory/next-steps.md`.
-- No local `specs/`, application modules, build files, tests, or prototype were found.
+- No local `specs/`, application modules, build files, tests, or prototype were
+  found at initial inspection. The approved Step task now adds
+  `specs/trace-format.md`; application code and other planned specs remain absent.
   Requirements describe historical prototype verification and PR #11, but those
   artifacts are absent here. Those historical claims are not locally verified.
 - Git author identity is now configured locally as `khoakhoa811`
@@ -57,7 +59,9 @@ Long project instructions remain in their source files rather than being duplica
   and checking ancestry verified it is included in main at `f3b4601`.
   Requirements discussion commits through `46237df` were merged through PR #2
   at `b9f63f9`; fetch and ancestry checks verified the clarification is on main.
-  The next discussion record uses branch `docs/project-recommendations`.
+  Planning commit `3598a8d` was pushed on `docs/project-recommendations`; no merge
+  of that branch was observed in the latest fetch. The Step specification branch
+  `docs/observable-steps` starts from that planning commit and includes its memory.
   No GitHub PR tool is available in this session, so automated PR creation is
   currently blocked; a pushed branch can be opened for review through GitHub.
 
@@ -302,12 +306,33 @@ preserve user messages and label assistant summaries explicitly.
     with the companion next-steps file updated. No new specs or application code
     were created; the user has not approved the proposed specification part.
 
+16. User: "ok"
+    In context, this approves the immediately proposed Part 1: define exactly
+    what one Step means using short Java examples and expected intermediate
+    states. It does not approve application implementation or later milestones.
+    Assistant created specs/trace-format.md with confirmed invariants separated
+    from proposed detailed semantics. Proposed examples cover declarations,
+    array read/add/write, aliases, short-circuiting, and failed writes. Cursor
+    state is post-operation; bookkeeping has no standalone clicks. Backward
+    playback restores accepted trace prefixes rather than executing Java.
+    The draft proposes three Steps for `a[i] = a[j] + 1`: array read, addition,
+    and array write. Simple variable lookup and literals do not add clicks.
+    Numeric/schema details, method frames/returns, broader Java coverage, and
+    exact instrumentation remain explicitly unfinished. No runtime claims.
+    Delivery: one coherent documentation part on docs/observable-steps, including
+    both memory updates. GitHub PR automation remains unavailable. Review the
+    proposed granularity before implementing it; do not begin the next part
+    without user approval.
+
 ## Latest verification notes
 
 This is documentation-only work. Baseline publication and clean working tree
 were verified after the initial push. Conversation updates must pass Git
 whitespace checks and preserve unrelated instructions and requirements. The
-latest edit adds only the user's explicit general-code clarification and memory.
+latest task adds the Step specification and updates both memory files. Verified
+documentation paths, the relative source link, absence of conflict markers, and
+staged Git whitespace checks. Examples were reviewed against the stated rules.
+Application tests are not applicable to this documentation-only part.
 No application tests or builds have been run or claimed. Verify the current
 branch and remote refs when resuming. The previous memory PR merge is verified;
 no PR creation or merge is claimed for the new discussion branch.
