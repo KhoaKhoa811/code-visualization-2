@@ -8,12 +8,13 @@ templates. Define coverage to track implementation and truthful limitations,
 not to restrict the product to examples. Runtime facts must remain captured,
 and execution isolation restrictions still apply.
 
-1. Await approval of the proposed next part: document exact observable Step
-   behavior using short Java examples and expected intermediate states, within
-   Milestone 0. No specification creation or application implementation is yet
-   approved. Recommended future sequence: focused contracts/support/isolation
-   specs, reusable tracing and isolation proof, an end-to-end playback path,
-   then the remaining V1 capability increments. This is a proposal only.
+1. Review the completed Part 1 draft in specs/trace-format.md: operation-level
+   stepping with proposed read/arithmetic/write granularity and worked examples.
+   The user's "ok" approved creating this specification, not implementing it.
+   Detailed semantics remain proposed pending review and eventual runtime proof.
+   Before further implementation, obtain approval for the next specification
+   part: Java support, complete trace/schema/numeric and frame/return semantics,
+   or execution isolation. These remain recommendations, not started tasks.
    Other open definitions: Java support matrix, separate test-input workflow,
    custom mapping interaction, grid grouping, and measurable V1 completion.
    These are discussion topics, not approved requirement changes.
@@ -30,10 +31,13 @@ and execution isolation restrictions still apply.
 Initial baseline `335b769` and memory commit `5579be7` are verified on origin/main.
 PR #1 merged the memory update at `f3b4601`. PR #2 merged the requirements
 clarification through `46237df` at `b9f63f9`, verified by fetch and ancestry.
-The current discussion record uses branch `docs/project-recommendations`.
+Planning commit `3598a8d` is pushed on docs/project-recommendations; its merge
+was not observed. The new docs/observable-steps branch starts from that commit
+and contains the Step specification plus memory updates. Main remains b9f63f9
+at the latest fetch. Review can include the prior planning-memory commit.
 Git author identity is resolved.
 The `gh` command and GitHub PR tools are unavailable; automated PR creation is
 blocked. Publish the branch and provide a GitHub compare link for manual review.
-No application/build/test artifacts
+The first local specification now exists; no application/build/test artifacts
 exist locally. These findings do not establish the status of historical work
 outside this workspace.
