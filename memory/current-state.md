@@ -55,7 +55,9 @@ Long project instructions remain in their source files rather than being duplica
   to establish `main`; the previously empty remote has no base for a bootstrap
   PR. Conversation commit `5579be7` was merged through PR #1; fetching origin
   and checking ancestry verified it is included in main at `f3b4601`.
-  The next discussion record uses branch `docs/requirements-discussion`.
+  Requirements discussion commits through `46237df` were merged through PR #2
+  at `b9f63f9`; fetch and ancestry checks verified the clarification is on main.
+  The next discussion record uses branch `docs/project-recommendations`.
   No GitHub PR tool is available in this session, so automated PR creation is
   currently blocked; a pushed branch can be opened for review through GitHub.
 
@@ -255,6 +257,50 @@ preserve user messages and label assistant summaries explicitly.
     to predefined programs. This is now explicit in requirements and memory."
     Delivery: one documentation part on the existing requirements discussion
     branch; updated requirements and both memory files. No application changes.
+
+15. User: "ok, I merged the branch. Now what do you recommend for our project"
+    Assistant verified the requirements clarification is included in origin/main
+    through PR #2. Recommendations below are proposals, not implementation approval.
+    Assistant response:
+
+    "I recommend proving general execution tracing before building the full UI.
+    The key question is whether differently written Java programs can produce
+    faithful, replayable execution records through the same tracing rules.
+
+    1. Finish a focused Milestone 0 specification. Define the first increment's
+       Java constructs, exact Step behavior, trace contract, and execution limits.
+       Specify variable/object identities and call-frame/return semantics early,
+       so later recursion fits the model. Keep every agreed V1 feature on the roadmap.
+    2. Prove reusable tracing in Milestone 1. Test declarations, assignments,
+       expressions, conditions, loops, and arrays in varied combinations. Use
+       unseen program arrangements, renamed variables, different inputs, and
+       side effects. Compare original and instrumented behavior. Sorting is one
+       acceptance case, not a source pattern to recognize. Source instrumentation
+       remains a candidate to validate in this repository.
+    3. Prove the execution boundary alongside tracing. Verify isolated compilation
+       and execution, timeouts, cancellation, limits, and worker cleanup. Define
+       truthful output-only and partial-playback outcomes when capture is incomplete.
+    4. Build one complete editor-to-playback path. Submit Java, execute once,
+       retrieve the recorded trace, and step forward/backward through variables
+       and arrays with matching source highlights. Then complete the remaining
+       approved milestone workflows, including live and separate test inputs.
+    5. Expand by language capability and structure. Add methods/recursion,
+       collection operations, and object-field capture through shared tracing
+       rules; add renderers/mappings as facts become available. Deliver the
+       remaining V1 grids, suggestions, trees, and heaps in verified increments.
+
+    Keep these boundaries explicit: analysis/instrumentation, isolated execution,
+    trace facts, state reconstruction, interpretation/mappings, and rendering.
+    A new algorithm should work when its constructs and combinations are covered,
+    without adding an algorithm-specific recognizer.
+
+    My immediate proposal is Part 1: document what one Step means using short
+    Java examples and expected states. No application implementation yet. It
+    makes the user's experience and the engine's recording obligations concrete."
+
+    Memory delivery: one documentation commit on docs/project-recommendations,
+    with the companion next-steps file updated. No new specs or application code
+    were created; the user has not approved the proposed specification part.
 
 ## Latest verification notes
 
