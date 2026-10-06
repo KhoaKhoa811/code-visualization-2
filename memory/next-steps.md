@@ -2,19 +2,23 @@
 
 Last updated: 2026-10-06 (Asia/Saigon).
 
-1. On recovery, verify the initial baseline commit is published to origin/main
-   and the working tree is clean. The user authorized all four current files
-   and supplied author identity, now configured locally. Complete publication
-   if interrupted. This initial push establishes the base for future task PRs.
-2. Await the user's next approved task. Milestone 0 remains incomplete. Do not
+1. Resume the requirements discussion. The assistant suggested walking through
+   one small Java program and defining exactly what each Step reveals; the user
+   has not yet selected that topic or approved implementation.
+2. Record every discussion exchange in current-state.md, including user wording,
+   assistant explanations, decisions, open questions, and verified outcomes.
+   Read that file when recovering context. Do not claim unavailable history.
+3. Await the user's next approved implementation task. Milestone 0 remains incomplete. Do not
    treat historical implementation claims in requirements as recovered code or
    authorization to rebuild the application.
-3. For every approved task, update `current-state.md` with the conversation,
+4. For every approved task, update `current-state.md` with the conversation,
    decisions, verified results, and blockers; update this file with remaining
    work. Read applicable instructions and requirements before implementation.
 
-Git author identity is resolved. The `gh` command remains unavailable; an
-authenticated PR creation method will be needed for future tasks.
+Initial baseline `335b769` is verified on origin/main. The current memory update
+uses branch `docs/conversation-memory`. Git author identity is resolved.
+The `gh` command and GitHub PR tools are unavailable; automated PR creation is
+blocked. Publish the branch and provide a GitHub compare link for manual review.
 No application/build/test artifacts
 exist locally. These findings do not establish the status of historical work
 outside this workspace.
