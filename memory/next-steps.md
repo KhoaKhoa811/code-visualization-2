@@ -8,13 +8,14 @@ templates. Define coverage to track implementation and truthful limitations,
 not to restrict the product to examples. Runtime facts must remain captured,
 and execution isolation restrictions still apply.
 
-1. Review the completed Part 1 draft in specs/trace-format.md: operation-level
-   stepping with proposed read/arithmetic/write granularity and worked examples.
-   The user's "ok" approved creating this specification, not implementing it.
-   Detailed semantics remain proposed pending review and eventual runtime proof.
-   Before further implementation, obtain approval for the next specification
-   part: Java support, complete trace/schema/numeric and frame/return semantics,
-   or execution isolation. These remain recommendations, not started tasks.
+1. Part 1 Step specification is merged; runtime proof remains pending. Await
+   approval for Part 2: create specs/java-support.md. Proposed scope: initial
+   language capability matrix, exact scalar/array/control-flow semantics,
+   early method/frame/return definitions, truthful coverage outcomes, and varied
+   example programs. Keep future V1 coverage visible and distinguish intended
+   support from verified implementation. This is documentation-only work.
+   Later trace/schema/numeric contracts and execution-isolation specifications
+   remain separate proposed parts; do not begin them or application code yet.
    Other open definitions: Java support matrix, separate test-input workflow,
    custom mapping interaction, grid grouping, and measurable V1 completion.
    These are discussion topics, not approved requirement changes.
@@ -31,10 +32,9 @@ and execution isolation restrictions still apply.
 Initial baseline `335b769` and memory commit `5579be7` are verified on origin/main.
 PR #1 merged the memory update at `f3b4601`. PR #2 merged the requirements
 clarification through `46237df` at `b9f63f9`, verified by fetch and ancestry.
-Planning commit `3598a8d` is pushed on docs/project-recommendations; its merge
-was not observed. The new docs/observable-steps branch starts from that commit
-and contains the Step specification plus memory updates. Main remains b9f63f9
-at the latest fetch. Review can include the prior planning-memory commit.
+Planning commit `3598a8d` and Step specification `d997f32` are verified ancestors
+of origin/main at `ca65ddc` (PR #4 merge). The current discussion-memory branch
+is docs/next-specification-part. No Part 2 specification has been created.
 Git author identity is resolved.
 The `gh` command and GitHub PR tools are unavailable; automated PR creation is
 blocked. Publish the branch and provide a GitHub compare link for manual review.

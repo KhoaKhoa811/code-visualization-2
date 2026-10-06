@@ -22,8 +22,9 @@ Long project instructions remain in their source files rather than being duplica
 ## Current scope
 
 - Active milestone: Milestone 0, repository and specifications; incomplete.
-- Approved task: Part 1, define observable Step behavior using short Java
-  examples and intermediate states in specs/trace-format.md. The companion
+- Completed and merged: Part 1, observable Step behavior using short Java
+  examples and intermediate states in specs/trace-format.md. Current discussion
+  proposes Part 2, the Java support specification; approval is pending. The companion
   `next-steps.md` records remaining work under the project delivery instructions.
 - No application implementation, dependency installation, or additional milestone
   work has been approved in this conversation.
@@ -59,9 +60,9 @@ Long project instructions remain in their source files rather than being duplica
   and checking ancestry verified it is included in main at `f3b4601`.
   Requirements discussion commits through `46237df` were merged through PR #2
   at `b9f63f9`; fetch and ancestry checks verified the clarification is on main.
-  Planning commit `3598a8d` was pushed on `docs/project-recommendations`; no merge
-  of that branch was observed in the latest fetch. The Step specification branch
-  `docs/observable-steps` starts from that planning commit and includes its memory.
+  Planning commit `3598a8d` and Step specification commit `d997f32` are verified
+  ancestors of origin/main at `ca65ddc` (PR #4 merge). The user reported merging
+  all branches. Current discussion memory uses docs/next-specification-part.
   No GitHub PR tool is available in this session, so automated PR creation is
   currently blocked; a pushed branch can be opened for review through GitHub.
 
@@ -323,6 +324,25 @@ preserve user messages and label assistant summaries explicitly.
     both memory updates. GitHub PR automation remains unavailable. Review the
     proposed granularity before implementing it; do not begin the next part
     without user approval.
+
+17. User: "I merge all the branch. what's next?"
+    Assistant fetched origin and verified both the planning and Step specification
+    commits are ancestors of main at ca65ddc. Part 1 is merged documentation;
+    no runtime implementation or validation is implied by the merge.
+    Assistant recommendation: Part 2 should create specs/java-support.md with
+    a capability matrix, exact semantics for the first scalar/array/control-flow
+    increment, and early definitions of method arguments, returns, distinct
+    recursive frames, and shared references. Label planned coverage separately
+    from verified implementation. Distinguish output-only execution, safe partial
+    capture, and execution-policy rejection. Include differently written example
+    programs and expected outcomes, not algorithm/source templates. Preserve all
+    later V1 requirements. This part is documentation-only and requires approval.
+    After Part 2, remaining proposed Milestone 0 work includes the complete trace
+    schema/numeric contract and execution-isolation limits, before a separately
+    approved tracing prototype. Do not start these next parts automatically.
+    The assistant asks for approval of Part 2 under AGENTS.md's instruction to
+    obtain confirmation before starting the next task. Only this conversation
+    record and its companion next-steps file are updated in the current turn.
 
 ## Latest verification notes
 
