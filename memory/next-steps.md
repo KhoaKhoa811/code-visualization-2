@@ -2,6 +2,12 @@
 
 Last updated: 2026-10-06 (Asia/Saigon).
 
+Confirmed direction: visualize arbitrary user-authored Java as correctly as
+possible through reusable language capabilities, never exact program/algorithm
+templates. Define coverage to track implementation and truthful limitations,
+not to restrict the product to examples. Runtime facts must remain captured,
+and execution isolation restrictions still apply.
+
 1. Resume the requirements discussion. The assistant suggested walking through
    one small Java program and defining exactly what each Step reveals; the user
    has not yet selected that topic or approved implementation.

@@ -61,6 +61,13 @@ Long project instructions remain in their source files rather than being duplica
 
 ## Product context for recovery
 
+Latest confirmed clarification: the target is to visualize every user-written
+Java program as correctly as possible, not recognize fixed source or algorithm
+templates. Build reusable tracing of language constructs and their combinations.
+Coverage limitations are implementation boundaries, not a restriction of the
+product to canned examples. Never guess missing runtime facts. This clarification
+is also recorded in the requirements; no tracing implementation is claimed.
+
 The product is an educational Java execution visualization application. Confirmed
 stack: Java 21/Spring Boot/Maven, React/TypeScript/Vite, TanStack Query/Router,
 Axios, and Windows-local Docker Desktop/WSL2 Linux runners. Exact dependency
@@ -232,11 +239,29 @@ preserve user messages and label assistant summaries explicitly.
     No product requirements or implementation files were changed. PR automation
     remains unavailable; publication should provide a manual PR link.
 
+14. User: "ok, we have to be clear one important thing. this project is not
+    template recognice like we write the same code every time and it will
+    visualize. Our app is designed to visualize every code we write as correct
+    as possible."
+    Assistant response: "Understood. The goal is to visualize the Java code the
+    user actually writes, including programs we have never seen before.
+    The engine must understand supported Java operations and record their real
+    execution. Renaming variables, changing inputs, or writing a different
+    algorithm must not require adding a matching template. Algorithms are test
+    cases; language capabilities are what we implement.
+    'As correctly as possible' means showing captured facts faithfully and
+    explaining missing coverage, never inventing execution steps. My earlier
+    coverage discussion concerns implementation progress, not limiting users
+    to predefined programs. This is now explicit in requirements and memory."
+    Delivery: one documentation part on the existing requirements discussion
+    branch; updated requirements and both memory files. No application changes.
+
 ## Latest verification notes
 
 This is documentation-only work. Baseline publication and clean working tree
 were verified after the initial push. Conversation updates must pass Git
-whitespace checks and preserve the existing instructions and requirements.
+whitespace checks and preserve unrelated instructions and requirements. The
+latest edit adds only the user's explicit general-code clarification and memory.
 No application tests or builds have been run or claimed. Verify the current
 branch and remote refs when resuming. The previous memory PR merge is verified;
 no PR creation or merge is claimed for the new discussion branch.
