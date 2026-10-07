@@ -22,6 +22,8 @@ Long project instructions remain in their source files rather than being duplica
 ## Current scope
 
 - Active milestone: Milestone 0, repository and specifications; incomplete.
+- Approved Part 4a: runtime timeout rules only. The short draft now exists in
+  specs/execution-isolation.md; enforcement and runner tests remain unimplemented.
 - Review preference confirmed 2026-10-07: previous changes were still too large.
   Give each task one purpose, aim for 1–3 files, and split long changes further.
   Explain what changed, why, and where to read first. Commit/push each small
@@ -496,6 +498,29 @@ preserve user messages and label assistant summaries explicitly.
     only safe trace facts, report limited status, and clean up. No Docker/code
     implementation, memory limits, or cancellation feature in this task. Obtain
     approval for 4a; current changes only record the conversation and preference.
+
+29. User: "i approve"
+    This approves Part 4a as scoped: a short runtime-timeout specification and
+    both memory updates, followed by one commit/push and review pause.
+    The assistant inspected requirements/trace rules and fetched origin. The
+    turn was interrupted before editing files; no timeout file existed afterward.
+30. User: "please continue"
+    Assistant resumed the existing authorization, checked the clean workspace,
+    and created docs/execution-timeout from the prior memory-planning branch.
+    Added a short specs/execution-isolation.md proposing a 5,000 ms elapsed-time
+    budget for the initial noninteractive prototype. Timer starts externally
+    before requesting the submitted JVM launch; waiting does not pause/reset it.
+    Timeout latches once, stops input/record acceptance, terminates the whole run
+    environment, and publishes limited status only after termination is confirmed.
+    Safe trace prefixes remain partial; incomplete records are discarded. Cleanup
+    must be verified before releasing the run slot. Five future prototype checks
+    are listed; none was run. Concrete compilation/input-wait/other bounds remain
+    separate unfinished work. The proposed duration is not a verified V1 default.
+    This task changes exactly three documentation files. Review starts with the
+    timeout file; no application code or dependency change. Pause after delivery.
+    Documentation verification: 52 lines, referenced source files exist, and
+    timeout status/capture rules agree with the existing trace contract. Git
+    whitespace checks passed. No application tests or runtime timeout tests run.
 
 ## Latest verification notes
 
