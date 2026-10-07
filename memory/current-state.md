@@ -26,8 +26,10 @@ Long project instructions remain in their source files rather than being duplica
   examples and intermediate states in specs/trace-format.md. The user approved
   Part 2, the Java support specification, now also merged. Part 3 (versioned
   trace contract and examples) is now approved as three reviewable commits.
-  Part 3a is committed/pushed as 9905d0c. Part 3b schema is drafted; 3c fixtures
-  and checks follow within this approval. Validator installation is not approved yet.
+  Part 3a is committed/pushed as 9905d0c; 3b as afe8bf6. Part 3c fixtures and
+  checks are complete (46 passed); its commit contains this handoff and is named
+  `test: validate trace examples and numeric encodings`.
+  The user approved pinned Node/Ajv validation; no Python is used.
   The companion
   `next-steps.md` records remaining work under the project delivery instructions.
 - No application implementation, dependency installation, or additional milestone
@@ -70,7 +72,8 @@ Long project instructions remain in their source files rather than being duplica
   all branches. On 2026-10-07, the assistant fetched and fast-forwarded local main
   to 9449bd5 (PR #6 merge), verified da820b3 is an ancestor, and confirmed a clean
   working tree. Part 2 and its preceding memory commit are now on main.
-  Recovery notes use docs/recovery-2026-10-07, based on that updated main.
+  Recovery notes were pushed as 272b0fc. Current approved work is on
+  contracts/trace-v1, including that recovery commit and the three Part 3 commits.
   No GitHub PR tool is available in this session, so automated PR creation is
   currently blocked; a pushed branch can be opened for review through GitHub.
 
@@ -434,6 +437,23 @@ preserve user messages and label assistant summaries explicitly.
     observed String registration as bookkeeping instead of inventing a runtime
     allocation for an interned literal. Formal schema/fixture validation is 3c.
 
+24. User selected "Approve Node/Ajv validation" after the tooling clarification.
+    Assistant installed Ajv 8.17.1 only under contracts, with a package lock and
+    ignored node_modules. Java 21/Spring Boot/Maven remains the backend.
+    Part 3b was committed/pushed as afe8bf6. Part 3c adds 26 trace fixtures,
+    15 typed-value cases, a Node test script, and plain-language review/fixture
+    guides. All 46 tests passed after an approved retry outside the sandbox,
+    which initially blocked Node test process creation with spawn EPERM.
+    Coverage includes strict schema validation, positive coverage of each event
+    kind, targeted invalid cases, exact numeric representations, and limited
+    source/sequence/cursor metadata checks. Five structurally valid counterexamples
+    make remaining semantic-validation obligations explicit. No Java execution,
+    instrumentation, application playback, or runner isolation was implemented
+    or tested. A clean offline npm ci from the locked dependency set also passed;
+    the 46 tests passed again afterward. Relative documentation links and ignored
+    node_modules were verified. The conversation and next-steps files retain the
+    three-part history; contracts/trace/README.md is the review guide.
+
 ## Latest verification notes
 
 This is documentation-only work. Baseline publication and clean working tree
@@ -445,6 +465,7 @@ markers were verified; staged Git whitespace checks passed, including the new
 specification. Examples were reviewed against the stated rules and
 official Java 21 semantics; they have not been compiled or executed.
 Application tests are not applicable to this documentation-only part.
-No application tests or builds have been run or claimed. Verify the current
+Part 3 schema/fixture checks passed (46 tests). No application tests or builds
+have been run or claimed. Verify the current
 branch and remote refs when resuming. The previous memory PR merge is verified;
 no PR creation or merge is claimed for the new discussion branch.

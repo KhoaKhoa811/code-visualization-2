@@ -1,0 +1,148 @@
+{
+  "schemaVersion": "1.0.0",
+  "runId": "example-short-circuit",
+  "source": {
+    "file": "Main.java",
+    "text": "public class Main { public static void main(String[] args) { boolean ready = false; boolean ok = ready && true; } }\n",
+    "sha256": "a32c33d4e2ee28c3a0b3edc1bf3503e5f317da8d6f7e2b53115870540396214e"
+  },
+  "execution": {
+    "status": "completed",
+    "reason": "Normal return from main."
+  },
+  "capture": {
+    "status": "complete",
+    "reason": "Illustrative complete recording, not executed Java.",
+    "safeEventCount": 4
+  },
+  "diagnostics": [],
+  "initialState": {
+    "objects": [
+      {
+        "objectId": "args0",
+        "kind": "array",
+        "elementType": "java.lang.String",
+        "elements": []
+      }
+    ],
+    "frames": [
+      {
+        "frameId": "f0",
+        "methodId": "Main.main(java.lang.String[]):void",
+        "callerFrameId": null
+      }
+    ],
+    "scopes": [
+      {
+        "scopeId": "s0",
+        "frameId": "f0",
+        "parentScopeId": null
+      }
+    ],
+    "bindings": [
+      {
+        "bindingId": "args",
+        "declarationId": "Main:args",
+        "frameId": "f0",
+        "scopeId": "s0",
+        "name": "args",
+        "javaType": "java.lang.String[]",
+        "value": {
+          "kind": "ref",
+          "objectId": "args0"
+        }
+      }
+    ]
+  },
+  "events": [
+    {
+      "seq": 1,
+      "kind": "DECLARE",
+      "data": {
+        "binding": {
+          "bindingId": "ready",
+          "declarationId": "Main:ready",
+          "frameId": "f0",
+          "scopeId": "s0",
+          "name": "ready",
+          "javaType": "boolean",
+          "value": {
+            "kind": "boolean",
+            "value": false
+          }
+        }
+      },
+      "step": 1,
+      "source": {
+        "start": 61,
+        "end": 82
+      },
+      "frameId": "f0"
+    },
+    {
+      "seq": 2,
+      "kind": "EXPRESSION",
+      "data": {
+        "operator": "&&",
+        "operands": [
+          {
+            "value": {
+              "kind": "boolean",
+              "value": false
+            }
+          },
+          {
+            "skipped": true
+          }
+        ],
+        "result": {
+          "kind": "boolean",
+          "value": false
+        }
+      },
+      "step": 2,
+      "source": {
+        "start": 97,
+        "end": 110
+      },
+      "frameId": "f0"
+    },
+    {
+      "seq": 3,
+      "kind": "DECLARE",
+      "data": {
+        "binding": {
+          "bindingId": "ok",
+          "declarationId": "Main:ok",
+          "frameId": "f0",
+          "scopeId": "s0",
+          "name": "ok",
+          "javaType": "boolean",
+          "value": {
+            "kind": "boolean",
+            "value": false
+          }
+        }
+      },
+      "step": 3,
+      "source": {
+        "start": 84,
+        "end": 110
+      },
+      "frameId": "f0"
+    },
+    {
+      "seq": 4,
+      "kind": "FRAME_END",
+      "data": {
+        "frameId": "f0",
+        "reason": "main_return"
+      }
+    }
+  ],
+  "stepEnds": [
+    1,
+    2,
+    4
+  ]
+}

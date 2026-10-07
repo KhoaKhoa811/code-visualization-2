@@ -1,0 +1,10 @@
+{
+  "name": "code-visualization-contract-checks",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Development-only checks for recorded Java trace contracts; not the application backend.",
+  "packageManager": "npm@10.9.8",
+  "engines": { "node": "22.23.2", "npm": "10.9.8" },
+  "scripts": { "test": "node --test trace/test/*.test.cjs" },
+  "devDependencies": { "ajv": "8.17.1" }
+}

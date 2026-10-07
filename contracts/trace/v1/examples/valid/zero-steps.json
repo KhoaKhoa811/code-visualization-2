@@ -1,0 +1,68 @@
+{
+  "schemaVersion": "1.0.0",
+  "runId": "example-empty",
+  "source": {
+    "file": "Main.java",
+    "text": "public class Main { public static void main(String[] args) {  } }\n",
+    "sha256": "45139f7751640b7a3e1bed6a7e58fd9d50d0f08b35072374e74fbe2f4815a393"
+  },
+  "execution": {
+    "status": "completed",
+    "reason": "Normal return from main."
+  },
+  "capture": {
+    "status": "complete",
+    "reason": "Illustrative complete recording, not executed Java.",
+    "safeEventCount": 1
+  },
+  "diagnostics": [],
+  "initialState": {
+    "objects": [
+      {
+        "objectId": "args0",
+        "kind": "array",
+        "elementType": "java.lang.String",
+        "elements": []
+      }
+    ],
+    "frames": [
+      {
+        "frameId": "f0",
+        "methodId": "Main.main(java.lang.String[]):void",
+        "callerFrameId": null
+      }
+    ],
+    "scopes": [
+      {
+        "scopeId": "s0",
+        "frameId": "f0",
+        "parentScopeId": null
+      }
+    ],
+    "bindings": [
+      {
+        "bindingId": "args",
+        "declarationId": "Main:args",
+        "frameId": "f0",
+        "scopeId": "s0",
+        "name": "args",
+        "javaType": "java.lang.String[]",
+        "value": {
+          "kind": "ref",
+          "objectId": "args0"
+        }
+      }
+    ]
+  },
+  "events": [
+    {
+      "seq": 1,
+      "kind": "FRAME_END",
+      "data": {
+        "frameId": "f0",
+        "reason": "main_return"
+      }
+    }
+  ],
+  "stepEnds": []
+}

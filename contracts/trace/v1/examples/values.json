@@ -1,0 +1,120 @@
+[
+  {
+    "name": "long-max",
+    "value": {
+      "kind": "long",
+      "value": "9223372036854775807"
+    },
+    "valid": true
+  },
+  {
+    "name": "long-min",
+    "value": {
+      "kind": "long",
+      "value": "-9223372036854775808"
+    },
+    "valid": true
+  },
+  {
+    "name": "double-negative-zero",
+    "value": {
+      "kind": "double",
+      "bits": "8000000000000000"
+    },
+    "valid": true
+  },
+  {
+    "name": "double-positive-infinity",
+    "value": {
+      "kind": "double",
+      "bits": "7ff0000000000000"
+    },
+    "valid": true
+  },
+  {
+    "name": "double-nan-payload",
+    "value": {
+      "kind": "double",
+      "bits": "7ff8000000000001"
+    },
+    "valid": true
+  },
+  {
+    "name": "float-negative-infinity",
+    "value": {
+      "kind": "float",
+      "bits": "ff800000"
+    },
+    "valid": true
+  },
+  {
+    "name": "utf16-surrogate-code-unit",
+    "value": {
+      "kind": "char",
+      "value": 55296
+    },
+    "valid": true
+  },
+  {
+    "name": "java-null",
+    "value": {
+      "kind": "null"
+    },
+    "valid": true
+  },
+  {
+    "name": "bad-long-number",
+    "value": {
+      "kind": "long",
+      "value": 9007199254740992
+    },
+    "valid": false
+  },
+  {
+    "name": "bad-leading-zero",
+    "value": {
+      "kind": "int",
+      "value": "01"
+    },
+    "valid": false
+  },
+  {
+    "name": "bad-negative-zero",
+    "value": {
+      "kind": "int",
+      "value": "-0"
+    },
+    "valid": false
+  },
+  {
+    "name": "bad-nan-text",
+    "value": {
+      "kind": "double",
+      "bits": "NaN"
+    },
+    "valid": false
+  },
+  {
+    "name": "bad-bit-width",
+    "value": {
+      "kind": "float",
+      "bits": "000000000"
+    },
+    "valid": false
+  },
+  {
+    "name": "bad-bit-newline",
+    "value": {
+      "kind": "float",
+      "bits": "00000000\n"
+    },
+    "valid": false
+  },
+  {
+    "name": "unassigned-not-an-operand",
+    "value": {
+      "kind": "unassigned"
+    },
+    "valid": false
+  }
+]
