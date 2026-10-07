@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "1.0.0",
+  "runId": "example-output-only",
+  "source": {
+    "file": "Main.java",
+    "text": "public class Main { public static void main(String[] args) { int[] a = {3, 1}; java.util.Arrays.sort(a); System.out.println(a[0]); } }\n",
+    "sha256": "b8456cb7d904e40ab38034e1820e2422bf93292e0e6f37651cb3998660131231"
+  },
+  "execution": {
+    "status": "completed",
+    "reason": "Normal return from main."
+  },
+  "capture": {
+    "status": "unavailable",
+    "reason": "No captured library-sort adapter in this example.",
+    "safeEventCount": 0
+  },
+  "diagnostics": [
+    {
+      "phase": "capture",
+      "code": "UNSUPPORTED_CALL",
+      "message": "Execution admitted; visualization unavailable.",
+      "source": {
+        "start": 79,
+        "end": 103
+      }
+    }
+  ],
+  "initialState": null,
+  "events": [],
+  "stepEnds": []
+}

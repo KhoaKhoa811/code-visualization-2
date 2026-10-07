@@ -1,0 +1,152 @@
+[
+  {
+    "file": "valid/scalar.json",
+    "schemaValid": true,
+    "reason": "Two visible steps; terminal frame cleanup joins the second cursor."
+  },
+  {
+    "file": "valid/array-alias.json",
+    "schemaValid": true,
+    "reason": "Both bindings reference A; read and addition precede write."
+  },
+  {
+    "file": "valid/failed-write.json",
+    "schemaValid": true,
+    "reason": "x updates before exception; no successful array write; unwind is bookkeeping."
+  },
+  {
+    "file": "valid/partial-prefix.json",
+    "schemaValid": true,
+    "reason": "No future write or terminal cleanup may be replayed."
+  },
+  {
+    "file": "valid/output-only.json",
+    "schemaValid": true,
+    "reason": "Execution success does not imply visualization coverage."
+  },
+  {
+    "file": "valid/zero-steps.json",
+    "schemaValid": true,
+    "reason": "Only terminal bookkeeping at cursor zero."
+  },
+  {
+    "file": "valid/recursion.json",
+    "schemaValid": true,
+    "reason": "Distinct recursive frames with returned values 0, 1, 3; illustrative future coverage."
+  },
+  {
+    "file": "valid/string-capture.json",
+    "schemaValid": true,
+    "reason": "Observed String identity is bookkeeping, not a fabricated allocation click."
+  },
+  {
+    "file": "invalid/unknown-version.json",
+    "schemaValid": false,
+    "reason": "Unknown version must be rejected.",
+    "keyword": "const",
+    "instancePath": "/schemaVersion"
+  },
+  {
+    "file": "invalid/presentation-field.json",
+    "schemaValid": false,
+    "reason": "Presentation does not belong in runtime facts.",
+    "keyword": "additionalProperties",
+    "instancePath": "/events/0"
+  },
+  {
+    "file": "invalid/unknown-event.json",
+    "schemaValid": false,
+    "reason": "Algorithm-specific event is not in this contract.",
+    "keyword": "const",
+    "instancePath": "/events/0/kind"
+  },
+  {
+    "file": "invalid/missing-write-value.json",
+    "schemaValid": false,
+    "reason": "Committed write must include its value.",
+    "keyword": "required",
+    "instancePath": "/events/7/data"
+  },
+  {
+    "file": "invalid/unavailable-with-events.json",
+    "schemaValid": false,
+    "reason": "Unavailable capture must contain no events.",
+    "keyword": "maxItems",
+    "instancePath": "/events"
+  },
+  {
+    "file": "invalid/cancelled-complete.json",
+    "schemaValid": false,
+    "reason": "Cancelled execution cannot claim complete capture.",
+    "keyword": "enum",
+    "instancePath": "/execution/status"
+  },
+  {
+    "file": "invalid/numeric-json-number.json",
+    "schemaValid": false,
+    "reason": "Java integers are transported as decimal strings.",
+    "keyword": "type",
+    "instancePath": "/events/0/data/binding/value/value"
+  },
+  {
+    "file": "invalid/decimal-trailing-newline.json",
+    "schemaValid": false,
+    "reason": "Canonical decimal forbids trailing newline.",
+    "keyword": "pattern",
+    "instancePath": "/events/0/data/binding/value/value"
+  },
+  {
+    "file": "invalid/bookkeeping-step.json",
+    "schemaValid": false,
+    "reason": "Bookkeeping must not introduce a click.",
+    "keyword": "additionalProperties",
+    "instancePath": "/events/2"
+  },
+  {
+    "file": "invalid/exception-success-payload.json",
+    "schemaValid": false,
+    "reason": "Exception cannot claim successful mutation.",
+    "keyword": "additionalProperties",
+    "instancePath": "/events/4/data"
+  },
+  {
+    "file": "semantic-invalid/wrong-hash.json",
+    "schemaValid": true,
+    "reason": "Schema sees valid hex, but source hash is wrong."
+  },
+  {
+    "file": "semantic-invalid/sequence-gap.json",
+    "schemaValid": true,
+    "reason": "Schema sees integers, but event order is discontinuous."
+  },
+  {
+    "file": "semantic-invalid/dangling-reference.json",
+    "schemaValid": true,
+    "reason": "Schema cannot resolve a reference against earlier objects."
+  },
+  {
+    "file": "semantic-invalid/int-out-of-range.json",
+    "schemaValid": true,
+    "reason": "Canonical decimal can still exceed the Java int range."
+  },
+  {
+    "file": "semantic-invalid/future-boundary.json",
+    "schemaValid": true,
+    "reason": "A cursor boundary must not include future observable operations."
+  },
+  {
+    "file": "valid/short-circuit.json",
+    "schemaValid": true,
+    "reason": "Skipped operand is explicitly unevaluated, not a guessed value."
+  },
+  {
+    "file": "valid/length-scope.json",
+    "schemaValid": true,
+    "reason": "Scope bookkeeping joins operation boundaries; zero length is a fact."
+  },
+  {
+    "file": "valid/unassigned-postfix.json",
+    "schemaValid": true,
+    "reason": "Unassigned is not zero; postfix expression returns the previous value."
+  }
+]

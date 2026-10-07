@@ -25,8 +25,12 @@ Long project instructions remain in their source files rather than being duplica
 - Completed and merged: Part 1, observable Step behavior using short Java
   examples and intermediate states in specs/trace-format.md. The user approved
   Part 2, the Java support specification, now also merged. Part 3 (versioned
-  trace contract and examples) is proposed; the user chose to discuss scope first.
-  Explicit approval to implement Part 3 is pending. The companion
+  trace contract and examples) is now approved as three reviewable commits.
+  Part 3a is committed/pushed as 9905d0c; 3b as afe8bf6. Part 3c fixtures and
+  checks are complete (46 passed); its commit contains this handoff and is named
+  `test: validate trace examples and numeric encodings`.
+  The user approved pinned Node/Ajv validation; no Python is used.
+  The companion
   `next-steps.md` records remaining work under the project delivery instructions.
 - No application implementation, dependency installation, or additional milestone
   work has been approved in this conversation.
@@ -68,7 +72,8 @@ Long project instructions remain in their source files rather than being duplica
   all branches. On 2026-10-07, the assistant fetched and fast-forwarded local main
   to 9449bd5 (PR #6 merge), verified da820b3 is an ancestor, and confirmed a clean
   working tree. Part 2 and its preceding memory commit are now on main.
-  Recovery notes use docs/recovery-2026-10-07, based on that updated main.
+  Recovery notes were pushed as 272b0fc. Current approved work is on
+  contracts/trace-v1, including that recovery commit and the three Part 3 commits.
   No GitHub PR tool is available in this session, so automated PR creation is
   currently blocked; a pushed branch can be opened for review through GitHub.
 
@@ -409,17 +414,69 @@ preserve user messages and label assistant summaries explicitly.
     semantic validation obligations are explicit. Ask which aspect the user
     wants to change before requesting approval of a concrete scope.
 
+22. User: "I think it's fine. When you do you have to break into smaller tasks
+    so that when I read, I can understand them"
+    This approves the discussed Part 3 with separate commits for 3a trace rules,
+    3b versioned JSON schema, and 3c fixtures/validation. The assistant created
+    branch contracts/trace-v1 from recovery commit 272b0fc; main was still 9449bd5
+    at the latest fetch. Part 3a expands the trace specification and adds ADR
+    0003, distinguishing execution status from safe capture and defining numeric
+    encoding, identity, event order, cursor boundaries, and semantic obligations.
+    JSON Schema 2020-12 official documentation was consulted. Node v22.23.2/npm
+    10.9.8 are available; Python and Ajv are not. Permission to add pinned Ajv
+    under contracts was requested for 3c. No runtime Java or application work.
+
+23. User asked: "why python, I think i define springboot"
+    Assistant clarified that Java 21/Spring Boot/Maven remains the backend.
+    Python was only checked for an existing schema-validation tool and will not
+    be added. Ajv would be a Node-only development check for contract fixtures,
+    not backend implementation. The assistant requested explicit permission
+    again with that distinction; no dependency installation occurred yet.
+    Part 3b adds the JSON Schema with 35 local definitions and a plain-language
+    review guide. JSON parsing and reference resolution passed. It also clarifies
+    observed String registration as bookkeeping instead of inventing a runtime
+    allocation for an interned literal. Formal schema/fixture validation is 3c.
+
+24. User selected "Approve Node/Ajv validation" after the tooling clarification.
+    Assistant installed Ajv 8.17.1 only under contracts, with a package lock and
+    ignored node_modules. Java 21/Spring Boot/Maven remains the backend.
+    Part 3b was committed/pushed as afe8bf6. Part 3c adds 26 trace fixtures,
+    15 typed-value cases, a Node test script, and plain-language review/fixture
+    guides. All 46 tests passed after an approved retry outside the sandbox,
+    which initially blocked Node test process creation with spawn EPERM.
+    Coverage includes strict schema validation, positive coverage of each event
+    kind, targeted invalid cases, exact numeric representations, and limited
+    source/sequence/cursor metadata checks. Five structurally valid counterexamples
+    make remaining semantic-validation obligations explicit. No Java execution,
+    instrumentation, application playback, or runner isolation was implemented
+    or tested. A clean offline npm ci from the locked dependency set also passed;
+    the 46 tests passed again afterward. Relative documentation links and ignored
+    node_modules were verified. The conversation and next-steps files retain the
+    three-part history; contracts/trace/README.md is the review guide.
+
+25. User: "can you explain what you just did"
+    Assistant explanation: Part 3 defines the shared recording format for the
+    future Java runner, Spring Boot backend, and React visualizer. A trace is an
+    ordered record of what happened during execution. For `a[0] = 9`, if the old
+    value was 3, a write record identifies the array, index 0, old value 3, new
+    value 9, and source expression. The same write format applies regardless of
+    the algorithm; it is not a program-recognition template.
+    Part 3a defines the meaning of records, identity, steps, numbers, and failure
+    or incomplete-capture boundaries. Part 3b encodes allowed record shapes in
+    JSON Schema so malformed or unknown data can be rejected. Part 3c adds authored
+    sample traces and Node/Ajv checks: 46 passed, including targeted invalid cases.
+    These checks do not run Java or prove the future tracing engine is correct.
+    Actual tracing, isolated execution, and the visual UI remain to be implemented.
+    Spring Boot remains the planned backend; Ajv is development validation only.
+    Part 3c was committed/pushed as ade131d. This exchange updates memory only.
+
 ## Latest verification notes
 
-This is documentation-only work. Baseline publication and clean working tree
-were verified after the initial push. Conversation updates must pass Git
-whitespace checks and preserve unrelated instructions and requirements. The
-latest task adds Java support semantics, reconciles the Step specification, and
-updates both memory files. Relative Markdown links and absence of conflict
-markers were verified; staged Git whitespace checks passed, including the new
-specification. Examples were reviewed against the stated rules and
-official Java 21 semantics; they have not been compiled or executed.
-Application tests are not applicable to this documentation-only part.
-No application tests or builds have been run or claimed. Verify the current
+Part 3 added a contract schema, examples, and development validation tooling.
+All 46 checks passed, including after clean lockfile installation. Documentation
+links, staged whitespace, and exclusion of node_modules were verified. The three
+part commits are published on contracts/trace-v1; working tree was clean after
+publication. The current explanation changes memory only. No application tests,
+Java execution, or application builds have been run or claimed. Verify the current
 branch and remote refs when resuming. The previous memory PR merge is verified;
 no PR creation or merge is claimed for the new discussion branch.

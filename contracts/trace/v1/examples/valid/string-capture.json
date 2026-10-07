@@ -1,0 +1,108 @@
+{
+  "schemaVersion": "1.0.0",
+  "runId": "example-string-capture",
+  "source": {
+    "file": "Main.java",
+    "text": "public class Main { public static void main(String[] args) { String s = \"hi\"; } }\n",
+    "sha256": "770a9cec079810ea53703dfc570b8e1598d7b0c7d318c5229570f190e521b095"
+  },
+  "execution": {
+    "status": "completed",
+    "reason": "Normal return from main."
+  },
+  "capture": {
+    "status": "complete",
+    "reason": "Illustrative complete recording, not executed Java.",
+    "safeEventCount": 3
+  },
+  "diagnostics": [],
+  "initialState": {
+    "objects": [
+      {
+        "objectId": "args0",
+        "kind": "array",
+        "elementType": "java.lang.String",
+        "elements": []
+      }
+    ],
+    "frames": [
+      {
+        "frameId": "f0",
+        "methodId": "Main.main(java.lang.String[]):void",
+        "callerFrameId": null
+      }
+    ],
+    "scopes": [
+      {
+        "scopeId": "s0",
+        "frameId": "f0",
+        "parentScopeId": null
+      }
+    ],
+    "bindings": [
+      {
+        "bindingId": "args",
+        "declarationId": "Main:args",
+        "frameId": "f0",
+        "scopeId": "s0",
+        "name": "args",
+        "javaType": "java.lang.String[]",
+        "value": {
+          "kind": "ref",
+          "objectId": "args0"
+        }
+      }
+    ]
+  },
+  "events": [
+    {
+      "seq": 1,
+      "kind": "OBJECT_CAPTURE",
+      "data": {
+        "object": {
+          "objectId": "S",
+          "kind": "string",
+          "utf16": [
+            104,
+            105
+          ]
+        }
+      }
+    },
+    {
+      "seq": 2,
+      "step": 1,
+      "source": {
+        "start": 61,
+        "end": 76
+      },
+      "frameId": "f0",
+      "kind": "DECLARE",
+      "data": {
+        "binding": {
+          "bindingId": "s",
+          "declarationId": "Main:s",
+          "frameId": "f0",
+          "scopeId": "s0",
+          "name": "s",
+          "javaType": "java.lang.String",
+          "value": {
+            "kind": "ref",
+            "objectId": "S"
+          }
+        }
+      }
+    },
+    {
+      "seq": 3,
+      "kind": "FRAME_END",
+      "data": {
+        "frameId": "f0",
+        "reason": "main_return"
+      }
+    }
+  ],
+  "stepEnds": [
+    3
+  ]
+}

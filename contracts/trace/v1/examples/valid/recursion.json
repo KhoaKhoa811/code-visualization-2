@@ -1,0 +1,483 @@
+{
+  "schemaVersion": "1.0.0",
+  "runId": "example-recursion",
+  "source": {
+    "file": "Main.java",
+    "text": "public class Main { static int sum(int n) { if (n == 0) return 0; return n + sum(n - 1); } public static void main(String[] args) { int answer = sum(2); } }\n",
+    "sha256": "3d44119aec4ef29c9f0676af1fc30cb3058e1c1a186fd0b6a1a2c705f30325ef"
+  },
+  "execution": {
+    "status": "completed",
+    "reason": "Normal return from main."
+  },
+  "capture": {
+    "status": "complete",
+    "reason": "Illustrative complete recording, not executed Java.",
+    "safeEventCount": 15
+  },
+  "diagnostics": [],
+  "initialState": {
+    "objects": [
+      {
+        "objectId": "args0",
+        "kind": "array",
+        "elementType": "java.lang.String",
+        "elements": []
+      }
+    ],
+    "frames": [
+      {
+        "frameId": "f0",
+        "methodId": "Main.main(java.lang.String[]):void",
+        "callerFrameId": null
+      }
+    ],
+    "scopes": [
+      {
+        "scopeId": "s0",
+        "frameId": "f0",
+        "parentScopeId": null
+      }
+    ],
+    "bindings": [
+      {
+        "bindingId": "args",
+        "declarationId": "Main:args",
+        "frameId": "f0",
+        "scopeId": "s0",
+        "name": "args",
+        "javaType": "java.lang.String[]",
+        "value": {
+          "kind": "ref",
+          "objectId": "args0"
+        }
+      }
+    ]
+  },
+  "events": [
+    {
+      "seq": 1,
+      "step": 1,
+      "source": {
+        "start": 145,
+        "end": 151
+      },
+      "frameId": "f0",
+      "kind": "CALL",
+      "data": {
+        "frame": {
+          "frameId": "f1",
+          "methodId": "Main.sum(int):int",
+          "callerFrameId": "f0"
+        },
+        "scope": {
+          "scopeId": "sf1",
+          "frameId": "f1",
+          "parentScopeId": null
+        },
+        "parameters": [
+          {
+            "bindingId": "nf1",
+            "declarationId": "Main:n",
+            "frameId": "f1",
+            "scopeId": "sf1",
+            "name": "n",
+            "javaType": "int",
+            "value": {
+              "kind": "int",
+              "value": "2"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "seq": 2,
+      "step": 2,
+      "source": {
+        "start": 48,
+        "end": 54
+      },
+      "frameId": "f1",
+      "kind": "EXPRESSION",
+      "data": {
+        "operator": "==",
+        "operands": [
+          {
+            "value": {
+              "kind": "int",
+              "value": "2"
+            }
+          },
+          {
+            "value": {
+              "kind": "int",
+              "value": "0"
+            }
+          }
+        ],
+        "result": {
+          "kind": "boolean",
+          "value": false
+        }
+      }
+    },
+    {
+      "seq": 3,
+      "step": 3,
+      "source": {
+        "start": 81,
+        "end": 86
+      },
+      "frameId": "f1",
+      "kind": "EXPRESSION",
+      "data": {
+        "operator": "-",
+        "operands": [
+          {
+            "value": {
+              "kind": "int",
+              "value": "2"
+            }
+          },
+          {
+            "value": {
+              "kind": "int",
+              "value": "1"
+            }
+          }
+        ],
+        "result": {
+          "kind": "int",
+          "value": "1"
+        }
+      }
+    },
+    {
+      "seq": 4,
+      "step": 4,
+      "source": {
+        "start": 77,
+        "end": 87
+      },
+      "frameId": "f1",
+      "kind": "CALL",
+      "data": {
+        "frame": {
+          "frameId": "f2",
+          "methodId": "Main.sum(int):int",
+          "callerFrameId": "f1"
+        },
+        "scope": {
+          "scopeId": "sf2",
+          "frameId": "f2",
+          "parentScopeId": null
+        },
+        "parameters": [
+          {
+            "bindingId": "nf2",
+            "declarationId": "Main:n",
+            "frameId": "f2",
+            "scopeId": "sf2",
+            "name": "n",
+            "javaType": "int",
+            "value": {
+              "kind": "int",
+              "value": "1"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "seq": 5,
+      "step": 5,
+      "source": {
+        "start": 48,
+        "end": 54
+      },
+      "frameId": "f2",
+      "kind": "EXPRESSION",
+      "data": {
+        "operator": "==",
+        "operands": [
+          {
+            "value": {
+              "kind": "int",
+              "value": "1"
+            }
+          },
+          {
+            "value": {
+              "kind": "int",
+              "value": "0"
+            }
+          }
+        ],
+        "result": {
+          "kind": "boolean",
+          "value": false
+        }
+      }
+    },
+    {
+      "seq": 6,
+      "step": 6,
+      "source": {
+        "start": 81,
+        "end": 86
+      },
+      "frameId": "f2",
+      "kind": "EXPRESSION",
+      "data": {
+        "operator": "-",
+        "operands": [
+          {
+            "value": {
+              "kind": "int",
+              "value": "1"
+            }
+          },
+          {
+            "value": {
+              "kind": "int",
+              "value": "1"
+            }
+          }
+        ],
+        "result": {
+          "kind": "int",
+          "value": "0"
+        }
+      }
+    },
+    {
+      "seq": 7,
+      "step": 7,
+      "source": {
+        "start": 77,
+        "end": 87
+      },
+      "frameId": "f2",
+      "kind": "CALL",
+      "data": {
+        "frame": {
+          "frameId": "f3",
+          "methodId": "Main.sum(int):int",
+          "callerFrameId": "f2"
+        },
+        "scope": {
+          "scopeId": "sf3",
+          "frameId": "f3",
+          "parentScopeId": null
+        },
+        "parameters": [
+          {
+            "bindingId": "nf3",
+            "declarationId": "Main:n",
+            "frameId": "f3",
+            "scopeId": "sf3",
+            "name": "n",
+            "javaType": "int",
+            "value": {
+              "kind": "int",
+              "value": "0"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "seq": 8,
+      "step": 8,
+      "source": {
+        "start": 48,
+        "end": 54
+      },
+      "frameId": "f3",
+      "kind": "EXPRESSION",
+      "data": {
+        "operator": "==",
+        "operands": [
+          {
+            "value": {
+              "kind": "int",
+              "value": "0"
+            }
+          },
+          {
+            "value": {
+              "kind": "int",
+              "value": "0"
+            }
+          }
+        ],
+        "result": {
+          "kind": "boolean",
+          "value": true
+        }
+      }
+    },
+    {
+      "seq": 9,
+      "step": 9,
+      "source": {
+        "start": 56,
+        "end": 64
+      },
+      "frameId": "f3",
+      "kind": "RETURN",
+      "data": {
+        "result": {
+          "kind": "int",
+          "value": "0"
+        },
+        "implicit": false
+      }
+    },
+    {
+      "seq": 10,
+      "step": 10,
+      "source": {
+        "start": 73,
+        "end": 87
+      },
+      "frameId": "f2",
+      "kind": "EXPRESSION",
+      "data": {
+        "operator": "+",
+        "operands": [
+          {
+            "value": {
+              "kind": "int",
+              "value": "1"
+            }
+          },
+          {
+            "value": {
+              "kind": "int",
+              "value": "0"
+            }
+          }
+        ],
+        "result": {
+          "kind": "int",
+          "value": "1"
+        }
+      }
+    },
+    {
+      "seq": 11,
+      "step": 11,
+      "source": {
+        "start": 66,
+        "end": 87
+      },
+      "frameId": "f2",
+      "kind": "RETURN",
+      "data": {
+        "result": {
+          "kind": "int",
+          "value": "1"
+        },
+        "implicit": false
+      }
+    },
+    {
+      "seq": 12,
+      "step": 12,
+      "source": {
+        "start": 73,
+        "end": 87
+      },
+      "frameId": "f1",
+      "kind": "EXPRESSION",
+      "data": {
+        "operator": "+",
+        "operands": [
+          {
+            "value": {
+              "kind": "int",
+              "value": "2"
+            }
+          },
+          {
+            "value": {
+              "kind": "int",
+              "value": "1"
+            }
+          }
+        ],
+        "result": {
+          "kind": "int",
+          "value": "3"
+        }
+      }
+    },
+    {
+      "seq": 13,
+      "step": 13,
+      "source": {
+        "start": 66,
+        "end": 87
+      },
+      "frameId": "f1",
+      "kind": "RETURN",
+      "data": {
+        "result": {
+          "kind": "int",
+          "value": "3"
+        },
+        "implicit": false
+      }
+    },
+    {
+      "seq": 14,
+      "step": 14,
+      "source": {
+        "start": 132,
+        "end": 151
+      },
+      "frameId": "f0",
+      "kind": "DECLARE",
+      "data": {
+        "binding": {
+          "bindingId": "answer",
+          "declarationId": "Main:answer",
+          "frameId": "f0",
+          "scopeId": "s0",
+          "name": "answer",
+          "javaType": "int",
+          "value": {
+            "kind": "int",
+            "value": "3"
+          }
+        }
+      }
+    },
+    {
+      "seq": 15,
+      "kind": "FRAME_END",
+      "data": {
+        "frameId": "f0",
+        "reason": "main_return"
+      }
+    }
+  ],
+  "stepEnds": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    15
+  ]
+}
