@@ -1,6 +1,6 @@
-# Execution isolation: runtime timeout, memory, and cancellation
+# Execution isolation: timeouts, memory, and cancellation
 
-Status: Milestone 0, Parts 4a–4c, 2026-10-07. Proposed rules for review.
+Status: Milestone 0, Parts 4a–4d, 2026-10-07. Proposed rules for review.
 Timeout, memory, and cancellation enforcement are not implemented or verified yet.
 
 Sources: [requirements, section 10](../requirements/PROJECT_REQUIREMENTS.md)
@@ -11,8 +11,8 @@ and [trace termination rules](trace-format.md#11-termination-and-safe-capture).
 - Initial noninteractive prototype limit: **5,000 ms of elapsed time**.
 - An external supervisor starts a monotonic timer immediately before requesting
   launch of the submitted Java JVM. JVM startup counts toward this limit.
-- Queueing, environment preparation, and compilation precede this timer; their
-  own bounds remain unfinished work, not an unlimited-execution policy.
+- Queueing, environment preparation, and compilation precede this timer.
+  Part 4d proposes a compiler deadline; queue/preparation bounds remain unfinished.
 - The timer is independent of submitted code, stdout, and trace activity.
 - Waiting or blocking does not pause this timer. Input arrival does not reset it.
 - The 5,000 ms value is a prototype proposal to measure, not a verified V1 default.
@@ -49,8 +49,8 @@ Do not manufacture a Java exception, return, scope exit, or mutation on timeout.
 - Blocking execution still reaches the deadline; activity never resets the timer.
 
 These are future checks, not test results. Part 4a covers runtime timeouts only.
-Compilation, process, output, traversal, and input-wait bounds remain unfinished;
-Parts 4b and 4c define the proposed memory and cancellation rules below.
+Process, output, traversal, and input-wait bounds remain unfinished;
+Parts 4b–4d define proposed memory, cancellation, and compilation rules below.
 
 ## Proposed memory budget — Part 4b
 
@@ -133,3 +133,44 @@ API responses, disconnect policy, and input-wait limits remain separate tasks.
 - Race cancellation with completion, a limit, repeated cancellation, and input:
   one outcome remains; no input is delivered after the accepted cancellation cutoff.
 - Cut off a record: keep only safe facts. Failed cleanup keeps the slot occupied.
+
+## Proposed compilation timeout — Part 4d
+
+- Initial prototype budget: **10,000 ms elapsed per run**, proposed, not verified.
+- A trusted external supervisor starts one monotonic timer immediately before
+  requesting the first isolated compiler launch; compiler JVM startup counts.
+  All compiler invocations for that run share this deadline without resets.
+- Compiler output, retries, or activity never pause or extend the deadline.
+  Queueing, preparation, and source analysis precede it; their bounds remain
+  separate unfinished work. The run-container memory cap still applies.
+
+### At the compilation deadline
+
+1. Serialize the deadline with cancellation, verified limits, and compiler exits.
+   An already latched stop cause keeps its own handling. If the entire compilation
+   phase has ended, ignore this deadline. Otherwise latch this timeout once and
+   follow the steps below; later compiler success cannot erase it.
+2. For this timeout, prevent further compiler or submitted application JVM launch.
+   Ignore late success notifications; do not execute partially produced classes.
+3. Force termination of the entire isolated run environment, including compiler
+   descendants. Report stopping until termination is confirmed.
+4. Only then publish execution.status = limited with reason
+   "Compilation exceeded 10000 ms" and a compile-phase diagnostic with code
+   COMPILATION_TIMEOUT and the same message. Do not label this compile_error.
+5. Runtime capture is unavailable: initialState is null, events and stepEnds
+   are empty, and safeEventCount is zero. Retain accepted compiler diagnostics;
+   never invent runtime events or source locations for a timeout.
+6. Verify temporary-resource cleanup before releasing the slot, following the
+   existing timeout procedure. Failed confirmation/cleanup keeps the slot occupied.
+
+Normal compiler rejection instead yields compile_error with unavailable capture
+and actual diagnostics, unless a stop cause was already latched. Start the separate
+5,000 ms execution timer only after all required compilation succeeds with no
+latched stop cause. Confirmation/retry deadlines remain unfinished runner work.
+
+### Required prototype checks (planned, not run)
+
+- Short compilation succeeds; normal Java errors retain their actual diagnostics.
+- Stalled compilation reaches the deadline; all processes stop and cleanup verifies.
+- Race success/cancellation with the deadline: one outcome; no launch after timeout.
+- Multiple compiler invocations share one budget; output activity never resets it.

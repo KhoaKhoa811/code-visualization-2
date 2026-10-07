@@ -17,12 +17,13 @@ and execution isolation restrictions still apply.
    whole-run termination, waiting input, safe trace retention, cancelled status,
    races, and cleanup. Documentation checks passed: 40-line section, local
    references, trace/schema consistency, and whitespace. No runtime checks run.
-   Next proposal: Part 4d compiler timeout, approximately 30–40 specification
-   lines plus both memory updates. Propose a 10,000 ms compiler deadline to
-   measure; define its start, no execution after timeout, limited versus
-   compile_error status, unavailable capture, cleanup, and future checks.
-   Obtain explicit approval before starting, then commit/push and pause for
-   review. No application/Docker implementation is approved. Other remaining
+   Part 4d compiler-timeout documentation is approved and added in
+   specs/execution-isolation.md, with both memory updates. Review its proposed
+   10,000 ms deadline, shared budget, no execution after timeout, limited versus
+   compile_error status, unavailable capture, and cleanup. Documentation checks
+   passed: 40-line section, references, trace/schema consistency, and whitespace.
+   Runtime checks remain unrun. Commit/push and pause for review.
+   No next task or application/Docker implementation is approved. Other remaining
    isolation definitions include process/thread limits, output/trace bounds,
    input-wait limits, and
    termination/cleanup confirmation deadlines. Discuss one small scope before
@@ -71,7 +72,8 @@ Part 4b branch: docs/execution-memory, based on those notes.
 Cancellation proposal notes are pushed as 7e4f60d on docs/cancellation-proposal.
 Part 4c was pushed as 2ce9ca4 on docs/execution-cancellation. On 2026-10-07,
 main was pulled to 8e4af20 and ancestry verified both 1884354 and 2ce9ca4 merged.
-Current discussion branch: docs/compilation-timeout-proposal, based on that main.
+Compilation proposal notes are pushed as e1ec9a1 on docs/compilation-timeout-proposal.
+Current Part 4d branch: docs/compilation-timeout, based on those notes.
 Git author identity is resolved.
 The `gh` command and GitHub PR tools are unavailable; automated PR creation is
 blocked. Publish the branch and provide a GitHub compare link for manual review.

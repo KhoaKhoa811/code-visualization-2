@@ -29,7 +29,8 @@ Long project instructions remain in their source files rather than being duplica
   The proposed budgets and enforcement remain unverified by runtime tests.
   Cancellation documentation covers whole-run termination, safe capture, races,
   and verified cleanup; implementation and runtime verification remain unfinished.
-  Next proposal: Part 4d compilation timeout rules only, awaiting scope approval.
+  Part 4d compilation-timeout documentation is approved and added in that file;
+  its 10,000 ms proposed budget and enforcement remain unverified at runtime.
 - Review preference confirmed 2026-10-07: previous changes were still too large.
   Give each task one purpose, aim for 1–3 files, and split long changes further.
   Explain what changed, why, and where to read first. Commit/push each small
@@ -615,16 +616,45 @@ preserve user messages and label assistant summaries explicitly.
     documentation whitespace checks passed. Automated PR creation remains
     unavailable; provide a manual PR link after publishing these notes.
 
+36. User: "I approve"
+    This approves Part 4d: approximately 30–40 compilation-timeout specification
+    lines, both memory updates, verification, a separate commit/push, and a review
+    pause. Assistant checked the clean proposal branch, project instructions,
+    existing isolation rules, and relevant requirements/trace termination rules.
+    Created docs/compilation-timeout from docs/compilation-timeout-proposal;
+    proposal notes e1ec9a1 are included, with main's verified baseline 8e4af20.
+    Added a proposed 10,000 ms external monotonic compilation deadline, starting
+    before the first compiler launch and shared without reset by all compiler
+    invocations for that run. Compiler JVM startup and output activity do not
+    bypass it. Timeout latches once against completion/cancellation/other limits,
+    prevents further compiler/application launch, and stops the whole environment.
+    Only confirmed termination permits limited status with compile-phase diagnostic
+    COMPILATION_TIMEOUT. Runtime capture is unavailable; compiler diagnostics are
+    retained without fabricated runtime facts or source locations. Ordinary Java
+    compiler rejection remains compile_error, and execution gets its separate
+    5,000 ms timer only after required compilation succeeds without a stop cause.
+    Cleanup must verify before releasing the run slot. Four future checks are
+    listed, not run. Queue/preparation/analysis bounds and confirmation/retry
+    deadlines remain unfinished work; no other limit feature is implemented.
+    Exactly three documentation files change. Review the Part 4d section of
+    specs/execution-isolation.md first. Verification passed: new section is
+    40 lines, local references exist, statuses/diagnostics match the existing
+    trace contract/schema, and whitespace checks passed. No application code,
+    dependencies, Docker execution, or runtime tests are added. Pause after
+    delivery for review; no next task is approved. Automated PR creation remains
+    unavailable, so provide a manual PR link after pushing.
+
 ## Latest verification notes
 
 Part 3 added a contract schema, examples, and development validation tooling.
 All 46 checks passed, including after clean lockfile installation. Documentation
 links, staged whitespace, and exclusion of node_modules were verified. The three
 part commits are merged in main at 7c94967, verified by fetch/pull and ancestry.
-Parts 4a–4c specify timeout, memory, and cancellation behavior; runtime enforcement
+Parts 4a–4d specify timeouts, memory, and cancellation behavior; runtime enforcement
 and isolation tests remain unimplemented. Part 4c documentation checks passed:
 40-line section, valid local references, trace/schema consistency, and whitespace.
 No application tests, Java execution, or application builds have been run or
 claimed. Parts 4b and 4c are now verified merged in main at 8e4af20 through fetch,
-fast-forward pull, and ancestry checks. Compilation-timeout proposal notes change
-memory only; automated PR creation remains unavailable.
+fast-forward pull, and ancestry checks. Part 4d documentation checks passed:
+40-line section, local references, trace/schema consistency, and whitespace.
+Runtime compilation-timeout checks remain unrun. Automated PR creation is unavailable.
