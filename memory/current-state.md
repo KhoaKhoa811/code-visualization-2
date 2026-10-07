@@ -22,8 +22,9 @@ Long project instructions remain in their source files rather than being duplica
 ## Current scope
 
 - Active milestone: Milestone 0, repository and specifications; incomplete.
-- Approved Part 4a: runtime timeout rules only. The short draft now exists in
+- Part 4a runtime timeout rules are merged as documentation in
   specs/execution-isolation.md; enforcement and runner tests remain unimplemented.
+  Part 4b memory-limit rules are proposed; approval is pending.
 - Review preference confirmed 2026-10-07: previous changes were still too large.
   Give each task one purpose, aim for 1–3 files, and split long changes further.
   Explain what changed, why, and where to read first. Commit/push each small
@@ -521,6 +522,16 @@ preserve user messages and label assistant summaries explicitly.
     Documentation verification: 52 lines, referenced source files exist, and
     timeout status/capture rules agree with the existing trace contract. Git
     whitespace checks passed. No application tests or runtime timeout tests run.
+
+31. User: "ok, I merge all the branch into main. What are you gonna do next?"
+    Assistant fetched and pulled main to 7cff8f9 (PR #10 merge) and verified
+    timeout commit 781da5c is included. Proposed next task: Part 4b, add a short
+    memory-limit section (about 30–40 lines) to specs/execution-isolation.md,
+    plus both required memory updates. Define a proposed whole-run memory budget,
+    its relationship to the Java heap, the limit outcome, safe trace retention,
+    cleanup, and future verification cases. No enforcement implementation or
+    cancellation feature is approved. This turn records the conversation only
+    on docs/memory-limit-proposal; obtain approval before starting Part 4b.
 
 ## Latest verification notes
 
