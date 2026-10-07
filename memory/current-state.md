@@ -24,7 +24,8 @@ Long project instructions remain in their source files rather than being duplica
 - Active milestone: Milestone 0, repository and specifications; incomplete.
 - Part 4a runtime timeout rules are merged as documentation in
   specs/execution-isolation.md; enforcement and runner tests remain unimplemented.
-  Part 4b memory-limit rules are proposed; approval is pending.
+  Part 4b memory-limit rules are approved and now drafted in that same file.
+  The proposed budgets and enforcement remain unverified by runtime tests.
 - Review preference confirmed 2026-10-07: previous changes were still too large.
   Give each task one purpose, aim for 1–3 files, and split long changes further.
   Explain what changed, why, and where to read first. Commit/push each small
@@ -532,6 +533,22 @@ preserve user messages and label assistant summaries explicitly.
     cleanup, and future verification cases. No enforcement implementation or
     cancellation feature is approved. This turn records the conversation only
     on docs/memory-limit-proposal; obtain approval before starting Part 4b.
+
+32. User: "I approve"
+    This authorizes Part 4b: a short memory-budget section and two memory updates.
+    Assistant checked requirements, timeout/trace rules, and official Docker and
+    Java 21 documentation. Added a proposed 512 MiB hard run-container budget,
+    128 MiB submitted JVM heap cap, and no extra swap allowance. The hard limit
+    applies before compilation/execution; tracing heap buffers share the heap cap.
+    A trusted container OOM yields limited status, safe partial/unavailable trace,
+    and verified whole-run termination/cleanup. Ordinary Java OutOfMemoryError
+    retains actual caught/uncaught behavior rather than being misclassified as
+    proof of a container limit. Four future prototype checks are listed; none
+    has run. Changed exactly three documentation files on docs/execution-memory.
+    This budget is proposed for measurement, not a claim of enforced isolation.
+    Verification: new memory section is 40 lines; byte conversions, references,
+    terminal/capture statuses, and whitespace checked. Runtime tests not run.
+    Pause after commit/push for review; no next task or implementation is approved.
 
 ## Latest verification notes
 
