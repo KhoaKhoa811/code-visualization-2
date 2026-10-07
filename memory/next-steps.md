@@ -8,7 +8,14 @@ templates. Define coverage to track implementation and truthful limitations,
 not to restrict the product to examples. Runtime facts must remain captured,
 and execution isolation restrictions still apply.
 
-1. Parts 1 and 2 are merged. Part 3 is now approved on contracts/trace-v1:
+1. Parts 1–3 are merged. Await approval for Part 4a: runtime timeout rules only,
+   one short section in specs/execution-isolation.md (about 40–60 lines), plus
+   two required memory updates. Define deadline start, proposed duration, and
+   timeout handling/cleanup. No application/Docker implementation in 4a.
+   Pause for review after this task; memory limits and cancellation are separate
+   future tasks. Keep all tasks to one purpose, target 1–3 files, and split long
+   changes further. Explain why and which file to read first.
+   Completed Part 3 checkpoints:
    - 3a: complete, committed and pushed as 9905d0c.
    - 3b: complete, committed and pushed as afe8bf6.
    - 3c: complete and pushed as ade131d; 46 tests passed after clean locked installation.
@@ -43,7 +50,8 @@ was docs/next-specification-part (commit ea4712d). On 2026-10-07, main was pulle
 with --ff-only to 9449bd5 (PR #6 merge); Part 2 commit da820b3 and its preceding
 memory are verified ancestors. Working tree was clean. Current recovery-memory
 branch was docs/recovery-2026-10-07 (272b0fc). Current Part 3 branch is
-contracts/trace-v1. Main's merge of this branch is not yet claimed.
+contracts/trace-v1. Its merge was verified on 2026-10-07: local main was pulled
+to 7c94967 (PR #8), containing 4cdc5c8. Current memory branch: docs/smaller-task-plan.
 Git author identity is resolved.
 The `gh` command and GitHub PR tools are unavailable; automated PR creation is
 blocked. Publish the branch and provide a GitHub compare link for manual review.

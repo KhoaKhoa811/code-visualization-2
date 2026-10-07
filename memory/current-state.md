@@ -22,6 +22,10 @@ Long project instructions remain in their source files rather than being duplica
 ## Current scope
 
 - Active milestone: Milestone 0, repository and specifications; incomplete.
+- Review preference confirmed 2026-10-07: previous changes were still too large.
+  Give each task one purpose, aim for 1–3 files, and split long changes further.
+  Explain what changed, why, and where to read first. Commit/push each small
+  task separately, then pause for review before starting the next task.
 - Completed and merged: Part 1, observable Step behavior using short Java
   examples and intermediate states in specs/trace-format.md. The user approved
   Part 2, the Java support specification, now also merged. Part 3 (versioned
@@ -470,13 +474,36 @@ preserve user messages and label assistant summaries explicitly.
     Spring Boot remains the planned backend; Ajv is development validation only.
     Part 3c was committed/pushed as ade131d. This exchange updates memory only.
 
+26. User: "how many structure have you record execution?"
+    Assistant: zero structures have actual execution recording implemented.
+    The contract describes primitives, arrays/shared references, Strings, and
+    method/recursive frames. Authored examples and 46 contract checks are not
+    Java execution. Collections, trees, heaps, and other V1 coverage remain work.
+27. User: "I merge all the branch into main. One suggestion, I want the task more
+    breaking down into smaller task because it's still hard for me to read the
+    code that long. Do you think you can do that for me?"
+    Assistant agreed that the previous schema/examples parts were too large.
+    Future tasks have one purpose, target 1–3 files, separate documentation/schema/
+    tests when lengthy, and explain purpose and reading order. Commit/push each
+    task and pause for review before the next. Suggested timeouts, memory limits,
+    and cancellation as separate future specification tasks, not one large change.
+28. User: "ok, what's the next task?"
+    Assistant fetched and fast-forwarded main to 7c94967 (PR #8 merge), verified
+    4cdc5c8 is included, and proposes Part 4a: runtime timeout rules only. Target
+    one short section in specs/execution-isolation.md (approximately 40–60 lines)
+    plus the required two memory updates. Define the deadline start, proposed
+    duration, and timeout outcome: terminate the entire run environment, preserve
+    only safe trace facts, report limited status, and clean up. No Docker/code
+    implementation, memory limits, or cancellation feature in this task. Obtain
+    approval for 4a; current changes only record the conversation and preference.
+
 ## Latest verification notes
 
 Part 3 added a contract schema, examples, and development validation tooling.
 All 46 checks passed, including after clean lockfile installation. Documentation
 links, staged whitespace, and exclusion of node_modules were verified. The three
-part commits are published on contracts/trace-v1; working tree was clean after
-publication. The current explanation changes memory only. No application tests,
+part commits are merged in main at 7c94967, verified by fetch/pull and ancestry.
+The current smaller-task discussion changes memory only. No application tests,
 Java execution, or application builds have been run or claimed. Verify the current
 branch and remote refs when resuming. The previous memory PR merge is verified;
 no PR creation or merge is claimed for the new discussion branch.
