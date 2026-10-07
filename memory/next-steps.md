@@ -11,11 +11,13 @@ and execution isolation restrictions still apply.
 1. Parts 1 and 2 are merged. Part 3 is now approved on contracts/trace-v1:
    - 3a: complete, committed and pushed as 9905d0c.
    - 3b: complete, committed and pushed as afe8bf6.
-   - 3c: complete; 46 tests passed, including after clean locked installation.
+   - 3c: complete and pushed as ade131d; 46 tests passed after clean locked installation.
      Commit subject: test: validate trace examples and numeric encodings.
      User approved Node/Ajv after clarification; Spring Boot remains the backend.
      Ajv 8.17.1 is pinned under contracts; no Python is used.
    Review contracts/trace/README.md for the commit breakdown and check commands.
+   The user requested an explanation; current-state.md records the distinction
+   between defining/validating trace records and implementing Java execution.
    No application code. Execution isolation remains the recommended next
    specification part, requiring separate approval; do not start it automatically.
    Runtime proof for all documented coverage remains pending.
