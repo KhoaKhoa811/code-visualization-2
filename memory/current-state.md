@@ -1,6 +1,6 @@
 # Current state and conversation memory
 
-Last updated: 2026-10-06 (Asia/Saigon).
+Last updated: 2026-10-07 (Asia/Saigon).
 
 ## Recovery instructions
 
@@ -24,7 +24,9 @@ Long project instructions remain in their source files rather than being duplica
 - Active milestone: Milestone 0, repository and specifications; incomplete.
 - Completed and merged: Part 1, observable Step behavior using short Java
   examples and intermediate states in specs/trace-format.md. The user approved
-  Part 2, the Java support specification, now drafted for review. The companion
+  Part 2, the Java support specification, now also merged. Part 3 (versioned
+  trace contract and examples) is proposed; the user chose to discuss scope first.
+  Explicit approval to implement Part 3 is pending. The companion
   `next-steps.md` records remaining work under the project delivery instructions.
 - No application implementation, dependency installation, or additional milestone
   work has been approved in this conversation.
@@ -63,8 +65,10 @@ Long project instructions remain in their source files rather than being duplica
   at `b9f63f9`; fetch and ancestry checks verified the clarification is on main.
   Planning commit `3598a8d` and Step specification commit `d997f32` are verified
   ancestors of origin/main at `ca65ddc` (PR #4 merge). The user reported merging
-  all branches. Part 2 uses docs/java-support, based on the preceding memory
-  commit ea4712d. That memory branch's merge was not observed in the latest fetch.
+  all branches. On 2026-10-07, the assistant fetched and fast-forwarded local main
+  to 9449bd5 (PR #6 merge), verified da820b3 is an ancestor, and confirmed a clean
+  working tree. Part 2 and its preceding memory commit are now on main.
+  Recovery notes use docs/recovery-2026-10-07, based on that updated main.
   No GitHub PR tool is available in this session, so automated PR creation is
   currently blocked; a pushed branch can be opened for review through GitHub.
 
@@ -365,6 +369,45 @@ preserve user messages and label assistant summaries explicitly.
     This is one documentation part; no runner/application code or tests added.
     Delivery branch: docs/java-support. Both memory files updated. PR automation
     remains unavailable. The next specification part requires separate approval.
+
+## Conversation history — 2026-10-07
+
+19. User: "what's next"
+    No assistant response occurred before the follow-up recovery instruction.
+20. User: "read current-state.md and other files to recover memory. I merged all
+    the available branch into main. Please pull the newest and continue what
+    you are working"
+    Assistant read project instructions, both memory files, both existing specs,
+    and relevant requirements. Fetched origin, switched to main, and pulled with
+    --ff-only. Local main advanced to 9449bd5, which includes Part 2 commit da820b3;
+    ancestry and clean working tree were verified. No changes were discarded.
+    Recovered state: Milestone 0 remains incomplete; Parts 1 and 2 are merged
+    documentation, not implemented or runtime-verified Java coverage. The central
+    product direction remains general user-written Java visualization without
+    exact-program or algorithm templates.
+    The previously approved Part 2 is finished. Assistant proposed Part 3:
+    versioned trace schema, typed/numeric values, event order, frame/object
+    identities, terminal/capture statuses, and sample traces. Asked for explicit
+    approval under AGENTS.md before starting the new part. Recovery and memory
+    updates are authorized; Part 3 and application implementation have not yet
+    been started. Automated PR creation remains unavailable in this session.
+
+21. User selected "Discuss scope first" in response to the Part 3 approval
+    question. Part 3 is not authorized and remains unstarted.
+    Assistant proposed scope for discussion: define the shared recorded-data
+    contract used by runner, backend, and playback, split into three reviewable
+    commits: (3a) document event/value/identity/cursor/terminal semantics in the
+    trace specification; (3b) encode them in a versioned JSON schema under
+    contracts/trace/v1/; (3c) add representative valid and invalid fixtures and
+    validate them with an available schema tool. Cover current scalar/array
+    operations and the already specified method-frame model; do not imply later
+    structure capture is implemented. Numeric encoding must preserve Java values.
+    Distinguish structural schema validation from semantic replay verification.
+    Exclude application code, runner implementation, Docker setup, and additional
+    language features. Proposed completion: specification/schema/examples agree,
+    positive fixtures validate, negative fixtures fail as intended, and remaining
+    semantic validation obligations are explicit. Ask which aspect the user
+    wants to change before requesting approval of a concrete scope.
 
 ## Latest verification notes
 
