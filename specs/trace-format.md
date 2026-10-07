@@ -28,9 +28,11 @@ They do not define the entire Java support matrix or authorize implementation.
 | Operation | One observable Step shows |
 | --- | --- |
 | Successful initialized local declaration | New binding, type, and recorded initial value/reference |
+| Uninitialized local declaration | New binding with an explicit unassigned state, never an invented default value |
 | Successful local assignment/update | Binding's new value; updates also record old value and expression result when different |
 | Successful array creation | New array identity, length, type, and captured initial contents |
 | Successful array element read | Array identity, evaluated index, and returned value; contents unchanged |
+| Successful array length read | Array identity and recorded length; contents unchanged |
 | Successful array element write | Array identity, index, previous value, and committed new value |
 | Arithmetic operation | Evaluated operands and result; bindings unchanged unless a separate update commits |
 | Comparison | Evaluated operands and Boolean result |
@@ -177,11 +179,16 @@ cursor; x remains 7. Catch/unwind semantics need the later support specification
 
 ## 6. Remaining specification work
 
-This part does not settle machine-readable event names/schema/versioning,
-numeric serialization, precise bookkeeping encoding, supported Java syntax,
-array-initializer suboperations, compound assignment/update decomposition,
-method entry/return/unwinding, uninitialized declarations, collection operations,
-input events, concrete resource limits, or library-internal capture.
+The [Part 2 Java support specification](java-support.md) adds the proposed
+initial capability matrix, local update/declaration semantics, and early helper
+entry/return/unwinding boundaries. Its method rules extend this first-increment
+Step baseline; they do not claim implementation. Literal-only array creation is
+one creation Step; initializer expressions need further decomposition work.
+
+Remaining work includes machine-readable event names/schema/versioning, numeric
+serialization, precise bookkeeping encoding, broader initializer expressions,
+array updates/compound assignment, full exception-handler semantics, collection
+operations, input events, concrete limits, and library-internal capture.
 
 Define these before their producers/consumers are implemented. In particular,
 method/frame/return semantics must be specified early and implemented before

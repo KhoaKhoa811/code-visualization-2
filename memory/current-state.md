@@ -23,8 +23,8 @@ Long project instructions remain in their source files rather than being duplica
 
 - Active milestone: Milestone 0, repository and specifications; incomplete.
 - Completed and merged: Part 1, observable Step behavior using short Java
-  examples and intermediate states in specs/trace-format.md. Current discussion
-  proposes Part 2, the Java support specification; approval is pending. The companion
+  examples and intermediate states in specs/trace-format.md. The user approved
+  Part 2, the Java support specification, now drafted for review. The companion
   `next-steps.md` records remaining work under the project delivery instructions.
 - No application implementation, dependency installation, or additional milestone
   work has been approved in this conversation.
@@ -48,8 +48,9 @@ Long project instructions remain in their source files rather than being duplica
   `requirements/PROJECT_REQUIREMENTS.md`, both untracked. Preserve their contents.
 - The baseline includes `memory/current-state.md` and `memory/next-steps.md`.
 - No local `specs/`, application modules, build files, tests, or prototype were
-  found at initial inspection. The approved Step task now adds
-  `specs/trace-format.md`; application code and other planned specs remain absent.
+  found at initial inspection. The approved documentation tasks now provide
+  `specs/trace-format.md` and `specs/java-support.md`; application code and other
+  planned specs remain absent.
   Requirements describe historical prototype verification and PR #11, but those
   artifacts are absent here. Those historical claims are not locally verified.
 - Git author identity is now configured locally as `khoakhoa811`
@@ -62,7 +63,8 @@ Long project instructions remain in their source files rather than being duplica
   at `b9f63f9`; fetch and ancestry checks verified the clarification is on main.
   Planning commit `3598a8d` and Step specification commit `d997f32` are verified
   ancestors of origin/main at `ca65ddc` (PR #4 merge). The user reported merging
-  all branches. Current discussion memory uses docs/next-specification-part.
+  all branches. Part 2 uses docs/java-support, based on the preceding memory
+  commit ea4712d. That memory branch's merge was not observed in the latest fetch.
   No GitHub PR tool is available in this session, so automated PR creation is
   currently blocked; a pushed branch can be opened for review through GitHub.
 
@@ -344,14 +346,36 @@ preserve user messages and label assistant summaries explicitly.
     obtain confirmation before starting the next task. Only this conversation
     record and its companion next-steps file are updated in the current turn.
 
+18. User: "ok"
+    In context, this approves Part 2 as scoped in the preceding response.
+    Assistant created specs/java-support.md: proposed initial int/boolean/String
+    binding and int[] coverage, expression/control-flow semantics, identity and
+    scope rules, admission versus tracing outcomes, and early helper/recursion
+    entry/return/frame semantics. Broader primitive/structure and input coverage
+    remains V1 work. All implementation coverage is explicitly unverified here.
+    Twelve planned acceptance cases include different loop/sort forms, side
+    effects, aliases, short-circuiting, failed writes, and recursive frames.
+    Assistant consulted official Java 21 JLS chapters 4, 10, 14, and 15 and linked
+    them in the specification. In particular, a simple array assignment must
+    preserve RHS side effects before its null/bounds check; instrumentation must
+    not insert an early read that changes this ordering. Original-versus-traced
+    runtime tests remain required before enabling coverage.
+    The Step document was reconciled with uninitialized declarations, array
+    length reads, and the newly specified proposed helper/local-update rules.
+    This is one documentation part; no runner/application code or tests added.
+    Delivery branch: docs/java-support. Both memory files updated. PR automation
+    remains unavailable. The next specification part requires separate approval.
+
 ## Latest verification notes
 
 This is documentation-only work. Baseline publication and clean working tree
 were verified after the initial push. Conversation updates must pass Git
 whitespace checks and preserve unrelated instructions and requirements. The
-latest task adds the Step specification and updates both memory files. Verified
-documentation paths, the relative source link, absence of conflict markers, and
-staged Git whitespace checks. Examples were reviewed against the stated rules.
+latest task adds Java support semantics, reconciles the Step specification, and
+updates both memory files. Relative Markdown links and absence of conflict
+markers were verified; staged Git whitespace checks passed, including the new
+specification. Examples were reviewed against the stated rules and
+official Java 21 semantics; they have not been compiled or executed.
 Application tests are not applicable to this documentation-only part.
 No application tests or builds have been run or claimed. Verify the current
 branch and remote refs when resuming. The previous memory PR merge is verified;
