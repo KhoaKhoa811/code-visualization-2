@@ -29,8 +29,10 @@ Long project instructions remain in their source files rather than being duplica
   The proposed budgets and enforcement remain unverified by runtime tests.
   Cancellation documentation covers whole-run termination, safe capture, races,
   and verified cleanup; implementation and runtime verification remain unfinished.
-  Part 4d compilation-timeout documentation is approved and added in that file;
-  its 10,000 ms proposed budget and enforcement remain unverified at runtime.
+  Part 4d compilation-timeout commit 69f4f40 is verified merged in main at
+  d75cf05, pulled on 2026-10-07. Its 10,000 ms proposed budget and enforcement
+  remain unverified at runtime. Part 4e process/thread-limit rules are the next
+  proposal, awaiting explicit scope approval.
 - Review preference confirmed 2026-10-07: previous changes were still too large.
   Give each task one purpose, aim for 1–3 files, and split long changes further.
   Explain what changed, why, and where to read first. Commit/push each small
@@ -644,6 +646,26 @@ preserve user messages and label assistant summaries explicitly.
     delivery for review; no next task is approved. Automated PR creation remains
     unavailable, so provide a manual PR link after pushing.
 
+37. User: "I merged all the branch. what's next?"
+    Assistant fetched origin, switched to main, and pulled with --ff-only to
+    d75cf05. An ancestry check confirms Part 4d commit 69f4f40 is included;
+    main matched origin/main and the working tree was clean. Reviewed saved
+    next steps, recent conversation, remaining isolation gaps, and applicable
+    requirements/instructions. Proposed next task: Part 4e process/thread-limit
+    rules only, approximately 30–40 new lines in specs/execution-isolation.md
+    plus the two memory updates. Define a proposed per-run cap, which compiler,
+    runtime, child processes, and threads count, how trusted evidence distinguishes
+    limit enforcement from ordinary Java errors, safe trace retention, termination,
+    cleanup, and future prototype checks. Verify platform details against official
+    documentation during the approved task. No cap is confirmed or enforced yet.
+    No application code, Docker execution, dependency installation, other limit
+    features, or runtime tests are proposed in this task. Obtain explicit scope
+    approval before starting Part 4e, then commit/push and pause for review.
+    This turn updates conversation memory only on docs/process-limit-proposal,
+    based on merged main at d75cf05. Both memory files are updated; documentation
+    whitespace checks passed. Automatic PR creation remains unavailable;
+    provide a manual PR link after publishing these discussion notes.
+
 ## Latest verification notes
 
 Part 3 added a contract schema, examples, and development validation tooling.
@@ -658,3 +680,5 @@ claimed. Parts 4b and 4c are now verified merged in main at 8e4af20 through fetc
 fast-forward pull, and ancestry checks. Part 4d documentation checks passed:
 40-line section, local references, trace/schema consistency, and whitespace.
 Runtime compilation-timeout checks remain unrun. Automated PR creation is unavailable.
+Part 4d commit 69f4f40 is verified merged at d75cf05 by fetch, fast-forward pull,
+and ancestry check. The next process/thread-limit task remains a proposal only.
