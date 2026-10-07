@@ -26,7 +26,8 @@ Long project instructions remain in their source files rather than being duplica
   examples and intermediate states in specs/trace-format.md. The user approved
   Part 2, the Java support specification, now also merged. Part 3 (versioned
   trace contract and examples) is now approved as three reviewable commits.
-  Part 3a is drafted; 3b schema and 3c fixtures/checks follow within this approval.
+  Part 3a is committed/pushed as 9905d0c. Part 3b schema is drafted; 3c fixtures
+  and checks follow within this approval. Validator installation is not approved yet.
   The companion
   `next-steps.md` records remaining work under the project delivery instructions.
 - No application implementation, dependency installation, or additional milestone
@@ -421,6 +422,17 @@ preserve user messages and label assistant summaries explicitly.
     JSON Schema 2020-12 official documentation was consulted. Node v22.23.2/npm
     10.9.8 are available; Python and Ajv are not. Permission to add pinned Ajv
     under contracts was requested for 3c. No runtime Java or application work.
+
+23. User asked: "why python, I think i define springboot"
+    Assistant clarified that Java 21/Spring Boot/Maven remains the backend.
+    Python was only checked for an existing schema-validation tool and will not
+    be added. Ajv would be a Node-only development check for contract fixtures,
+    not backend implementation. The assistant requested explicit permission
+    again with that distinction; no dependency installation occurred yet.
+    Part 3b adds the JSON Schema with 35 local definitions and a plain-language
+    review guide. JSON parsing and reference resolution passed. It also clarifies
+    observed String registration as bookkeeping instead of inventing a runtime
+    allocation for an interned literal. Formal schema/fixture validation is 3c.
 
 ## Latest verification notes
 

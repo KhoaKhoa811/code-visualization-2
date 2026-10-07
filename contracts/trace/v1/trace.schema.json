@@ -1,0 +1,1461 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/KhoaKhoa811/code-visualization-2/contracts/trace/v1/trace.schema.json",
+  "title": "Recorded Java trace 1.0.0",
+  "description": "Candidate contract. Structural validity is not proof of Java execution or semantic replay correctness.",
+  "type": "object",
+  "properties": {
+    "schemaVersion": {
+      "const": "1.0.0"
+    },
+    "runId": {
+      "$ref": "#/$defs/id"
+    },
+    "source": {
+      "$ref": "#/$defs/source"
+    },
+    "execution": {
+      "$ref": "#/$defs/execution"
+    },
+    "capture": {
+      "$ref": "#/$defs/capture"
+    },
+    "diagnostics": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/diagnostic"
+      }
+    },
+    "initialState": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/state"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "events": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/event"
+      }
+    },
+    "stepEnds": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/positive"
+      }
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "runId",
+    "source",
+    "execution",
+    "capture",
+    "diagnostics",
+    "initialState",
+    "events",
+    "stepEnds"
+  ],
+  "additionalProperties": false,
+  "oneOf": [
+    {
+      "properties": {
+        "capture": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "const": "complete"
+            }
+          }
+        },
+        "execution": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "completed",
+                "failed"
+              ]
+            }
+          }
+        },
+        "initialState": {
+          "$ref": "#/$defs/state"
+        }
+      }
+    },
+    {
+      "properties": {
+        "capture": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "const": "partial"
+            }
+          }
+        },
+        "execution": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "completed",
+                "failed",
+                "cancelled",
+                "limited"
+              ]
+            }
+          }
+        },
+        "initialState": {
+          "$ref": "#/$defs/state"
+        }
+      }
+    },
+    {
+      "properties": {
+        "capture": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "const": "unavailable"
+            },
+            "safeEventCount": {
+              "const": 0
+            }
+          }
+        },
+        "initialState": {
+          "type": "null"
+        },
+        "events": {
+          "type": "array",
+          "maxItems": 0
+        },
+        "stepEnds": {
+          "type": "array",
+          "maxItems": 0
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "positive": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "sourceRange": {
+      "type": "object",
+      "properties": {
+        "start": {
+          "$ref": "#/$defs/count"
+        },
+        "end": {
+          "$ref": "#/$defs/count"
+        }
+      },
+      "required": [
+        "start",
+        "end"
+      ],
+      "additionalProperties": false
+    },
+    "value": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "byte"
+            },
+            "value": {
+              "type": "string",
+              "pattern": "^(0|-?[1-9][0-9]*)(?![\\s\\S])"
+            }
+          },
+          "required": [
+            "kind",
+            "value"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "short"
+            },
+            "value": {
+              "type": "string",
+              "pattern": "^(0|-?[1-9][0-9]*)(?![\\s\\S])"
+            }
+          },
+          "required": [
+            "kind",
+            "value"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "int"
+            },
+            "value": {
+              "type": "string",
+              "pattern": "^(0|-?[1-9][0-9]*)(?![\\s\\S])"
+            }
+          },
+          "required": [
+            "kind",
+            "value"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "long"
+            },
+            "value": {
+              "type": "string",
+              "pattern": "^(0|-?[1-9][0-9]*)(?![\\s\\S])"
+            }
+          },
+          "required": [
+            "kind",
+            "value"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "char"
+            },
+            "value": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            }
+          },
+          "required": [
+            "kind",
+            "value"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "boolean"
+            },
+            "value": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "kind",
+            "value"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "float"
+            },
+            "bits": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}(?![\\s\\S])"
+            }
+          },
+          "required": [
+            "kind",
+            "bits"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "double"
+            },
+            "bits": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{16}(?![\\s\\S])"
+            }
+          },
+          "required": [
+            "kind",
+            "bits"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "ref"
+            },
+            "objectId": {
+              "$ref": "#/$defs/id"
+            }
+          },
+          "required": [
+            "kind",
+            "objectId"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "null"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "bindingValue": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/value"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "unassigned"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "javaType": {
+      "type": "string",
+      "enum": [
+        "byte",
+        "short",
+        "int",
+        "long",
+        "char",
+        "boolean",
+        "float",
+        "double",
+        "java.lang.String",
+        "byte[]",
+        "short[]",
+        "int[]",
+        "long[]",
+        "char[]",
+        "boolean[]",
+        "float[]",
+        "double[]",
+        "java.lang.String[]"
+      ]
+    },
+    "frame": {
+      "type": "object",
+      "properties": {
+        "frameId": {
+          "$ref": "#/$defs/id"
+        },
+        "methodId": {
+          "$ref": "#/$defs/id"
+        },
+        "callerFrameId": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "frameId",
+        "methodId",
+        "callerFrameId"
+      ],
+      "additionalProperties": false
+    },
+    "scope": {
+      "type": "object",
+      "properties": {
+        "scopeId": {
+          "$ref": "#/$defs/id"
+        },
+        "frameId": {
+          "$ref": "#/$defs/id"
+        },
+        "parentScopeId": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "scopeId",
+        "frameId",
+        "parentScopeId"
+      ],
+      "additionalProperties": false
+    },
+    "binding": {
+      "type": "object",
+      "properties": {
+        "bindingId": {
+          "$ref": "#/$defs/id"
+        },
+        "declarationId": {
+          "$ref": "#/$defs/id"
+        },
+        "frameId": {
+          "$ref": "#/$defs/id"
+        },
+        "scopeId": {
+          "$ref": "#/$defs/id"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "javaType": {
+          "$ref": "#/$defs/javaType"
+        },
+        "value": {
+          "$ref": "#/$defs/bindingValue"
+        }
+      },
+      "required": [
+        "bindingId",
+        "declarationId",
+        "frameId",
+        "scopeId",
+        "name",
+        "javaType",
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    "arrayObject": {
+      "type": "object",
+      "properties": {
+        "objectId": {
+          "$ref": "#/$defs/id"
+        },
+        "kind": {
+          "const": "array"
+        },
+        "elementType": {
+          "type": "string",
+          "enum": [
+            "byte",
+            "short",
+            "int",
+            "long",
+            "char",
+            "boolean",
+            "float",
+            "double",
+            "java.lang.String"
+          ]
+        },
+        "elements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/value"
+          }
+        }
+      },
+      "required": [
+        "objectId",
+        "kind",
+        "elementType",
+        "elements"
+      ],
+      "additionalProperties": false
+    },
+    "stringObject": {
+      "type": "object",
+      "properties": {
+        "objectId": {
+          "$ref": "#/$defs/id"
+        },
+        "kind": {
+          "const": "string"
+        },
+        "utf16": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 65535
+          }
+        }
+      },
+      "required": [
+        "objectId",
+        "kind",
+        "utf16"
+      ],
+      "additionalProperties": false
+    },
+    "object": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/arrayObject"
+        },
+        {
+          "$ref": "#/$defs/stringObject"
+        }
+      ]
+    },
+    "state": {
+      "type": "object",
+      "properties": {
+        "objects": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/object"
+          }
+        },
+        "frames": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/frame"
+          }
+        },
+        "scopes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/scope"
+          }
+        },
+        "bindings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/binding"
+          }
+        }
+      },
+      "required": [
+        "objects",
+        "frames",
+        "scopes",
+        "bindings"
+      ],
+      "additionalProperties": false
+    },
+    "operand": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "value": {
+              "$ref": "#/$defs/value"
+            }
+          },
+          "required": [
+            "value"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "skipped": {
+              "const": true
+            }
+          },
+          "required": [
+            "skipped"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "diagnostic": {
+      "type": "object",
+      "properties": {
+        "phase": {
+          "type": "string",
+          "enum": [
+            "compile",
+            "admission",
+            "capture",
+            "execution"
+          ]
+        },
+        "code": {
+          "type": "string",
+          "minLength": 1
+        },
+        "message": {
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/sourceRange"
+        }
+      },
+      "required": [
+        "phase",
+        "code",
+        "message"
+      ],
+      "additionalProperties": false
+    },
+    "source": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "const": "Main.java"
+        },
+        "text": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}(?![\\s\\S])"
+        }
+      },
+      "required": [
+        "file",
+        "text",
+        "sha256"
+      ],
+      "additionalProperties": false
+    },
+    "execution": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "completed",
+            "failed",
+            "cancelled",
+            "limited",
+            "compile_error",
+            "rejected"
+          ]
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "status",
+        "reason"
+      ],
+      "additionalProperties": false
+    },
+    "capture": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "complete",
+            "partial",
+            "unavailable"
+          ]
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "safeEventCount": {
+          "$ref": "#/$defs/count"
+        }
+      },
+      "required": [
+        "status",
+        "reason",
+        "safeEventCount"
+      ],
+      "additionalProperties": false
+    },
+    "DECLARE": {
+      "type": "object",
+      "properties": {
+        "seq": {
+          "$ref": "#/$defs/positive"
+        },
+        "step": {
+          "$ref": "#/$defs/positive"
+        },
+        "source": {
+          "$ref": "#/$defs/sourceRange"
+        },
+        "frameId": {
+          "$ref": "#/$defs/id"
+        },
+        "kind": {
+          "const": "DECLARE"
+        },
+        "data": {
+          "type": "object",
+          "properties": {
+            "binding": {
+              "$ref": "#/$defs/binding"
+            }
+          },
+          "required": [
+            "binding"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "seq",
+        "step",
+        "source",
+        "frameId",
+        "kind",
+        "data"
+      ],
+      "additionalProperties": false
+    },
+    "ASSIGN": {
+      "type": "object",
+      "properties": {
+        "seq": {
+          "$ref": "#/$defs/positive"
+        },
+        "step": {
+          "$ref": "#/$defs/positive"
+        },
+        "source": {
+          "$ref": "#/$defs/sourceRange"
+        },
+        "frameId": {
+          "$ref": "#/$defs/id"
+        },
+        "kind": {
+          "const": "ASSIGN"
+        },
+        "data": {
+          "type": "object",
+          "properties": {
+            "bindingId": {
+              "$ref": "#/$defs/id"
+            },
+            "previous": {
+              "$ref": "#/$defs/bindingValue"
+            },
+            "value": {
+              "$ref": "#/$defs/value"
+            }
+          },
+          "required": [
+            "bindingId",
+            "previous",
+            "value"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "seq",
+        "step",
+        "source",
+        "frameId",
+        "kind",
+        "data"
+      ],
+      "additionalProperties": false
+    },
+    "UPDATE": {
+      "type": "object",
+      "properties": {
+        "seq": {
+          "$ref": "#/$defs/positive"
+        },
+        "step": {
+          "$ref": "#/$defs/positive"
+        },
+        "source": {
+          "$ref": "#/$defs/sourceRange"
+        },
+        "frameId": {
+          "$ref": "#/$defs/id"
+        },
+        "kind": {
+          "const": "UPDATE"
+        },
+        "data": {
+          "type": "object",
+          "properties": {
+            "bindingId": {
+              "$ref": "#/$defs/id"
+            },
+            "previous": {
+              "$ref": "#/$defs/value"
+            },
+            "value": {
+              "$ref": "#/$defs/value"
+            },
+            "result": {
+              "$ref": "#/$defs/value"
+            },
+            "operator": {
+              "type": "string",
+              "enum": [
+                "++",
+                "--"
+              ]
+            },
+            "position": {
+              "type": "string",
+              "enum": [
+                "prefix",
+                "postfix"
+              ]
+            }
+          },
+          "required": [
+            "bindingId",
+            "previous",
+            "value",
+            "result",
+            "operator",
+            "position"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "seq",
+        "step",
+        "source",
+        "frameId",
+        "kind",
+        "data"
+      ],
+      "additionalProperties": false
+    },
+    "ALLOCATE": {
+      "type": "object",
+      "properties": {
+        "seq": {
+          "$ref": "#/$defs/positive"
+        },
+        "step": {
+          "$ref": "#/$defs/positive"
+        },
+        "source": {
+          "$ref": "#/$defs/sourceRange"
+        },
+        "frameId": {
+          "$ref": "#/$defs/id"
+        },
+        "kind": {
+          "const": "ALLOCATE"
+        },
+        "data": {
+          "type": "object",
+          "properties": {
+            "object": {
+              "$ref": "#/$defs/arrayObject"
+            }
+          },
+          "required": [
+            "object"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "seq",
+        "step",
+        "source",
+        "frameId",
+        "kind",
+        "data"
+      ],
+      "additionalProperties": false
+    },
+    "ARRAY_READ": {
+      "type": "object",
+      "properties": {
+        "seq": {
+          "$ref": "#/$defs/positive"
+        },
+        "step": {
+          "$ref": "#/$defs/positive"
+        },
+        "source": {
+          "$ref": "#/$defs/sourceRange"
+        },
+        "frameId": {
+          "$ref": "#/$defs/id"
+        },
+        "kind": {
+          "const": "ARRAY_READ"
+        },
+        "data": {
+          "type": "object",
+          "properties": {
+            "objectId": {
+              "$ref": "#/$defs/id"
+            },
+            "index": {
+              "$ref": "#/$defs/count"
+            },
+            "value": {
+              "$ref": "#/$defs/value"
+            }
+          },
+          "required": [
+            "objectId",
+            "index",
+            "value"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "seq",
+        "step",
+        "source",
+        "frameId",
+        "kind",
+        "data"
+      ],
+      "additionalProperties": false
+    },
+    "ARRAY_LENGTH": {
+      "type": "object",
+      "properties": {
+        "seq": {
+          "$ref": "#/$defs/positive"
+        },
+        "step": {
+          "$ref": "#/$defs/positive"
+        },
+        "source": {
+          "$ref": "#/$defs/sourceRange"
+        },
+        "frameId": {
+          "$ref": "#/$defs/id"
+        },
+        "kind": {
+          "const": "ARRAY_LENGTH"
+        },
+        "data": {
+          "type": "object",
+          "properties": {
+            "objectId": {
+              "$ref": "#/$defs/id"
+            },
+            "length": {
+              "$ref": "#/$defs/count"
+            }
+          },
+          "required": [
+            "objectId",
+            "length"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "seq",
+        "step",
+        "source",
+        "frameId",
+        "kind",
+        "data"
+      ],
+      "additionalProperties": false
+    },
+    "ARRAY_WRITE": {
+      "type": "object",
+      "properties": {
+        "seq": {
+          "$ref": "#/$defs/positive"
+        },
+        "step": {
+          "$ref": "#/$defs/positive"
+        },
+        "source": {
+          "$ref": "#/$defs/sourceRange"
+        },
+        "frameId": {
+          "$ref": "#/$defs/id"
+        },
+        "kind": {
+          "const": "ARRAY_WRITE"
+        },
+        "data": {
+          "type": "object",
+          "properties": {
+            "objectId": {
+              "$ref": "#/$defs/id"
+            },
+            "index": {
+              "$ref": "#/$defs/count"
+            },
+            "previous": {
+              "$ref": "#/$defs/value"
+            },
+            "value": {
+              "$ref": "#/$defs/value"
+            }
+          },
+          "required": [
+            "objectId",
+            "index",
+            "previous",
+            "value"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "seq",
+        "step",
+        "source",
+        "frameId",
+        "kind",
+        "data"
+      ],
+      "additionalProperties": false
+    },
+    "EXPRESSION": {
+      "type": "object",
+      "properties": {
+        "seq": {
+          "$ref": "#/$defs/positive"
+        },
+        "step": {
+          "$ref": "#/$defs/positive"
+        },
+        "source": {
+          "$ref": "#/$defs/sourceRange"
+        },
+        "frameId": {
+          "$ref": "#/$defs/id"
+        },
+        "kind": {
+          "const": "EXPRESSION"
+        },
+        "data": {
+          "type": "object",
+          "properties": {
+            "operator": {
+              "type": "string",
+              "enum": [
+                "+",
+                "-",
+                "*",
+                "/",
+                "%",
+                "!",
+                "<",
+                "<=",
+                ">",
+                ">=",
+                "==",
+                "!=",
+                "&&",
+                "||",
+                "condition"
+              ]
+            },
+            "operands": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/operand"
+              },
+              "minItems": 1,
+              "maxItems": 2
+            },
+            "result": {
+              "$ref": "#/$defs/value"
+            }
+          },
+          "required": [
+            "operator",
+            "operands",
+            "result"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "seq",
+        "step",
+        "source",
+        "frameId",
+        "kind",
+        "data"
+      ],
+      "additionalProperties": false
+    },
+    "CALL": {
+      "type": "object",
+      "properties": {
+        "seq": {
+          "$ref": "#/$defs/positive"
+        },
+        "step": {
+          "$ref": "#/$defs/positive"
+        },
+        "source": {
+          "$ref": "#/$defs/sourceRange"
+        },
+        "frameId": {
+          "$ref": "#/$defs/id"
+        },
+        "kind": {
+          "const": "CALL"
+        },
+        "data": {
+          "type": "object",
+          "properties": {
+            "frame": {
+              "$ref": "#/$defs/frame"
+            },
+            "scope": {
+              "$ref": "#/$defs/scope"
+            },
+            "parameters": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/binding"
+              }
+            }
+          },
+          "required": [
+            "frame",
+            "scope",
+            "parameters"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "seq",
+        "step",
+        "source",
+        "frameId",
+        "kind",
+        "data"
+      ],
+      "additionalProperties": false
+    },
+    "RETURN": {
+      "type": "object",
+      "properties": {
+        "seq": {
+          "$ref": "#/$defs/positive"
+        },
+        "step": {
+          "$ref": "#/$defs/positive"
+        },
+        "source": {
+          "$ref": "#/$defs/sourceRange"
+        },
+        "frameId": {
+          "$ref": "#/$defs/id"
+        },
+        "kind": {
+          "const": "RETURN"
+        },
+        "data": {
+          "type": "object",
+          "properties": {
+            "result": {
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/value"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "implicit": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "result",
+            "implicit"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "seq",
+        "step",
+        "source",
+        "frameId",
+        "kind",
+        "data"
+      ],
+      "additionalProperties": false
+    },
+    "EXCEPTION": {
+      "type": "object",
+      "properties": {
+        "seq": {
+          "$ref": "#/$defs/positive"
+        },
+        "step": {
+          "$ref": "#/$defs/positive"
+        },
+        "source": {
+          "$ref": "#/$defs/sourceRange"
+        },
+        "frameId": {
+          "$ref": "#/$defs/id"
+        },
+        "kind": {
+          "const": "EXCEPTION"
+        },
+        "data": {
+          "type": "object",
+          "properties": {
+            "exceptionType": {
+              "type": "string",
+              "minLength": 1
+            },
+            "message": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "exceptionType",
+            "message"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "seq",
+        "step",
+        "source",
+        "frameId",
+        "kind",
+        "data"
+      ],
+      "additionalProperties": false
+    },
+    "SCOPE_ENTER": {
+      "type": "object",
+      "properties": {
+        "seq": {
+          "$ref": "#/$defs/positive"
+        },
+        "kind": {
+          "const": "SCOPE_ENTER"
+        },
+        "data": {
+          "type": "object",
+          "properties": {
+            "scope": {
+              "$ref": "#/$defs/scope"
+            }
+          },
+          "required": [
+            "scope"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "seq",
+        "kind",
+        "data"
+      ],
+      "additionalProperties": false
+    },
+    "SCOPE_EXIT": {
+      "type": "object",
+      "properties": {
+        "seq": {
+          "$ref": "#/$defs/positive"
+        },
+        "kind": {
+          "const": "SCOPE_EXIT"
+        },
+        "data": {
+          "type": "object",
+          "properties": {
+            "scopeId": {
+              "$ref": "#/$defs/id"
+            }
+          },
+          "required": [
+            "scopeId"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "seq",
+        "kind",
+        "data"
+      ],
+      "additionalProperties": false
+    },
+    "FRAME_END": {
+      "type": "object",
+      "properties": {
+        "seq": {
+          "$ref": "#/$defs/positive"
+        },
+        "kind": {
+          "const": "FRAME_END"
+        },
+        "data": {
+          "type": "object",
+          "properties": {
+            "frameId": {
+              "$ref": "#/$defs/id"
+            },
+            "reason": {
+              "type": "string",
+              "enum": [
+                "main_return",
+                "unwind"
+              ]
+            }
+          },
+          "required": [
+            "frameId",
+            "reason"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "seq",
+        "kind",
+        "data"
+      ],
+      "additionalProperties": false
+    },
+    "OBJECT_CAPTURE": {
+      "type": "object",
+      "properties": {
+        "seq": {
+          "$ref": "#/$defs/positive"
+        },
+        "kind": {
+          "const": "OBJECT_CAPTURE"
+        },
+        "data": {
+          "type": "object",
+          "properties": {
+            "object": {
+              "$ref": "#/$defs/stringObject"
+            }
+          },
+          "required": [
+            "object"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "seq",
+        "kind",
+        "data"
+      ],
+      "additionalProperties": false
+    },
+    "event": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/DECLARE"
+        },
+        {
+          "$ref": "#/$defs/ASSIGN"
+        },
+        {
+          "$ref": "#/$defs/UPDATE"
+        },
+        {
+          "$ref": "#/$defs/ALLOCATE"
+        },
+        {
+          "$ref": "#/$defs/ARRAY_READ"
+        },
+        {
+          "$ref": "#/$defs/ARRAY_LENGTH"
+        },
+        {
+          "$ref": "#/$defs/ARRAY_WRITE"
+        },
+        {
+          "$ref": "#/$defs/EXPRESSION"
+        },
+        {
+          "$ref": "#/$defs/CALL"
+        },
+        {
+          "$ref": "#/$defs/RETURN"
+        },
+        {
+          "$ref": "#/$defs/EXCEPTION"
+        },
+        {
+          "$ref": "#/$defs/SCOPE_ENTER"
+        },
+        {
+          "$ref": "#/$defs/SCOPE_EXIT"
+        },
+        {
+          "$ref": "#/$defs/FRAME_END"
+        },
+        {
+          "$ref": "#/$defs/OBJECT_CAPTURE"
+        }
+      ]
+    }
+  }
+}

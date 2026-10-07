@@ -9,9 +9,11 @@ not to restrict the product to examples. Runtime facts must remain captured,
 and execution isolation restrictions still apply.
 
 1. Parts 1 and 2 are merged. Part 3 is now approved on contracts/trace-v1:
-   - 3a: trace rules and ADR drafted; verify and commit separately.
-   - 3b: encode the agreed shape in a versioned JSON schema.
+   - 3a: complete, committed and pushed as 9905d0c.
+   - 3b: schema/review guide drafted; JSON and local-reference checks passed.
    - 3c: add valid/invalid examples and validate; pinned Ajv permission pending.
+     User questioned Python; clarified that backend stays Spring Boot and no
+     Python will be installed. Await approval for Node-only Ajv development check.
    Keep each part reviewable and push at checkpoints. No application code.
    Execution
    isolation remains a separate later specification part requiring approval.

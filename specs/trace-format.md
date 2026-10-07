@@ -200,7 +200,7 @@ The runner records facts; the backend validates them; playback reconstructs an
 accepted prefix. The same document carries all facts required by this initial
 contract. It contains no layout, colors, timing, suggested views, or React names.
 
-The planned machine-readable file is `contracts/trace/v1/trace.schema.json`.
+The machine-readable file is [trace.schema.json](../contracts/trace/v1/trace.schema.json).
 It uses JSON Schema draft 2020-12. Schema validation checks shape and allowed
 values; section 12 defines additional semantic checks. See the official
 [core](https://json-schema.org/draft/2020-12/json-schema-core) and
@@ -278,7 +278,7 @@ ranges follow sections 2–3 and the Java-support specification.
 | DECLARE | binding; add its captured binding, including explicit unassigned where appropriate |
 | ASSIGN | bindingId, previous, value; replace the binding value; previous may be unassigned |
 | UPDATE | bindingId, previous, value, result, operator (++/--), position (prefix/postfix); one committed update, including the expression result |
-| ALLOCATE | object; add a fresh captured array or string identity |
+| ALLOCATE | object; add a fresh captured array identity |
 | ARRAY_READ | objectId, index, value; no mutation |
 | ARRAY_LENGTH | objectId, length; no mutation |
 | ARRAY_WRITE | objectId, index, previous, value; commit exactly one element change |
@@ -309,11 +309,17 @@ Bookkeeping has seq, kind, data, but no step/source/frameId envelope fields:
 | SCOPE_ENTER | scope; add scope under its recorded parent in the active frame |
 | SCOPE_EXIT | scopeId; remove that innermost scope and its bindings |
 | FRAME_END | frameId, reason (main_return / unwind); pop the active frame and all remaining scopes/bindings |
+| OBJECT_CAPTURE | object; register a newly observed string identity and contents without claiming a Java allocation at that expression |
 
 Helper normal return uses RETURN, never FRAME_END. Main normal termination uses
 FRAME_END; unwinding uses FRAME_END for each frame actually departed. Binding
 removal is not object destruction; keep referenced and historic objects in replay
 storage. Objects are never reused as later identities.
+
+OBJECT_CAPTURE is for an actually observed String reference, such as a literal
+first used by a declaration. It precedes that operation without a separate click.
+It must not register strings by scanning unexecuted code or duplicate an already
+known identity. Array allocation remains an observable ALLOCATE operation.
 
 `seq` must equal the record's array position + 1. Observable step numbers are
 contiguous. For every non-final cursor k, stepEnds[k-1] equals the seq of its
