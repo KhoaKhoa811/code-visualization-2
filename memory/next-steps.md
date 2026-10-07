@@ -8,13 +8,13 @@ templates. Define coverage to track implementation and truthful limitations,
 not to restrict the product to examples. Runtime facts must remain captured,
 and execution isolation restrictions still apply.
 
-1. Parts 1–3 are merged. Part 4a was approved and is drafted in
-   specs/execution-isolation.md: runtime timeout rules only, plus both memory
-   updates. Review the proposed 5,000 ms initial noninteractive budget, timer
-   boundary, whole-environment termination, safe trace retention, and cleanup.
-   No enforcement or application/Docker implementation exists yet.
-   Pause for review after delivery; memory limits and cancellation are separate
-   future tasks. Keep all tasks to one purpose, target 1–3 files, and split long
+1. Parts 1–3 and Part 4a are merged. Await approval for Part 4b: add a short
+   memory-limit section (about 30–40 lines) to specs/execution-isolation.md and
+   update both memory files. Define the proposed run budget, Java heap relationship,
+   limit outcome, safe trace retention/cleanup, and future checks. No enforcement
+   or application/Docker implementation is approved. Pause for review after this
+   task; cancellation remains separate. Keep all tasks to one purpose, target
+   1–3 files, and split long
    changes further. Explain why and which file to read first.
    Completed Part 3 checkpoints:
    - 3a: complete, committed and pushed as 9905d0c.
@@ -53,7 +53,8 @@ memory are verified ancestors. Working tree was clean. Current recovery-memory
 branch was docs/recovery-2026-10-07 (272b0fc). Current Part 3 branch is
 contracts/trace-v1. Its merge was verified on 2026-10-07: local main was pulled
 to 7c94967 (PR #8), containing 4cdc5c8. Task-size preference was pushed as 80d63ef
-on docs/smaller-task-plan. Current Part 4a branch: docs/execution-timeout.
+on docs/smaller-task-plan. Part 4a commit 781da5c is verified on main at 7cff8f9
+(PR #10 merge). Current conversation branch: docs/memory-limit-proposal.
 Git author identity is resolved.
 The `gh` command and GitHub PR tools are unavailable; automated PR creation is
 blocked. Publish the branch and provide a GitHub compare link for manual review.
