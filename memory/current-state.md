@@ -31,8 +31,9 @@ Long project instructions remain in their source files rather than being duplica
   and verified cleanup; implementation and runtime verification remain unfinished.
   Part 4d compilation-timeout commit 69f4f40 is verified merged in main at
   d75cf05, pulled on 2026-10-07. Its 10,000 ms proposed budget and enforcement
-  remain unverified at runtime. Part 4e process/thread-limit rules are the next
-  proposal, awaiting explicit scope approval.
+  remain unverified at runtime. Part 4e process/thread-limit documentation is
+  approved and added; its proposed 128-task container cap and enforcement remain
+  unverified at runtime.
 - Review preference confirmed 2026-10-07: previous changes were still too large.
   Give each task one purpose, aim for 1–3 files, and split long changes further.
   Explain what changed, why, and where to read first. Commit/push each small
@@ -666,13 +667,40 @@ preserve user messages and label assistant summaries explicitly.
     whitespace checks passed. Automatic PR creation remains unavailable;
     provide a manual PR link after publishing these discussion notes.
 
+38. User: "ok"
+    This confirms the discussed Part 4e scope: process/thread-limit specification,
+    both memory updates, verification, separate commit/push, and review pause.
+    Assistant checked the clean proposal branch, relevant requirements/instructions,
+    isolation/trace rules, and official Docker/Linux kernel documentation. Created
+    docs/process-thread-limits from docs/process-limit-proposal, including proposal
+    notes 4099115 and the verified merged main baseline d75cf05. Proposed a cap of
+    128 simultaneous kernel tasks across compiler/runtime processes, descendants,
+    JVM native threads, and container helpers, using --pids-limit=128. It is a
+    measurement candidate, not a proven sizing default. Kernel-task counting does
+    not imply a bound on Java virtual-thread objects or expand admission/coverage.
+    PID enforcement denies creation rather than killing existing tasks; the trusted
+    supervisor must remain outside this cap. Require controller/version/enforcement
+    verification and trusted run-attributed denial counters. Check evidence before
+    subsequent launches/final normal completion; task counts, stdout, exit codes,
+    or OutOfMemoryError alone cannot prove a hit. Verified evidence latches limited
+    status with PROCESS_THREAD_LIMIT after whole-environment termination, subject
+    to an already latched competing outcome. Retain safe partial/unavailable capture
+    and verify cleanup before releasing the slot. Four future checks are listed,
+    not run. Exactly three documentation files change; review Part 4e first.
+    Verification passed: section is 40 lines, local references exist, official
+    platform details and trace/schema statuses/diagnostics agree, and whitespace
+    checks passed. No application code, dependencies, Docker execution,
+    monitoring implementation, or runtime tests are added. Confirmation/
+    retry bounds remain separate work. Pause after delivery; no next task approved.
+    Automatic PR creation remains unavailable; provide a manual PR link after push.
+
 ## Latest verification notes
 
 Part 3 added a contract schema, examples, and development validation tooling.
 All 46 checks passed, including after clean lockfile installation. Documentation
 links, staged whitespace, and exclusion of node_modules were verified. The three
 part commits are merged in main at 7c94967, verified by fetch/pull and ancestry.
-Parts 4a–4d specify timeouts, memory, and cancellation behavior; runtime enforcement
+Parts 4a–4e specify timeouts, memory, cancellation, and process/thread limits; enforcement
 and isolation tests remain unimplemented. Part 4c documentation checks passed:
 40-line section, valid local references, trace/schema consistency, and whitespace.
 No application tests, Java execution, or application builds have been run or
@@ -681,4 +709,6 @@ fast-forward pull, and ancestry checks. Part 4d documentation checks passed:
 40-line section, local references, trace/schema consistency, and whitespace.
 Runtime compilation-timeout checks remain unrun. Automated PR creation is unavailable.
 Part 4d commit 69f4f40 is verified merged at d75cf05 by fetch, fast-forward pull,
-and ancestry check. The next process/thread-limit task remains a proposal only.
+and ancestry check. Part 4e documentation checks passed: 40-line section, local
+references, official platform details, trace/schema consistency, and whitespace.
+Runtime process/thread-limit checks remain unrun.

@@ -1,7 +1,7 @@
 # Execution isolation: timeouts, memory, and cancellation
 
-Status: Milestone 0, Parts 4a–4d, 2026-10-07. Proposed rules for review.
-Timeout, memory, and cancellation enforcement are not implemented or verified yet.
+Status: Milestone 0, Parts 4a–4e, 2026-10-07. Proposed rules for review.
+Resource-limit and cancellation enforcement are not implemented or verified yet.
 
 Sources: [requirements, section 10](../requirements/PROJECT_REQUIREMENTS.md)
 and [trace termination rules](trace-format.md#11-termination-and-safe-capture).
@@ -49,8 +49,8 @@ Do not manufacture a Java exception, return, scope exit, or mutation on timeout.
 - Blocking execution still reaches the deadline; activity never resets the timer.
 
 These are future checks, not test results. Part 4a covers runtime timeouts only.
-Process, output, traversal, and input-wait bounds remain unfinished;
-Parts 4b–4d define proposed memory, cancellation, and compilation rules below.
+Output, traversal, and input-wait bounds remain unfinished;
+Parts 4b–4e propose memory, cancellation, compilation, and process/thread rules.
 
 ## Proposed memory budget — Part 4b
 
@@ -174,3 +174,44 @@ latched stop cause. Confirmation/retry deadlines remain unfinished runner work.
 - Stalled compilation reaches the deadline; all processes stop and cleanup verifies.
 - Race success/cancellation with the deadline: one outcome; no launch after timeout.
 - Multiple compiler invocations share one budget; output activity never resets it.
+
+## Proposed process/thread budget — Part 4e
+
+- Proposed cap: **128 simultaneous Linux kernel tasks per run container**, unverified.
+  Count compiler/runtime processes, descendants, JVM native threads, and helpers.
+- Proposed Docker setting: `--pids-limit=128`, established before compilation.
+  Block launch if enforcement cannot be verified; never silently raise the cap.
+- Kernel task identities count; Java virtual-thread objects do not.
+  PID enforcement denies creation without killing existing processes; admission
+  and tracing coverage stay unchanged. The supervisor runs outside this budget.
+- Verify the deployed cgroup version and PID controller/counter semantics first.
+  For the proposed cgroup v2 profile, establish a fresh run's pids.events:max
+  baseline and trusted read access; submitted code cannot alter the controller.
+
+### Verified limit handling
+
+Check for a run-attributed denial counter increase during compilation/execution,
+before further compiler/application launch and before finalizing normal completion.
+Attribute the evidence to this run/controller, accounting for parent limits.
+Reaching 128 tasks alone, printed text, exit codes, or Java errors do not prove a hit.
+
+Serialize verified evidence with cancellation/termination; keep an already latched
+outcome. Otherwise latch the PID limit, stop input/record acceptance and new launches,
+then terminate the entire environment. Only after termination is confirmed publish
+execution.status = limited and diagnostic code PROCESS_THREAD_LIMIT with the verified
+reason and phase compile or execution. Retain safe partial capture after execution,
+or unavailable before execution/without trusted initial state; never complete.
+Discard incomplete records; invent no Java events. Release the slot only after
+verified cleanup. Failed confirmation/cleanup follows the existing timeout rules.
+
+Without trusted PID evidence, preserve actual Java/compiler errors, including
+OutOfMemoryError. Monitoring and confirmation/retry bounds remain runner work.
+
+### Required prototype checks (planned, not run)
+
+- Ordinary compilation/execution fits; measure all JVM/helper tasks and headroom.
+- Creation is denied at the cap; the supervisor stops all existing run tasks.
+- Spoofed errors do not assert a hit; fast exits/cancellation keep one outcome.
+- Failed cleanup retains the slot; another run's counters never affect this run.
+
+References: [Docker](https://docs.docker.com/reference/cli/docker/container/run/), [Linux PID controller](https://docs.kernel.org/admin-guide/cgroup-v2.html#pid).
