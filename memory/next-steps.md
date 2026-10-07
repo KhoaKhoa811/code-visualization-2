@@ -1,6 +1,6 @@
 # Next steps
 
-Last updated: 2026-10-06 (Asia/Saigon).
+Last updated: 2026-10-07 (Asia/Saigon).
 
 Confirmed direction: visualize arbitrary user-authored Java as correctly as
 possible through reusable language capabilities, never exact program/algorithm
@@ -8,12 +8,14 @@ templates. Define coverage to track implementation and truthful limitations,
 not to restrict the product to examples. Runtime facts must remain captured,
 and execution isolation restrictions still apply.
 
-1. Part 1 Step specification is merged. Part 2 was approved and is drafted in
-   specs/java-support.md, with corresponding Step-document updates. Review the
-   proposed initial coverage, method/frame/return rules, and planned acceptance
-   cases; runtime proof remains pending. No implementation is authorized.
-   Later trace/schema/numeric contracts and execution-isolation specifications
-   remain separate proposed parts; do not begin them or application code yet.
+1. Parts 1 and 2 are merged on main. The user chose "Discuss scope first";
+   discuss the proposed specification/schema/fixtures breakdown before approval.
+   Part 3 remains unstarted. Proposed scope: versioned trace
+   schema, typed/numeric values, event order, object/frame identities, terminal
+   and capture statuses, and representative sample traces. Align with existing
+   Java-support and Step specs; do not implement the application. Execution
+   isolation remains a separate later specification part requiring approval.
+   Runtime proof for all documented coverage remains pending.
    Other open definitions: Java support matrix, separate test-input workflow,
    custom mapping interaction, grid grouping, and measurable V1 completion.
    These are discussion topics, not approved requirement changes.
@@ -32,8 +34,10 @@ PR #1 merged the memory update at `f3b4601`. PR #2 merged the requirements
 clarification through `46237df` at `b9f63f9`, verified by fetch and ancestry.
 Planning commit `3598a8d` and Step specification `d997f32` are verified ancestors
 of origin/main at `ca65ddc` (PR #4 merge). The current discussion-memory branch
-was docs/next-specification-part (commit ea4712d). Part 2 uses docs/java-support
-based on that memory commit; the latest fetch did not show its merge into main.
+was docs/next-specification-part (commit ea4712d). On 2026-10-07, main was pulled
+with --ff-only to 9449bd5 (PR #6 merge); Part 2 commit da820b3 and its preceding
+memory are verified ancestors. Working tree was clean. Current recovery-memory
+branch: docs/recovery-2026-10-07.
 Git author identity is resolved.
 The `gh` command and GitHub PR tools are unavailable; automated PR creation is
 blocked. Publish the branch and provide a GitHub compare link for manual review.
