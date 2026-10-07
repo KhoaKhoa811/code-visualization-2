@@ -8,11 +8,11 @@ templates. Define coverage to track implementation and truthful limitations,
 not to restrict the product to examples. Runtime facts must remain captured,
 and execution isolation restrictions still apply.
 
-1. Parts 1–3 and Part 4a are merged. Await approval for Part 4b: add a short
-   memory-limit section (about 30–40 lines) to specs/execution-isolation.md and
-   update both memory files. Define the proposed run budget, Java heap relationship,
-   limit outcome, safe trace retention/cleanup, and future checks. No enforcement
-   or application/Docker implementation is approved. Pause for review after this
+1. Parts 1–3 and Part 4a are merged. Part 4b was approved and its short memory
+   section is drafted in specs/execution-isolation.md. Review the proposed
+   512 MiB container/128 MiB heap budgets, swap policy, verified OOM classification,
+   and safe trace/cleanup behavior. No runtime enforcement has been implemented
+   or tested. No application/Docker implementation is approved. Pause after this
    task; cancellation remains separate. Keep all tasks to one purpose, target
    1–3 files, and split long
    changes further. Explain why and which file to read first.
@@ -54,7 +54,8 @@ branch was docs/recovery-2026-10-07 (272b0fc). Current Part 3 branch is
 contracts/trace-v1. Its merge was verified on 2026-10-07: local main was pulled
 to 7c94967 (PR #8), containing 4cdc5c8. Task-size preference was pushed as 80d63ef
 on docs/smaller-task-plan. Part 4a commit 781da5c is verified on main at 7cff8f9
-(PR #10 merge). Current conversation branch: docs/memory-limit-proposal.
+(PR #10 merge). Proposal notes were pushed as 20ea472 on docs/memory-limit-proposal.
+Current Part 4b branch: docs/execution-memory, based on those notes.
 Git author identity is resolved.
 The `gh` command and GitHub PR tools are unavailable; automated PR creation is
 blocked. Publish the branch and provide a GitHub compare link for manual review.
