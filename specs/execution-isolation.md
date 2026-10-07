@@ -1,7 +1,7 @@
-# Execution isolation: runtime timeout and memory
+# Execution isolation: runtime timeout, memory, and cancellation
 
-Status: Milestone 0, Parts 4a–4b, 2026-10-07. Proposed rules for review.
-Timeout and memory enforcement are not implemented or verified yet.
+Status: Milestone 0, Parts 4a–4c, 2026-10-07. Proposed rules for review.
+Timeout, memory, and cancellation enforcement are not implemented or verified yet.
 
 Sources: [requirements, section 10](../requirements/PROJECT_REQUIREMENTS.md)
 and [trace termination rules](trace-format.md#11-termination-and-safe-capture).
@@ -49,8 +49,8 @@ Do not manufacture a Java exception, return, scope exit, or mutation on timeout.
 - Blocking execution still reaches the deadline; activity never resets the timer.
 
 These are future checks, not test results. Part 4a covers runtime timeouts only.
-Compilation, process, output, traversal, cancellation, and input-wait bounds
-remain unfinished; Part 4b defines the proposed memory budget below.
+Compilation, process, output, traversal, and input-wait bounds remain unfinished;
+Parts 4b and 4c define the proposed memory and cancellation rules below.
 
 ## Proposed memory budget — Part 4b
 
@@ -92,3 +92,44 @@ resource limit. Detection and trustworthy error capture require prototype proof.
 
 No checks above have run. Reference: [Docker memory limits](https://docs.docker.com/engine/containers/resource_constraints/#memory)
 and [Java 21 heap options](https://docs.oracle.com/en/java/javase/21/docs/specs/man/java.html).
+
+## Proposed cancellation rules — Part 4c
+
+- Cancellation targets one run identity, never another run or a reused environment.
+  The trusted external supervisor accepts the request; stdout cannot request it.
+- Permit cancellation while queued, preparing, compiling, executing, or waiting
+  for input. A cancelled queued run must never launch; stop any active compiler.
+- Serialize cancellation with confirmed termination and verified limit triggers.
+  Keep an already latched outcome; otherwise, confirmed termination retains its
+  actual outcome. If neither exists, latch cancellation once. A later normal exit
+  cannot replace it with success. Repeated requests do not restart cleanup.
+- On acceptance, stop input delivery and execution-record acceptance together.
+  Drop pending input; a concurrent input request must not write after this cutoff.
+  Preserve only the already accepted safe prefix; discard incomplete records.
+- Force termination of the entire isolated environment, including descendants.
+  Do not depend on submitted Java accepting interruption or handling a signal.
+- While termination is unconfirmed, report that the run is stopping. Do not
+  publish a terminal trace envelope or claim that execution has ended.
+- After confirmed termination, publish execution.status = cancelled with reason
+  "Run cancelled by user" and an execution diagnostic with code RUN_CANCELLED.
+  A never-launched run needs confirmation that no launch or run process remains.
+- Capture is partial with a trustworthy initial state and safe accepted prefix,
+  or unavailable without one. Cancellation never yields complete capture, even
+  if execution exits normally after cancellation was latched. Retain accepted
+  output and source/run associations; replay never resends input or reruns Java.
+- Do not manufacture an exception, return, scope exit, or successful mutation.
+  Release the run slot only after termination and temporary-resource cleanup
+  are verified, following the timeout procedure. Keep failed cleanup visible.
+
+Termination/cleanup confirmation and retry deadlines remain unfinished runner
+specification work. Cancellation must not permit an unlimited orphaned worker;
+this document does not claim that those bounds or enforcement already exist.
+API responses, disconnect policy, and input-wait limits remain separate tasks.
+
+### Required prototype checks (planned, not run)
+
+- Cancel a loop or blocked input read; all run processes stop and cleanup verifies.
+- Cancel before launch or during compilation; no submitted program starts later.
+- Race cancellation with completion, a limit, repeated cancellation, and input:
+  one outcome remains; no input is delivered after the accepted cancellation cutoff.
+- Cut off a record: keep only safe facts. Failed cleanup keeps the slot occupied.

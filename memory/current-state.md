@@ -27,8 +27,9 @@ Long project instructions remain in their source files rather than being duplica
   Part 4b memory-limit documentation is committed and pushed as 1884354 on
   docs/execution-memory; its merge has not been checked in this turn.
   The proposed budgets and enforcement remain unverified by runtime tests.
-  Part 4c cancellation rules are the next proposal, awaiting explicit scope
-  approval; no cancellation specification or implementation has been started.
+  Part 4c cancellation documentation is approved and added in that same file.
+  It covers whole-run termination, safe capture, races, and verified cleanup;
+  cancellation implementation and runtime verification remain unfinished.
 - Review preference confirmed 2026-10-07: previous changes were still too large.
   Give each task one purpose, aim for 1–3 files, and split long changes further.
   Explain what changed, why, and where to read first. Commit/push each small
@@ -570,13 +571,39 @@ preserve user messages and label assistant summaries explicitly.
     Both memory files are updated; documentation whitespace checks passed.
     No runtime tests run.
 
+34. User: "I approve"
+    This approves Part 4c as discussed: approximately 30–40 specification lines
+    about cancellation, both memory updates, verification, and a separate
+    commit/push. Assistant reviewed the isolation rules, trace termination
+    contract, and cancellation requirements, then created
+    docs/execution-cancellation from docs/cancellation-proposal. No merge of
+    Part 4b or proposal notes is assumed. Added cancellation by run identity
+    across queued/preparation/compilation/execution/input-wait phases, a single
+    latched outcome for competing stop causes, idempotent repeated requests,
+    an input/record acceptance cutoff, whole-environment forced termination,
+    and cancelled status only after termination is confirmed. Safe capture is
+    partial or unavailable; no fabricated events or rerun/input replay. Cleanup
+    must be verified before releasing the slot. Four future prototype checks
+    cover blocked execution, prelaunch/compiler cancellation, races, incomplete
+    records, and cleanup failure; none has run. API details, disconnect policy,
+    input-wait limits, and confirmation/retry bounds remain separate work.
+    Review specs/execution-isolation.md's Part 4c section first. Changed exactly
+    three documentation files; no application code or dependency changes.
+    Verification: the new section is 40 lines, local references exist, and
+    cancellation status/capture/diagnostic rules agree with trace-format.md
+    and the existing schema. Whitespace checks passed; no runtime tests run.
+    Pause after delivery for review;
+    no next task or implementation is approved.
+
 ## Latest verification notes
 
 Part 3 added a contract schema, examples, and development validation tooling.
 All 46 checks passed, including after clean lockfile installation. Documentation
 links, staged whitespace, and exclusion of node_modules were verified. The three
 part commits are merged in main at 7c94967, verified by fetch/pull and ancestry.
-The current smaller-task discussion changes memory only. No application tests,
-Java execution, or application builds have been run or claimed. Verify the current
-branch and remote refs when resuming. The previous memory PR merge is verified;
-no PR creation or merge is claimed for the new discussion branch.
+Parts 4a–4c specify timeout, memory, and cancellation behavior; runtime enforcement
+and isolation tests remain unimplemented. Part 4c documentation checks passed:
+40-line section, valid local references, trace/schema consistency, and whitespace.
+No application tests, Java execution, or application builds have been run or
+claimed. Verify the current branch and remote refs when resuming. No Part 4b/4c
+PR creation or merge is claimed; automated PR creation remains unavailable.
