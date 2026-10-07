@@ -24,12 +24,12 @@ Long project instructions remain in their source files rather than being duplica
 - Active milestone: Milestone 0, repository and specifications; incomplete.
 - Part 4a runtime timeout rules are merged as documentation in
   specs/execution-isolation.md; enforcement and runner tests remain unimplemented.
-  Part 4b memory-limit documentation is committed and pushed as 1884354 on
-  docs/execution-memory; its merge has not been checked in this turn.
+  Part 4b memory-limit commit 1884354 and Part 4c cancellation commit 2ce9ca4
+  are verified ancestors of main at 8e4af20, pulled on 2026-10-07.
   The proposed budgets and enforcement remain unverified by runtime tests.
-  Part 4c cancellation documentation is approved and added in that same file.
-  It covers whole-run termination, safe capture, races, and verified cleanup;
-  cancellation implementation and runtime verification remain unfinished.
+  Cancellation documentation covers whole-run termination, safe capture, races,
+  and verified cleanup; implementation and runtime verification remain unfinished.
+  Next proposal: Part 4d compilation timeout rules only, awaiting scope approval.
 - Review preference confirmed 2026-10-07: previous changes were still too large.
   Give each task one purpose, aim for 1–3 files, and split long changes further.
   Explain what changed, why, and where to read first. Commit/push each small
@@ -595,6 +595,26 @@ preserve user messages and label assistant summaries explicitly.
     Pause after delivery for review;
     no next task or implementation is approved.
 
+35. User: "ok, i merged all the branch into main. what'snext"
+    Assistant fetched origin, switched to main, and pulled with --ff-only to
+    8e4af20. Ancestry checks confirm 1884354 (memory) and 2ce9ca4 (cancellation)
+    are included; the working tree was clean. Read the merged instructions,
+    next steps, isolation rules, and relevant requirements/trace status rules.
+    Assistant proposal: Part 4d compilation timeout only, approximately 30–40
+    lines in specs/execution-isolation.md plus both memory updates, with a
+    separate commit/push and review pause. Propose a 10,000 ms initial compiler
+    elapsed-time budget to measure, starting externally before compiler launch.
+    Define no submitted JVM launch after a compiler timeout, whole-environment
+    termination/cleanup, limited status versus a normal compile_error, unavailable
+    runtime capture, and future checks. This is an unapproved proposal, not an
+    enforced or verified limit. No application code, Docker execution, dependency
+    installation, other limit definitions, or runtime tests are included.
+    Current work records this discussion and verified merges only on
+    docs/compilation-timeout-proposal, based on main at 8e4af20. Obtain scope
+    confirmation before editing the specification. Both memory files are updated;
+    documentation whitespace checks passed. Automated PR creation remains
+    unavailable; provide a manual PR link after publishing these notes.
+
 ## Latest verification notes
 
 Part 3 added a contract schema, examples, and development validation tooling.
@@ -605,5 +625,6 @@ Parts 4a–4c specify timeout, memory, and cancellation behavior; runtime enforc
 and isolation tests remain unimplemented. Part 4c documentation checks passed:
 40-line section, valid local references, trace/schema consistency, and whitespace.
 No application tests, Java execution, or application builds have been run or
-claimed. Verify the current branch and remote refs when resuming. No Part 4b/4c
-PR creation or merge is claimed; automated PR creation remains unavailable.
+claimed. Parts 4b and 4c are now verified merged in main at 8e4af20 through fetch,
+fast-forward pull, and ancestry checks. Compilation-timeout proposal notes change
+memory only; automated PR creation remains unavailable.
