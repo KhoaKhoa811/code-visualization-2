@@ -8,12 +8,16 @@ templates. Define coverage to track implementation and truthful limitations,
 not to restrict the product to examples. Runtime facts must remain captured,
 and execution isolation restrictions still apply.
 
-1. Parts 1–3 and Part 4a are merged. Part 4b was approved and its short memory
-   section is drafted in specs/execution-isolation.md. Review the proposed
+1. Parts 1–3 and Part 4a are merged. Part 4b is committed and pushed as 1884354
+   on docs/execution-memory; its merge is not verified. Review the proposed
    512 MiB container/128 MiB heap budgets, swap policy, verified OOM classification,
    and safe trace/cleanup behavior. No runtime enforcement has been implemented
-   or tested. No application/Docker implementation is approved. Pause after this
-   task; cancellation remains separate. Keep all tasks to one purpose, target
+   or tested. Next proposed task: Part 4c cancellation rules, approximately
+   30–40 new lines in specs/execution-isolation.md plus both memory updates.
+   Cover whole-run termination, waiting input, safe trace retention, cancelled
+   status, completion races, and cleanup. Obtain explicit scope approval before
+   starting. No application/Docker implementation is approved. Keep all tasks
+   to one purpose, target
    1–3 files, and split long
    changes further. Explain why and which file to read first.
    Completed Part 3 checkpoints:
@@ -55,7 +59,8 @@ contracts/trace-v1. Its merge was verified on 2026-10-07: local main was pulled
 to 7c94967 (PR #8), containing 4cdc5c8. Task-size preference was pushed as 80d63ef
 on docs/smaller-task-plan. Part 4a commit 781da5c is verified on main at 7cff8f9
 (PR #10 merge). Proposal notes were pushed as 20ea472 on docs/memory-limit-proposal.
-Current Part 4b branch: docs/execution-memory, based on those notes.
+Part 4b branch: docs/execution-memory, based on those notes.
+Current discussion branch: docs/cancellation-proposal, based on Part 4b.
 Git author identity is resolved.
 The `gh` command and GitHub PR tools are unavailable; automated PR creation is
 blocked. Publish the branch and provide a GitHub compare link for manual review.

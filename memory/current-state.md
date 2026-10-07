@@ -24,8 +24,11 @@ Long project instructions remain in their source files rather than being duplica
 - Active milestone: Milestone 0, repository and specifications; incomplete.
 - Part 4a runtime timeout rules are merged as documentation in
   specs/execution-isolation.md; enforcement and runner tests remain unimplemented.
-  Part 4b memory-limit rules are approved and now drafted in that same file.
+  Part 4b memory-limit documentation is committed and pushed as 1884354 on
+  docs/execution-memory; its merge has not been checked in this turn.
   The proposed budgets and enforcement remain unverified by runtime tests.
+  Part 4c cancellation rules are the next proposal, awaiting explicit scope
+  approval; no cancellation specification or implementation has been started.
 - Review preference confirmed 2026-10-07: previous changes were still too large.
   Give each task one purpose, aim for 1–3 files, and split long changes further.
   Explain what changed, why, and where to read first. Commit/push each small
@@ -549,6 +552,23 @@ preserve user messages and label assistant summaries explicitly.
     Verification: new memory section is 40 lines; byte conversions, references,
     terminal/capture statuses, and whitespace checked. Runtime tests not run.
     Pause after commit/push for review; no next task or implementation is approved.
+
+33. User: "ok, continue"
+    Assistant checked the saved plan, repository instructions, requirements,
+    timeout/memory specification, and clean branch status. Part 4b is committed
+    and pushed as 1884354; automatic PR creation remains unavailable. The user
+    did not report merging it, so no merge is assumed. Proposed Part 4c:
+    cancellation rules only, approximately 30–40 new lines in
+    specs/execution-isolation.md plus the two memory updates. Define cancellation
+    during execution/input waiting, whole-run termination, safe trace retention,
+    cancelled status, completion/cancellation races, and verified cleanup before
+    releasing the run slot. No API, UI, Docker enforcement, dependencies, or
+    runtime tests are included. Project instructions require confirmation of a
+    newly discussed scope; obtain it before starting Part 4c. This turn records
+    the discussion only on docs/cancellation-proposal, based on the completed
+    Part 4b branch. The assistant will provide the small scope and ask for approval.
+    Both memory files are updated; documentation whitespace checks passed.
+    No runtime tests run.
 
 ## Latest verification notes
 
