@@ -25,8 +25,9 @@ Long project instructions remain in their source files rather than being duplica
 - Completed and merged: Part 1, observable Step behavior using short Java
   examples and intermediate states in specs/trace-format.md. The user approved
   Part 2, the Java support specification, now also merged. Part 3 (versioned
-  trace contract and examples) is proposed; the user chose to discuss scope first.
-  Explicit approval to implement Part 3 is pending. The companion
+  trace contract and examples) is now approved as three reviewable commits.
+  Part 3a is drafted; 3b schema and 3c fixtures/checks follow within this approval.
+  The companion
   `next-steps.md` records remaining work under the project delivery instructions.
 - No application implementation, dependency installation, or additional milestone
   work has been approved in this conversation.
@@ -408,6 +409,18 @@ preserve user messages and label assistant summaries explicitly.
     positive fixtures validate, negative fixtures fail as intended, and remaining
     semantic validation obligations are explicit. Ask which aspect the user
     wants to change before requesting approval of a concrete scope.
+
+22. User: "I think it's fine. When you do you have to break into smaller tasks
+    so that when I read, I can understand them"
+    This approves the discussed Part 3 with separate commits for 3a trace rules,
+    3b versioned JSON schema, and 3c fixtures/validation. The assistant created
+    branch contracts/trace-v1 from recovery commit 272b0fc; main was still 9449bd5
+    at the latest fetch. Part 3a expands the trace specification and adds ADR
+    0003, distinguishing execution status from safe capture and defining numeric
+    encoding, identity, event order, cursor boundaries, and semantic obligations.
+    JSON Schema 2020-12 official documentation was consulted. Node v22.23.2/npm
+    10.9.8 are available; Python and Ajv are not. Permission to add pinned Ajv
+    under contracts was requested for 3c. No runtime Java or application work.
 
 ## Latest verification notes
 

@@ -8,12 +8,12 @@ templates. Define coverage to track implementation and truthful limitations,
 not to restrict the product to examples. Runtime facts must remain captured,
 and execution isolation restrictions still apply.
 
-1. Parts 1 and 2 are merged on main. The user chose "Discuss scope first";
-   discuss the proposed specification/schema/fixtures breakdown before approval.
-   Part 3 remains unstarted. Proposed scope: versioned trace
-   schema, typed/numeric values, event order, object/frame identities, terminal
-   and capture statuses, and representative sample traces. Align with existing
-   Java-support and Step specs; do not implement the application. Execution
+1. Parts 1 and 2 are merged. Part 3 is now approved on contracts/trace-v1:
+   - 3a: trace rules and ADR drafted; verify and commit separately.
+   - 3b: encode the agreed shape in a versioned JSON schema.
+   - 3c: add valid/invalid examples and validate; pinned Ajv permission pending.
+   Keep each part reviewable and push at checkpoints. No application code.
+   Execution
    isolation remains a separate later specification part requiring approval.
    Runtime proof for all documented coverage remains pending.
    Other open definitions: Java support matrix, separate test-input workflow,
