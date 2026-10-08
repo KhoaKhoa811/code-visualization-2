@@ -1,6 +1,6 @@
 # Current state and conversation memory
 
-Last updated: 2026-10-07 (Asia/Saigon).
+Last updated: 2026-10-08 (Asia/Saigon).
 
 ## Recovery instructions
 
@@ -32,8 +32,9 @@ Long project instructions remain in their source files rather than being duplica
   Part 4d compilation-timeout commit 69f4f40 is verified merged in main at
   d75cf05, pulled on 2026-10-07. Its 10,000 ms proposed budget and enforcement
   remain unverified at runtime. Part 4e process/thread-limit documentation is
-  approved and added; its proposed 128-task container cap and enforcement remain
-  unverified at runtime.
+  committed/pushed as 95adf12 on docs/process-thread-limits; its merge is not
+  verified. Its proposed 128-task cap and enforcement remain unverified at runtime.
+  Next proposal: Part 4f stdout/stderr limits only, awaiting explicit scope approval.
 - Review preference confirmed 2026-10-07: previous changes were still too large.
   Give each task one purpose, aim for 1–3 files, and split long changes further.
   Explain what changed, why, and where to read first. Commit/push each small
@@ -694,6 +695,50 @@ preserve user messages and label assistant summaries explicitly.
     retry bounds remain separate work. Pause after delivery; no next task approved.
     Automatic PR creation remains unavailable; provide a manual PR link after push.
 
+39. User: "ok, what are you gonna do next"
+    Assistant proposes Part 4f stdout/stderr limits only, to prevent excessive
+    console output from consuming unlimited memory. Define a proposed combined
+    per-run byte budget for compiler/runtime stdout and stderr, counting and
+    retention rules, a clear limit outcome, safe partial/unavailable runtime
+    capture, whole-environment termination, verified cleanup, and future checks.
+    Target approximately 30–40 new lines in specs/execution-isolation.md plus
+    both memory updates; commit/push separately and pause for review. Trace-size
+    limits remain a separate future task. No application code, Docker execution,
+    dependencies, or runtime tests are included. Obtain explicit scope approval
+    before starting; the proposal does not define an enforced limit or authorize
+    later tasks. Reviewed saved next steps, recent conversation, and output-limit
+    requirements/gaps. Part 4e was pushed as 95adf12; the user has not reported its
+    merge in this exchange, and no merge is assumed or claimed. The workspace was
+    clean. This turn records discussion only on docs/output-limit-proposal, based
+    on the completed Part 4e branch. Both memory files are updated; documentation
+    whitespace checks passed after recovery on 2026-10-08. Automatic PR creation
+    remains unavailable;
+    provide a manual PR link after publishing these discussion notes.
+
+40. User: "read current-state.md, git change files and other files to recover
+    memory. Last time you stopped at Part 4f due to usage limit."
+    Recovery on 2026-10-08: read AGENTS.md, current scope/recent conversation,
+    next-steps.md, requirements clarification/isolation rules, execution-isolation.md,
+    trace termination rules, Git status/log, and unstaged/staged diffs. The local
+    branch is docs/output-limit-proposal at 95adf12, with exactly two unstaged
+    memory-file changes and no staged changes. Their diff matches the interrupted
+    Part 4f proposal notes. Part 4e remains the latest committed specification;
+    Part 4f has no specification section or recorded scope approval. The user
+    reports that a usage limit interrupted the previous turn; the file state
+    confirms proposal recording stopped before commit/push, not that Part 4f
+    implementation had begun. The assistant preserves those notes, records this
+    recovery, updates both memory dates, and completes the authorized memory
+    commit/push workflow. Remote main is not fetched in this recovery, so Part 4e
+    merge status remains unverified. Next scope presented for approval remains
+    Part 4f: 30–40 stdout/stderr-limit specification lines, combined compiler/
+    runtime byte accounting and retention, limit outcome, safe capture, cleanup,
+    and future checks, plus both memory files. No application code or runtime
+    enforcement/tests; trace-size limits remain a separate task. Obtain explicit
+    confirmation before starting that specification under AGENTS.md. Recovery
+    verification passed: prior diff matches proposal notes, only the two memory
+    files change, references read successfully, and whitespace checks passed.
+    Automatic PR creation remains unavailable.
+
 ## Latest verification notes
 
 Part 3 added a contract schema, examples, and development validation tooling.
@@ -712,3 +757,7 @@ Part 4d commit 69f4f40 is verified merged at d75cf05 by fetch, fast-forward pull
 and ancestry check. Part 4e documentation checks passed: 40-line section, local
 references, official platform details, trace/schema consistency, and whitespace.
 Runtime process/thread-limit checks remain unrun.
+Part 4e is committed and pushed as 95adf12; its merge is not verified. This turn
+updates memory only. Part 4f output-limit specification remains an unapproved proposal.
+2026-10-08 recovery verified only the two interrupted memory changes, with no
+Part 4f specification changes. No runtime or contract tests rerun during recovery.
