@@ -34,20 +34,23 @@ and execution isolation restrictions still apply.
    output/trace separation, overflow outcome, safe capture, and cleanup.
    Documentation checks passed: 40-line section, byte conversion, local references,
    trace/schema consistency, and whitespace. Runtime checks remain unrun.
-   Next proposed task: Part 4g trace-size limits, approximately 30–40 new lines
-   in specs/execution-isolation.md plus both memory files. Define a proposed byte
-   budget/counting scope, bounded records, safe observable-step cutoff, overflow
-   outcome, capture retention, cleanup, and future checks. Obtain explicit scope
-   approval first; use docs/part-4g-trace-limits, then commit/push and pause.
-   No application code or later task is approved.
+   Part 4g trace-data documentation is approved and added in
+   specs/execution-isolation.md with both memory updates. Review its proposed
+   8 MiB captured-data and 256 KiB record limits, counting scope, atomic acceptance,
+   safe observable-step cutoff, TRACE_LIMIT outcome, and cleanup. Source/terminal
+   metadata are excluded and need separate bounds; this is not a whole-envelope
+   or decoded-memory guarantee. Documentation checks passed: 40-line section,
+   byte conversions, local references, safe-prefix/schema consistency, and whitespace.
+   Runtime checks remain unrun.
+   Commit/push and pause for review; no application code or later task approved.
    Recovery on 2026-10-08 found only interrupted proposal notes in the two memory
    files, with no Part 4f specification or recorded approval. Those notes were
    published as e42efe3 and are now verified merged in main at dc4a332. Part 4f
    scope was subsequently approved by "ok, continue" on 2026-10-08. The separate
    branch-naming request itself did not authorize Part 4f implementation.
-   Trace-size rules are now the Part 4g proposal, not an approved implementation.
+   Part 4g approval covers documentation only, not runtime implementation.
    No application/Docker implementation is approved. Other remaining
-   isolation definitions include trace-size/traversal bounds,
+   isolation definitions include traversal/collection/recursion and source/metadata bounds,
    input-wait limits, and
    termination/cleanup confirmation deadlines. Discuss one small scope before
    starting it. Keep tasks to one purpose, target 1–3 files, and split long
@@ -105,7 +108,8 @@ Part 4e was pushed as 95adf12 on docs/process-thread-limits. On 2026-10-08, main
 was pulled to dc4a332 and ancestry verified 95adf12 and recovery notes e42efe3 merged.
 Branch-label preference was pushed as df1e6d4 on docs/part-4f-planning.
 Part 4f was pushed as ade1c31 on docs/part-4f-output-limits; its merge is not verified.
-Current discussion branch: docs/part-4g-planning, based on the Part 4f branch.
+Part 4g proposal notes were pushed as 6bbbbb1 on docs/part-4g-planning.
+Current Part 4g branch: docs/part-4g-trace-limits, based on those notes.
 Git author identity is resolved.
 The `gh` command and GitHub PR tools are unavailable; automated PR creation is
 blocked. Publish the branch and provide a GitHub compare link for manual review.

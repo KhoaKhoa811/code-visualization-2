@@ -1,6 +1,6 @@
 # Execution isolation: timeouts, memory, and cancellation
 
-Status: Milestone 0, Parts 4a–4f, 2026-10-08. Proposed rules for review.
+Status: Milestone 0, Parts 4a–4g, 2026-10-08. Proposed rules for review.
 Resource-limit and cancellation enforcement are not implemented or verified yet.
 
 Sources: [requirements, section 10](../requirements/PROJECT_REQUIREMENTS.md)
@@ -49,8 +49,8 @@ Do not manufacture a Java exception, return, scope exit, or mutation on timeout.
 - Blocking execution still reaches the deadline; activity never resets the timer.
 
 These are future checks, not test results. Part 4a covers runtime timeouts only.
-Trace-size, traversal, and input-wait bounds remain unfinished;
-Parts 4b–4f propose memory, cancellation, compilation, process/thread, and output rules.
+Traversal, input-wait, and source/envelope metadata bounds remain unfinished;
+Parts 4b–4g propose memory, cancellation, compilation, process/thread, output, and trace rules.
 
 ## Proposed memory budget — Part 4b
 
@@ -256,3 +256,44 @@ the slot; failed termination/cleanup follows the timeout procedure.
 - Split multibyte/chunked output counts bytes; stdout/stderr share one quota.
 - Compiler output reduces runtime allowance; overflow prevents application launch.
 - Fast exit, slow consumer, and cancellation races preserve one outcome and cleanup.
+
+## Proposed trace-data budget — Part 4g
+
+- Prototype quota: **8 MiB (8,388,608 bytes)** captured data per run, unverified.
+- Maximum encoded initial-state/event record, including framing: **256 KiB (262,144 bytes)**.
+- Count uncompressed UTF-8 JSON bytes for initialState, every event, and stepEnds,
+  including punctuation, escapes, and transport framing. Never refund discarded
+  suffix bytes; exact-quota data is allowed, an addition beyond it triggers a limit.
+- Bound encoding/framing buffers before assembling or parsing a whole record.
+  Oversized records cannot bypass the guard by being split into smaller chunks.
+- Never truncate a value/array/object or split an event to make it fit. stdout/stderr
+  has its separate quota; printed text cannot become accepted execution facts.
+- Source and terminal envelope metadata are outside this captured-data quota;
+  their separate admission/serialization bounds remain unfinished. This is not
+  a bound on the entire trace envelope or a proof of bounded decoded memory.
+
+### At a trace-data limit
+
+Serialize the limit with cancellation/other stop causes; retain a latched outcome.
+Otherwise latch the data/record limit. Accept an event and its cursor-index changes
+atomically only if they fit. Drop the overflowing/incomplete record and unsafe suffix.
+Retain initialState and events only through the last safe observable record; discard
+trailing bookkeeping, even if its bytes fit. Set stepEnds and safeEventCount to that
+same prefix under trace-format.md. With a trusted initial state but no safe operation,
+partial capture has empty events/stepEnds; without one, capture is unavailable.
+
+Stop input/record acceptance and new launches; terminate the whole environment.
+If this limit wins, only after confirmed termination publish execution.status = limited,
+diagnostic code TRACE_LIMIT with phase capture, and a reason naming the exceeded quota.
+Capture is partial or unavailable, never complete. Preserve accepted console output;
+invent no mutations, object contents, returns, scope cleanup, or rerun/input replay.
+Verify temporary-resource cleanup before releasing the slot; failed confirmation
+or cleanup follows the existing timeout procedure. Check final trace data before
+normal completion so a fast exit cannot hide an oversized final record/index update.
+
+### Required prototype checks (planned, not run)
+
+- Exact byte/record limits fit; excess, multibyte text, and JSON escaping count correctly.
+- Large initial/event records are refused without buffering the whole oversized record.
+- Overflow between operations drops trailing bookkeeping and restores the last safe state.
+- Missing initial state, final-index overflow, and cancellation preserve truthful status/cleanup.

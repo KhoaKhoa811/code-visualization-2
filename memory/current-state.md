@@ -36,8 +36,9 @@ Long project instructions remain in their source files rather than being duplica
   recovery notes e42efe3. Its 128-task cap and enforcement remain unverified at runtime.
   Part 4f stdout/stderr-limit documentation is committed/pushed as ade1c31 on
   docs/part-4f-output-limits; its merge is not verified. The proposed 1 MiB combined
-  compiler/runtime quota remains unverified at runtime. Next proposal: Part 4g
-  trace-size limits only, awaiting explicit scope approval.
+  compiler/runtime quota remains unverified at runtime. Part 4g trace-data-limit
+  documentation is approved and added; the proposed 8 MiB data and 256 KiB record
+  limits remain unverified at runtime. Source/terminal metadata bounds are still work.
 - Review preference confirmed 2026-10-07: previous changes were still too large.
   Give each task one purpose, aim for 1–3 files, and split long changes further.
   Explain what changed, why, and where to read first. Commit/push each small
@@ -811,13 +812,44 @@ preserve user messages and label assistant summaries explicitly.
     are updated; documentation whitespace checks passed. Automatic PR creation
     remains unavailable; provide a manual link after publishing the discussion.
 
+44. User: "ok"
+    This confirms Part 4g as previously discussed: approximately 30–40 trace-limit
+    specification lines, both memory updates, verification, a separate commit/push,
+    and review pause. Assistant checked the clean planning branch, saved scope,
+    trace envelope/prefix/termination rules, isolation notes, and requirements.
+    Created docs/part-4g-trace-limits from docs/part-4g-planning, including proposal
+    commit 6bbbbb1 and Part 4f ade1c31; their newer merge status is not assumed.
+    Proposed an 8 MiB (8,388,608-byte) captured-data quota and 256 KiB (262,144-byte)
+    limit per initial-state/event record. Count uncompressed UTF-8 JSON initialState,
+    events, stepEnds, punctuation/escapes, and framing without refunding discarded
+    suffix bytes. Guard encoding/framing before whole-record assembly/parsing;
+    chunking cannot evade the cap and facts cannot be truncated to fit. Source and
+    terminal envelope metadata are excluded and explicitly need separate future
+    bounds; the quota is not a whole-envelope or decoded-memory sizing guarantee.
+    Accept records/cursor updates atomically. Overflow retains only a safe observable
+    prefix, drops unsafe trailing bookkeeping, and aligns stepEnds/safeEventCount.
+    Trustworthy initial state permits partial zero-operation capture; otherwise
+    capture is unavailable. Stop input/record acceptance and new launches, terminate
+    the whole environment, and only then publish limited status with capture-phase
+    TRACE_LIMIT if this stop cause wins. Preserve accepted output, fabricate no
+    missing events, verify cleanup before releasing the slot, and check final data
+    before normal completion. Four future checks are listed, not run. Traversal/
+    collection/recursion, transport/encoder implementation, and source/metadata
+    bounds remain unfinished. Exactly three documentation files change; read Part
+    4g first. Verification passed: new section is 40 lines, byte conversions/local
+    references are correct, safe-prefix and status/diagnostic rules match the trace
+    specification/schema, and whitespace checks passed. No application code,
+    dependencies, Docker execution, or runtime tests added. Pause after delivery;
+    no next task approved.
+    Automatic PR creation remains unavailable; provide a manual link after push.
+
 ## Latest verification notes
 
 Part 3 added a contract schema, examples, and development validation tooling.
 All 46 checks passed, including after clean lockfile installation. Documentation
 links, staged whitespace, and exclusion of node_modules were verified. The three
 part commits are merged in main at 7c94967, verified by fetch/pull and ancestry.
-Parts 4a–4f specify timeouts, memory, cancellation, process/thread, and output limits;
+Parts 4a–4g specify timeouts, memory, cancellation, process/thread, output, and trace limits;
 enforcement and isolation tests remain unimplemented. Part 4c documentation checks passed:
 40-line section, valid local references, trace/schema consistency, and whitespace.
 No application tests, Java execution, or application builds have been run or
@@ -832,8 +864,10 @@ Runtime process/thread-limit checks remain unrun.
 Part 4e commit 95adf12 and recovery notes e42efe3 are verified merged in main at
 dc4a332. Part 4f documentation checks passed: 40-line section, byte conversion,
 local references, trace/schema consistency, and whitespace. Runtime checks remain unrun.
-Part 4f is committed/pushed as ade1c31; merge status is unverified. Part 4g trace-size
-rules remain an unapproved proposal; this discussion updates memory only.
+Part 4f is committed/pushed as ade1c31; merge status is unverified. Part 4g trace-data
+rules are approved and added; documentation checks passed: 40-line section, byte
+conversions, local references, safe-prefix/schema consistency, and whitespace.
+No runtime checks run; source/envelope metadata bounds remain unfinished.
 2026-10-08 recovery verified only the two interrupted memory changes, with no
 Part 4f specification changes. No runtime or contract tests rerun during recovery.
 Branch naming now records the part label in AGENTS.md and both memory files;
