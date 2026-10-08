@@ -1,6 +1,6 @@
 # Next steps
 
-Last updated: 2026-10-07 (Asia/Saigon).
+Last updated: 2026-10-08 (Asia/Saigon).
 
 Confirmed direction: visualize arbitrary user-authored Java as correctly as
 possible through reusable language capabilities, never exact program/algorithm
@@ -22,13 +22,22 @@ and execution isolation restrictions still apply.
    10,000 ms deadline, shared budget, no execution after timeout, limited versus
    compile_error status, unavailable capture, and cleanup. Documentation checks
    passed: 40-line section, references, trace/schema consistency, and whitespace.
-   Runtime checks remain unrun. Part 4e process/thread documentation is approved
-   and added in specs/execution-isolation.md with both memory updates. Review
+   Runtime checks remain unrun. Part 4e process/thread documentation is committed
+   and pushed as 95adf12; its merge is not verified. Review
    the proposed 128-kernel-task cap, counting scope, trusted denial evidence,
    limit/error distinction, trace retention, and verified cleanup. Official
    Docker/kernel references were checked; documentation checks passed: 40-line
    section, local references, trace/schema consistency, and whitespace.
-   No runtime checks run. Commit/push and pause for review; no next task approved.
+   No runtime checks run. Next proposed task: Part 4f stdout/stderr limits,
+   approximately 30–40 new lines in specs/execution-isolation.md plus both memory
+   updates. Define a proposed combined compiler/runtime output byte budget,
+   counting/retention rules, terminal outcome, safe capture, cleanup, and future
+   checks. Obtain explicit scope approval first, then commit/push and pause.
+   Recovery on 2026-10-08 found only interrupted proposal notes in the two memory
+   files, with no Part 4f specification or recorded approval. Finish publishing
+   the recovered discussion notes; do not treat the recovery request as approval
+   to implement Part 4f. No remote merge check was performed in this recovery.
+   Trace-size limits remain a separate future task; no later task is approved.
    No application/Docker implementation is approved. Other remaining
    isolation definitions include output/trace bounds,
    input-wait limits, and
@@ -82,7 +91,8 @@ Compilation proposal notes are pushed as e1ec9a1 on docs/compilation-timeout-pro
 Part 4d was pushed as 69f4f40 on docs/compilation-timeout. On 2026-10-07, main
 was pulled to d75cf05 and ancestry verified that commit merged.
 Process-limit proposal notes are pushed as 4099115 on docs/process-limit-proposal.
-Current Part 4e branch: docs/process-thread-limits, based on those notes.
+Part 4e was pushed as 95adf12 on docs/process-thread-limits; its merge is not verified.
+Current discussion branch: docs/output-limit-proposal, based on Part 4e.
 Git author identity is resolved.
 The `gh` command and GitHub PR tools are unavailable; automated PR creation is
 blocked. Publish the branch and provide a GitHub compare link for manual review.
