@@ -8,7 +8,7 @@ templates. Define coverage to track implementation and truthful limitations,
 not to restrict the product to examples. Runtime facts must remain captured,
 and execution isolation restrictions still apply.
 
-1. Parts 1–3 and Parts 4a–4d are merged. Part 4b commit 1884354 and Part 4c
+1. Parts 1–3 and Parts 4a–4e are merged. Part 4b commit 1884354 and Part 4c
    commit 2ce9ca4 are verified ancestors of main at 8e4af20. Review the proposed
    512 MiB container/128 MiB heap budgets, swap policy, verified OOM classification,
    and safe trace/cleanup behavior. No runtime enforcement has been implemented
@@ -22,8 +22,8 @@ and execution isolation restrictions still apply.
    10,000 ms deadline, shared budget, no execution after timeout, limited versus
    compile_error status, unavailable capture, and cleanup. Documentation checks
    passed: 40-line section, references, trace/schema consistency, and whitespace.
-   Runtime checks remain unrun. Part 4e process/thread documentation is committed
-   and pushed as 95adf12; its merge is not verified. Review
+   Runtime checks remain unrun. Part 4e process/thread documentation is merged
+   as 95adf12 in main at dc4a332, verified on 2026-10-08. Review
    the proposed 128-kernel-task cap, counting scope, trusted denial evidence,
    limit/error distinction, trace retention, and verified cleanup. Official
    Docker/kernel references were checked; documentation checks passed: 40-line
@@ -34,9 +34,10 @@ and execution isolation restrictions still apply.
    counting/retention rules, terminal outcome, safe capture, cleanup, and future
    checks. Obtain explicit scope approval first, then commit/push and pause.
    Recovery on 2026-10-08 found only interrupted proposal notes in the two memory
-   files, with no Part 4f specification or recorded approval. Finish publishing
-   the recovered discussion notes; do not treat the recovery request as approval
-   to implement Part 4f. No remote merge check was performed in this recovery.
+   files, with no Part 4f specification or recorded approval. Those notes were
+   published as e42efe3 and are now verified merged in main at dc4a332. Part 4f
+   still requires explicit scope approval; the branch-naming request does not
+   authorize implementing it. Use docs/part-4f-output-limits for that approved task.
    Trace-size limits remain a separate future task; no later task is approved.
    No application/Docker implementation is approved. Other remaining
    isolation definitions include output/trace bounds,
@@ -44,6 +45,8 @@ and execution isolation restrictions still apply.
    termination/cleanup confirmation deadlines. Discuss one small scope before
    starting it. Keep tasks to one purpose, target 1–3 files, and split long
    changes further. Explain why and which file to read first.
+   Include the part label in all task/planning branch names:
+   `<type>/part-<id>-<purpose>`, as requested on 2026-10-08 and recorded in AGENTS.md.
    Completed Part 3 checkpoints:
    - 3a: complete, committed and pushed as 9905d0c.
    - 3b: complete, committed and pushed as afe8bf6.
@@ -91,8 +94,9 @@ Compilation proposal notes are pushed as e1ec9a1 on docs/compilation-timeout-pro
 Part 4d was pushed as 69f4f40 on docs/compilation-timeout. On 2026-10-07, main
 was pulled to d75cf05 and ancestry verified that commit merged.
 Process-limit proposal notes are pushed as 4099115 on docs/process-limit-proposal.
-Part 4e was pushed as 95adf12 on docs/process-thread-limits; its merge is not verified.
-Current discussion branch: docs/output-limit-proposal, based on Part 4e.
+Part 4e was pushed as 95adf12 on docs/process-thread-limits. On 2026-10-08, main
+was pulled to dc4a332 and ancestry verified 95adf12 and recovery notes e42efe3 merged.
+Current discussion branch: docs/part-4f-planning, based on that main.
 Git author identity is resolved.
 The `gh` command and GitHub PR tools are unavailable; automated PR creation is
 blocked. Publish the branch and provide a GitHub compare link for manual review.

@@ -54,6 +54,7 @@
 
 ## Verification and handoff
 
+- Include the relevant part label in task and planning branch names, using `<type>/part-<id>-<purpose>` (for example, `docs/part-4f-output-limits` or `docs/part-4f-planning`). This user preference makes small parts easier to track; a planning branch does not authorize the proposed task.
 - Add meaningful tests for semantic transformations, trace contracts, intermediate replay states, adapters, and runner isolation. Compare original and instrumented supported programs for final values, output, exceptions, and side-effect counts.
 - Include browser verification for sorting playback when the frontend exists. Check source edits, backward steps, failures, limits, and cleanup against relevant acceptance cases.
 - Verify the requirements' grid/mapping/confidence acceptance cases as those capabilities are implemented: common cursor, shared identities, mapping invalidation, bounded factual graph fallback, ambiguity, ranking evidence and no future-event leakage. Keep required-but-unimplemented features clearly labeled; do not claim V1 completion from narrow prototype gates.

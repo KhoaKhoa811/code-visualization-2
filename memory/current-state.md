@@ -32,13 +32,16 @@ Long project instructions remain in their source files rather than being duplica
   Part 4d compilation-timeout commit 69f4f40 is verified merged in main at
   d75cf05, pulled on 2026-10-07. Its 10,000 ms proposed budget and enforcement
   remain unverified at runtime. Part 4e process/thread-limit documentation is
-  committed/pushed as 95adf12 on docs/process-thread-limits; its merge is not
-  verified. Its proposed 128-task cap and enforcement remain unverified at runtime.
+  merged as 95adf12 in main at dc4a332, verified on 2026-10-08 together with
+  recovery notes e42efe3. Its 128-task cap and enforcement remain unverified at runtime.
   Next proposal: Part 4f stdout/stderr limits only, awaiting explicit scope approval.
 - Review preference confirmed 2026-10-07: previous changes were still too large.
   Give each task one purpose, aim for 1–3 files, and split long changes further.
   Explain what changed, why, and where to read first. Commit/push each small
   task separately, then pause for review before starting the next task.
+- Branch naming confirmed 2026-10-08: include the part label, using
+  `<type>/part-<id>-<purpose>`, such as docs/part-4f-output-limits. Planning
+  branches also include the part label; this does not approve their proposed task.
 - Completed and merged: Part 1, observable Step behavior using short Java
   examples and intermediate states in specs/trace-format.md. The user approved
   Part 2, the Java support specification, now also merged. Part 3 (versioned
@@ -739,6 +742,24 @@ preserve user messages and label assistant summaries explicitly.
     files change, references read successfully, and whitespace checks passed.
     Automatic PR creation remains unavailable.
 
+41. User: "I merged all the branches. One suggestion, you should input the part
+    name like 4a, 4b, 4c, ... to the branch name so that I can easily keep track"
+    Assistant accepts the naming instruction and will include part labels in
+    future task/planning branches, for example docs/part-4f-output-limits. Fetched
+    origin, switched to main, and pulled with --ff-only to dc4a332. Ancestry checks
+    confirm Part 4e commit 95adf12 and recovery/proposal commit e42efe3 are merged;
+    main matched origin/main and the working tree was clean. Created
+    docs/part-4f-planning from that main. Added the naming rule to AGENTS.md and
+    recorded the user preference/verified merges in both memory files. This is
+    one atomic documentation update; no existing remote branch is renamed.
+    Part 4f stdout/stderr-limit specification remains proposed, not approved or
+    implemented. This request authorizes the naming preference, not that task.
+    Documentation verification passed: branch examples are valid Git names,
+    the rule matches both memory files, and whitespace checks passed. No runtime
+    or contract tests run.
+    Commit/push these three files and provide a manual PR link, since automated
+    PR creation remains unavailable.
+
 ## Latest verification notes
 
 Part 3 added a contract schema, examples, and development validation tooling.
@@ -757,7 +778,10 @@ Part 4d commit 69f4f40 is verified merged at d75cf05 by fetch, fast-forward pull
 and ancestry check. Part 4e documentation checks passed: 40-line section, local
 references, official platform details, trace/schema consistency, and whitespace.
 Runtime process/thread-limit checks remain unrun.
-Part 4e is committed and pushed as 95adf12; its merge is not verified. This turn
-updates memory only. Part 4f output-limit specification remains an unapproved proposal.
+Part 4e commit 95adf12 and recovery notes e42efe3 are verified merged in main at
+dc4a332. Part 4f output-limit specification remains an unapproved proposal.
 2026-10-08 recovery verified only the two interrupted memory changes, with no
 Part 4f specification changes. No runtime or contract tests rerun during recovery.
+Branch naming now records the part label in AGENTS.md and both memory files;
+the naming-only update's documentation checks passed: valid branch names,
+consistent instructions/memory, and whitespace. No runtime tests run.
