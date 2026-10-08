@@ -34,8 +34,10 @@ Long project instructions remain in their source files rather than being duplica
   remain unverified at runtime. Part 4e process/thread-limit documentation is
   merged as 95adf12 in main at dc4a332, verified on 2026-10-08 together with
   recovery notes e42efe3. Its 128-task cap and enforcement remain unverified at runtime.
-  Part 4f stdout/stderr-limit documentation is approved and added in that file;
-  its proposed 1 MiB combined compiler/runtime quota remains unverified at runtime.
+  Part 4f stdout/stderr-limit documentation is committed/pushed as ade1c31 on
+  docs/part-4f-output-limits; its merge is not verified. The proposed 1 MiB combined
+  compiler/runtime quota remains unverified at runtime. Next proposal: Part 4g
+  trace-size limits only, awaiting explicit scope approval.
 - Review preference confirmed 2026-10-07: previous changes were still too large.
   Give each task one purpose, aim for 1–3 files, and split long changes further.
   Explain what changed, why, and where to read first. Commit/push each small
@@ -790,6 +792,25 @@ preserve user messages and label assistant summaries explicitly.
     implementation remain separate unfinished work. Pause after delivery; no next
     task approved. Automatic PR creation remains unavailable; provide a manual link.
 
+43. User: "ok, what's next"
+    Assistant proposes Part 4g trace-size rules only, to bound recorded execution
+    data. Define a proposed trace byte budget and what counts, bounded record
+    acceptance, overflow at the last safe observable-step boundary, limited status
+    after whole-environment termination, safe partial/unavailable capture, cleanup,
+    and future prototype checks. Never keep a cut-off event or unsafe trailing
+    bookkeeping. Target approximately 30–40 new lines in specs/execution-isolation.md
+    plus both memory updates; use docs/part-4g-trace-limits after explicit approval,
+    then commit/push and pause for review. No application code, Docker execution,
+    dependencies, runtime tests, or other limit definitions are included. Traversal,
+    collection/recursion, input-wait, and confirmation/cleanup bounds remain later
+    work; proposing this part does not authorize those tasks. Checked the clean
+    workspace, saved scope, recent conversation, isolation gaps, and existing safe
+    trace-prefix rules. Part 4f is pushed as ade1c31; no merge was reported in this
+    exchange, so no merge is assumed or claimed. This turn records discussion only
+    on docs/part-4g-planning, based on the completed Part 4f branch. Both memory files
+    are updated; documentation whitespace checks passed. Automatic PR creation
+    remains unavailable; provide a manual link after publishing the discussion.
+
 ## Latest verification notes
 
 Part 3 added a contract schema, examples, and development validation tooling.
@@ -811,6 +832,8 @@ Runtime process/thread-limit checks remain unrun.
 Part 4e commit 95adf12 and recovery notes e42efe3 are verified merged in main at
 dc4a332. Part 4f documentation checks passed: 40-line section, byte conversion,
 local references, trace/schema consistency, and whitespace. Runtime checks remain unrun.
+Part 4f is committed/pushed as ade1c31; merge status is unverified. Part 4g trace-size
+rules remain an unapproved proposal; this discussion updates memory only.
 2026-10-08 recovery verified only the two interrupted memory changes, with no
 Part 4f specification changes. No runtime or contract tests rerun during recovery.
 Branch naming now records the part label in AGENTS.md and both memory files;
