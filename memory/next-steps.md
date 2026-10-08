@@ -22,11 +22,13 @@ and execution isolation restrictions still apply.
    10,000 ms deadline, shared budget, no execution after timeout, limited versus
    compile_error status, unavailable capture, and cleanup. Documentation checks
    passed: 40-line section, references, trace/schema consistency, and whitespace.
-   Runtime checks remain unrun. Next proposed task: Part 4e process/thread limits,
-   approximately 30–40 new lines in specs/execution-isolation.md plus both memory
-   updates. Define a proposed cap, counting scope, trusted limit/error distinction,
-   trace retention, cleanup, and future checks; verify official platform guidance.
-   Obtain explicit scope approval before starting, then commit/push and pause.
+   Runtime checks remain unrun. Part 4e process/thread documentation is approved
+   and added in specs/execution-isolation.md with both memory updates. Review
+   the proposed 128-kernel-task cap, counting scope, trusted denial evidence,
+   limit/error distinction, trace retention, and verified cleanup. Official
+   Docker/kernel references were checked; documentation checks passed: 40-line
+   section, local references, trace/schema consistency, and whitespace.
+   No runtime checks run. Commit/push and pause for review; no next task approved.
    No application/Docker implementation is approved. Other remaining
    isolation definitions include output/trace bounds,
    input-wait limits, and
@@ -79,7 +81,8 @@ main was pulled to 8e4af20 and ancestry verified both 1884354 and 2ce9ca4 merged
 Compilation proposal notes are pushed as e1ec9a1 on docs/compilation-timeout-proposal.
 Part 4d was pushed as 69f4f40 on docs/compilation-timeout. On 2026-10-07, main
 was pulled to d75cf05 and ancestry verified that commit merged.
-Current discussion branch: docs/process-limit-proposal, based on that main.
+Process-limit proposal notes are pushed as 4099115 on docs/process-limit-proposal.
+Current Part 4e branch: docs/process-thread-limits, based on those notes.
 Git author identity is resolved.
 The `gh` command and GitHub PR tools are unavailable; automated PR creation is
 blocked. Publish the branch and provide a GitHub compare link for manual review.
