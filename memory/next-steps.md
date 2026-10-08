@@ -8,7 +8,7 @@ templates. Define coverage to track implementation and truthful limitations,
 not to restrict the product to examples. Runtime facts must remain captured,
 and execution isolation restrictions still apply.
 
-1. Parts 1–3 and Parts 4a–4c are merged. Part 4b commit 1884354 and Part 4c
+1. Parts 1–3 and Parts 4a–4d are merged. Part 4b commit 1884354 and Part 4c
    commit 2ce9ca4 are verified ancestors of main at 8e4af20. Review the proposed
    512 MiB container/128 MiB heap budgets, swap policy, verified OOM classification,
    and safe trace/cleanup behavior. No runtime enforcement has been implemented
@@ -17,14 +17,18 @@ and execution isolation restrictions still apply.
    whole-run termination, waiting input, safe trace retention, cancelled status,
    races, and cleanup. Documentation checks passed: 40-line section, local
    references, trace/schema consistency, and whitespace. No runtime checks run.
-   Part 4d compiler-timeout documentation is approved and added in
-   specs/execution-isolation.md, with both memory updates. Review its proposed
+   Part 4d compiler-timeout documentation in specs/execution-isolation.md is
+   merged as 69f4f40 in main at d75cf05, with both memory updates. Review its proposed
    10,000 ms deadline, shared budget, no execution after timeout, limited versus
    compile_error status, unavailable capture, and cleanup. Documentation checks
    passed: 40-line section, references, trace/schema consistency, and whitespace.
-   Runtime checks remain unrun. Commit/push and pause for review.
-   No next task or application/Docker implementation is approved. Other remaining
-   isolation definitions include process/thread limits, output/trace bounds,
+   Runtime checks remain unrun. Next proposed task: Part 4e process/thread limits,
+   approximately 30–40 new lines in specs/execution-isolation.md plus both memory
+   updates. Define a proposed cap, counting scope, trusted limit/error distinction,
+   trace retention, cleanup, and future checks; verify official platform guidance.
+   Obtain explicit scope approval before starting, then commit/push and pause.
+   No application/Docker implementation is approved. Other remaining
+   isolation definitions include output/trace bounds,
    input-wait limits, and
    termination/cleanup confirmation deadlines. Discuss one small scope before
    starting it. Keep tasks to one purpose, target 1–3 files, and split long
@@ -73,7 +77,9 @@ Cancellation proposal notes are pushed as 7e4f60d on docs/cancellation-proposal.
 Part 4c was pushed as 2ce9ca4 on docs/execution-cancellation. On 2026-10-07,
 main was pulled to 8e4af20 and ancestry verified both 1884354 and 2ce9ca4 merged.
 Compilation proposal notes are pushed as e1ec9a1 on docs/compilation-timeout-proposal.
-Current Part 4d branch: docs/compilation-timeout, based on those notes.
+Part 4d was pushed as 69f4f40 on docs/compilation-timeout. On 2026-10-07, main
+was pulled to d75cf05 and ancestry verified that commit merged.
+Current discussion branch: docs/process-limit-proposal, based on that main.
 Git author identity is resolved.
 The `gh` command and GitHub PR tools are unavailable; automated PR creation is
 blocked. Publish the branch and provide a GitHub compare link for manual review.
