@@ -1,6 +1,6 @@
 # Next steps
 
-Last updated: 2026-10-08 (Asia/Saigon).
+Last updated: 2026-10-09 (Asia/Saigon).
 
 Confirmed direction: visualize arbitrary user-authored Java as correctly as
 possible through reusable language capabilities, never exact program/algorithm
@@ -8,7 +8,9 @@ templates. Define coverage to track implementation and truthful limitations,
 not to restrict the product to examples. Runtime facts must remain captured,
 and execution isolation restrictions still apply.
 
-1. Parts 1–3 and Parts 4a–4e are merged. Part 4b commit 1884354 and Part 4c
+1. Parts 1–3 and Parts 4a–4g are merged. Main was pulled with --ff-only to
+   de1c660 on 2026-10-09; ancestry checks verified Part 4f ade1c31 and Part 4g
+   f0df9cb. Milestone 0 remains incomplete. Part 4b commit 1884354 and Part 4c
    commit 2ce9ca4 are verified ancestors of main at 8e4af20. Review the proposed
    512 MiB container/128 MiB heap budgets, swap policy, verified OOM classification,
    and safe trace/cleanup behavior. No runtime enforcement has been implemented
@@ -28,21 +30,30 @@ and execution isolation restrictions still apply.
    limit/error distinction, trace retention, and verified cleanup. Official
    Docker/kernel references were checked; documentation checks passed: 40-line
    section, local references, trace/schema consistency, and whitespace.
-   No runtime checks run. Part 4f stdout/stderr documentation is committed/pushed
-   as ade1c31 on docs/part-4f-output-limits; its merge is not verified. Review its
+   No runtime checks run. Part 4f stdout/stderr documentation is merged
+   as ade1c31 in main at de1c660. Review its
    proposed shared 1 MiB compiler/runtime quota, byte accounting/retention,
    output/trace separation, overflow outcome, safe capture, and cleanup.
    Documentation checks passed: 40-line section, byte conversion, local references,
    trace/schema consistency, and whitespace. Runtime checks remain unrun.
-   Part 4g trace-data documentation is approved and added in
-   specs/execution-isolation.md with both memory updates. Review its proposed
+   Part 4g trace-data documentation is merged as f0df9cb in main at de1c660,
+   in specs/execution-isolation.md with both memory updates. Review its proposed
    8 MiB captured-data and 256 KiB record limits, counting scope, atomic acceptance,
    safe observable-step cutoff, TRACE_LIMIT outcome, and cleanup. Source/terminal
    metadata are excluded and need separate bounds; this is not a whole-envelope
    or decoded-memory guarantee. Documentation checks passed: 40-line section,
    byte conversions, local references, safe-prefix/schema consistency, and whitespace.
    Runtime checks remain unrun.
-   Commit/push and pause for review; no application code or later task approved.
+   Part 4g delivery is complete; no application code or later task approved.
+   Proposed next task: Part 4h source-size admission rules only. Define a proposed
+   byte budget, counting and early rejection, exact admitted-source preservation,
+   and truthful rejection reporting without truncating a source-bearing trace.
+   Target approximately 30–40 new lines in specs/execution-isolation.md plus both
+   memory updates; read the new Part 4h section first. Obtain explicit approval,
+   then use docs/part-4h-source-limits, verify, commit/push, and pause for review.
+   Source-size rules are not approved yet. Terminal-metadata bounds and other
+   remaining isolation definitions are separate future parts, not authorized here.
+   Recovery/planning branch: docs/part-4h-planning, based on main at de1c660.
    Recovery on 2026-10-08 found only interrupted proposal notes in the two memory
    files, with no Part 4f specification or recorded approval. Those notes were
    published as e42efe3 and are now verified merged in main at dc4a332. Part 4f
@@ -107,9 +118,12 @@ Process-limit proposal notes are pushed as 4099115 on docs/process-limit-proposa
 Part 4e was pushed as 95adf12 on docs/process-thread-limits. On 2026-10-08, main
 was pulled to dc4a332 and ancestry verified 95adf12 and recovery notes e42efe3 merged.
 Branch-label preference was pushed as df1e6d4 on docs/part-4f-planning.
-Part 4f was pushed as ade1c31 on docs/part-4f-output-limits; its merge is not verified.
+Part 4f was pushed as ade1c31 on docs/part-4f-output-limits and verified merged
+on 2026-10-09 in main at de1c660.
 Part 4g proposal notes were pushed as 6bbbbb1 on docs/part-4g-planning.
-Current Part 4g branch: docs/part-4g-trace-limits, based on those notes.
+Part 4g was pushed as f0df9cb on docs/part-4g-trace-limits and verified merged
+on 2026-10-09 in main at de1c660. Current recovery/planning branch:
+docs/part-4h-planning. Part 4h remains proposed, not approved.
 Git author identity is resolved.
 The `gh` command and GitHub PR tools are unavailable; automated PR creation is
 blocked. Publish the branch and provide a GitHub compare link for manual review.
