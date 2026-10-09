@@ -43,10 +43,12 @@ Long project instructions remain in their source files rather than being duplica
   UTF-8 source cap and early rejection remain unverified at runtime.
   Oversized requests require a bounded admission error, not a truncated v1 trace.
   Request-error contracts and transport/decoder guards remain work.
-  Part 4i terminal-metadata documentation is approved and added: proposed 32 KiB
+  Part 4i terminal-metadata documentation is committed/pushed as cf88b68 on
+  docs/part-4i-terminal-metadata; its merge is not verified. Proposed 32 KiB
   metadata cap, 8 KiB reserve, 32 diagnostics, and 1 KiB reason/message strings.
   Explicit shortening notices preserve actual outcomes and captured facts. These
   rules remain unimplemented and unverified at runtime; no later task is approved.
+  Proposed next scope: Part 4j array capture limits only, not yet approved.
 - Review preference confirmed 2026-10-07: previous changes were still too large.
   Give each task one purpose, aim for 1–3 files, and split long changes further.
   Explain what changed, why, and where to read first. Commit/push each small
@@ -966,6 +968,32 @@ preserve user messages and label assistant summaries explicitly.
     pause for review; no next task approved. Automatic PR creation remains
     unavailable; provide a manual link after push.
 
+49. User: "ok, what's next"
+    Assistant checked the clean Part 4i branch, both memory files, relevant
+    requirements, Java array semantics, trace-v1 complete-array rules, and remaining
+    isolation gaps. Part 4i is committed/pushed as cf88b68; no merge was reported
+    or verified. Assistant recommends Part 4j array capture limits only, following
+    the first scalar/array visualization priority. Specify a proposed per-array
+    element cap, check actual length before traversing/encoding contents, preserve
+    identities and aliases without duplicate capture, and never truncate an array
+    or invent missing values. Distinguish a capture resource limit from actual Java
+    allocation/access exceptions and from pre-execution tracing limitations.
+    Define the winning limit outcome, whole-environment termination, safe partial/
+    unavailable capture, cleanup, and future checks for boundaries, aliases, empty
+    arrays, and safe cutoff. The existing trace contract requires complete arrays;
+    keep its fields unchanged and retain Part 4g byte/record caps independently.
+    Target approximately 30–40 new lines in specs/execution-isolation.md plus both
+    memory updates; read the new Part 4j section first. After approval, use
+    docs/part-4j-array-capture-limits, verify, commit/push, and pause for review.
+    This exchange records discussion only on docs/part-4j-planning, based on Part
+    4i. Part 4j is proposed, not approved; AGENTS.md requires confirmation before
+    this newly described task. Collection/object traversal, recursion, input-wait,
+    transport/generated-source/decoded-memory limits, and runtime implementation
+    remain separate unfinished work. Both memory files record delivery and the
+    proposal. Documentation whitespace and scope consistency checks passed;
+    no runtime or contract tests run. Automatic PR creation remains unavailable;
+    provide a manual link after push.
+
 ## Latest verification notes
 
 Part 3 added a contract schema, examples, and development validation tooling.
@@ -1012,3 +1040,6 @@ whitespace and recorded-scope consistency checks passed. No runtime tests run.
 Part 4i documentation checks passed: 40-line section, 32/8/1 KiB conversions,
 local paths, quota/source/status/diagnostic consistency, and whitespace. Its four
 runtime checks remain planned, not run. No existing contract fields changed.
+Part 4i was published as cf88b68; the working tree was clean before this proposal.
+This Part 4j planning update changes only the two memory files. Documentation
+whitespace and recorded-scope consistency checks passed. No runtime tests run.
