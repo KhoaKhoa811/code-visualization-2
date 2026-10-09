@@ -28,19 +28,21 @@ and execution isolation restrictions still apply.
    limit/error distinction, trace retention, and verified cleanup. Official
    Docker/kernel references were checked; documentation checks passed: 40-line
    section, local references, trace/schema consistency, and whitespace.
-   No runtime checks run. Next proposed task: Part 4f stdout/stderr limits,
-   approximately 30–40 new lines in specs/execution-isolation.md plus both memory
-   updates. Define a proposed combined compiler/runtime output byte budget,
-   counting/retention rules, terminal outcome, safe capture, cleanup, and future
-   checks. Obtain explicit scope approval first, then commit/push and pause.
+   No runtime checks run. Part 4f stdout/stderr documentation is approved and
+   added in specs/execution-isolation.md with both memory updates. Review its
+   proposed shared 1 MiB compiler/runtime quota, byte accounting/retention,
+   output/trace separation, overflow outcome, safe capture, and cleanup.
+   Documentation checks passed: 40-line section, byte conversion, local references,
+   trace/schema consistency, and whitespace. Runtime checks remain unrun.
+   Commit/push and pause for review; no next task or application code is approved.
    Recovery on 2026-10-08 found only interrupted proposal notes in the two memory
    files, with no Part 4f specification or recorded approval. Those notes were
    published as e42efe3 and are now verified merged in main at dc4a332. Part 4f
-   still requires explicit scope approval; the branch-naming request does not
-   authorize implementing it. Use docs/part-4f-output-limits for that approved task.
+   scope was subsequently approved by "ok, continue" on 2026-10-08. The separate
+   branch-naming request itself did not authorize Part 4f implementation.
    Trace-size limits remain a separate future task; no later task is approved.
    No application/Docker implementation is approved. Other remaining
-   isolation definitions include output/trace bounds,
+   isolation definitions include trace-size/traversal bounds,
    input-wait limits, and
    termination/cleanup confirmation deadlines. Discuss one small scope before
    starting it. Keep tasks to one purpose, target 1–3 files, and split long
@@ -96,7 +98,8 @@ was pulled to d75cf05 and ancestry verified that commit merged.
 Process-limit proposal notes are pushed as 4099115 on docs/process-limit-proposal.
 Part 4e was pushed as 95adf12 on docs/process-thread-limits. On 2026-10-08, main
 was pulled to dc4a332 and ancestry verified 95adf12 and recovery notes e42efe3 merged.
-Current discussion branch: docs/part-4f-planning, based on that main.
+Branch-label preference was pushed as df1e6d4 on docs/part-4f-planning.
+Current Part 4f branch: docs/part-4f-output-limits, based on those planning notes.
 Git author identity is resolved.
 The `gh` command and GitHub PR tools are unavailable; automated PR creation is
 blocked. Publish the branch and provide a GitHub compare link for manual review.

@@ -34,7 +34,8 @@ Long project instructions remain in their source files rather than being duplica
   remain unverified at runtime. Part 4e process/thread-limit documentation is
   merged as 95adf12 in main at dc4a332, verified on 2026-10-08 together with
   recovery notes e42efe3. Its 128-task cap and enforcement remain unverified at runtime.
-  Next proposal: Part 4f stdout/stderr limits only, awaiting explicit scope approval.
+  Part 4f stdout/stderr-limit documentation is approved and added in that file;
+  its proposed 1 MiB combined compiler/runtime quota remains unverified at runtime.
 - Review preference confirmed 2026-10-07: previous changes were still too large.
   Give each task one purpose, aim for 1–3 files, and split long changes further.
   Explain what changed, why, and where to read first. Commit/push each small
@@ -760,14 +761,43 @@ preserve user messages and label assistant summaries explicitly.
     Commit/push these three files and provide a manual PR link, since automated
     PR creation remains unavailable.
 
+42. User: "ok, continue"
+    This confirms the previously discussed Part 4f scope: approximately 30–40
+    stdout/stderr-limit specification lines, both memory updates, verification,
+    a separate commit/push, and review pause. Assistant checked the clean planning
+    branch, saved scope, isolation/trace rules, and relevant requirements. Created
+    docs/part-4f-output-limits from docs/part-4f-planning, including naming-rule
+    commit df1e6d4 and the verified main baseline dc4a332; no newer merge is assumed.
+    Proposed a shared 1 MiB (1,048,576-byte) raw output quota across compiler/runtime
+    stdout/stderr, descendants, and all compiler invocations. Exact quota is allowed;
+    the first excess byte latches the limit. Retain fitting chunk prefixes, per-stream
+    byte order/identity, and safe trace records without a fabricated cross-stream
+    Java write order. Bound buffers/queues and duplicate logs; slow/disconnected
+    consumers do not bypass the quota. Trace transport and supervisor diagnostics
+    remain separate. Overflow stops input/record acceptance and further launches,
+    then terminates the whole environment. Drain compiler streams before subsequent
+    launches and runtime streams before final normal completion, so buffered output
+    cannot hide overflow. When overflow wins and termination is confirmed,
+    limited status uses OUTPUT_LIMIT with the appropriate compile/
+    execution phase. Capture is partial or unavailable, never complete; output is
+    marked incomplete without fabricated bytes/events/source locations. Verify
+    cleanup before releasing the slot. Four future checks are listed, not run.
+    Exactly three documentation files change; read the Part 4f section first.
+    Verification passed: new section is 40 lines, MiB conversion/local references
+    are correct, trace/schema status and diagnostic rules agree, and whitespace
+    checks passed. No application code, dependencies, Docker execution,
+    or runtime tests are added. Trace-size/traversal limits and transport/buffering
+    implementation remain separate unfinished work. Pause after delivery; no next
+    task approved. Automatic PR creation remains unavailable; provide a manual link.
+
 ## Latest verification notes
 
 Part 3 added a contract schema, examples, and development validation tooling.
 All 46 checks passed, including after clean lockfile installation. Documentation
 links, staged whitespace, and exclusion of node_modules were verified. The three
 part commits are merged in main at 7c94967, verified by fetch/pull and ancestry.
-Parts 4a–4e specify timeouts, memory, cancellation, and process/thread limits; enforcement
-and isolation tests remain unimplemented. Part 4c documentation checks passed:
+Parts 4a–4f specify timeouts, memory, cancellation, process/thread, and output limits;
+enforcement and isolation tests remain unimplemented. Part 4c documentation checks passed:
 40-line section, valid local references, trace/schema consistency, and whitespace.
 No application tests, Java execution, or application builds have been run or
 claimed. Parts 4b and 4c are now verified merged in main at 8e4af20 through fetch,
@@ -779,7 +809,8 @@ and ancestry check. Part 4e documentation checks passed: 40-line section, local
 references, official platform details, trace/schema consistency, and whitespace.
 Runtime process/thread-limit checks remain unrun.
 Part 4e commit 95adf12 and recovery notes e42efe3 are verified merged in main at
-dc4a332. Part 4f output-limit specification remains an unapproved proposal.
+dc4a332. Part 4f documentation checks passed: 40-line section, byte conversion,
+local references, trace/schema consistency, and whitespace. Runtime checks remain unrun.
 2026-10-08 recovery verified only the two interrupted memory changes, with no
 Part 4f specification changes. No runtime or contract tests rerun during recovery.
 Branch naming now records the part label in AGENTS.md and both memory files;

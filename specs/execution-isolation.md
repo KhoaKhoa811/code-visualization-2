@@ -1,6 +1,6 @@
 # Execution isolation: timeouts, memory, and cancellation
 
-Status: Milestone 0, Parts 4a–4e, 2026-10-07. Proposed rules for review.
+Status: Milestone 0, Parts 4a–4f, 2026-10-08. Proposed rules for review.
 Resource-limit and cancellation enforcement are not implemented or verified yet.
 
 Sources: [requirements, section 10](../requirements/PROJECT_REQUIREMENTS.md)
@@ -49,8 +49,8 @@ Do not manufacture a Java exception, return, scope exit, or mutation on timeout.
 - Blocking execution still reaches the deadline; activity never resets the timer.
 
 These are future checks, not test results. Part 4a covers runtime timeouts only.
-Output, traversal, and input-wait bounds remain unfinished;
-Parts 4b–4e propose memory, cancellation, compilation, and process/thread rules.
+Trace-size, traversal, and input-wait bounds remain unfinished;
+Parts 4b–4f propose memory, cancellation, compilation, process/thread, and output rules.
 
 ## Proposed memory budget — Part 4b
 
@@ -215,3 +215,44 @@ OutOfMemoryError. Monitoring and confirmation/retry bounds remain runner work.
 - Failed cleanup retains the slot; another run's counters never affect this run.
 
 References: [Docker](https://docs.docker.com/reference/cli/docker/container/run/), [Linux PID controller](https://docs.kernel.org/admin-guide/cgroup-v2.html#pid).
+
+## Proposed stdout/stderr budget — Part 4f
+
+- Proposed quota: **1 MiB (1,048,576 bytes)** combined output per run, unverified.
+- Count raw stdout and stderr bytes from compilation and execution, including
+  descendants, before decoding/filtering. Share one atomic counter across streams
+  and all compiler invocations; starting execution does not reset it.
+- Exact-quota output is allowed; the first observed byte beyond it triggers the
+  limit. Retain only the fitting prefix of a chunk that crosses the boundary.
+- Preserve each stream's byte order and identity; do not claim a total Java write
+  order across stdout/stderr. Count bytes, not characters, lines, or UI markup.
+- Trace transport and supervisor diagnostics are separate from this console
+  quota. Printed text cannot become trace events or trusted limit diagnostics.
+- Use bounded read buffers and queues; never accumulate excess bytes or permit
+  unbounded duplicate container logs. Slow/disconnected consumers cannot lift
+  the quota. Concrete buffering/transport settings remain runner work.
+
+### At the output limit
+
+Latch overflow against cancellation/other limits; keep an already latched stop
+cause. Stop input, trace-record acceptance, and further compiler/application launch.
+Discard excess console bytes and incomplete trace records; preserve the already
+accepted output prefix and safe trace boundary. Terminate the entire environment.
+Drain each compiler's streams before launching further compilers/the application,
+and runtime streams before final normal completion. A fast exit cannot hide
+buffered overflow. Do not wait for input or consumers; activity resets no timer.
+
+If overflow wins, publish execution.status = limited after confirmed termination,
+with diagnostic code OUTPUT_LIMIT, phase compile or execution, and quota reason.
+Capture is unavailable before execution/without a trusted initial state, otherwise
+partial at the safe accepted prefix; never complete. Mark console output incomplete;
+retain exact accepted bytes, without inventing missing characters, newlines, source
+locations, or Java events. Replay never resends input. Verify cleanup before releasing
+the slot; failed termination/cleanup follows the timeout procedure.
+
+### Required prototype checks (planned, not run)
+
+- Quota minus one/exact quota succeed; one extra byte yields the limit outcome.
+- Split multibyte/chunked output counts bytes; stdout/stderr share one quota.
+- Compiler output reduces runtime allowance; overflow prevents application launch.
+- Fast exit, slow consumer, and cancellation races preserve one outcome and cleanup.
