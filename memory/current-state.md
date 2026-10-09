@@ -48,10 +48,12 @@ Long project instructions remain in their source files rather than being duplica
   metadata cap, 8 KiB reserve, 32 diagnostics, and 1 KiB reason/message strings.
   Explicit shortening notices preserve actual outcomes and captured facts. These
   rules remain unimplemented and unverified at runtime; no later task is approved.
-  Part 4j array-capture documentation is approved and added: proposed 1,024
+  Part 4j array-capture documentation is committed/pushed as 3b4d504 on
+  docs/part-4j-array-capture-limits; its merge is not verified. Proposed 1,024
   elements per captured array, actual-length guards, complete contents, shared
   identities, and safe partial/unavailable ARRAY_CAPTURE_LIMIT termination.
   Enforcement and runtime checks remain unimplemented; no later task is approved.
+  Proposed next scope: Part 4k call-depth capture limits only, not yet approved.
 - Review preference confirmed 2026-10-07: previous changes were still too large.
   Give each task one purpose, aim for 1–3 files, and split long changes further.
   Explain what changed, why, and where to read first. Commit/push each small
@@ -1034,6 +1036,33 @@ preserve user messages and label assistant summaries explicitly.
     remain separate unfinished work. Commit/push and pause for review; no next task
     approved. Automatic PR creation remains unavailable; provide a manual link.
 
+51. User: "what's next"
+    Assistant checked the clean Part 4j branch, both memory files, method/recursion
+    requirements, Java frame/return semantics, trace CALL/RETURN records, and
+    remaining isolation definitions. Part 4j is committed/pushed as 3b4d504;
+    no merge was reported or verified. Assistant recommends Part 4k call-depth
+    capture limits only. Methods and recursion are required V1 work, and
+    java-support.md explicitly leaves their concrete depth bound to isolation.
+    Specify a proposed maximum of simultaneously active captured user frames,
+    including main, rather than total lifetime calls or all JVM/library frames.
+    Preserve distinct recursive identities, arguments evaluated once, references,
+    returns/unwinding, and safe CALL acceptance. Define overflow before another
+    frame record is accepted, distinguish the capture limit from a real Java
+    StackOverflowError, and preserve the winning termination outcome, safe partial/
+    unavailable capture, and cleanup. Include future checks for exact/excess depth,
+    repeated shallow calls, side effects, recursive identities, and backward replay.
+    Keep the existing trace fields/Step semantics unchanged. Target approximately
+    30–40 new lines in specs/execution-isolation.md plus both memory updates;
+    read the new Part 4k section first. After approval, use
+    docs/part-4k-call-depth-limits, verify, commit/push, and pause for review.
+    This discussion records a proposal on docs/part-4k-planning, based on Part 4j.
+    Part 4k is not approved; AGENTS.md requires confirmation of the newly discussed
+    scope. Collection/object traversal, input-wait, transport/generated-source/
+    decoded-memory bounds, and runtime implementation remain separate work.
+    Both memory files record delivery and the proposal. Documentation whitespace
+    and scope consistency checks passed; no runtime or contract tests run.
+    Automatic PR creation remains unavailable; provide a manual link after push.
+
 ## Latest verification notes
 
 Part 3 added a contract schema, examples, and development validation tooling.
@@ -1086,3 +1115,6 @@ whitespace and recorded-scope consistency checks passed. No runtime tests run.
 Part 4j documentation checks passed: 40-line section, local paths, complete-array/
 identity/safe-prefix/status/diagnostic consistency, and whitespace. Four runtime
 checks remain planned, not run. No existing contract fields or Step boundaries changed.
+Part 4j was published as 3b4d504; the working tree was clean before this proposal.
+This Part 4k planning update changes only the two memory files. Documentation
+whitespace and recorded-scope consistency checks passed. No runtime tests run.
