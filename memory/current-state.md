@@ -53,7 +53,9 @@ Long project instructions remain in their source files rather than being duplica
   elements per captured array, actual-length guards, complete contents, shared
   identities, and safe partial/unavailable ARRAY_CAPTURE_LIMIT termination.
   Enforcement and runtime checks remain unimplemented; no later task is approved.
-  Proposed next scope: Part 4k call-depth capture limits only, not yet approved.
+  Part 4k call-depth capture documentation is approved and in progress.
+  Part 4j's guard reference is corrected: arrays enter initialState or ALLOCATE;
+  OBJECT_CAPTURE remains String-only under trace v1. No coverage/schema change.
 - Review preference confirmed 2026-10-07: previous changes were still too large.
   Give each task one purpose, aim for 1–3 files, and split long changes further.
   Explain what changed, why, and where to read first. Commit/push each small
@@ -1063,6 +1065,23 @@ preserve user messages and label assistant summaries explicitly.
     and scope consistency checks passed; no runtime or contract tests run.
     Automatic PR creation remains unavailable; provide a manual link after push.
 
+52. User: "ok"
+    This approves the previously proposed Part 4k call-depth documentation,
+    approximately 30–40 specification lines, both memory updates, checks,
+    commit/push, and review pause. Assistant checked the clean planning branch,
+    requirements, Java method semantics, trace records/prefix rules, and memory.
+    Created docs/part-4k-call-depth-limits from planning commit b3528b9.
+    During consistency checking, assistant found a mistake in the previously
+    approved Part 4j: its array guard listed OBJECT_CAPTURE, but both trace-format.md
+    and trace.schema.json restrict that event to String objects. Earlier Part 4j
+    verification missed this mismatch. Corrected only that reference to initialState
+    or ALLOCATE, on docs/part-4j-capture-reference-fix, as a separate correction
+    within the already approved array-limit scope. Both memory files record it.
+    The Part 4j section stays 40 lines; schema/event-reference and whitespace
+    checks passed. No runtime tests or coverage/schema changes. Commit/push this
+    correction separately, then resume the approved Part 4k. Automatic PR creation
+    remains unavailable; provide a manual link. No later task is approved.
+
 ## Latest verification notes
 
 Part 3 added a contract schema, examples, and development validation tooling.
@@ -1106,6 +1125,10 @@ checks remain planned, not run; transport/request-error/terminal bounds remain w
 Part 4h was published as 7f138e8; the working tree was clean before this proposal.
 This Part 4i planning update changes only the two memory files. Documentation
 whitespace and recorded-scope consistency checks passed. No runtime tests run.
+Part 4j follow-up corrects an event-reference mismatch missed in its earlier checks:
+OBJECT_CAPTURE is String-only; the array gate applies at initialState or ALLOCATE.
+The section remains 40 lines; event-reference/schema and whitespace checks passed.
+Part 4k is approved and in progress. No runtime tests run during this correction.
 Part 4i documentation checks passed: 40-line section, 32/8/1 KiB conversions,
 local paths, quota/source/status/diagnostic consistency, and whitespace. Its four
 runtime checks remain planned, not run. No existing contract fields changed.

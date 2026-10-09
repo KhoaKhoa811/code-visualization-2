@@ -82,7 +82,13 @@ and execution isolation restrictions still apply.
    not run. Part 4j was committed/pushed as 3b4d504 on
    docs/part-4j-array-capture-limits; its merge is not verified. Runtime enforcement
    remains unfinished; no next task is approved.
-   Proposed next task: Part 4k call-depth capture limits only. Define a proposed
+   Part 4j follow-up corrects a reference error missed in earlier verification:
+   OBJECT_CAPTURE is String-only in trace v1. The array guard now names only
+   initialState and ALLOCATE, with no schema/coverage change. Checks passed:
+   40-line section, schema/event-reference consistency, and whitespace.
+   Correction branch: docs/part-4j-capture-reference-fix; commit/push separately.
+   Part 4k call-depth documentation is approved by "ok" on 2026-10-09 and in progress.
+   Define a proposed
    maximum of simultaneously active captured user frames, including main, distinct
    from total lifetime calls or JVM/library stack depth. Preserve recursive frame
    identities, argument evaluation, reference sharing, returns/unwinding, and safe
@@ -90,10 +96,10 @@ and execution isolation restrictions still apply.
    capture, termination, cleanup, and the distinction from real StackOverflowError.
    Include future boundary/shallow-call/side-effect/identity/backward-replay checks.
    Keep existing trace fields and Step semantics unchanged. Target approximately
-   30–40 specification lines plus both memory updates. Obtain explicit approval,
-   then use docs/part-4k-call-depth-limits, verify, commit/push, and pause for review.
+   30–40 specification lines plus both memory updates. Resume
+   docs/part-4k-call-depth-limits after the correction, verify, commit/push, and pause for review.
    Read the new Part 4k section first. Proposal branch: docs/part-4k-planning,
-   based on Part 4j. Part 4k is not approved.
+   based on Part 4j. Approval covers documentation only, not runtime implementation.
    Transport/request-decoder/framing guards, generated-source bounds, request errors,
    and other remaining isolation definitions are separate unfinished work.
    Recovery on 2026-10-08 found only interrupted proposal notes in the two memory
@@ -174,7 +180,8 @@ implementation or a later task; its merge is not assumed. Part 4j proposal notes
 were pushed as 4c36237 on docs/part-4j-planning. Part 4j was pushed as 3b4d504 on
 docs/part-4j-array-capture-limits, based on those notes. It does not authorize runtime
 implementation or a later task; its merge is not assumed. Current proposal branch:
-docs/part-4k-planning. Part 4k call-depth limits require separate approval.
+docs/part-4j-capture-reference-fix. Part 4k call-depth documentation is approved;
+resume docs/part-4k-call-depth-limits after publishing this correction.
 Git author identity is resolved.
 The `gh` command and GitHub PR tools are unavailable; automated PR creation is
 blocked. Publish the branch and provide a GitHub compare link for manual review.
