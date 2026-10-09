@@ -48,7 +48,10 @@ Long project instructions remain in their source files rather than being duplica
   metadata cap, 8 KiB reserve, 32 diagnostics, and 1 KiB reason/message strings.
   Explicit shortening notices preserve actual outcomes and captured facts. These
   rules remain unimplemented and unverified at runtime; no later task is approved.
-  Proposed next scope: Part 4j array capture limits only, not yet approved.
+  Part 4j array-capture documentation is approved and added: proposed 1,024
+  elements per captured array, actual-length guards, complete contents, shared
+  identities, and safe partial/unavailable ARRAY_CAPTURE_LIMIT termination.
+  Enforcement and runtime checks remain unimplemented; no later task is approved.
 - Review preference confirmed 2026-10-07: previous changes were still too large.
   Give each task one purpose, aim for 1–3 files, and split long changes further.
   Explain what changed, why, and where to read first. Commit/push each small
@@ -994,14 +997,51 @@ preserve user messages and label assistant summaries explicitly.
     no runtime or contract tests run. Automatic PR creation remains unavailable;
     provide a manual link after push.
 
+50. User: "ok"
+    This approves Part 4j as previously discussed: approximately 30–40 array-limit
+    specification lines, both memory updates, checks, separate commit/push, and a
+    review pause. Assistant checked the clean planning branch, requirements,
+    saved scope, applicable directory instructions, Java array semantics, complete
+    trace-array representation, and existing safe-prefix/termination rules.
+    Created docs/part-4j-array-capture-limits from docs/part-4j-planning, including
+    proposal 4c36237 and Part 4i cf88b68; no newer merge is assumed.
+    Added a 40-line section proposing 1,024 elements per captured one-dimensional
+    array. Empty/exact-cap arrays pass this size gate; null is not an array. Check
+    actual length before traversal/encoding and bound buffers first, without
+    reevaluating allocation, size, initializer, index, or RHS expressions.
+    Guard first capture into initialState, ALLOCATE, or OBJECT_CAPTURE. Aliases
+    reuse the same objectId/state; capture complete contents or none, never missing
+    values filled with null/defaults or dropped references. Part 4g byte/record
+    caps remain independent. Known pre-execution coverage limitations retain the
+    existing admitted output-only policy; no silent rerun after partial execution.
+    An observed oversized captured array latches ARRAY_CAPTURE_LIMIT, phase
+    capture, with quota reason unless an earlier stop cause wins. Reject incomplete
+    records/initial state and retain only the last safe observable prefix, dropping
+    unsafe bookkeeping and aligning stepEnds/safeEventCount. Without a trusted
+    initialState, capture is unavailable; with one, partial may have zero operations.
+    Stop input/records/new launches and terminate the entire environment. Report
+    execution limited only after confirmed termination if this cause wins; preserve
+    accepted console output and prior facts, invent no missing Java event or range,
+    and verify cleanup before releasing the slot. Actual Java failures are not
+    replaced/preempted by capture evaluation. Schema fields and Step boundaries
+    remain unchanged. Four future boundary/alias/side-effect/cutoff/race checks
+    are listed, not run. Exactly three documentation files change; read Part 4j first.
+    Verification passed: 40-line section, local references, complete-array/identity/
+    safe-prefix/status/diagnostic consistency, and whitespace. No runtime or contract
+    tests run; no application code, dependencies, or Java/Docker execution added.
+    Collection/object traversal, recursion, large-string/many-object capture and
+    decoded-memory guards, transport, input-wait, and other isolation definitions
+    remain separate unfinished work. Commit/push and pause for review; no next task
+    approved. Automatic PR creation remains unavailable; provide a manual link.
+
 ## Latest verification notes
 
 Part 3 added a contract schema, examples, and development validation tooling.
 All 46 checks passed, including after clean lockfile installation. Documentation
 links, staged whitespace, and exclusion of node_modules were verified. The three
 part commits are merged in main at 7c94967, verified by fetch/pull and ancestry.
-Parts 4a–4i specify timeouts, memory, cancellation, process/thread, output, trace,
-source-admission, and terminal-metadata limits;
+Parts 4a–4j specify timeouts, memory, cancellation, process/thread, output, trace,
+source-admission, terminal-metadata, and array-capture limits;
 enforcement and isolation tests remain unimplemented. Part 4c documentation checks passed:
 40-line section, valid local references, trace/schema consistency, and whitespace.
 No application tests, Java execution, or application builds have been run or
@@ -1043,3 +1083,6 @@ runtime checks remain planned, not run. No existing contract fields changed.
 Part 4i was published as cf88b68; the working tree was clean before this proposal.
 This Part 4j planning update changes only the two memory files. Documentation
 whitespace and recorded-scope consistency checks passed. No runtime tests run.
+Part 4j documentation checks passed: 40-line section, local paths, complete-array/
+identity/safe-prefix/status/diagnostic consistency, and whitespace. Four runtime
+checks remain planned, not run. No existing contract fields or Step boundaries changed.

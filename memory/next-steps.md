@@ -68,18 +68,19 @@ and execution isolation restrictions still apply.
    quota/source/status/diagnostic consistency, and whitespace. Four future checks
    are listed, not run. Part 4i was committed/pushed as cf88b68 on
    docs/part-4i-terminal-metadata; its merge is not verified. No next task is approved.
-   Proposed next task: Part 4j array capture limits only, because arrays are the
-   first structure target. Define a proposed per-array element cap, actual-length
-   checks before traversal/encoding, identity/alias preservation without duplicate
-   capture, and no truncated arrays or invented values. Distinguish the capture
-   resource limit from Java exceptions and pre-execution coverage limitations;
-   define truthful limit status, termination, safe partial/unavailable capture,
-   cleanup, and future boundary/alias/empty-array/cutoff checks. Preserve the
-   existing complete-array contract and independent Part 4g byte/record caps.
-   Target approximately 30–40 specification lines plus both memory updates.
-   Obtain explicit approval, then use docs/part-4j-array-capture-limits, verify,
-   commit/push, and pause for review. Read the new Part 4j section first.
-   Proposal branch: docs/part-4j-planning, based on Part 4i. Part 4j is not approved.
+   Part 4j array-capture documentation was approved by "ok" on 2026-10-09 and is
+   added in specs/execution-isolation.md with both memory updates. Review its
+   proposed 1,024-element per-array cap, actual-length guards before traversal,
+   complete contents/shared identities, no expression reevaluation, separate
+   Part 4g byte/record quotas, and existing output-only coverage policy.
+   Observed capture overflow uses ARRAY_CAPTURE_LIMIT, phase capture, limited
+   execution only after confirmed termination, safe partial/unavailable capture,
+   and verified cleanup. Never truncate arrays, invent Java events, or change
+   actual Java exceptions. Existing schema fields and Step boundaries stay unchanged.
+   Documentation checks passed: 40-line section, local paths, array/identity/prefix/
+   status/diagnostic consistency, and whitespace. Four future checks are listed,
+   not run. Read Part 4j first; commit/push on docs/part-4j-array-capture-limits and
+   pause for review. No next task approved; runtime enforcement remains unfinished.
    Transport/request-decoder/framing guards, generated-source bounds, request errors,
    and other remaining isolation definitions are separate unfinished work.
    Recovery on 2026-10-08 found only interrupted proposal notes in the two memory
@@ -156,8 +157,10 @@ docs/part-4h-source-limits, based on those notes. It does not authorize runtime
 implementation or a later task. Its merge is not assumed. Part 4i proposal notes
 were pushed as bdd275d on docs/part-4i-planning. Part 4i was pushed as cf88b68 on
 docs/part-4i-terminal-metadata, based on those notes. It does not authorize runtime
-implementation or a later task; its merge is not assumed. Current proposal branch:
-docs/part-4j-planning. Part 4j array capture limits require separate approval.
+implementation or a later task; its merge is not assumed. Part 4j proposal notes
+were pushed as 4c36237 on docs/part-4j-planning. Current approved documentation
+branch: docs/part-4j-array-capture-limits, based on those notes. Part 4j does not
+authorize runtime implementation or a later task; its merge is not assumed.
 Git author identity is resolved.
 The `gh` command and GitHub PR tools are unavailable; automated PR creation is
 blocked. Publish the branch and provide a GitHub compare link for manual review.
