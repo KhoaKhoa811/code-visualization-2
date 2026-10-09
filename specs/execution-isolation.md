@@ -1,6 +1,6 @@
 # Execution isolation: timeouts, memory, and cancellation
 
-Status: Milestone 0, Parts 4a–4j, 2026-10-09. Proposed rules for review.
+Status: Milestone 0, Parts 4a–4k, 2026-10-09. Proposed rules for review.
 Resource-limit and cancellation enforcement are not implemented or verified yet.
 
 Sources: [requirements, section 10](../requirements/PROJECT_REQUIREMENTS.md)
@@ -49,9 +49,9 @@ Do not manufacture a Java exception, return, scope exit, or mutation on timeout.
 - Blocking execution still reaches the deadline; activity never resets the timer.
 
 These are future checks, not test results. Part 4a covers runtime timeouts only.
-Collection/object traversal, recursion, input-wait, and transport bounds remain work;
-Parts 4b–4j propose memory, cancellation, compilation, process/thread, output,
-trace-data, source-admission, terminal-metadata, and array-capture rules; enforcement is unfinished.
+Collection/object traversal, input-wait, and transport bounds remain work;
+Parts 4b–4k propose memory, cancellation, compilation, process/thread, output,
+trace-data, source, metadata, array, and call-depth rules; enforcement is unfinished.
 
 ## Proposed memory budget — Part 4b
 
@@ -421,3 +421,44 @@ No array schema fields or Step boundaries change; this is not truncated-array su
 - Aliases retain one identity; accepted contents and initializer side effects stay exact.
 - Oversized initial/runtime capture stays bounded and retains only the safe prefix.
 - Java failures, cancellation, byte limits, output, termination, and cleanup stay truthful.
+
+## Proposed call-depth capture budget — Part 4k
+
+- Prototype cap: **64 active captured user frames, including main**, unverified.
+- Count invocations, including recursive/mutual/nested helpers, not distinct methods
+  or total lifetime calls. Compiler, tracer, and JDK frames do not consume this cap.
+- Guard actual covered entry after arguments evaluate once in Java order, before
+  copying/encoding another frame payload. A throwing argument enters no callee.
+- Accept CALL and its frame/scope/parameter bindings atomically only if depth and
+  Part 4g byte/record budgets fit. Guard initialState frame capture too.
+- Covered returns/unwinding release depth; preserve RETURN/FRAME_END effects; never reuse IDs.
+- Recursive invocations retain distinct locals/parameters and shared object aliases.
+- This bounds captured user depth, not JVM stack bytes or library recursion. Other
+  memory/time/capture bounds and existing admitted output-only coverage policy apply.
+
+### When the next captured frame exceeds the cap
+
+Serialize the finding with cancellation/other limits; retain an earlier stop cause.
+Otherwise latch the limit; use code CALL_DEPTH_LIMIT, phase capture, and quota reason.
+Accept no overflowing CALL, partial frame, or parameter placeholder. Retain only
+the trusted initial state and last safe observable prefix under Part 4g, excluding
+unsafe trailing bookkeeping; stepEnds/safeEventCount describe that same prefix.
+Without a trusted initialState, capture is unavailable with empty events/stepEnds;
+otherwise partial may have zero operations. Never label limit capture complete.
+
+Stop input/record acceptance and new launches; terminate the whole run environment.
+Publish execution.status = limited only after confirmed termination if this cause
+wins. Preserve accepted output and facts; invent no callee entry, return, unwind,
+exception, binding removal, or source range. Verify cleanup before releasing the slot;
+failed termination/cleanup follows the timeout rules. Never silently rerun Java.
+A real StackOverflowError retains caught/uncaught behavior under supported coverage;
+it does not establish this capture limit, and the guard must not throw a fake one.
+Backward replay restores frames, locals, and aliases from the accepted prefix only.
+No Java calls during replay; schema fields and observable Step boundaries stay unchanged.
+
+### Required prototype checks (planned, not run)
+
+- Main plus 63 helpers fits; the next active entry limits; shallow calls do not hit this cap.
+- Recursion/mutual recursion preserve unique frames, arguments once, and shared aliases.
+- Throwing arguments/real stack failures and backward return/unwind replay stay truthful.
+- Initial/entry overflow, byte limits, cancellation, output, termination, and cleanup stay safe.

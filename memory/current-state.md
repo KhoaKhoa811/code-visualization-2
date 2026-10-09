@@ -53,9 +53,12 @@ Long project instructions remain in their source files rather than being duplica
   elements per captured array, actual-length guards, complete contents, shared
   identities, and safe partial/unavailable ARRAY_CAPTURE_LIMIT termination.
   Enforcement and runtime checks remain unimplemented; no later task is approved.
-  Part 4k call-depth capture documentation is approved and in progress.
-  Part 4j's guard reference is corrected: arrays enter initialState or ALLOCATE;
-  OBJECT_CAPTURE remains String-only under trace v1. No coverage/schema change.
+  Part 4k call-depth capture documentation is approved and added: proposed 64
+  active user frames including main, guarded CALL acceptance, and safe partial/
+  unavailable CALL_DEPTH_LIMIT termination. Enforcement/runtime checks remain work.
+  Part 4j's guard reference correction is committed/pushed as 02b6257: arrays enter
+  initialState or ALLOCATE; OBJECT_CAPTURE remains String-only. No coverage/schema
+  change. Its merge is not verified; no later task is approved.
 - Review preference confirmed 2026-10-07: previous changes were still too large.
   Give each task one purpose, aim for 1–3 files, and split long changes further.
   Explain what changed, why, and where to read first. Commit/push each small
@@ -1082,14 +1085,47 @@ preserve user messages and label assistant summaries explicitly.
     correction separately, then resume the approved Part 4k. Automatic PR creation
     remains unavailable; provide a manual link. No later task is approved.
 
+    Correction committed/pushed as 02b6257. Resumed docs/part-4k-call-depth-limits
+    with a local fast-forward to the correction; no GitHub PR was merged.
+    Added a 40-line Part 4k section proposing 64 active captured user frames,
+    including main, distinct from lifetime calls, distinct methods, or JVM/library
+    stack depth. Count recursive, mutual, and nested covered invocations; compiler,
+    tracer, and JDK frames do not consume the cap. Guard actual entry after argument
+    evaluation and before frame-payload copying/encoding. Throwing arguments enter
+    no callee. Accept CALL/frame/scope/parameters atomically only if depth and
+    Part 4g byte/record budgets fit; guard initial-state frames too. Actual covered
+    return/unwinding releases depth, retaining RETURN/FRAME_END semantics and unique
+    invocation identities. Recursion keeps distinct locals and shared object aliases.
+    Overflow latches CALL_DEPTH_LIMIT, phase capture, with quota reason unless an
+    earlier stop cause wins. Keep no overflowing CALL, partial frame, or placeholder.
+    Retain the safe observable prefix with aligned stepEnds/safeEventCount, dropping
+    unsafe bookkeeping. No trustworthy initial state means unavailable capture;
+    otherwise partial may have zero operations. Stop input/records/new launches,
+    terminate the whole environment, report execution limited only after confirmed
+    termination if this cause wins, and verify cleanup before releasing the slot.
+    Preserve accepted output and facts; invent no callee entry/return/unwind/exception
+    or binding removal. Real StackOverflowError retains actual caught/uncaught
+    behavior under supported coverage, not a fabricated capture-limit exception.
+    Backward replay restores only the accepted prefix without Java calls or future
+    facts. No schema fields or Step boundaries change. Four future boundary/shallow-
+    call/recursion/side-effect/failure/replay/race checks are listed, not run.
+    Exactly three documentation files change for Part 4k; read its section first.
+    Verification passed: 40-line section, main-plus-63 depth arithmetic, local paths,
+    CALL/RETURN/FRAME_END/identity/prefix/status/diagnostic consistency, and whitespace.
+    No runtime or contract tests run; no application code, dependencies, or Java/
+    Docker execution added. JVM stack/memory proof, collection/object traversal,
+    input-wait, transport/generated-source, and other isolation limits remain work.
+    Commit/push and pause for review; no later task approved. Automatic PR creation
+    remains unavailable; provide a manual Part 4k link and correction link after push.
+
 ## Latest verification notes
 
 Part 3 added a contract schema, examples, and development validation tooling.
 All 46 checks passed, including after clean lockfile installation. Documentation
 links, staged whitespace, and exclusion of node_modules were verified. The three
 part commits are merged in main at 7c94967, verified by fetch/pull and ancestry.
-Parts 4a–4j specify timeouts, memory, cancellation, process/thread, output, trace,
-source-admission, terminal-metadata, and array-capture limits;
+Parts 4a–4k specify timeouts, memory, cancellation, process/thread, output, trace,
+source-admission, terminal-metadata, array-capture, and call-depth limits;
 enforcement and isolation tests remain unimplemented. Part 4c documentation checks passed:
 40-line section, valid local references, trace/schema consistency, and whitespace.
 No application tests, Java execution, or application builds have been run or
@@ -1128,7 +1164,8 @@ whitespace and recorded-scope consistency checks passed. No runtime tests run.
 Part 4j follow-up corrects an event-reference mismatch missed in its earlier checks:
 OBJECT_CAPTURE is String-only; the array gate applies at initialState or ALLOCATE.
 The section remains 40 lines; event-reference/schema and whitespace checks passed.
-Part 4k is approved and in progress. No runtime tests run during this correction.
+Part 4j correction was committed/pushed as 02b6257. No runtime tests run during
+this correction. Part 4k is approved and its specification is added.
 Part 4i documentation checks passed: 40-line section, 32/8/1 KiB conversions,
 local paths, quota/source/status/diagnostic consistency, and whitespace. Its four
 runtime checks remain planned, not run. No existing contract fields changed.
@@ -1141,3 +1178,6 @@ checks remain planned, not run. No existing contract fields or Step boundaries c
 Part 4j was published as 3b4d504; the working tree was clean before this proposal.
 This Part 4k planning update changes only the two memory files. Documentation
 whitespace and recorded-scope consistency checks passed. No runtime tests run.
+Part 4k documentation checks passed: 40-line section, main-plus-63 arithmetic,
+local paths, frame/identity/prefix/status/diagnostic consistency, and whitespace.
+Four runtime checks remain planned, not run. No schema or Step-boundary changes.
