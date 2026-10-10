@@ -42,8 +42,11 @@ Long project instructions remain in their source files rather than being duplica
   docs/part-4h-source-limits; its merge is not verified. Its proposed 256 KiB exact
   UTF-8 source cap and early rejection remain unverified at runtime.
   Oversized requests require a bounded admission error, not a truncated v1 trace.
-  Request-error contracts, transport/decoder guards, and terminal bounds remain work.
-  Proposed next scope: Part 4i terminal-metadata limits only, not yet approved.
+  Request-error contracts and transport/decoder guards remain work.
+  Part 4i terminal-metadata documentation is approved and added: proposed 32 KiB
+  metadata cap, 8 KiB reserve, 32 diagnostics, and 1 KiB reason/message strings.
+  Explicit shortening notices preserve actual outcomes and captured facts. These
+  rules remain unimplemented and unverified at runtime; no later task is approved.
 - Review preference confirmed 2026-10-07: previous changes were still too large.
   Give each task one purpose, aim for 1–3 files, and split long changes further.
   Explain what changed, why, and where to read first. Commit/push each small
@@ -927,14 +930,50 @@ preserve user messages and label assistant summaries explicitly.
     and scope consistency checks passed; no runtime or contract tests run.
     Automatic PR creation remains unavailable; provide a manual link after push.
 
+48. User: "ok"
+    This approves the previously discussed Part 4i terminal-metadata specification,
+    approximately 30–40 lines, both memory updates, verification, commit/push,
+    and review pause. Assistant checked the clean planning branch, requirements,
+    relevant isolation/trace specifications, both memory files, applicable directory
+    instructions, and the existing diagnostic/source/status schema fields.
+    Created docs/part-4i-terminal-metadata from docs/part-4i-planning, including
+    proposal commit bdd275d and Part 4h 7f138e8; no newer merge is assumed.
+    Added a 40-line section proposing 32 KiB (32,768 bytes) retained encoded
+    terminal metadata, with 8 KiB (8,192 bytes) reserved for mandatory fields,
+    primary execution/capture diagnostics, and a shortening notice. At most 32
+    diagnostics include reserved entries; each reason/message is at most 1 KiB
+    (1,024 bytes) encoded as a JSON string, including quotes, escapes, and markers.
+    Count envelope JSON except encoded source/initialState/events/stepEnds values;
+    include keys, punctuation, and escapes. Guard reception/encoding buffers before
+    whole oversized messages/lists exist, and verify a bounded identity/code fallback
+    before admission. Optional entries cannot consume the reserve.
+    Preserve statuses, safeEventCount, identity, schema version, actual causes,
+    primary diagnostic codes/phases/known ranges, source, and captured event values.
+    Shorten only explanatory text at Unicode boundaries with "[text shortened]";
+    emit a reserved capture-phase METADATA_TRUNCATED diagnostic for shortened text
+    or omitted diagnostics. Keep further retained diagnostics in accepted order.
+    Metadata shortening does not change execution/capture outcomes or imply lost
+    runtime facts. Termination confirmation and cleanup/slot rules still apply.
+    An impossible mandatory reserve is an infrastructure failure outside the trace,
+    not an invalid envelope or invented run outcome. Existing v1 fields suffice;
+    this part changes no schema or replay semantics. Four future checks are listed,
+    not run. Exactly three documentation files change; read the Part 4i section first.
+    Verification passed: 40-line section, KiB conversions, local references, quota/
+    source/status/diagnostic consistency, and whitespace. No runtime or contract
+    tests run; no application code, dependencies, or Java/Docker execution added.
+    Transport/framing, request-error contracts, generated source, decoded-memory
+    proof, and other isolation definitions remain separate work. Commit/push and
+    pause for review; no next task approved. Automatic PR creation remains
+    unavailable; provide a manual link after push.
+
 ## Latest verification notes
 
 Part 3 added a contract schema, examples, and development validation tooling.
 All 46 checks passed, including after clean lockfile installation. Documentation
 links, staged whitespace, and exclusion of node_modules were verified. The three
 part commits are merged in main at 7c94967, verified by fetch/pull and ancestry.
-Parts 4a–4h specify timeouts, memory, cancellation, process/thread, output, trace,
-and source-admission limits;
+Parts 4a–4i specify timeouts, memory, cancellation, process/thread, output, trace,
+source-admission, and terminal-metadata limits;
 enforcement and isolation tests remain unimplemented. Part 4c documentation checks passed:
 40-line section, valid local references, trace/schema consistency, and whitespace.
 No application tests, Java execution, or application builds have been run or
@@ -953,8 +992,8 @@ Part 4f ade1c31 and Part 4g f0df9cb are verified merged in main at de1c660 on
 2026-10-09 by fetch, fast-forward pull, and ancestry checks. Part 4g trace-data
 documentation checks passed: 40-line section, byte
 conversions, local references, safe-prefix/schema consistency, and whitespace.
-No runtime checks run; Part 4h now proposes source admission, while terminal
-metadata bounds remain unfinished.
+No runtime checks run; Parts 4h/4i now propose source admission and terminal
+metadata bounds, whose enforcement remains unfinished.
 2026-10-08 recovery verified only the two interrupted memory changes, with no
 Part 4f specification changes. No runtime or contract tests rerun during recovery.
 Branch naming now records the part label in AGENTS.md and both memory files;
@@ -970,3 +1009,6 @@ checks remain planned, not run; transport/request-error/terminal bounds remain w
 Part 4h was published as 7f138e8; the working tree was clean before this proposal.
 This Part 4i planning update changes only the two memory files. Documentation
 whitespace and recorded-scope consistency checks passed. No runtime tests run.
+Part 4i documentation checks passed: 40-line section, 32/8/1 KiB conversions,
+local paths, quota/source/status/diagnostic consistency, and whitespace. Its four
+runtime checks remain planned, not run. No existing contract fields changed.

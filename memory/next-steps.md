@@ -55,17 +55,20 @@ and execution isolation restrictions still apply.
    source/admission/schema consistency, and whitespace. Four future checks are
    listed, not run. Part 4h was committed/pushed as 7f138e8 on
    docs/part-4h-source-limits; its merge is not verified. No next task is approved.
-   Proposed next task: Part 4i terminal-metadata limits only. Define an encoded
-   byte budget for envelope metadata/diagnostics, guarded serialization, reserved
-   mandatory identity/outcome data, and explicit notices when explanatory text or
-   diagnostics are shortened/omitted. Preserve real execution/capture outcomes,
-   safe-prefix facts, exact source, identities, and event values; do not change
-   the existing trace contract. Target approximately 30–40 specification lines
-   plus both memory updates. Obtain explicit confirmation, then use
-   docs/part-4i-terminal-metadata, verify, commit/push, and pause for review.
-   Read the new Part 4i section first. Proposal branch: docs/part-4i-planning,
-   based on Part 4h. Part 4i is proposed, not yet approved.
-   Transport/request-decoder guards, generated-source bounds, terminal metadata,
+   Part 4i terminal-metadata documentation was approved by "ok" on 2026-10-09
+   and is added in specs/execution-isolation.md with both memory updates. Review
+   its proposed 32 KiB encoded cap, 8 KiB reserve, 32-diagnostic maximum, and
+   1 KiB encoded reason/message limits; guarded buffers; exact identity/outcome/
+   primary-cause preservation; and explicit METADATA_TRUNCATED diagnostic.
+   Source and captured values cannot be shortened, and metadata omissions do not
+   change execution/capture outcomes or imply lost runtime facts. Impossible
+   mandatory serialization is an infrastructure failure, not a fake run outcome.
+   Existing v1 fields suffice; no schema or replay semantics change.
+   Documentation checks passed: 40-line section, byte conversions, local paths,
+   quota/source/status/diagnostic consistency, and whitespace. Four future checks
+   are listed, not run. Read the new Part 4i section first; commit/push on
+   docs/part-4i-terminal-metadata and pause for review. No next task is approved.
+   Transport/request-decoder/framing guards, generated-source bounds, request errors,
    and other remaining isolation definitions are separate unfinished work.
    Recovery on 2026-10-08 found only interrupted proposal notes in the two memory
    files, with no Part 4f specification or recorded approval. Those notes were
@@ -74,8 +77,8 @@ and execution isolation restrictions still apply.
    branch-naming request itself did not authorize Part 4f implementation.
    Part 4g approval covers documentation only, not runtime implementation.
    No application/Docker implementation is approved. Other remaining
-   isolation definitions include traversal/collection/recursion, terminal-metadata
-   and transport/generated-source bounds, input-wait limits, and
+   isolation definitions include traversal/collection/recursion, transport/generated-source
+   and decoded-memory bounds, input-wait limits, and
    termination/cleanup confirmation deadlines. Discuss one small scope before
    starting it. Keep tasks to one purpose, target 1–3 files, and split long
    changes further. Explain why and which file to read first.
@@ -138,8 +141,10 @@ Part 4g was pushed as f0df9cb on docs/part-4g-trace-limits and verified merged
 on 2026-10-09 in main at de1c660. Recovery notes were pushed as 9072610 on
 docs/part-4h-planning. Part 4h was pushed as 7f138e8 on
 docs/part-4h-source-limits, based on those notes. It does not authorize runtime
-implementation or a later task. Its merge is not assumed. Current proposal branch:
-docs/part-4i-planning. Part 4i terminal-metadata rules require separate approval.
+implementation or a later task. Its merge is not assumed. Part 4i proposal notes
+were pushed as bdd275d on docs/part-4i-planning. Current approved documentation
+branch: docs/part-4i-terminal-metadata, based on those notes. Part 4i does not
+authorize runtime implementation or a later task; its merge is not assumed.
 Git author identity is resolved.
 The `gh` command and GitHub PR tools are unavailable; automated PR creation is
 blocked. Publish the branch and provide a GitHub compare link for manual review.

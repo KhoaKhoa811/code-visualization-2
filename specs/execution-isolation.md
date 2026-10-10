@@ -1,6 +1,6 @@
 # Execution isolation: timeouts, memory, and cancellation
 
-Status: Milestone 0, Parts 4a–4h, 2026-10-09. Proposed rules for review.
+Status: Milestone 0, Parts 4a–4i, 2026-10-09. Proposed rules for review.
 Resource-limit and cancellation enforcement are not implemented or verified yet.
 
 Sources: [requirements, section 10](../requirements/PROJECT_REQUIREMENTS.md)
@@ -49,9 +49,9 @@ Do not manufacture a Java exception, return, scope exit, or mutation on timeout.
 - Blocking execution still reaches the deadline; activity never resets the timer.
 
 These are future checks, not test results. Part 4a covers runtime timeouts only.
-Traversal, input-wait, and terminal-metadata bounds remain unfinished;
-Parts 4b–4h propose memory, cancellation, compilation, process/thread, output,
-trace-data, and source-admission rules; implementation remains unfinished.
+Traversal, input-wait, and transport/generated-source bounds remain unfinished;
+Parts 4b–4i propose memory, cancellation, compilation, process/thread, output,
+trace-data, source-admission, and terminal-metadata rules; implementation remains unfinished.
 
 ## Proposed memory budget — Part 4b
 
@@ -270,7 +270,7 @@ the slot; failed termination/cleanup follows the timeout procedure.
 - Never truncate a value/array/object or split an event to make it fit. stdout/stderr
   has its separate quota; printed text cannot become accepted execution facts.
 - Source and terminal envelope metadata are outside this captured-data quota;
-  Part 4h proposes source admission; terminal serialization bounds remain unfinished.
+  Parts 4h/4i propose source admission and terminal metadata; enforcement remains unfinished.
   This is not a whole-envelope bound or proof of bounded decoded memory.
 
 ### At a trace-data limit
@@ -314,7 +314,7 @@ normal completion so a fast exit cannot hide an oversized final record/index upd
 - Malformed Unicode fails source validity; never replace invalid units to fit.
 - This decoded-source cap does not bound request bodies, JSON overhead, generated
   instrumentation, or decoded memory. Separate transport/decoder guards remain
-  required before implementation; terminal-metadata limits are also unfinished.
+  required before implementation; Part 4i proposes separate terminal-metadata limits.
 
 ### Source preservation and rejection
 
@@ -339,3 +339,44 @@ This is not a runtime limited or compile_error outcome; no playback exists.
 - Multibyte/supplementary text, BOM, CRLF, and request escapes count exact UTF-8 bytes.
 - Chunked overflow stops retention; no queue, source file, compiler, or JVM is created.
 - Accepted source/hash/UTF-16 ranges stay exact; rejection echoes no source or fake trace.
+
+## Proposed terminal-metadata budget — Part 4i
+
+- Prototype cap: **32 KiB (32,768 bytes)** retained encoded metadata per run, unverified.
+- Count uncompressed UTF-8 JSON envelope bytes excluding only the encoded values
+  of source, initialState, events, and stepEnds; include keys, separators, and escapes.
+- Reserve **8 KiB (8,192 bytes)** within this cap for mandatory fields, primary
+  execution/capture diagnostics, and a metadata-shortening notice; optional text
+  cannot consume the reserve. Retain at most **32 diagnostics**, including notices.
+- Each execution/capture reason and diagnostic message is at most **1 KiB (1,024
+  bytes)** as an encoded JSON string, including quotes, escapes, and any notice.
+- Guard collection/encoding buffers while receiving text; never first assemble a
+  huge message/list. Exactly a cap fits; optional additions beyond it are omitted.
+- Verify bounded runIds/codes and reserved fallback before admission; never truncate them.
+- Envelope framing outside JSON, decoded-memory bounds, request errors, and
+  generated-source bounds remain separate unfinished work.
+
+### When explanatory metadata does not fit
+
+Keep execution.status, capture.status, safeEventCount, schemaVersion, runId,
+and the real execution/capture causes exact. Use bounded reasons naming those causes
+before optional detail. Retain their primary diagnostic codes/phases and known ranges.
+Keep further diagnostics in accepted order only while byte/count budgets fit;
+count reserved primary diagnostics and the notice before accepting optional entries.
+Shorten only explanatory text at Unicode boundaries with "[text shortened]";
+include that marker in the string cap. Never split a surrogate pair or JSON escape.
+When text is shortened or diagnostics omitted, emit one capture-phase diagnostic
+with code METADATA_TRUNCATED and a fixed message describing those omissions.
+
+Preserve real outcomes and the safe prefix; this notice does not imply missing facts.
+Never add fake outcomes/exceptions/values/cleanup; source/events cannot be shortened here.
+Emit only after required termination confirmation; cleanup/slot rules still apply.
+If reserved mandatory metadata cannot fit, report an infrastructure failure outside
+the trace; emit no invalid envelope or fake outcome. Use existing v1 fields only.
+
+### Required prototype checks (planned, not run)
+
+- Byte/count/string boundaries and escaped Unicode fit or produce an explicit notice.
+- Diagnostic floods/huge messages stay bounded and cannot displace terminal causes.
+- Completion, failure, cancellation, limits, and unavailable capture keep real outcomes.
+- Serialization preserves source/events/identities/ranges; impossible reserve reports infrastructure failure.
