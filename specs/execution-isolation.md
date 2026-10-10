@@ -388,7 +388,7 @@ the trace; emit no invalid envelope or fake outcome. Use existing v1 fields only
 - Check actual length before traversing/encoding elements; bound capture buffers first.
 - Capture only already evaluated references. Never reevaluate allocation, size,
   initializer, index, or RHS expressions; preserve effects and original exceptions.
-- Apply the gate when an array first enters initialState, ALLOCATE, or OBJECT_CAPTURE.
+- Apply the gate when an array first enters initialState or ALLOCATE.
   Aliases reuse its objectId/state, not duplicate objects or separate allowances.
 - Within the cap, capture all elements exactly; never keep a shortened array,
   replace missing elements with null/defaults, or drop references to make it fit.
