@@ -1,6 +1,6 @@
 # Execution isolation: timeouts, memory, and cancellation
 
-Status: Milestone 0, Parts 4a–4i, 2026-10-09. Proposed rules for review.
+Status: Milestone 0, Parts 4a–4j, 2026-10-09. Proposed rules for review.
 Resource-limit and cancellation enforcement are not implemented or verified yet.
 
 Sources: [requirements, section 10](../requirements/PROJECT_REQUIREMENTS.md)
@@ -49,9 +49,9 @@ Do not manufacture a Java exception, return, scope exit, or mutation on timeout.
 - Blocking execution still reaches the deadline; activity never resets the timer.
 
 These are future checks, not test results. Part 4a covers runtime timeouts only.
-Traversal, input-wait, and transport/generated-source bounds remain unfinished;
-Parts 4b–4i propose memory, cancellation, compilation, process/thread, output,
-trace-data, source-admission, and terminal-metadata rules; implementation remains unfinished.
+Collection/object traversal, recursion, input-wait, and transport bounds remain work;
+Parts 4b–4j propose memory, cancellation, compilation, process/thread, output,
+trace-data, source-admission, terminal-metadata, and array-capture rules; enforcement is unfinished.
 
 ## Proposed memory budget — Part 4b
 
@@ -380,3 +380,44 @@ the trace; emit no invalid envelope or fake outcome. Use existing v1 fields only
 - Diagnostic floods/huge messages stay bounded and cannot displace terminal causes.
 - Completion, failure, cancellation, limits, and unavailable capture keep real outcomes.
 - Serialization preserves source/events/identities/ranges; impossible reserve reports infrastructure failure.
+
+## Proposed array capture budget — Part 4j
+
+- Prototype cap: **1,024 elements per captured one-dimensional array**, unverified.
+- Length exactly at the cap passes this gate; empty arrays pass. Null is not an array.
+- Check actual length before traversing/encoding elements; bound capture buffers first.
+- Capture only already evaluated references. Never reevaluate allocation, size,
+  initializer, index, or RHS expressions; preserve effects and original exceptions.
+- Apply the gate when an array first enters initialState, ALLOCATE, or OBJECT_CAPTURE.
+  Aliases reuse its objectId/state, not duplicate objects or separate allowances.
+- Within the cap, capture all elements exactly; never keep a shortened array,
+  replace missing elements with null/defaults, or drop references to make it fit.
+- Part 4g byte/record quotas still apply; element count does not bound large strings,
+  many arrays, reference traversal, or decoded memory. Their other guards remain work.
+- This bounds capture, not Java admission. Known coverage limits use java-support.md's
+  admitted output-only policy; never silently rerun after partial execution.
+
+### When an actual captured array exceeds the cap
+
+Serialize this finding with cancellation/other limits; retain an earlier stop cause.
+Otherwise latch the array limit; use code ARRAY_CAPTURE_LIMIT, phase capture, and quota reason.
+Accept no incomplete initial state or array-bearing record. Keep the trusted initial
+state and records only through the last safe observable step under Part 4g;
+drop unsafe trailing bookkeeping and align stepEnds/safeEventCount to that prefix.
+No trusted initialState means unavailable with null initialState and empty events/stepEnds.
+With one, partial may have zero operations and empty events/stepEnds; never complete.
+
+Stop accepting input/records and new launches; terminate the whole run environment.
+Only after confirmed termination publish execution.status = limited if this cause
+wins. Preserve accepted console bytes and earlier trace facts; invent no allocation,
+binding, mutation, exception, return, cleanup, or source range for the missing record.
+Preserve actual Java failures; the capture guard never preempts original evaluation.
+Verify cleanup before releasing the slot; failed termination/cleanup follows timeout rules.
+No array schema fields or Step boundaries change; this is not truncated-array support.
+
+### Required prototype checks (planned, not run)
+
+- Empty/null and cap minus one/exact cap/excess preserve distinct truthful outcomes.
+- Aliases retain one identity; accepted contents and initializer side effects stay exact.
+- Oversized initial/runtime capture stays bounded and retains only the safe prefix.
+- Java failures, cancellation, byte limits, output, termination, and cleanup stay truthful.
