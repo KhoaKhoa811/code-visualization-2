@@ -1,6 +1,6 @@
 # Execution isolation: timeouts, memory, and cancellation
 
-Status: Milestone 0, Parts 4a–4m, 2026-10-10. Proposed rules for review.
+Status: Milestone 0, Parts 4a–4n, 2026-10-10. Proposed rules for review.
 Resource-limit and cancellation enforcement are not implemented or verified yet.
 
 Sources: [requirements, section 10](../requirements/PROJECT_REQUIREMENTS.md)
@@ -544,3 +544,50 @@ This bounds waiting, not guaranteed removal; enforcement/recovery evidence remai
 - Stall removal/verification/retries: deadline fires; workers stay bounded; slot stays occupied.
 - Race proof before/at/after expiry and repeated recovery: one release, visible failures.
 - Wrong identity, links, missing inventory, or late operations cannot delete another run's data.
+
+## Proposed container restrictions and storage — Part 4n
+
+- Use a fresh Linux container per run, including compilation, from a vetted Java 21
+  image pinned by digest during setup. Verify the Docker Desktop/WSL2 profile first.
+- Run compiler and submitted JVM as UID/GID 10001:10001, without extra groups;
+  use --cap-drop=ALL, --security-opt=no-new-privileges=true, and --read-only.
+- Retain the pinned runtime's default seccomp profile; never use privileged mode,
+  unconfined seccomp, host/shared PID/IPC namespaces, or additional host devices.
+- Use --network=none and no published ports. This leaves local loopback only;
+  no external/host/other-run access. Console/control transport must not enable networking.
+- Expose no host bind mounts, shared volumes, management sockets, or credentials.
+  Allowlist environment variables; no host environment inheritance or image secrets.
+- Disable automatic restarts, core dumps, and persistent container output logging;
+  preserve bounded stdout/stderr through Part 4f's supervisor-owned transport.
+- Proposed writable tmpfs caps: /work **64 MiB**, /tmp **16 MiB**, /dev/shm **16 MiB**;
+  total **96 MiB (100,663,296 bytes)**, within Part 4b's memory/no-swap budget.
+- Cap inodes at **4,096 / 1,024 / 1,024** respectively, including directories;
+  enforce before use. Mount nosuid,nodev,noexec; assign only required user permissions.
+- Put submitted/generated source and classes in /work; direct JVM temporary files
+  to /tmp. Keep the JDK/runtime read-only. Verify Java 21 works with these restrictions.
+- Audit every mount and writable path, including /dev: permit no other writable
+  regular-file storage or unbounded anonymous volumes. Never rely on rootfs flags alone.
+
+### Verification and failure behavior
+
+Before any submitted compilation/execution, verify effective identity, namespaces,
+mounts, quota/inode enforcement, seccomp, network, and existing memory/process limits.
+Use trusted configuration/evidence plus profile probes; submitted output is not proof.
+Missing or unenforceable controls block launch and expose infrastructure failure,
+without a fabricated Java outcome. Clean partial setup under Parts 4l/4m.
+Do not silently add privileges, writable mounts, network, or larger quotas to make code run.
+Storage denial preserves actual compiler/Java error and caught-error behavior;
+ENOSPC text alone is not proof of a limit-caused termination. Verified OOM uses Part 4b.
+Preserve only the accepted safe trace; never fill missing records or rerun Java.
+Exact launch commands and platform compatibility need prototype proof, not assumed support.
+
+### Required prototype checks (planned, not run)
+
+- Compile/run a small program; verify identity, effective restrictions, and trace/output separation.
+- Attempt external/host access, privilege gain, rootfs writes, and cross-run reads; verify denial.
+- Fill each writable mount by bytes and inodes; verify caps, caught errors, and no extra storage.
+- Remove a required control or fail setup; no submitted launch, bounded output, verified cleanup.
+
+References: [Docker controls](https://docs.docker.com/reference/cli/docker/container/run/),
+[tmpfs](https://docs.docker.com/engine/storage/tmpfs/), [inode limits](https://docs.kernel.org/filesystems/tmpfs.html),
+[seccomp](https://docs.docker.com/engine/security/seccomp/), [network none](https://docs.docker.com/engine/network/drivers/none/).

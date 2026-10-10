@@ -71,8 +71,10 @@ Long project instructions remain in their source files rather than being duplica
   owned-resource inventory/proof, failure visibility, retained slot, and safe recovery.
   Runtime enforcement and four planned checks remain unfinished.
   Delivered as aa6a59a on docs/part-4m-cleanup-confirmation; merge not verified.
-  Remaining Part 4 planning estimate: seven definition topics plus one review,
-  proposed as Parts 4n–4u in next-steps.md. None is approved by the count question.
+  Part 4n approved by "ok, continue doing the task" on 2026-10-10: container
+  restrictions, bounded writable storage, and fail-closed setup documentation.
+  Proposed profile and four runtime checks remain unimplemented/unverified.
+  Task branch: docs/part-4n-container-restrictions. Parts 4o–4u remain proposals.
 - Review preference confirmed 2026-10-07: previous changes were still too large.
   Give each task one purpose, aim for 1–3 files, and split long changes further.
   Explain what changed, why, and where to read first. Commit/push each small
@@ -1246,6 +1248,26 @@ preserve user messages and label assistant summaries explicitly.
     updates both memory files on docs/part-4n-planning. No runtime tests run.
     Automatic PR creation remains unavailable; provide a manual planning PR link.
 
+59. User: "ok, continue doing the task"
+    Assistant proceeds with the next discussed task, Part 4n only: container
+    restrictions, filesystem/disk bounds, and checks required before launch.
+    Added a single specification section plus both memory updates. Proposed
+    non-root UID/GID 10001, dropped capabilities, no-new-privileges, read-only root,
+    default seccomp, private isolation, network none, and no host mounts/secrets.
+    Disable restart/core dumps/persistent output logs; keep bounded supervisor output.
+    Proposed tmpfs caps: /work 64 MiB, /tmp 16 MiB, /dev/shm 16 MiB, total 96 MiB;
+    inode caps 4096/1024/1024. Audit all writable paths, retain no-swap/memory limits,
+    and block submitted launch if any required control cannot be verified/enforced.
+    Preserve real compiler/Java storage errors and safe trace facts; no silent
+    relaxation or invented resource-limit termination. Four prototype checks are
+    planned, not run. Docker/kernel primary references were consulted; exact
+    launch commands and Windows-local compatibility remain prototype work.
+    Documentation checks passed: 46-line section including references, storage
+    arithmetic, local paths, memory/error/trace/cleanup consistency, and whitespace.
+    Planning checklist was pushed as deac5b2. No later part or implementation is
+    approved. Deliver one Part 4n commit, push, provide a manual PR link if automatic
+    creation remains unavailable, and pause for review.
+
 ## Latest verification notes
 
 Part 3 added a contract schema, examples, and development validation tooling.
@@ -1319,3 +1341,6 @@ checks remain planned, not run. No schema changes or enforcement are implemented
 Part 4m documentation review passed: 40-line section, referenced local paths,
 deadline/race and ownership/slot-release rules, trace-status consistency, and
 whitespace. Four runtime checks remain planned, not run; enforcement remains work.
+Part 4n documentation checks passed: 46-line section including primary references,
+96 MiB storage arithmetic, local paths, memory/error/trace/cleanup consistency,
+and whitespace. Four runtime checks remain unrun; no Docker or Java execution.
