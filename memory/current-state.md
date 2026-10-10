@@ -74,7 +74,10 @@ Long project instructions remain in their source files rather than being duplica
   Part 4n approved by "ok, continue doing the task" on 2026-10-10: container
   restrictions, bounded writable storage, and fail-closed setup documentation.
   Proposed profile and four runtime checks remain unimplemented/unverified.
-  Task branch: docs/part-4n-container-restrictions. Parts 4o–4u remain proposals.
+  Delivered as 241d5e9 on docs/part-4n-container-restrictions; merge not verified.
+  Part 4o approved by "ok, continue": run capacity, queue/preparation deadlines,
+  and compiler sizing documentation. Proposed limits and runtime checks are unverified.
+  Task branch: docs/part-4o-run-capacity. Parts 4p–4u remain proposals.
 - Review preference confirmed 2026-10-07: previous changes were still too large.
   Give each task one purpose, aim for 1–3 files, and split long changes further.
   Explain what changed, why, and where to read first. Commit/push each small
@@ -1268,6 +1271,25 @@ preserve user messages and label assistant summaries explicitly.
     approved. Deliver one Part 4n commit, push, provide a manual PR link if automatic
     creation remains unavailable, and pause for review.
 
+60. User: "ok, continue"
+    Assistant proceeds with Part 4o only: capacity, queue/preparation deadlines,
+    and compiler sizing. Proposed one occupied run slot and two queued requests;
+    shared admission, atomic ordering/promotion/cancellation, 30,000 ms queue wait,
+    no queued container, and no slot release before verified termination/cleanup.
+    Restart must reconcile unresolved ownership. Proposed 10,000 ms preparation
+    starts at slot reservation and covers setup/source analysis/instrumentation,
+    with bounded calls/retries and no per-run downloads. Expiry fences late work
+    and exposes infrastructure failure, preserving actual Java/trace semantics.
+    Proposed compiler heap 256 MiB via javac -J-Xmx256m, sequential compiler JVMs,
+    within the existing 512 MiB container budget. Native/tmpfs costs still count;
+    no automatic larger retry. Oracle Java 21 option documentation was checked.
+    Four prototype checks are planned, not run. Update both memory files and the
+    specification, verify, commit/push, then pause. No later part or runtime
+    implementation is approved. Part 4n delivered as 241d5e9; merge unverified.
+    Documentation checks passed: 46-line section, heap arithmetic, local paths,
+    admission/deadline/slot and trace/error consistency, and whitespace. No runtime
+    tests run. Automatic PR creation remains unavailable; provide a manual PR link.
+
 ## Latest verification notes
 
 Part 3 added a contract schema, examples, and development validation tooling.
@@ -1344,3 +1366,6 @@ whitespace. Four runtime checks remain planned, not run; enforcement remains wor
 Part 4n documentation checks passed: 46-line section including primary references,
 96 MiB storage arithmetic, local paths, memory/error/trace/cleanup consistency,
 and whitespace. Four runtime checks remain unrun; no Docker or Java execution.
+Part 4o documentation checks passed: 46-line section, 256 MiB heap arithmetic,
+local paths, admission/deadline/slot and trace/error consistency, and whitespace.
+Four runtime checks remain planned, not run; capacity and heap sizing are unverified.
