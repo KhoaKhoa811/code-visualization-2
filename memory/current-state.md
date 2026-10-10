@@ -80,7 +80,10 @@ Long project instructions remain in their source files rather than being duplica
   Delivered as cbcfa2b on docs/part-4o-run-capacity; merge not verified.
   Part 4p approved by "ok, continue": transport framing, buffers, and decoded-memory
   bounds documentation. Proposed guards and four runtime checks remain unverified.
-  Task branch: docs/part-4p-transport-bounds. Parts 4q–4u remain proposals.
+  Delivered as 02421b8 on docs/part-4p-transport-bounds; merge not verified.
+  Part 4q approved by "ok, continue": analysis/instrumentation and generated-source
+  budget documentation. Proposed limits and four runtime checks remain unverified.
+  Task branch: docs/part-4q-analysis-limits. Parts 4r–4u remain proposals.
 - Review preference confirmed 2026-10-07: previous changes were still too large.
   Give each task one purpose, aim for 1–3 files, and split long changes further.
   Explain what changed, why, and where to read first. Commit/push each small
@@ -1317,6 +1320,27 @@ preserve user messages and label assistant summaries explicitly.
     quota/safe-prefix/status consistency, and whitespace. No runtime tests run.
     Automatic PR creation remains unavailable; provide a manual PR link after push.
 
+62. User: "ok, continue"
+    Assistant proceeds with Part 4q only: source-analysis, instrumentation, and
+    generated-source limits. Proposed 5,000 ms analysis budget inside the remaining
+    10,000 ms preparation deadline; sequential isolated worker with 256 MiB heap
+    under the existing 512 MiB container budget. No submitted-code evaluation or
+    compiler inside Spring Boot; local vetted resolution only. Proposed 65,536
+    retained syntax nodes, depth 256, 2 MiB generated Java, and 2 MiB encoded maps.
+    Guard before growth; copies/helpers share quotas; preserve exact source/hash/
+    UTF-16 mapping and publish complete validated transformed artifacts atomically.
+    Known tracing-only coverage/guarded limits permit original output-only execution
+    once only after completed admission, within remaining budgets and verified worker
+    exit. No fallback after timeout, crash/OOM, uncertain admission, or execution.
+    Preserve actual Java/compiler outcomes; never attribute transformation errors
+    to original source without proof. Four prototype checks remain planned, not run.
+    Update the specification and both memory files, verify, commit/push, then pause.
+    Part 4p delivered as 02421b8; merge unverified. No implementation, dependencies,
+    new Java coverage, or later part is approved.
+    Documentation checks passed: 47-line section, byte arithmetic, local paths,
+    preparation/memory/admission/fallback/source-identity consistency, and whitespace.
+    No runtime tests run. Automatic PR creation remains unavailable; provide a manual link.
+
 ## Latest verification notes
 
 Part 3 added a contract schema, examples, and development validation tooling.
@@ -1399,3 +1423,6 @@ Four runtime checks remain planned, not run; capacity and heap sizing are unveri
 Part 4p documentation checks passed: 56-line section, frame/source arithmetic,
 local paths, quota/safe-prefix/status consistency, and whitespace. Four runtime
 checks remain planned, not run; no transport or memory enforcement is implemented.
+Part 4q documentation checks passed: 47-line section, 2 MiB byte arithmetic,
+local paths, preparation/memory/admission/fallback/source-identity consistency,
+and whitespace. Four runtime checks remain planned, not run; no analysis enforcement.

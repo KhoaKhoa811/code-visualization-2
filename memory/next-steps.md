@@ -129,7 +129,7 @@ and execution isolation restrictions still apply.
    - 4n: subsequently approved by "ok, continue doing the task"; documentation added.
    - 4o: approved by "ok, continue"; capacity/preparation/compiler documentation added.
    - 4p: approved by "ok, continue"; transport/decoding bounds documentation added.
-   - 4q: source-analysis/instrumentation budgets and generated-source limits.
+   - 4q: approved by "ok, continue"; analysis/generated-source documentation added.
    - 4r: input line/total/pending limits, waiting, overall deadline, EOF/disconnects.
    - 4s: collection and string capture budgets with truthful cutoff behavior.
    - 4t: object traversal depth/count/reference budgets, aliases, and cycles.
@@ -156,15 +156,24 @@ and execution isolation restrictions still apply.
    bounded channel/client queues, and 8/64 MiB reservations under a 128 MiB managed-data cap.
    Charge decoded allocations/copies and preserve accepted facts; distinguish valid
    capture limits from corrupt transport. Four runtime checks remain planned, not run.
-   Deliver on docs/part-4p-transport-bounds, then pause. Parts 4q–4u await approval.
+   Part 4p delivered as 02421b8; merge unverified. Its four runtime checks remain unrun.
    Documentation checks passed: 56-line section, frame/source arithmetic, local paths,
    quota/safe-prefix/status consistency, and whitespace. No runtime tests run.
+   Part 4q: read its new section first. Proposed 5,000 ms analysis inside remaining
+   preparation time, 256 MiB isolated-worker heap, 65,536 syntax nodes/depth 256,
+   2 MiB generated Java and 2 MiB encoded maps. Guard growth and publish artifacts
+   atomically with exact source mapping. Known tracing-only limits can use admitted
+   original output-only execution once; timeout/crash/uncertain admission cannot bypass policy.
+   Four runtime checks remain planned, not run. Deliver on docs/part-4q-analysis-limits,
+   then pause. Parts 4r–4u await approval; runtime enforcement remains unfinished.
+   Documentation checks passed: 47-line section, byte arithmetic, local paths,
+   preparation/memory/admission/fallback/source-identity consistency, and whitespace.
    Group related settings; discuss each scope before starting. Finish the definitions
    needed for bounded execution, then validate/tune values through an approved
    prototype. Do not treat broader V1 coverage or runtime verification as complete.
    Planning notes are on docs/part-4l-planning; main was last verified at 1bad656.
    API error shape and runtime implementation remain separate work.
-   Transport/decoder/framing enforcement, generated-source bounds, request errors,
+   Transport/decoder/framing and generated-source enforcement, request errors,
    and other remaining isolation definitions are unfinished work.
    Recovery on 2026-10-08 found only interrupted proposal notes in the two memory
    files, with no Part 4f specification or recorded approval. Those notes were
@@ -245,7 +254,7 @@ Part 4j proposal notes
 were pushed as 4c36237 on docs/part-4j-planning. Part 4j was pushed as 3b4d504 on
 docs/part-4j-array-capture-limits, based on those notes. It does not authorize runtime
 implementation or a later task; its merge is verified in main at 1bad656.
-Current task branch: docs/part-4p-transport-bounds, based on Part 4o cbcfa2b.
+Current task branch: docs/part-4q-analysis-limits, based on Part 4p 02421b8.
 Part 4l 3ab61d1 is pushed but its merge is not verified. Part 4m documentation is approved.
 Main was last verified at 1bad656. Earlier planning notes: docs/part-4l-planning.
 Part 4k proposal notes were pushed as b3528b9 on

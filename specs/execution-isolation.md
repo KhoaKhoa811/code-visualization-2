@@ -1,6 +1,6 @@
 # Execution isolation: timeouts, memory, and cancellation
 
-Status: Milestone 0, Parts 4a–4p, 2026-10-10. Proposed rules for review.
+Status: Milestone 0, Parts 4a–4q, 2026-10-10. Proposed rules for review.
 Resource-limit and cancellation enforcement are not implemented or verified yet.
 
 Sources: [requirements, section 10](../requirements/PROJECT_REQUIREMENTS.md)
@@ -142,8 +142,8 @@ API responses, disconnect policy, and input-wait limits remain separate tasks.
   requesting the first isolated compiler launch; compiler JVM startup counts.
   All compiler invocations for that run share this deadline without resets.
 - Compiler output, retries, or activity never pause or extend the deadline.
-  Queueing and preparation precede it under Part 4o; Part 4q will refine analysis
-  bounds. The run-container memory cap still applies.
+  Queueing and preparation precede it under Part 4o; Part 4q bounds analysis
+  within preparation. The run-container memory cap still applies.
 
 ### At the compilation deadline
 
@@ -353,8 +353,8 @@ This is not a runtime limited or compile_error outcome; no playback exists.
 - Guard collection/encoding buffers while receiving text; never first assemble a
   huge message/list. Exactly a cap fits; optional additions beyond it are omitted.
 - Verify bounded runIds/codes and reserved fallback before admission; never truncate them.
-- Part 4p proposes framing/decoded-memory bounds. API request-error contracts and
-  generated-source bounds remain separate unfinished work.
+- Parts 4p/4q propose framing/decoded-memory and generated-source bounds.
+  API request-error contracts and enforcement remain unfinished work.
 
 ### When explanatory metadata does not fit
 
@@ -681,7 +681,7 @@ parser nodes, collection capacity, state/index tables, copies, and transient enc
 Transfer ownership charges atomically; no refund while data remains live. Verify charges
 against runtime allocation sizes; raw JSON length alone is not decoded-memory accounting.
 These are managed-data limits, not total backend/browser/kernel/JVM heap guarantees;
-analysis/instrumentation memory is Part 4q. No silent eviction of accepted source or facts.
+Part 4q bounds analysis/instrumentation separately. No silent eviction of accepted source or facts.
 Capture budget exhaustion (bytes/tokens/depth/memory) follows Part 4g TRACE_LIMIT,
 with the last safe atomic prefix, confirmed termination, and Parts 4l/4m cleanup.
 Malformed/truncated/out-of-order records instead expose infrastructure failure; retain
@@ -695,3 +695,51 @@ behind fast exit. Existing cancellation/stop causes win races; never append fake
 - Split headers/records, oversized lengths, truncated EOF, ordering, and forged stdout.
 - Allocation amplification, copies, queued/retained data, and slow clients stay within reservations.
 - Fast exit, cancellation, and decoder limits preserve one cause, safe prefix, and verified cleanup.
+
+## Proposed analysis and generated-source budgets — Part 4q
+
+- Prototype analysis/instrumentation budget: **5,000 ms**, within Part 4o's remaining
+  10,000 ms preparation time. Start before requesting the first analysis-worker launch;
+  JVM startup, parsing, resolution, transformations, mappings, and retries all count.
+- Use one isolated runner worker at a time with **256 MiB heap**, within the existing
+  512 MiB container cap. Confirm worker/descendant exit before any compiler launch.
+  No submitted-code evaluation, compilation, or execution inside the Spring Boot JVM.
+- Resolve against the submitted source and vetted local JDK/tracer classes only;
+  no network resolution, user plugins, annotation processors, or application class initialization.
+- Cap simultaneously retained parsed/generated syntax nodes at **65,536** and tree
+  depth at **256** (root depth 1). Count new copies; guard before construction/descent.
+  A post-parse count alone is insufficient. Parser stacks, caches, symbols, and maps
+  obey the worker heap/time caps; native allocations also count against the container cap.
+- Cap total generated Java at **2 MiB (2,097,152 UTF-8 bytes)** and source-map data at
+  **2 MiB UTF-8 JSON bytes**, across all generated files/maps; exact caps fit.
+  Preinstalled immutable tracer classes are excluded; generated helpers are included.
+- Count incrementally before growing buffers/writing files. Copies and temporary
+  output also consume worker memory and Part 4n storage; splitting files resets no quota.
+- Preserve original source text/hash and UTF-16 ranges; generated files never replace
+  the submitted source in traces. Validate mappings to that exact source version.
+- Publish transformed artifacts atomically only after successful analysis, budget,
+  mapping, and coverage checks. Never compile truncated/partially instrumented output.
+
+### Outcomes and fallback
+
+Check capabilities by Java constructs and contexts, never algorithm/source templates.
+Known unsupported tracing or a guarded tracing-only size/node/depth limit can select
+the original program once under java-support.md section 1, only if execution admission
+is already complete, remaining preparation budgets fit, and worker exit is verified.
+Discard incomplete transformed artifacts; explain unavailable capture with a bounded
+coverage diagnostic and a source range only when known. This does not reject valid Java
+solely for missing tracing. All compilation/execution/isolation limits still apply.
+No fallback after a latched timeout, worker crash/OOM, uncertain admission, or execution.
+Time expiry stops the worker under Parts 4l/4m; no timer reset or larger automatic retry.
+Unresolved analysis failures expose infrastructure failure outside the terminal trace;
+verified container OOM follows Part 4b. Never invent Java errors, values, or source ranges.
+Real javac diagnostics remain authoritative for compilation; transformation defects
+must not be reported as errors in the user's original source without verified attribution.
+These limits do not prove transformation correctness or establish new Java coverage.
+
+### Required prototype checks (planned, not run)
+
+- Node/depth/byte boundaries guard before growth; copies, helpers, and maps share their caps.
+- Deep/malformed source, resolution loops, stalled workers, and OOM cannot escape phase bounds.
+- Generated overflow/coverage gaps use original once only after admission; crash/timeout cannot bypass it.
+- Preserve exact source/hash/ranges; compare supported transformations for side effects and outcomes.
