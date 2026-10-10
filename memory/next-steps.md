@@ -45,15 +45,18 @@ and execution isolation restrictions still apply.
    byte conversions, local references, safe-prefix/schema consistency, and whitespace.
    Runtime checks remain unrun.
    Part 4g delivery is complete; no application code or later task approved.
-   Proposed next task: Part 4h source-size admission rules only. Define a proposed
-   byte budget, counting and early rejection, exact admitted-source preservation,
-   and truthful rejection reporting without truncating a source-bearing trace.
-   Target approximately 30–40 new lines in specs/execution-isolation.md plus both
-   memory updates; read the new Part 4h section first. Obtain explicit approval,
-   then use docs/part-4h-source-limits, verify, commit/push, and pause for review.
-   Source-size rules are not approved yet. Terminal-metadata bounds and other
-   remaining isolation definitions are separate future parts, not authorized here.
-   Recovery/planning branch: docs/part-4h-planning, based on main at de1c660.
+   Part 4h source-size admission documentation was approved by "ok" on 2026-10-09
+   and is added in specs/execution-isolation.md with both memory updates. Review
+   its proposed 256 KiB exact UTF-8 text cap, decoded counting, guarded early
+   rejection, source/hash/UTF-16 preservation, no output-only bypass, and admission
+   SOURCE_LIMIT diagnostic. Oversized requests cannot produce a truncated v1
+   trace; the bounded request-error contract remains future API work.
+   Documentation checks passed: 40-line section, byte conversion, local paths,
+   source/admission/schema consistency, and whitespace. Four future checks are
+   listed, not run. Read the new Part 4h section first; commit/push on
+   docs/part-4h-source-limits and pause for review. No next task is approved.
+   Transport/request-decoder guards, generated-source bounds, terminal metadata,
+   and other remaining isolation definitions are separate unfinished work.
    Recovery on 2026-10-08 found only interrupted proposal notes in the two memory
    files, with no Part 4f specification or recorded approval. Those notes were
    published as e42efe3 and are now verified merged in main at dc4a332. Part 4f
@@ -61,8 +64,8 @@ and execution isolation restrictions still apply.
    branch-naming request itself did not authorize Part 4f implementation.
    Part 4g approval covers documentation only, not runtime implementation.
    No application/Docker implementation is approved. Other remaining
-   isolation definitions include traversal/collection/recursion and source/metadata bounds,
-   input-wait limits, and
+   isolation definitions include traversal/collection/recursion, terminal-metadata
+   and transport/generated-source bounds, input-wait limits, and
    termination/cleanup confirmation deadlines. Discuss one small scope before
    starting it. Keep tasks to one purpose, target 1–3 files, and split long
    changes further. Explain why and which file to read first.
@@ -122,8 +125,10 @@ Part 4f was pushed as ade1c31 on docs/part-4f-output-limits and verified merged
 on 2026-10-09 in main at de1c660.
 Part 4g proposal notes were pushed as 6bbbbb1 on docs/part-4g-planning.
 Part 4g was pushed as f0df9cb on docs/part-4g-trace-limits and verified merged
-on 2026-10-09 in main at de1c660. Current recovery/planning branch:
-docs/part-4h-planning. Part 4h remains proposed, not approved.
+on 2026-10-09 in main at de1c660. Recovery notes were pushed as 9072610 on
+docs/part-4h-planning. Current approved documentation branch:
+docs/part-4h-source-limits, based on those notes. Part 4h does not authorize runtime
+implementation or a later task. Its merge is not assumed.
 Git author identity is resolved.
 The `gh` command and GitHub PR tools are unavailable; automated PR creation is
 blocked. Publish the branch and provide a GitHub compare link for manual review.

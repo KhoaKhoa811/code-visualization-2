@@ -1,6 +1,6 @@
 # Execution isolation: timeouts, memory, and cancellation
 
-Status: Milestone 0, Parts 4a–4g, 2026-10-08. Proposed rules for review.
+Status: Milestone 0, Parts 4a–4h, 2026-10-09. Proposed rules for review.
 Resource-limit and cancellation enforcement are not implemented or verified yet.
 
 Sources: [requirements, section 10](../requirements/PROJECT_REQUIREMENTS.md)
@@ -49,8 +49,9 @@ Do not manufacture a Java exception, return, scope exit, or mutation on timeout.
 - Blocking execution still reaches the deadline; activity never resets the timer.
 
 These are future checks, not test results. Part 4a covers runtime timeouts only.
-Traversal, input-wait, and source/envelope metadata bounds remain unfinished;
-Parts 4b–4g propose memory, cancellation, compilation, process/thread, output, and trace rules.
+Traversal, input-wait, and terminal-metadata bounds remain unfinished;
+Parts 4b–4h propose memory, cancellation, compilation, process/thread, output,
+trace-data, and source-admission rules; implementation remains unfinished.
 
 ## Proposed memory budget — Part 4b
 
@@ -269,8 +270,8 @@ the slot; failed termination/cleanup follows the timeout procedure.
 - Never truncate a value/array/object or split an event to make it fit. stdout/stderr
   has its separate quota; printed text cannot become accepted execution facts.
 - Source and terminal envelope metadata are outside this captured-data quota;
-  their separate admission/serialization bounds remain unfinished. This is not
-  a bound on the entire trace envelope or a proof of bounded decoded memory.
+  Part 4h proposes source admission; terminal serialization bounds remain unfinished.
+  This is not a whole-envelope bound or proof of bounded decoded memory.
 
 ### At a trace-data limit
 
@@ -297,3 +298,44 @@ normal completion so a fast exit cannot hide an oversized final record/index upd
 - Large initial/event records are refused without buffering the whole oversized record.
 - Overflow between operations drops trailing bookkeeping and restores the last safe state.
 - Missing initial state, final-index overflow, and cancellation preserve truthful status/cleanup.
+
+## Proposed source-size admission budget — Part 4h
+
+- Prototype cap: **256 KiB (262,144 bytes)** of submitted Main.java text, unverified.
+- Count the exact well-formed text encoded as UTF-8, before Java Unicode-escape
+  processing. Count comments, whitespace, line endings, and any leading BOM.
+- Decode request escapes before counting; JSON spelling/framing is not Java text.
+  Identical decoded text has the same size regardless of request escape choices.
+- Exactly the cap passes this size check; exceeding it rejects admission.
+  Passing this check does not establish Java validity, execution policy, or coverage.
+- Check incrementally before queueing, source analysis, instrumentation, temporary
+  source-file creation, or compiler/application launch; guard buffers while decoding.
+  Stop retaining source as soon as overflow is known, including across chunks.
+- Malformed Unicode fails source validity; never replace invalid units to fit.
+- This decoded-source cap does not bound request bodies, JSON overhead, generated
+  instrumentation, or decoded memory. Separate transport/decoder guards remain
+  required before implementation; terminal-metadata limits are also unfinished.
+
+### Source preservation and rejection
+
+For admitted source, preserve the exact text and its UTF-8 SHA-256 under
+trace-format.md. Do not normalize whitespace/line endings, remove comments/BOM,
+or shorten text. Source highlights retain the original UTF-16 offsets.
+This source allowance is separate from Part 4g captured-data/record quotas;
+JSON escaping when serializing source is not charged to those captured-data quotas.
+
+Reject oversized submissions before run admission; no compiler or submitted JVM
+starts, and output-only execution cannot bypass the cap. Report an admission
+diagnostic with code SOURCE_LIMIT and a fixed message naming the byte cap.
+Do not echo source in errors/logs or fabricate source ranges, output, or events.
+Do not emit a trace-v1 envelope with missing/truncated source or a prefix hash:
+that contract requires the full exact source. Use a bounded admission error;
+its machine-readable request-error contract remains future API work.
+This is not a runtime limited or compile_error outcome; no playback exists.
+
+### Required prototype checks (planned, not run)
+
+- ASCII at cap minus one/exact cap passes size admission; one extra byte rejects.
+- Multibyte/supplementary text, BOM, CRLF, and request escapes count exact UTF-8 bytes.
+- Chunked overflow stops retention; no queue, source file, compiler, or JVM is created.
+- Accepted source/hash/UTF-16 ranges stay exact; rejection echoes no source or fake trace.

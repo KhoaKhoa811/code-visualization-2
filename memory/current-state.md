@@ -38,7 +38,10 @@ Long project instructions remain in their source files rather than being duplica
   f0df9cb are verified merged in main at de1c660, pulled on 2026-10-09. Their
   proposed 1 MiB output, 8 MiB captured-data, and 256 KiB record limits remain
   unverified at runtime. Source/terminal metadata bounds are still work.
-  Part 4h source-size admission documentation is proposed, not approved.
+  Part 4h source-size admission documentation is approved and added. Its proposed
+  256 KiB exact UTF-8 source cap and early rejection remain unverified at runtime.
+  Oversized requests require a bounded admission error, not a truncated v1 trace.
+  Request-error contracts, transport/decoder guards, and terminal bounds remain work.
 - Review preference confirmed 2026-10-07: previous changes were still too large.
   Give each task one purpose, aim for 1–3 files, and split long changes further.
   Explain what changed, why, and where to read first. Commit/push each small
@@ -868,13 +871,45 @@ preserve user messages and label assistant summaries explicitly.
     Documentation whitespace checks passed; no runtime or contract tests rerun.
     Automatic PR creation remains unavailable; provide a manual link after push.
 
+46. User: "ok"
+    This approves the previously proposed Part 4h source-size admission rules,
+    approximately 30–40 specification lines, both memory updates, checks, separate
+    commit/push, and a review pause. Assistant checked the clean planning branch,
+    project instructions, requirements, isolation/source/termination specifications,
+    Java admission policy, and trace-v1 schema. Created docs/part-4h-source-limits
+    from docs/part-4h-planning, based on main at de1c660 and recovery commit 9072610.
+    Added a 40-line section proposing a 256 KiB (262,144-byte) cap for exact
+    well-formed UTF-8 Main.java text before Java Unicode-escape processing. Count
+    decoded request text, comments, whitespace, BOM, and line endings; exactly
+    the cap passes only the size gate. Incremental guarded decoding rejects excess
+    before queueing, analysis, instrumentation, temporary source creation, or launch.
+    Malformed Unicode is not repaired. Admitted text, UTF-8 hash, and original
+    UTF-16 source offsets stay exact. Source remains separate from captured-data
+    and record quotas, including its JSON serialization escaping.
+    Rejection reports admission-phase SOURCE_LIMIT with a fixed quota message and
+    no echoed source, invented range, output, or event. No output-only bypass or
+    compiler/submitted JVM launch. Trace v1 requires full source, so oversized
+    submissions use a bounded admission error, not an incomplete source-bearing
+    envelope or prefix hash. Its request-error contract is future API work; this
+    part does not change the existing trace contract. Four future checks cover
+    boundaries, Unicode/escapes, early chunked rejection, and exact preservation.
+    Request-body/decoder guards, generated-source bounds, decoded-memory proof,
+    terminal metadata, and other isolation limits remain unfinished separate work.
+    Exactly three documentation files change. Read the new Part 4h section first.
+    Verification passed: 40-line section, byte conversion, local paths, exact-source/
+    admission/schema consistency, and whitespace. No runtime or contract tests run;
+    no application code, dependencies, or Java/Docker execution added. Commit/push
+    and pause for review; no next task approved. Automatic PR creation remains
+    unavailable; provide a manual link after push.
+
 ## Latest verification notes
 
 Part 3 added a contract schema, examples, and development validation tooling.
 All 46 checks passed, including after clean lockfile installation. Documentation
 links, staged whitespace, and exclusion of node_modules were verified. The three
 part commits are merged in main at 7c94967, verified by fetch/pull and ancestry.
-Parts 4a–4g specify timeouts, memory, cancellation, process/thread, output, and trace limits;
+Parts 4a–4h specify timeouts, memory, cancellation, process/thread, output, trace,
+and source-admission limits;
 enforcement and isolation tests remain unimplemented. Part 4c documentation checks passed:
 40-line section, valid local references, trace/schema consistency, and whitespace.
 No application tests, Java execution, or application builds have been run or
@@ -893,7 +928,8 @@ Part 4f ade1c31 and Part 4g f0df9cb are verified merged in main at de1c660 on
 2026-10-09 by fetch, fast-forward pull, and ancestry checks. Part 4g trace-data
 documentation checks passed: 40-line section, byte
 conversions, local references, safe-prefix/schema consistency, and whitespace.
-No runtime checks run; source/envelope metadata bounds remain unfinished.
+No runtime checks run; Part 4h now proposes source admission, while terminal
+metadata bounds remain unfinished.
 2026-10-08 recovery verified only the two interrupted memory changes, with no
 Part 4f specification changes. No runtime or contract tests rerun during recovery.
 Branch naming now records the part label in AGENTS.md and both memory files;
@@ -901,4 +937,8 @@ the naming-only update's documentation checks passed: valid branch names,
 consistent instructions/memory, and whitespace. No runtime tests run.
 2026-10-09 recovery updates only the two memory files. Documentation whitespace
 and recorded scope/merge consistency checks passed. No runtime or contract tests
-were rerun. Part 4h source-size rules remain a proposal, not an approved task.
+were rerun. Part 4h source-size rules were not approved during recovery; the
+subsequent "ok" approves only the documentation scope recorded in entry 46.
+Part 4h documentation checks passed: 40-line section, 256 KiB conversion, local
+paths, exact-source/admission/schema consistency, and whitespace. Its four runtime
+checks remain planned, not run; transport/request-error/terminal bounds remain work.
