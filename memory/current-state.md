@@ -65,7 +65,8 @@ Long project instructions remain in their source files rather than being duplica
   Added proposed 5,000 ms shared confirmation budget, trusted whole-run proof,
   infrastructure failure on expiry, retained slot/isolation, and explicit recovery.
   Enforcement and four planned runtime checks remain unimplemented/unrun.
-  Task branch: docs/part-4l-termination-confirmation; pause for review after delivery.
+  Delivered as 3ab61d1 on docs/part-4l-termination-confirmation; merge not verified.
+  Proposed next scope: Part 4m cleanup confirmation deadline, awaiting approval.
 - Review preference confirmed 2026-10-07: previous changes were still too large.
   Give each task one purpose, aim for 1–3 files, and split long changes further.
   Explain what changed, why, and where to read first. Commit/push each small
@@ -1186,6 +1187,20 @@ preserve user messages and label assistant summaries explicitly.
     trace-status/safe-prefix consistency, and whitespace. No runtime tests run.
     Automatic PR creation remains unavailable: gh and callable GitHub PR tools
     are absent. Push the branch and provide a manual PR link; pause for review.
+
+56. User: "what's next"
+    Assistant proposes Part 4m cleanup confirmation deadline: bound cleanup calls
+    and retries after confirmed termination, define trustworthy removal evidence,
+    and retain the occupied slot/isolation if cleanup cannot be verified. Preserve
+    the actual execution outcome and accepted trace; cleanup failure must not
+    invent Java behavior. Define safe recovery and slot release after proof.
+    Target one 30–40-line specification section plus both memory updates, then
+    verify, commit, and push. This is a proposal, not approval to implement it.
+    AGENTS.md requires confirmation before starting this next task.
+    Part 4l was committed/pushed as 3ab61d1; no merge has been reported or verified.
+    Planning notes use docs/part-4m-planning based on that commit. Only the two
+    memory files change; no runtime tests run. Automatic PR creation remains
+    unavailable; provide the manual planning PR link after publication.
 
 ## Latest verification notes
 

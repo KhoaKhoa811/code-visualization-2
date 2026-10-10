@@ -112,7 +112,12 @@ and execution isolation restrictions still apply.
    Four prototype checks are planned, not run. Enforcement remains unfinished.
    Documentation checks passed: 40-line section, local paths, deadline/race,
    trace-status/safe-prefix consistency, and whitespace. No runtime tests run.
-   Deliver one commit on docs/part-4l-termination-confirmation, then pause for review.
+   Delivered as 3ab61d1 on docs/part-4l-termination-confirmation; merge not verified.
+   Proposed Part 4m: cleanup confirmation deadline after confirmed termination,
+   bounded calls/retries, trusted removal evidence, failure visibility, retained
+   slot/isolation, and safe recovery. Preserve actual execution and trace facts.
+   Target 30–40 specification lines plus both memory updates. Await explicit
+   approval; then verify, commit/push, and pause. Runtime implementation is separate.
    Planning notes are on docs/part-4l-planning; main was last verified at 1bad656.
    Cleanup deadlines, API error shape, and runtime implementation remain separate work.
    Transport/request-decoder/framing guards, generated-source bounds, request errors,
@@ -197,8 +202,9 @@ Part 4j proposal notes
 were pushed as 4c36237 on docs/part-4j-planning. Part 4j was pushed as 3b4d504 on
 docs/part-4j-array-capture-limits, based on those notes. It does not authorize runtime
 implementation or a later task; its merge is verified in main at 1bad656.
-Current task branch: docs/part-4l-termination-confirmation, based on planning notes
-44c7baf and main at 1bad656. Planning notes were pushed on docs/part-4l-planning.
+Current planning branch: docs/part-4m-planning, based on Part 4l commit 3ab61d1.
+Part 4l is pushed but its merge is not verified. Part 4m is proposed, not approved.
+Main was last verified at 1bad656. Earlier planning notes: docs/part-4l-planning.
 Part 4k proposal notes were pushed as b3528b9 on
 docs/part-4k-planning. Correction 02b6257 was pushed on
 docs/part-4j-capture-reference-fix and locally fast-forwarded into the approved
