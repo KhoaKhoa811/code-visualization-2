@@ -1,6 +1,6 @@
 # Current state and conversation memory
 
-Last updated: 2026-10-08 (Asia/Saigon).
+Last updated: 2026-10-09 (Asia/Saigon).
 
 ## Recovery instructions
 
@@ -34,11 +34,11 @@ Long project instructions remain in their source files rather than being duplica
   remain unverified at runtime. Part 4e process/thread-limit documentation is
   merged as 95adf12 in main at dc4a332, verified on 2026-10-08 together with
   recovery notes e42efe3. Its 128-task cap and enforcement remain unverified at runtime.
-  Part 4f stdout/stderr-limit documentation is committed/pushed as ade1c31 on
-  docs/part-4f-output-limits; its merge is not verified. The proposed 1 MiB combined
-  compiler/runtime quota remains unverified at runtime. Part 4g trace-data-limit
-  documentation is approved and added; the proposed 8 MiB data and 256 KiB record
-  limits remain unverified at runtime. Source/terminal metadata bounds are still work.
+  Part 4f stdout/stderr-limit commit ade1c31 and Part 4g trace-data-limit commit
+  f0df9cb are verified merged in main at de1c660, pulled on 2026-10-09. Their
+  proposed 1 MiB output, 8 MiB captured-data, and 256 KiB record limits remain
+  unverified at runtime. Source/terminal metadata bounds are still work.
+  Part 4h source-size admission documentation is proposed, not approved.
 - Review preference confirmed 2026-10-07: previous changes were still too large.
   Give each task one purpose, aim for 1–3 files, and split long changes further.
   Explain what changed, why, and where to read first. Commit/push each small
@@ -843,6 +843,31 @@ preserve user messages and label assistant summaries explicitly.
     no next task approved.
     Automatic PR creation remains unavailable; provide a manual link after push.
 
+45. User: "read current state.md, next-step.md and other files to recover memory
+    and continue building project. I merged all the branch into main so please
+    make sure you use the newest code"
+    The supplied project instructions are applied. Assistant recovered from the
+    actual memory/current-state.md and memory/next-steps.md, AGENTS.md, requirements,
+    and relevant isolation/trace specifications. The working tree was clean.
+    Fetched origin, switched to main, and pulled with --ff-only to de1c660.
+    Ancestry checks verified Part 4f ade1c31 and Part 4g f0df9cb merged; main
+    matched origin/main. Milestone 0 remains incomplete, and no application or
+    runner implementation was recovered. Earlier runtime checks remain unrun.
+    Assistant proposes Part 4h: source-size admission rules only, because Part 4g
+    excludes source from its captured-data quota. Define a proposed byte budget,
+    counting and early rejection, preservation of exact admitted source, and
+    rejection reporting without inventing or truncating a source-bearing trace.
+    Target approximately 30–40 new lines in specs/execution-isolation.md plus
+    both memory updates, one separate commit/push, and a review pause. Read the
+    new Part 4h section first. Terminal-metadata bounds, traversal/collection/
+    recursion limits, runtime implementation, dependencies, and execution tests
+    remain outside this proposed part and require separate discussion.
+    This recovery records discussion only on docs/part-4h-planning. Part 4h is
+    not approved; AGENTS.md requires confirmation before starting the new scope.
+    Both memory files record the verified merge and proposed next step.
+    Documentation whitespace checks passed; no runtime or contract tests rerun.
+    Automatic PR creation remains unavailable; provide a manual link after push.
+
 ## Latest verification notes
 
 Part 3 added a contract schema, examples, and development validation tooling.
@@ -864,8 +889,9 @@ Runtime process/thread-limit checks remain unrun.
 Part 4e commit 95adf12 and recovery notes e42efe3 are verified merged in main at
 dc4a332. Part 4f documentation checks passed: 40-line section, byte conversion,
 local references, trace/schema consistency, and whitespace. Runtime checks remain unrun.
-Part 4f is committed/pushed as ade1c31; merge status is unverified. Part 4g trace-data
-rules are approved and added; documentation checks passed: 40-line section, byte
+Part 4f ade1c31 and Part 4g f0df9cb are verified merged in main at de1c660 on
+2026-10-09 by fetch, fast-forward pull, and ancestry checks. Part 4g trace-data
+documentation checks passed: 40-line section, byte
 conversions, local references, safe-prefix/schema consistency, and whitespace.
 No runtime checks run; source/envelope metadata bounds remain unfinished.
 2026-10-08 recovery verified only the two interrupted memory changes, with no
@@ -873,3 +899,6 @@ Part 4f specification changes. No runtime or contract tests rerun during recover
 Branch naming now records the part label in AGENTS.md and both memory files;
 the naming-only update's documentation checks passed: valid branch names,
 consistent instructions/memory, and whitespace. No runtime tests run.
+2026-10-09 recovery updates only the two memory files. Documentation whitespace
+and recorded scope/merge consistency checks passed. No runtime or contract tests
+were rerun. Part 4h source-size rules remain a proposal, not an approved task.
