@@ -83,7 +83,10 @@ Long project instructions remain in their source files rather than being duplica
   Delivered as 02421b8 on docs/part-4p-transport-bounds; merge not verified.
   Part 4q approved by "ok, continue": analysis/instrumentation and generated-source
   budget documentation. Proposed limits and four runtime checks remain unverified.
-  Task branch: docs/part-4q-analysis-limits. Parts 4r–4u remain proposals.
+  Delivered as 38e114a on docs/part-4q-analysis-limits; merge not verified.
+  Part 4r approved by "ok, continue": interactive input, wait/overall deadlines,
+  EOF/disconnect documentation. Proposed guards and four runtime checks are unverified.
+  Task branch: docs/part-4r-input-limits. Parts 4s–4u remain proposals.
 - Review preference confirmed 2026-10-07: previous changes were still too large.
   Give each task one purpose, aim for 1–3 files, and split long changes further.
   Explain what changed, why, and where to read first. Commit/push each small
@@ -1341,6 +1344,29 @@ preserve user messages and label assistant summaries explicitly.
     preparation/memory/admission/fallback/source-identity consistency, and whitespace.
     No runtime tests run. Automatic PR creation remains unavailable; provide a manual link.
 
+63. User: "ok, continue"
+    Assistant proceeds with Part 4r only: live input limits, waiting, overall
+    deadlines, EOF, and disconnects. Proposed interactive mode replaces the 5,000 ms
+    noninteractive timer with 120,000 ms elapsed; verified blocked reads have 30,000 ms
+    waits, with no timer reset from mere input arrival. Unknown wait state is not guessed.
+    Proposed UTF-8 line/total/pending caps: 4/64/16 KiB, including appended LF.
+    Input JSON messages cap at 32 KiB across fragments, with Part 4p parsing guards.
+    Whole-line admission, no trim/token conversion, bounded duplicate handling, and
+    confirmed pipe-write accounting preserve input order without claiming consumption.
+    EOF drains accepted input then closes once; actual Java/Scanner behavior remains.
+    Controller disconnect cancels when detected with INPUT_DISCONNECTED; observer
+    disconnect does not. Wait/overall expiry uses INPUT_WAIT_TIMEOUT/EXECUTION_TIMEOUT
+    and actual duration, safe capture, whole-environment termination, and cleanup.
+    Input rejection alone does not end the run; unexpected pipe failure is infrastructure
+    failure. Replay never resends input. Scanner coverage, API messages, and separate
+    test-input case management remain required V1 work, not implemented by this part.
+    Four prototype checks remain planned, not run. Update the specification and both
+    memory files, verify, commit/push, then pause. Part 4q delivered as 38e114a;
+    merge unverified. No later part, new trace events, or implementation is approved.
+    Documentation checks passed: 56-line section, byte/escaped-line arithmetic,
+    local paths, deadline/EOF/disconnect/cancellation and trace-status consistency,
+    and whitespace. No runtime tests run; automatic PR creation remains unavailable.
+
 ## Latest verification notes
 
 Part 3 added a contract schema, examples, and development validation tooling.
@@ -1426,3 +1452,6 @@ checks remain planned, not run; no transport or memory enforcement is implemente
 Part 4q documentation checks passed: 47-line section, 2 MiB byte arithmetic,
 local paths, preparation/memory/admission/fallback/source-identity consistency,
 and whitespace. Four runtime checks remain planned, not run; no analysis enforcement.
+Part 4r documentation checks passed: 56-line section, byte/escaped-line arithmetic,
+local paths, deadline/EOF/disconnect/cancellation and trace-status consistency,
+and whitespace. Four runtime checks remain planned, not run; no input implementation.

@@ -1,6 +1,6 @@
 # Execution isolation: timeouts, memory, and cancellation
 
-Status: Milestone 0, Parts 4a–4q, 2026-10-10. Proposed rules for review.
+Status: Milestone 0, Parts 4a–4r, 2026-10-10. Proposed rules for review.
 Resource-limit and cancellation enforcement are not implemented or verified yet.
 
 Sources: [requirements, section 10](../requirements/PROJECT_REQUIREMENTS.md)
@@ -16,7 +16,7 @@ and [trace termination rules](trace-format.md#11-termination-and-safe-capture).
 - The timer is independent of submitted code, stdout, and trace activity.
 - Waiting or blocking does not pause this timer. Input arrival does not reset it.
 - The 5,000 ms value is a prototype proposal to measure, not a verified V1 default.
-  Interactive execution and its separate input-wait budget need a later decision.
+  Part 4r proposes a separate interactive profile and input-wait budget.
 
 ## At the deadline
 
@@ -125,7 +125,7 @@ and [Java 21 heap options](https://docs.oracle.com/en/java/javase/21/docs/specs/
 Parts 4l and 4m propose termination/cleanup confirmation and retry bounds.
 Cancellation must not permit an unlimited orphaned worker;
 these proposed bounds do not establish implemented or verified enforcement.
-API responses, disconnect policy, and input-wait limits remain separate tasks.
+Part 4r proposes disconnect/input-wait rules; API message contracts remain separate work.
 
 ### Required prototype checks (planned, not run)
 
@@ -743,3 +743,60 @@ These limits do not prove transformation correctness or establish new Java cover
 - Deep/malformed source, resolution loops, stalled workers, and OOM cannot escape phase bounds.
 - Generated overflow/coverage gaps use original once only after admission; crash/timeout cannot bypass it.
 - Preserve exact source/hash/ranges; compare supported transformations for side effects and outcomes.
+
+## Proposed interactive input bounds — Part 4r
+
+- Select interactive mode before launch; it replaces the noninteractive 5,000 ms
+  execution timer with **120,000 ms elapsed**, starting before the submitted JVM launch.
+  This includes startup, computation, and waiting; input/output/reconnect never resets it.
+  Preparation/compilation keep their existing deadlines; values remain unverified proposals.
+- A verified blocked stdin read has a **30,000 ms** wait deadline from actual blocking.
+  Count until the read actually resumes; message arrival/acknowledgement alone cannot reset it.
+  A later blocked read has a new wait deadline but shares the overall execution deadline.
+  Never infer waiting from printed prompts. Without reliable wait evidence, retain
+  the overall deadline and report unknown waiting state; do not claim verified wait tracking.
+- Live input line cap: **4 KiB (4,096 UTF-8 bytes)** including one appended LF byte.
+  Cap each uncompressed input JSON message at **32 KiB** across fragments; use Part 4p parsing guards.
+  Preserve whitespace; reject embedded CR/LF and malformed Unicode in a single-line message.
+  Empty Enter sends LF. Do not trim, tokenize, or convert text on Java's behalf.
+- Total accepted input cap: **64 KiB (65,536 bytes)** per run, including delimiters;
+  pending unsent/in-flight input cap: **16 KiB (16,384 bytes)**. Exact caps fit.
+  Guard before buffering/encoding, including fragmented messages; charge Part 4p memory.
+  Pending bytes retire only on confirmed pipe writes; acceptance does not mean consumption.
+- Admit whole lines atomically and in order for the exact run/controller identity,
+  only during execution before EOF/stop. Reject oversized/over-total lines without
+  sending a prefix. Reject pending overflow as backpressure; never reset accepted totals.
+- Use bounded sequence/deduplication state: retrying accepted input acknowledges it
+  without writing/counting it twice; reject conflicting or out-of-order sequences.
+  Never automatically retry an uncertain pipe write.
+
+### EOF, disconnection, and limits
+
+Explicit EOF stops further input admission and closes stdin once after already accepted
+input drains; it adds no bytes. Repeated EOF is idempotent. Preserve actual Scanner/Java
+behavior for EOF and invalid tokens, including caught errors; EOF itself is not cancellation.
+Serialize writes/EOF with termination and cancellation: stop cutoff discards pending
+input and forbids later writes. Input rejection alone does not terminate execution.
+Loss of the controlling console connection, including slow-client disconnection, requests
+cancellation immediately when detected; observer disconnection does not cancel the run.
+If this cause wins, use cancelled with execution diagnostic INPUT_DISCONNECTED and reason
+"Input controller disconnected", after verified termination. No automatic reconnect/restart.
+Undetected connection loss cannot extend wait/overall deadlines; all input paths are bounded.
+
+On verified wait/overall expiry, preserve earlier stop causes; otherwise latch limited,
+using execution diagnostic INPUT_WAIT_TIMEOUT / EXECUTION_TIMEOUT and the exceeded duration.
+Use Part 4a's stop procedure with the interactive duration, never its fixed 5,000 ms reason.
+Retain safe partial/unavailable capture, accepted output, and actual source association;
+confirm whole-environment termination and cleanup under Parts 4l/4m before slot release.
+Unexpected pipe failure is infrastructure failure; never invent consumed input or Java events.
+Expected pipe closure after confirmed termination must not overwrite the known outcome.
+Replay sends no input and requests none. Future separate test inputs share total/pending
+bounds; their case-management/delivery format and exact Scanner coverage remain V1 work.
+These rules do not add input events to trace v1 or define the future API message schema.
+
+### Required prototype checks (planned, not run)
+
+- UTF-8/empty/whitespace/fragmented lines at byte limits; no partial delivery on rejection.
+- Prompt without newline, repeated reads, invalid tokens, EOF, and blocked pipe behavior.
+- Duplicate input, backpressure, controller/observer loss, and cancel/write/EOF races.
+- Wait/overall boundaries and backward replay preserve truthful status, no resend, and cleanup.
