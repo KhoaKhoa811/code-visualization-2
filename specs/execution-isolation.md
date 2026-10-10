@@ -1,6 +1,6 @@
 # Execution isolation: timeouts, memory, and cancellation
 
-Status: Milestone 0, Parts 4a–4l, 2026-10-10. Proposed rules for review.
+Status: Milestone 0, Parts 4a–4m, 2026-10-10. Proposed rules for review.
 Resource-limit and cancellation enforcement are not implemented or verified yet.
 
 Sources: [requirements, section 10](../requirements/PROJECT_REQUIREMENTS.md)
@@ -37,7 +37,7 @@ and [trace termination rules](trace-format.md#11-termination-and-safe-capture).
 
 If termination or cleanup cannot be verified, expose the infrastructure failure
 and retain the occupied slot; do not report successful cleanup or start another
-run in that environment. Part 4l bounds termination confirmation; cleanup bounds remain work.
+run in that environment. Parts 4l and 4m propose termination and cleanup confirmation bounds.
 Do not manufacture a Java exception, return, scope exit, or mutation on timeout.
 
 ## Required prototype checks
@@ -122,8 +122,8 @@ and [Java 21 heap options](https://docs.oracle.com/en/java/javase/21/docs/specs/
   Release the run slot only after termination and temporary-resource cleanup
   are verified, following the timeout procedure. Keep failed cleanup visible.
 
-Part 4l proposes termination confirmation and retry bounds; cleanup deadlines
-remain unfinished. Cancellation must not permit an unlimited orphaned worker;
+Parts 4l and 4m propose termination/cleanup confirmation and retry bounds.
+Cancellation must not permit an unlimited orphaned worker;
 these proposed bounds do not establish implemented or verified enforcement.
 API responses, disconnect policy, and input-wait limits remain separate tasks.
 
@@ -493,8 +493,8 @@ Stop automatic retries at expiry; retain the unresolved run for explicit recover
 Recovery must fence pending launches/control operations and verify this same run.
 Late trusted proof may finalize the original cause once; keep the infrastructure
 failure visible. Never add Java events or accept records after the original cutoff.
-Cleanup still requires separate verification before slot release; its deadline is
-future work. This budget bounds supervisor waiting, not guaranteed process death
+Cleanup requires separate verification before slot release under Part 4m.
+This budget bounds supervisor waiting, not guaranteed process death
 during infrastructure failure. Runtime enforcement and recovery need prototype proof.
 
 ### Required prototype checks (planned, not run)
@@ -503,3 +503,44 @@ during infrastructure failure. Runtime enforcement and recovery need prototype p
 - Hang control calls/retries; deadline handling stays responsive without worker buildup.
 - Cancel before/during launch or with descendants: acknowledgement alone cannot release the slot.
 - Lose confirmation, then recover: no premature trace, reused environment, or invented facts.
+
+## Proposed cleanup confirmation deadline — Part 4m
+
+- Prototype budget: **5,000 ms elapsed time**, proposed and unverified.
+- Start an external monotonic deadline when whole-run termination is confirmed,
+  before cleanup work. This is separate from execution and Part 4l stop timers.
+- Cover every outcome and abandoned setup; prove no pending launch for never-launched runs.
+- Preserve accepted output and trace facts outside resources being removed first;
+  any required transfer shares this budget and existing data limits.
+- Removal calls, verification, and retries share the remaining time without resets.
+  Bound control workers; hung or abandoned calls must not block deadline handling.
+- Use a trusted inventory of this run's environment and temporary resources.
+  Validate ownership and resolved paths; never follow user-controlled links outside
+  the run boundary or delete shared images, another run's files, or retained results.
+
+### Proof, failure, and recovery
+
+Require trusted evidence that every inventoried temporary resource is absent and
+no pending setup, launch, or cleanup operation can recreate it or affect another run.
+A removal acknowledgement alone is insufficient. Already absent resources count
+only when their exact identity and scope are verified; absence of an inventory is no proof.
+Serialize accepted proof, deadline expiry, and slot release. Release the slot once
+only after termination and cleanup both verify; never reuse an unresolved environment.
+Proof accepted before expiry succeeds. At or after expiry, first record cleanup
+infrastructure failure outside the v1 trace; never change the actual execution cause.
+Retain the occupied slot, resource identities, isolation, and accepted output/trace.
+Show failed cleanup explicitly; do not claim deletion or release succeeded.
+Stop automatic retries at expiry. Explicit recovery must fence outstanding operations
+and verify this same inventory; late proof permits one release without hiding failure.
+Termination remains known: cleanup failure alone does not invalidate accepted trace
+facts or prevent terminal playback. Capture completeness concerns recorded Java
+state/terminal bookkeeping, not host resource deletion; never invent cleanup events.
+No Java rerun, source changes, or new execution.status. API error shape remains work.
+This bounds waiting, not guaranteed removal; enforcement/recovery evidence remains unverified.
+
+### Required prototype checks (planned, not run)
+
+- Complete/error/cancel/limit/setup paths: remove only owned resources; retain results.
+- Stall removal/verification/retries: deadline fires; workers stay bounded; slot stays occupied.
+- Race proof before/at/after expiry and repeated recovery: one release, visible failures.
+- Wrong identity, links, missing inventory, or late operations cannot delete another run's data.

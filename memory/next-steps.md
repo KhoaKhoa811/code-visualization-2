@@ -113,13 +113,19 @@ and execution isolation restrictions still apply.
    Documentation checks passed: 40-line section, local paths, deadline/race,
    trace-status/safe-prefix consistency, and whitespace. No runtime tests run.
    Delivered as 3ab61d1 on docs/part-4l-termination-confirmation; merge not verified.
-   Proposed Part 4m: cleanup confirmation deadline after confirmed termination,
-   bounded calls/retries, trusted removal evidence, failure visibility, retained
-   slot/isolation, and safe recovery. Preserve actual execution and trace facts.
-   Target 30–40 specification lines plus both memory updates. Await explicit
-   approval; then verify, commit/push, and pause. Runtime implementation is separate.
+   Part 4m cleanup confirmation documentation approved by "ok" on 2026-10-10.
+   Read its new section in specs/execution-isolation.md first: proposed 5,000 ms
+   after confirmed termination; shared transfer/removal/verification/retry budget;
+   trusted inventory, owned paths, and proof that no pending operation can recreate
+   resources or affect another run. Failure retains the slot/isolation; explicit
+   recovery verifies cleanup before one release. Preserve actual execution and
+   trace facts; host deletion does not determine Java capture completeness.
+   Four prototype checks are planned, not run. Runtime enforcement remains work.
+   Documentation review passed: 40-line section, local paths, deadline/race and
+   ownership/slot-release rules, trace-status consistency, and whitespace.
+   Deliver on docs/part-4m-cleanup-confirmation, then pause for review.
    Planning notes are on docs/part-4l-planning; main was last verified at 1bad656.
-   Cleanup deadlines, API error shape, and runtime implementation remain separate work.
+   API error shape and runtime implementation remain separate work.
    Transport/request-decoder/framing guards, generated-source bounds, request errors,
    and other remaining isolation definitions are separate unfinished work.
    Recovery on 2026-10-08 found only interrupted proposal notes in the two memory
@@ -130,8 +136,7 @@ and execution isolation restrictions still apply.
    Part 4g approval covers documentation only, not runtime implementation.
    No application/Docker implementation is approved. Other remaining
    isolation definitions include collection/object traversal, transport/generated-source
-   and decoded-memory bounds, input-wait limits, and
-   cleanup confirmation deadlines. Discuss one small scope before
+   and decoded-memory bounds, and input-wait limits. Discuss one small scope before
    starting it. Keep tasks to one purpose, target 1–3 files, and split long
    changes further. Explain why and which file to read first.
    Include the part label in all task/planning branch names:
@@ -202,8 +207,8 @@ Part 4j proposal notes
 were pushed as 4c36237 on docs/part-4j-planning. Part 4j was pushed as 3b4d504 on
 docs/part-4j-array-capture-limits, based on those notes. It does not authorize runtime
 implementation or a later task; its merge is verified in main at 1bad656.
-Current planning branch: docs/part-4m-planning, based on Part 4l commit 3ab61d1.
-Part 4l is pushed but its merge is not verified. Part 4m is proposed, not approved.
+Current task branch: docs/part-4m-cleanup-confirmation, based on planning a1511f7.
+Part 4l 3ab61d1 is pushed but its merge is not verified. Part 4m documentation is approved.
 Main was last verified at 1bad656. Earlier planning notes: docs/part-4l-planning.
 Part 4k proposal notes were pushed as b3528b9 on
 docs/part-4k-planning. Correction 02b6257 was pushed on
@@ -211,7 +216,7 @@ docs/part-4j-capture-reference-fix and locally fast-forwarded into the approved
 Part 4k branch before the user's merges were verified. Runtime implementation and a later
 task are not authorized. Recovery on 2026-10-10 pulled main to 1bad656 and verified
 Parts 4h–4k and correction 02b6257 merged by ancestry. Part 4k delivery commit:
-da8de3a. Part 4l documentation is approved and added; no later task is approved.
+da8de3a. Parts 4l and 4m documentation are added; no later task is approved.
 Git author identity is resolved.
 The `gh` command and GitHub PR tools are unavailable; automated PR creation is
 blocked. Publish the branch and provide a GitHub compare link for manual review.
