@@ -1151,6 +1151,17 @@ preserve user messages and label assistant summaries explicitly.
     no runtime or contract tests rerun. The gh command and callable GitHub PR tools
     remain unavailable; publish the branch and provide a manual PR link.
 
+54. User: "what's next"
+    Assistant clarified that Part 4l remains the next proposed task: define a
+    termination confirmation deadline and the response when termination cannot
+    be proved. Failure must remain an infrastructure failure with the run slot
+    occupied; do not publish a false terminal trace. The proposed change is
+    approximately 30–40 specification lines plus both memory files, followed by
+    verification, commit, and push. This question does not approve Part 4l.
+    AGENTS.md requires explicit confirmation before starting the next task.
+    This clarification only updates both memory files on docs/part-4l-planning;
+    no specification, implementation, or dependency changes are authorized.
+
 ## Latest verification notes
 
 Part 3 added a contract schema, examples, and development validation tooling.

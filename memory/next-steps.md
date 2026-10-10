@@ -113,6 +113,8 @@ and execution isolation restrictions still apply.
    Read the new Part 4l section first. Proposal branch: docs/part-4l-planning,
    based on newest main at 1bad656. Part 4l is not approved. Cleanup deadlines and
    the other remaining isolation/implementation definitions are separate work.
+   The user's repeated "what's next" asks for clarification, not approval.
+   Part 4l remains awaiting explicit confirmation; only discussion notes change.
    Transport/request-decoder/framing guards, generated-source bounds, request errors,
    and other remaining isolation definitions are separate unfinished work.
    Recovery on 2026-10-08 found only interrupted proposal notes in the two memory
