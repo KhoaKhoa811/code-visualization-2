@@ -53,8 +53,18 @@ and execution isolation restrictions still apply.
    trace; the bounded request-error contract remains future API work.
    Documentation checks passed: 40-line section, byte conversion, local paths,
    source/admission/schema consistency, and whitespace. Four future checks are
-   listed, not run. Read the new Part 4h section first; commit/push on
-   docs/part-4h-source-limits and pause for review. No next task is approved.
+   listed, not run. Part 4h was committed/pushed as 7f138e8 on
+   docs/part-4h-source-limits; its merge is not verified. No next task is approved.
+   Proposed next task: Part 4i terminal-metadata limits only. Define an encoded
+   byte budget for envelope metadata/diagnostics, guarded serialization, reserved
+   mandatory identity/outcome data, and explicit notices when explanatory text or
+   diagnostics are shortened/omitted. Preserve real execution/capture outcomes,
+   safe-prefix facts, exact source, identities, and event values; do not change
+   the existing trace contract. Target approximately 30–40 specification lines
+   plus both memory updates. Obtain explicit confirmation, then use
+   docs/part-4i-terminal-metadata, verify, commit/push, and pause for review.
+   Read the new Part 4i section first. Proposal branch: docs/part-4i-planning,
+   based on Part 4h. Part 4i is proposed, not yet approved.
    Transport/request-decoder guards, generated-source bounds, terminal metadata,
    and other remaining isolation definitions are separate unfinished work.
    Recovery on 2026-10-08 found only interrupted proposal notes in the two memory
@@ -126,9 +136,10 @@ on 2026-10-09 in main at de1c660.
 Part 4g proposal notes were pushed as 6bbbbb1 on docs/part-4g-planning.
 Part 4g was pushed as f0df9cb on docs/part-4g-trace-limits and verified merged
 on 2026-10-09 in main at de1c660. Recovery notes were pushed as 9072610 on
-docs/part-4h-planning. Current approved documentation branch:
-docs/part-4h-source-limits, based on those notes. Part 4h does not authorize runtime
-implementation or a later task. Its merge is not assumed.
+docs/part-4h-planning. Part 4h was pushed as 7f138e8 on
+docs/part-4h-source-limits, based on those notes. It does not authorize runtime
+implementation or a later task. Its merge is not assumed. Current proposal branch:
+docs/part-4i-planning. Part 4i terminal-metadata rules require separate approval.
 Git author identity is resolved.
 The `gh` command and GitHub PR tools are unavailable; automated PR creation is
 blocked. Publish the branch and provide a GitHub compare link for manual review.

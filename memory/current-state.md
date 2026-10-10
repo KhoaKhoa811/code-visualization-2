@@ -38,10 +38,12 @@ Long project instructions remain in their source files rather than being duplica
   f0df9cb are verified merged in main at de1c660, pulled on 2026-10-09. Their
   proposed 1 MiB output, 8 MiB captured-data, and 256 KiB record limits remain
   unverified at runtime. Source/terminal metadata bounds are still work.
-  Part 4h source-size admission documentation is approved and added. Its proposed
-  256 KiB exact UTF-8 source cap and early rejection remain unverified at runtime.
+  Part 4h source-size admission documentation is committed/pushed as 7f138e8 on
+  docs/part-4h-source-limits; its merge is not verified. Its proposed 256 KiB exact
+  UTF-8 source cap and early rejection remain unverified at runtime.
   Oversized requests require a bounded admission error, not a truncated v1 trace.
   Request-error contracts, transport/decoder guards, and terminal bounds remain work.
+  Proposed next scope: Part 4i terminal-metadata limits only, not yet approved.
 - Review preference confirmed 2026-10-07: previous changes were still too large.
   Give each task one purpose, aim for 1–3 files, and split long changes further.
   Explain what changed, why, and where to read first. Commit/push each small
@@ -902,6 +904,29 @@ preserve user messages and label assistant summaries explicitly.
     and pause for review; no next task approved. Automatic PR creation remains
     unavailable; provide a manual link after push.
 
+47. User: "ok, move on"
+    Assistant checked the clean Part 4h branch, both memory files, isolation gaps,
+    trace termination rules, and relevant requirements. Part 4h is committed/pushed
+    as 7f138e8 on docs/part-4h-source-limits; no merge was reported or verified.
+    Assistant proposes Part 4i terminal-metadata limits only, since Part 4g excludes
+    that metadata and Part 4h covers source admission separately. Define a proposed
+    encoded byte budget for envelope metadata and diagnostics, counting/guarded
+    serialization, reserved mandatory identity/outcome information, and explicitly
+    reported shortening of explanatory text or omitted diagnostics. Preserve actual
+    execution/capture outcomes, safe-prefix facts, source, identities, and event
+    values; metadata overflow must not invent or replace Java execution outcomes.
+    Keep the existing trace contract unchanged. Target approximately 30–40 new
+    lines in specs/execution-isolation.md plus both memory updates, one separate
+    commit/push, and a review pause. Read the new Part 4i section first.
+    This exchange records a proposal on docs/part-4i-planning, based on Part 4h.
+    Part 4i specification work requires confirmation of this newly described scope
+    under AGENTS.md. Transport/request-error contracts, generated-source bounds,
+    traversal/collection/recursion, input waiting, termination/cleanup deadlines,
+    and runtime implementation remain separate unfinished work, not approved here.
+    Both memory files record delivery and the proposal. Documentation whitespace
+    and scope consistency checks passed; no runtime or contract tests run.
+    Automatic PR creation remains unavailable; provide a manual link after push.
+
 ## Latest verification notes
 
 Part 3 added a contract schema, examples, and development validation tooling.
@@ -942,3 +967,6 @@ subsequent "ok" approves only the documentation scope recorded in entry 46.
 Part 4h documentation checks passed: 40-line section, 256 KiB conversion, local
 paths, exact-source/admission/schema consistency, and whitespace. Its four runtime
 checks remain planned, not run; transport/request-error/terminal bounds remain work.
+Part 4h was published as 7f138e8; the working tree was clean before this proposal.
+This Part 4i planning update changes only the two memory files. Documentation
+whitespace and recorded-scope consistency checks passed. No runtime tests run.
