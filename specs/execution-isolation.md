@@ -1,6 +1,6 @@
 # Execution isolation: timeouts, memory, and cancellation
 
-Status: Milestone 0, Parts 4a–4k, 2026-10-09. Proposed rules for review.
+Status: Milestone 0, Parts 4a–4l, 2026-10-10. Proposed rules for review.
 Resource-limit and cancellation enforcement are not implemented or verified yet.
 
 Sources: [requirements, section 10](../requirements/PROJECT_REQUIREMENTS.md)
@@ -37,7 +37,7 @@ and [trace termination rules](trace-format.md#11-termination-and-safe-capture).
 
 If termination or cleanup cannot be verified, expose the infrastructure failure
 and retain the occupied slot; do not report successful cleanup or start another
-run in that environment. Confirmation/retry bounds need the runner specification.
+run in that environment. Part 4l bounds termination confirmation; cleanup bounds remain work.
 Do not manufacture a Java exception, return, scope exit, or mutation on timeout.
 
 ## Required prototype checks
@@ -122,9 +122,9 @@ and [Java 21 heap options](https://docs.oracle.com/en/java/javase/21/docs/specs/
   Release the run slot only after termination and temporary-resource cleanup
   are verified, following the timeout procedure. Keep failed cleanup visible.
 
-Termination/cleanup confirmation and retry deadlines remain unfinished runner
-specification work. Cancellation must not permit an unlimited orphaned worker;
-this document does not claim that those bounds or enforcement already exist.
+Part 4l proposes termination confirmation and retry bounds; cleanup deadlines
+remain unfinished. Cancellation must not permit an unlimited orphaned worker;
+these proposed bounds do not establish implemented or verified enforcement.
 API responses, disconnect policy, and input-wait limits remain separate tasks.
 
 ### Required prototype checks (planned, not run)
@@ -462,3 +462,44 @@ No Java calls during replay; schema fields and observable Step boundaries stay u
 - Recursion/mutual recursion preserve unique frames, arguments once, and shared aliases.
 - Throwing arguments/real stack failures and backward return/unwind replay stay truthful.
 - Initial/entry overflow, byte limits, cancellation, output, termination, and cleanup stay safe.
+
+## Proposed termination confirmation deadline — Part 4l
+
+- Prototype budget: **5,000 ms elapsed time**, proposed and unverified.
+- Start an external monotonic deadline when cancellation or a limit is latched,
+  before any termination control call. This budget is separate from phase timers.
+- Cover queued/preparing/compiling/executing/input-wait runs and all descendants.
+- Stop new launches, input, and record acceptance at the existing stop cutoff.
+- Control calls, polling, and retries share this deadline; each wait uses at most
+  the remaining time. Repeated cancellation, activity, or errors never reset it.
+- Bound control workers; hung or abandoned calls must not block deadline handling.
+- Request forced whole-environment termination; Java cooperation is not required.
+  A request acknowledgement, main-process exit, or closed pipe alone is not proof.
+- Require trusted evidence for this exact run that all its processes stopped and
+  no pending launch can start later. Never-launched runs need the latter proof too.
+
+### Confirmation, expiry, and recovery
+
+Serialize evidence acceptance and deadline expiry with the latched stop cause.
+Evidence accepted before expiry permits the existing cancelled/limited outcome;
+an already confirmed earlier termination retains its actual outcome. At or after
+the deadline, first record confirmation failure; never reset or hide the expiry.
+Expose infrastructure failure outside the v1 terminal trace; unknown termination
+is not a Java failure or a new execution.status. API error shape remains future work.
+Retain the occupied slot, run identity, isolation, accepted output, and safe prefix.
+Publish no terminal trace or playback while termination remains unconfirmed.
+Do not reuse the environment, start a replacement there, or claim successful cleanup.
+Stop automatic retries at expiry; retain the unresolved run for explicit recovery.
+Recovery must fence pending launches/control operations and verify this same run.
+Late trusted proof may finalize the original cause once; keep the infrastructure
+failure visible. Never add Java events or accept records after the original cutoff.
+Cleanup still requires separate verification before slot release; its deadline is
+future work. This budget bounds supervisor waiting, not guaranteed process death
+during infrastructure failure. Runtime enforcement and recovery need prototype proof.
+
+### Required prototype checks (planned, not run)
+
+- Confirm before, exactly at, and after expiry: one cause; late proof cannot hide failure.
+- Hang control calls/retries; deadline handling stays responsive without worker buildup.
+- Cancel before/during launch or with descendants: acknowledgement alone cannot release the slot.
+- Lose confirmation, then recover: no premature trace, reused environment, or invented facts.
