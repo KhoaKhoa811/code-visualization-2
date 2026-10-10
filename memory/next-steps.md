@@ -131,7 +131,7 @@ and execution isolation restrictions still apply.
    - 4p: approved by "ok, continue"; transport/decoding bounds documentation added.
    - 4q: approved by "ok, continue"; analysis/generated-source documentation added.
    - 4r: approved by "ok, continue"; interactive input/EOF/disconnect documentation added.
-   - 4s: collection and string capture budgets with truthful cutoff behavior.
+   - 4s: approved by "ok, continue"; collection/string capture budget documentation added.
    - 4t: object traversal depth/count/reference budgets, aliases, and cycles.
    - 4u: consistency review and prototype acceptance checklist; fix stale cross-references.
    This is an estimated breakdown, not eight approved tasks or a 40-line guarantee.
@@ -172,10 +172,18 @@ and execution isolation restrictions still apply.
    Input JSON messages cap at 32 KiB across fragments under Part 4p parsing guards.
    Preserve line order, duplicate handling, Java EOF/token behavior, and cancellation
    cutoff. Controller loss cancels; observers do not. Replay never resends input.
-   Four runtime checks remain planned, not run. Deliver on docs/part-4r-input-limits,
-   then pause. Parts 4s–4u await approval; enforcement/Scanner/API/test-input details remain work.
+   Part 4r delivered as 4c3a2b6; merge unverified. Four runtime checks remain unrun.
    Documentation checks passed: 56-line section, byte/escaped-line arithmetic,
    local paths, deadline/EOF/disconnect/cancellation and trace-status consistency, and whitespace.
+   Part 4s: read its new section first. Proposed 4,096 UTF-16 units per String and
+   1,024 logical collection entries; preserve complete content, identities, aliases,
+   and actual evaluation. Covered overflow uses safe partial/unavailable capture
+   and confirmed limited termination. Trace v1 has no collections; contracts and
+   verified adapters remain required before implementation. Four checks are planned,
+   not run. Deliver on docs/part-4s-collection-string-limits, then pause.
+   Parts 4t–4u await approval; enforcement/Scanner/API/test-input details remain work.
+   Documentation checks passed: 48-line section, String-only event/UTF-16 schema
+   consistency, local paths, alias/callback/safe-prefix/status consistency, and whitespace.
    Group related settings; discuss each scope before starting. Finish the definitions
    needed for bounded execution, then validate/tune values through an approved
    prototype. Do not treat broader V1 coverage or runtime verification as complete.
@@ -262,7 +270,7 @@ Part 4j proposal notes
 were pushed as 4c36237 on docs/part-4j-planning. Part 4j was pushed as 3b4d504 on
 docs/part-4j-array-capture-limits, based on those notes. It does not authorize runtime
 implementation or a later task; its merge is verified in main at 1bad656.
-Current task branch: docs/part-4r-input-limits, based on Part 4q 38e114a.
+Current task branch: docs/part-4s-collection-string-limits, based on Part 4r 4c3a2b6.
 Part 4l 3ab61d1 is pushed but its merge is not verified. Part 4m documentation is approved.
 Main was last verified at 1bad656. Earlier planning notes: docs/part-4l-planning.
 Part 4k proposal notes were pushed as b3528b9 on

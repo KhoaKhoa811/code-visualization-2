@@ -86,7 +86,11 @@ Long project instructions remain in their source files rather than being duplica
   Delivered as 38e114a on docs/part-4q-analysis-limits; merge not verified.
   Part 4r approved by "ok, continue": interactive input, wait/overall deadlines,
   EOF/disconnect documentation. Proposed guards and four runtime checks are unverified.
-  Task branch: docs/part-4r-input-limits. Parts 4s–4u remain proposals.
+  Delivered as 4c3a2b6 on docs/part-4r-input-limits; merge not verified.
+  Part 4s approved by "ok, continue": collection/string capture budget documentation.
+  Proposed caps and four runtime checks remain unimplemented/unverified; collection
+  contracts/adapters still require separate work. Task: docs/part-4s-collection-string-limits.
+  Parts 4t–4u remain proposals.
 - Review preference confirmed 2026-10-07: previous changes were still too large.
   Give each task one purpose, aim for 1–3 files, and split long changes further.
   Explain what changed, why, and where to read first. Commit/push each small
@@ -1367,6 +1371,28 @@ preserve user messages and label assistant summaries explicitly.
     local paths, deadline/EOF/disconnect/cancellation and trace-status consistency,
     and whitespace. No runtime tests run; automatic PR creation remains unavailable.
 
+64. User: "ok, continue"
+    Assistant proceeds with Part 4s only: collection/string capture limits.
+    Proposed 4,096 UTF-16 units per String, preserving isolated surrogate units,
+    full content, and separate identities for equal text. Gate initialState or
+    OBJECT_CAPTURE without reevaluation. Proposed future collection cap of 1,024
+    logical positions/memberships/mappings, including repeated/null entries when
+    Java permits them. Check captured initial/post-operation states and bulk changes;
+    preserve aliases/views and shared backing without extra user callbacks.
+    Trace v1 has no collection representation: contracts and operation semantics
+    must be separately specified/versioned before collection implementation.
+    Covered overflow uses STRING_CAPTURE_LIMIT/COLLECTION_CAPTURE_LIMIT with safe
+    partial/unavailable capture, confirmed termination, and verified cleanup.
+    Preserve actual evaluation, exceptions, and captured order; no truncated objects,
+    invented entries, fake events, or rerun. Known tracing limitations retain the
+    admitted output-only path. Four checks remain planned, not run.
+    Update the specification and both memory files, verify, commit/push, then pause.
+    Part 4r delivered as 4c3a2b6; merge unverified. No later part, schema change,
+    new Java coverage, dependencies, or implementation is approved.
+    Documentation checks passed: 48-line section, String-only OBJECT_CAPTURE and
+    numeric UTF-16 schema consistency, local paths, alias/callback/safe-prefix/status
+    consistency, and whitespace. No runtime tests run; automatic PR creation unavailable.
+
 ## Latest verification notes
 
 Part 3 added a contract schema, examples, and development validation tooling.
@@ -1455,3 +1481,6 @@ and whitespace. Four runtime checks remain planned, not run; no analysis enforce
 Part 4r documentation checks passed: 56-line section, byte/escaped-line arithmetic,
 local paths, deadline/EOF/disconnect/cancellation and trace-status consistency,
 and whitespace. Four runtime checks remain planned, not run; no input implementation.
+Part 4s documentation checks passed: 48-line section, String-only event/UTF-16 schema
+consistency, local paths, alias/callback/safe-prefix/status consistency, and whitespace.
+Four runtime checks remain planned, not run; no collection contracts or capture implementation added.
