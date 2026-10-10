@@ -86,20 +86,21 @@ and execution isolation restrictions still apply.
    OBJECT_CAPTURE is String-only in trace v1. The array guard now names only
    initialState and ALLOCATE, with no schema/coverage change. Checks passed:
    40-line section, schema/event-reference consistency, and whitespace.
-   Correction branch: docs/part-4j-capture-reference-fix; commit/push separately.
-   Part 4k call-depth documentation is approved by "ok" on 2026-10-09 and in progress.
-   Define a proposed
-   maximum of simultaneously active captured user frames, including main, distinct
-   from total lifetime calls or JVM/library stack depth. Preserve recursive frame
-   identities, argument evaluation, reference sharing, returns/unwinding, and safe
-   CALL acceptance. Specify truthful overflow status, safe partial/unavailable
-   capture, termination, cleanup, and the distinction from real StackOverflowError.
-   Include future boundary/shallow-call/side-effect/identity/backward-replay checks.
-   Keep existing trace fields and Step semantics unchanged. Target approximately
-   30–40 specification lines plus both memory updates. Resume
-   docs/part-4k-call-depth-limits after the correction, verify, commit/push, and pause for review.
-   Read the new Part 4k section first. Proposal branch: docs/part-4k-planning,
-   based on Part 4j. Approval covers documentation only, not runtime implementation.
+   Correction committed/pushed as 02b6257 on docs/part-4j-capture-reference-fix;
+   its merge is not verified. Part 4k locally fast-forwarded to that correction.
+   Part 4k call-depth documentation was approved by "ok" on 2026-10-09 and is
+   added in specs/execution-isolation.md with both memory updates. Review its
+   proposed 64 active user-frame cap including main; invocation counting rather
+   than lifetime calls/method count/JVM depth; once-only argument evaluation;
+   atomic CALL acceptance; and actual return/unwind depth release with unique IDs.
+   Observed overflow uses CALL_DEPTH_LIMIT, phase capture, limited execution only
+   after confirmed termination, safe partial/unavailable capture, and verified
+   cleanup. Preserve actual Java StackOverflowError behavior, aliases, and backward
+   prefix reconstruction. No fake frames/returns/unwinds or schema/Step changes.
+   Documentation checks passed: 40-line section, main-plus-63 arithmetic, local paths,
+   frame/identity/prefix/status/diagnostic consistency, and whitespace. Four future
+   checks are listed, not run. Read Part 4k first; commit/push on
+   docs/part-4k-call-depth-limits and pause for review. No next task is approved.
    Transport/request-decoder/framing guards, generated-source bounds, request errors,
    and other remaining isolation definitions are separate unfinished work.
    Recovery on 2026-10-08 found only interrupted proposal notes in the two memory
@@ -109,7 +110,7 @@ and execution isolation restrictions still apply.
    branch-naming request itself did not authorize Part 4f implementation.
    Part 4g approval covers documentation only, not runtime implementation.
    No application/Docker implementation is approved. Other remaining
-   isolation definitions include traversal/collection/recursion, transport/generated-source
+   isolation definitions include collection/object traversal, transport/generated-source
    and decoded-memory bounds, input-wait limits, and
    termination/cleanup confirmation deadlines. Discuss one small scope before
    starting it. Keep tasks to one purpose, target 1–3 files, and split long
@@ -179,9 +180,12 @@ docs/part-4i-terminal-metadata, based on those notes. It does not authorize runt
 implementation or a later task; its merge is not assumed. Part 4j proposal notes
 were pushed as 4c36237 on docs/part-4j-planning. Part 4j was pushed as 3b4d504 on
 docs/part-4j-array-capture-limits, based on those notes. It does not authorize runtime
-implementation or a later task; its merge is not assumed. Current proposal branch:
-docs/part-4j-capture-reference-fix. Part 4k call-depth documentation is approved;
-resume docs/part-4k-call-depth-limits after publishing this correction.
+implementation or a later task; its merge is not assumed. Current task branch:
+docs/part-4k-call-depth-limits. Part 4k proposal notes were pushed as b3528b9 on
+docs/part-4k-planning. Correction 02b6257 was pushed on
+docs/part-4j-capture-reference-fix and locally fast-forwarded into the approved
+Part 4k branch; no GitHub PR merge is claimed. Runtime implementation and a later
+task are not authorized; neither correction nor Part 4k merge is assumed.
 Git author identity is resolved.
 The `gh` command and GitHub PR tools are unavailable; automated PR creation is
 blocked. Publish the branch and provide a GitHub compare link for manual review.
