@@ -1,6 +1,6 @@
 # Next steps
 
-Last updated: 2026-10-09 (Asia/Saigon).
+Last updated: 2026-10-10 (Asia/Saigon).
 
 Confirmed direction: visualize arbitrary user-authored Java as correctly as
 possible through reusable language capabilities, never exact program/algorithm
@@ -8,9 +8,10 @@ templates. Define coverage to track implementation and truthful limitations,
 not to restrict the product to examples. Runtime facts must remain captured,
 and execution isolation restrictions still apply.
 
-1. Parts 1–3 and Parts 4a–4g are merged. Main was pulled with --ff-only to
-   de1c660 on 2026-10-09; ancestry checks verified Part 4f ade1c31 and Part 4g
-   f0df9cb. Milestone 0 remains incomplete. Part 4b commit 1884354 and Part 4c
+1. Parts 1–3 and Parts 4a–4k are merged. Main was pulled with --ff-only to
+   1bad656 on 2026-10-10; ancestry checks verified Parts 4h–4k and Part 4j correction
+   02b6257. Main matched origin/main; no application/runner implementation exists.
+   Milestone 0 remains incomplete. Part 4b commit 1884354 and Part 4c
    commit 2ce9ca4 are verified ancestors of main at 8e4af20. Review the proposed
    512 MiB container/128 MiB heap budgets, swap policy, verified OOM classification,
    and safe trace/cleanup behavior. No runtime enforcement has been implemented
@@ -54,7 +55,7 @@ and execution isolation restrictions still apply.
    Documentation checks passed: 40-line section, byte conversion, local paths,
    source/admission/schema consistency, and whitespace. Four future checks are
    listed, not run. Part 4h was committed/pushed as 7f138e8 on
-   docs/part-4h-source-limits; its merge is not verified. No next task is approved.
+   docs/part-4h-source-limits and verified merged in main at 1bad656.
    Part 4i terminal-metadata documentation was approved by "ok" on 2026-10-09
    and is added in specs/execution-isolation.md with both memory updates. Review
    its proposed 32 KiB encoded cap, 8 KiB reserve, 32-diagnostic maximum, and
@@ -67,7 +68,7 @@ and execution isolation restrictions still apply.
    Documentation checks passed: 40-line section, byte conversions, local paths,
    quota/source/status/diagnostic consistency, and whitespace. Four future checks
    are listed, not run. Part 4i was committed/pushed as cf88b68 on
-   docs/part-4i-terminal-metadata; its merge is not verified. No next task is approved.
+   docs/part-4i-terminal-metadata and verified merged in main at 1bad656.
    Part 4j array-capture documentation was approved by "ok" on 2026-10-09 and is
    added in specs/execution-isolation.md with both memory updates. Review its
    proposed 1,024-element per-array cap, actual-length guards before traversal,
@@ -80,14 +81,14 @@ and execution isolation restrictions still apply.
    Documentation checks passed: 40-line section, local paths, array/identity/prefix/
    status/diagnostic consistency, and whitespace. Four future checks are listed,
    not run. Part 4j was committed/pushed as 3b4d504 on
-   docs/part-4j-array-capture-limits; its merge is not verified. Runtime enforcement
-   remains unfinished; no next task is approved.
+   docs/part-4j-array-capture-limits and verified merged in main at 1bad656.
+   Runtime enforcement remains unfinished.
    Part 4j follow-up corrects a reference error missed in earlier verification:
    OBJECT_CAPTURE is String-only in trace v1. The array guard now names only
    initialState and ALLOCATE, with no schema/coverage change. Checks passed:
    40-line section, schema/event-reference consistency, and whitespace.
    Correction committed/pushed as 02b6257 on docs/part-4j-capture-reference-fix;
-   its merge is not verified. Part 4k locally fast-forwarded to that correction.
+   it is verified merged in main at 1bad656. Part 4k includes that correction.
    Part 4k call-depth documentation was approved by "ok" on 2026-10-09 and is
    added in specs/execution-isolation.md with both memory updates. Review its
    proposed 64 active user-frame cap including main; invocation counting rather
@@ -99,8 +100,19 @@ and execution isolation restrictions still apply.
    prefix reconstruction. No fake frames/returns/unwinds or schema/Step changes.
    Documentation checks passed: 40-line section, main-plus-63 arithmetic, local paths,
    frame/identity/prefix/status/diagnostic consistency, and whitespace. Four future
-   checks are listed, not run. Read Part 4k first; commit/push on
-   docs/part-4k-call-depth-limits and pause for review. No next task is approved.
+   checks are listed, not run. Part 4k was committed/pushed as da8de3a on
+   docs/part-4k-call-depth-limits and verified merged in main at 1bad656.
+   Proposed next task: Part 4l termination confirmation deadline only. Define a
+   proposed bounded wait for proof the whole environment stopped, timing scope,
+   bounded supervisor control calls/retries, and termination races. If proof is
+   unavailable, expose infrastructure failure, retain the occupied slot/isolation,
+   and never publish a false terminal trace or claim execution ended. Preserve
+   the latched stop cause and safe prefix. Target approximately 30–40 specification
+   lines plus both memory updates. Obtain explicit approval, then use
+   docs/part-4l-termination-confirmation, verify, commit/push, and pause for review.
+   Read the new Part 4l section first. Proposal branch: docs/part-4l-planning,
+   based on newest main at 1bad656. Part 4l is not approved. Cleanup deadlines and
+   the other remaining isolation/implementation definitions are separate work.
    Transport/request-decoder/framing guards, generated-source bounds, request errors,
    and other remaining isolation definitions are separate unfinished work.
    Recovery on 2026-10-08 found only interrupted proposal notes in the two memory
@@ -174,18 +186,23 @@ Part 4g was pushed as f0df9cb on docs/part-4g-trace-limits and verified merged
 on 2026-10-09 in main at de1c660. Recovery notes were pushed as 9072610 on
 docs/part-4h-planning. Part 4h was pushed as 7f138e8 on
 docs/part-4h-source-limits, based on those notes. It does not authorize runtime
-implementation or a later task. Its merge is not assumed. Part 4i proposal notes
+implementation or a later task. Its merge is verified in main at 1bad656 on
+2026-10-10. Part 4i proposal notes
 were pushed as bdd275d on docs/part-4i-planning. Part 4i was pushed as cf88b68 on
 docs/part-4i-terminal-metadata, based on those notes. It does not authorize runtime
-implementation or a later task; its merge is not assumed. Part 4j proposal notes
+implementation or a later task; its merge is verified in main at 1bad656.
+Part 4j proposal notes
 were pushed as 4c36237 on docs/part-4j-planning. Part 4j was pushed as 3b4d504 on
 docs/part-4j-array-capture-limits, based on those notes. It does not authorize runtime
-implementation or a later task; its merge is not assumed. Current task branch:
-docs/part-4k-call-depth-limits. Part 4k proposal notes were pushed as b3528b9 on
+implementation or a later task; its merge is verified in main at 1bad656.
+Current planning branch: docs/part-4l-planning, based on newest main at 1bad656.
+Part 4k proposal notes were pushed as b3528b9 on
 docs/part-4k-planning. Correction 02b6257 was pushed on
 docs/part-4j-capture-reference-fix and locally fast-forwarded into the approved
-Part 4k branch; no GitHub PR merge is claimed. Runtime implementation and a later
-task are not authorized; neither correction nor Part 4k merge is assumed.
+Part 4k branch before the user's merges were verified. Runtime implementation and a later
+task are not authorized. Recovery on 2026-10-10 pulled main to 1bad656 and verified
+Parts 4h–4k and correction 02b6257 merged by ancestry. Part 4k delivery commit:
+da8de3a. Part 4l is proposed, not approved.
 Git author identity is resolved.
 The `gh` command and GitHub PR tools are unavailable; automated PR creation is
 blocked. Publish the branch and provide a GitHub compare link for manual review.

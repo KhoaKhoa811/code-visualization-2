@@ -1,6 +1,6 @@
 # Current state and conversation memory
 
-Last updated: 2026-10-09 (Asia/Saigon).
+Last updated: 2026-10-10 (Asia/Saigon).
 
 ## Recovery instructions
 
@@ -37,28 +37,31 @@ Long project instructions remain in their source files rather than being duplica
   Part 4f stdout/stderr-limit commit ade1c31 and Part 4g trace-data-limit commit
   f0df9cb are verified merged in main at de1c660, pulled on 2026-10-09. Their
   proposed 1 MiB output, 8 MiB captured-data, and 256 KiB record limits remain
-  unverified at runtime. Source/terminal metadata bounds are still work.
+  unverified at runtime. Source/terminal metadata enforcement is still work.
   Part 4h source-size admission documentation is committed/pushed as 7f138e8 on
-  docs/part-4h-source-limits; its merge is not verified. Its proposed 256 KiB exact
-  UTF-8 source cap and early rejection remain unverified at runtime.
+  docs/part-4h-source-limits and verified merged in main at 1bad656 on 2026-10-10.
+  Its proposed 256 KiB exact UTF-8 source cap and early rejection remain unverified
+  at runtime.
   Oversized requests require a bounded admission error, not a truncated v1 trace.
   Request-error contracts and transport/decoder guards remain work.
   Part 4i terminal-metadata documentation is committed/pushed as cf88b68 on
-  docs/part-4i-terminal-metadata; its merge is not verified. Proposed 32 KiB
+  docs/part-4i-terminal-metadata and verified merged in main at 1bad656. Proposed 32 KiB
   metadata cap, 8 KiB reserve, 32 diagnostics, and 1 KiB reason/message strings.
   Explicit shortening notices preserve actual outcomes and captured facts. These
   rules remain unimplemented and unverified at runtime; no later task is approved.
   Part 4j array-capture documentation is committed/pushed as 3b4d504 on
-  docs/part-4j-array-capture-limits; its merge is not verified. Proposed 1,024
+  docs/part-4j-array-capture-limits and verified merged in main at 1bad656. Proposed 1,024
   elements per captured array, actual-length guards, complete contents, shared
   identities, and safe partial/unavailable ARRAY_CAPTURE_LIMIT termination.
   Enforcement and runtime checks remain unimplemented; no later task is approved.
-  Part 4k call-depth capture documentation is approved and added: proposed 64
+  Part 4k call-depth capture documentation is committed/pushed as da8de3a and
+  verified merged in main at 1bad656 on 2026-10-10: proposed 64
   active user frames including main, guarded CALL acceptance, and safe partial/
   unavailable CALL_DEPTH_LIMIT termination. Enforcement/runtime checks remain work.
   Part 4j's guard reference correction is committed/pushed as 02b6257: arrays enter
   initialState or ALLOCATE; OBJECT_CAPTURE remains String-only. No coverage/schema
-  change. Its merge is not verified; no later task is approved.
+  change. That correction is verified merged in main at 1bad656; no later task approved.
+  Proposed next scope: Part 4l termination confirmation deadline only, not approved.
 - Review preference confirmed 2026-10-07: previous changes were still too large.
   Give each task one purpose, aim for 1–3 files, and split long changes further.
   Explain what changed, why, and where to read first. Commit/push each small
@@ -1118,6 +1121,36 @@ preserve user messages and label assistant summaries explicitly.
     Commit/push and pause for review; no later task approved. Automatic PR creation
     remains unavailable; provide a manual Part 4k link and correction link after push.
 
+53. User supplied replacement AGENTS.md instructions, effective for this recovery;
+    their project rules are applied without duplicating the full text in memory.
+    User: "read current-state.md, next-step.md and other files to recover memory.
+    I merged all the branches. what's next step?"
+    Assistant recovered from the actual memory/current-state.md and
+    memory/next-steps.md, AGENTS.md, relevant requirements and specifications.
+    The starting tree was clean. Fetched origin, switched to main, and pulled
+    with --ff-only to 1bad656 (PR #32 merge). Ancestry checks verified Part 4h
+    7f138e8, Part 4i cf88b68, Part 4j 3b4d504, its correction 02b6257, and Part 4k
+    da8de3a merged. Main matched origin/main; its file contents match the completed
+    Part 4k branch. File discovery recovered specifications/contracts only, with
+    no frontend/backend/runner implementation. Milestone 0 remains incomplete.
+    Assistant recommends Part 4l termination confirmation deadline only: define a
+    proposed bounded wait for proof that the whole run environment stopped, timing
+    scope, bounded supervisor control calls/retries, and races with actual termination.
+    If proof is unavailable, expose infrastructure failure, retain the occupied
+    slot/environment isolation, and never claim execution ended or publish a false
+    terminal trace. Preserve the existing latched stop cause and safe-prefix facts.
+    Target approximately 30–40 new lines in specs/execution-isolation.md plus both
+    memory updates; read the new Part 4l section first. After explicit approval, use
+    docs/part-4l-termination-confirmation, verify, commit/push, and pause for review.
+    This recovery records discussion only on docs/part-4l-planning, based on newest
+    main. Part 4l is proposed, not approved; AGENTS.md requires confirmation before
+    this new scope. Cleanup deadlines, input-wait, collection/object traversal,
+    transport/generated-source/decoded-memory bounds, API contracts, and runtime
+    implementation remain separate work. Both memory files record recovery and
+    the proposal. Documentation whitespace/scope/merge consistency checks passed;
+    no runtime or contract tests rerun. The gh command and callable GitHub PR tools
+    remain unavailable; publish the branch and provide a manual PR link.
+
 ## Latest verification notes
 
 Part 3 added a contract schema, examples, and development validation tooling.
@@ -1181,3 +1214,7 @@ whitespace and recorded-scope consistency checks passed. No runtime tests run.
 Part 4k documentation checks passed: 40-line section, main-plus-63 arithmetic,
 local paths, frame/identity/prefix/status/diagnostic consistency, and whitespace.
 Four runtime checks remain planned, not run. No schema or Step-boundary changes.
+2026-10-10 recovery verified main at 1bad656 through fetch, fast-forward pull,
+clean tracking status, and ancestry checks for Parts 4h–4k and correction 02b6257.
+This recovery/proposal changes only both memory files; documentation whitespace
+and scope/merge consistency checks passed. No runtime or contract tests rerun.
