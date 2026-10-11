@@ -66,7 +66,11 @@ Long project instructions remain in their source files rather than being duplica
   infrastructure failure on expiry, retained slot/isolation, and explicit recovery.
   Enforcement and four planned runtime checks remain unimplemented/unrun.
   Delivered as 3ab61d1 on docs/part-4l-termination-confirmation; merge not verified.
-  Proposed next scope: Part 4m cleanup confirmation deadline, awaiting approval.
+  Part 4m cleanup confirmation documentation approved by "ok" on 2026-10-10.
+  Added proposed 5,000 ms shared cleanup budget after confirmed termination,
+  owned-resource inventory/proof, failure visibility, retained slot, and safe recovery.
+  Runtime enforcement and four planned checks remain unfinished.
+  Task branch: docs/part-4m-cleanup-confirmation; pause for review after delivery.
 - Review preference confirmed 2026-10-07: previous changes were still too large.
   Give each task one purpose, aim for 1–3 files, and split long changes further.
   Explain what changed, why, and where to read first. Commit/push each small
@@ -1202,6 +1206,27 @@ preserve user messages and label assistant summaries explicitly.
     memory files change; no runtime tests run. Automatic PR creation remains
     unavailable; provide the manual planning PR link after publication.
 
+57. User: "ok" in response to the Part 4m approval request.
+    Assistant treats this as approval for cleanup confirmation documentation only.
+    Added one section in specs/execution-isolation.md and updated earlier references.
+    Proposed 5,000 ms begins with confirmed whole-run termination, covers retained
+    result transfer/removal/verification/retries, and never resets. Guard the trusted
+    inventory, ownership, and resolved paths; preserve accepted results and avoid
+    user-controlled links or deletion outside this run's temporary resources.
+    Proof requires absence and fenced pending operations. Expiry exposes cleanup
+    infrastructure failure outside the trace, retains the slot/isolation, and stops
+    automatic retries. Explicit recovery can release once after verified cleanup
+    without hiding failure. Known termination and accepted trace facts remain valid;
+    capture completeness refers to Java bookkeeping, not host deletion.
+    Four prototype checks remain planned, not run. No runtime implementation,
+    schema changes, dependencies, or later tasks are approved. Part 4m is one
+    coherent commit across the specification and both memory files.
+    Documentation review passed: 40-line section, local paths, deadline/race and
+    ownership/slot-release rules, trace-status consistency, and whitespace.
+    Part 4m planning notes were pushed as a1511f7; Part 4l merge remains unverified.
+    Automatic PR creation remains unavailable; publish the branch and provide a
+    manual PR link, then pause for review.
+
 ## Latest verification notes
 
 Part 3 added a contract schema, examples, and development validation tooling.
@@ -1272,3 +1297,6 @@ and scope/merge consistency checks passed. No runtime or contract tests rerun.
 Part 4l documentation checks passed: 40-line section, referenced local paths,
 deadline/race and trace-status/safe-prefix consistency, and whitespace. Four runtime
 checks remain planned, not run. No schema changes or enforcement are implemented.
+Part 4m documentation review passed: 40-line section, referenced local paths,
+deadline/race and ownership/slot-release rules, trace-status consistency, and
+whitespace. Four runtime checks remain planned, not run; enforcement remains work.
