@@ -48,20 +48,24 @@ Long project instructions remain in their source files rather than being duplica
   docs/part-4i-terminal-metadata and verified merged in main at 1bad656. Proposed 32 KiB
   metadata cap, 8 KiB reserve, 32 diagnostics, and 1 KiB reason/message strings.
   Explicit shortening notices preserve actual outcomes and captured facts. These
-  rules remain unimplemented and unverified at runtime; no later task is approved.
+  rules remain unimplemented and unverified at runtime.
   Part 4j array-capture documentation is committed/pushed as 3b4d504 on
   docs/part-4j-array-capture-limits and verified merged in main at 1bad656. Proposed 1,024
   elements per captured array, actual-length guards, complete contents, shared
   identities, and safe partial/unavailable ARRAY_CAPTURE_LIMIT termination.
-  Enforcement and runtime checks remain unimplemented; no later task is approved.
+  Enforcement and runtime checks remain unimplemented.
   Part 4k call-depth capture documentation is committed/pushed as da8de3a and
   verified merged in main at 1bad656 on 2026-10-10: proposed 64
   active user frames including main, guarded CALL acceptance, and safe partial/
   unavailable CALL_DEPTH_LIMIT termination. Enforcement/runtime checks remain work.
   Part 4j's guard reference correction is committed/pushed as 02b6257: arrays enter
   initialState or ALLOCATE; OBJECT_CAPTURE remains String-only. No coverage/schema
-  change. That correction is verified merged in main at 1bad656; no later task approved.
-  Proposed next scope: Part 4l termination confirmation deadline only, not approved.
+  change. That correction is verified merged in main at 1bad656.
+  Part 4l termination confirmation documentation approved by "ok" on 2026-10-10.
+  Added proposed 5,000 ms shared confirmation budget, trusted whole-run proof,
+  infrastructure failure on expiry, retained slot/isolation, and explicit recovery.
+  Enforcement and four planned runtime checks remain unimplemented/unrun.
+  Task branch: docs/part-4l-termination-confirmation; pause for review after delivery.
 - Review preference confirmed 2026-10-07: previous changes were still too large.
   Give each task one purpose, aim for 1–3 files, and split long changes further.
   Explain what changed, why, and where to read first. Commit/push each small
@@ -1162,6 +1166,27 @@ preserve user messages and label assistant summaries explicitly.
     This clarification only updates both memory files on docs/part-4l-planning;
     no specification, implementation, or dependency changes are authorized.
 
+55. User: "ok" in response to the Part 4l approval request.
+    Assistant treats this as approval for the small documentation task only.
+    Added the termination confirmation section in specs/execution-isolation.md
+    and corrected earlier references that left termination bounds unspecified.
+    Proposed 5,000 ms starts when cancellation/a limit is latched, before control
+    calls; retries share the remaining budget without resets or worker buildup.
+    Trusted proof must cover this exact run, all descendants, and pending launches.
+    Expiry is an infrastructure failure outside the terminal trace; retain the
+    occupied slot, isolation, accepted output, and safe prefix. No playback before
+    proof. Stop automatic retries; explicit recovery must fence pending operations.
+    Late proof preserves the original cause and visible infrastructure failure;
+    cleanup verification remains required before releasing the slot.
+    This bounds supervisor waiting, not guaranteed termination during infrastructure
+    failure. Four runtime checks are planned, not run. Cleanup deadline, API error
+    shape, and runtime implementation remain separate work, not approved here.
+    One coherent Part 4l commit covers the specification and both memory files.
+    Documentation checks passed: 40-line section, local paths, deadline/race,
+    trace-status/safe-prefix consistency, and whitespace. No runtime tests run.
+    Automatic PR creation remains unavailable: gh and callable GitHub PR tools
+    are absent. Push the branch and provide a manual PR link; pause for review.
+
 ## Latest verification notes
 
 Part 3 added a contract schema, examples, and development validation tooling.
@@ -1229,3 +1254,6 @@ Four runtime checks remain planned, not run. No schema or Step-boundary changes.
 clean tracking status, and ancestry checks for Parts 4h–4k and correction 02b6257.
 This recovery/proposal changes only both memory files; documentation whitespace
 and scope/merge consistency checks passed. No runtime or contract tests rerun.
+Part 4l documentation checks passed: 40-line section, referenced local paths,
+deadline/race and trace-status/safe-prefix consistency, and whitespace. Four runtime
+checks remain planned, not run. No schema changes or enforcement are implemented.

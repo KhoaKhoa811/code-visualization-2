@@ -102,19 +102,19 @@ and execution isolation restrictions still apply.
    frame/identity/prefix/status/diagnostic consistency, and whitespace. Four future
    checks are listed, not run. Part 4k was committed/pushed as da8de3a on
    docs/part-4k-call-depth-limits and verified merged in main at 1bad656.
-   Proposed next task: Part 4l termination confirmation deadline only. Define a
-   proposed bounded wait for proof the whole environment stopped, timing scope,
-   bounded supervisor control calls/retries, and termination races. If proof is
-   unavailable, expose infrastructure failure, retain the occupied slot/isolation,
-   and never publish a false terminal trace or claim execution ended. Preserve
-   the latched stop cause and safe prefix. Target approximately 30–40 specification
-   lines plus both memory updates. Obtain explicit approval, then use
-   docs/part-4l-termination-confirmation, verify, commit/push, and pause for review.
-   Read the new Part 4l section first. Proposal branch: docs/part-4l-planning,
-   based on newest main at 1bad656. Part 4l is not approved. Cleanup deadlines and
-   the other remaining isolation/implementation definitions are separate work.
-   The user's repeated "what's next" asks for clarification, not approval.
-   Part 4l remains awaiting explicit confirmation; only discussion notes change.
+   Part 4l termination confirmation documentation approved by "ok" on 2026-10-10.
+   Read its section in specs/execution-isolation.md first. Proposed 5,000 ms begins
+   at the latched stop cause and covers control calls/retries without resets.
+   Require trusted proof for all run processes and pending launches. Expiry exposes
+   infrastructure failure outside the terminal trace and retains the slot/isolation.
+   Stop automatic retries; explicit recovery fences pending operations. Late proof
+   preserves the original cause and visible failure; cleanup must verify before reuse.
+   Four prototype checks are planned, not run. Enforcement remains unfinished.
+   Documentation checks passed: 40-line section, local paths, deadline/race,
+   trace-status/safe-prefix consistency, and whitespace. No runtime tests run.
+   Deliver one commit on docs/part-4l-termination-confirmation, then pause for review.
+   Planning notes are on docs/part-4l-planning; main was last verified at 1bad656.
+   Cleanup deadlines, API error shape, and runtime implementation remain separate work.
    Transport/request-decoder/framing guards, generated-source bounds, request errors,
    and other remaining isolation definitions are separate unfinished work.
    Recovery on 2026-10-08 found only interrupted proposal notes in the two memory
@@ -126,7 +126,7 @@ and execution isolation restrictions still apply.
    No application/Docker implementation is approved. Other remaining
    isolation definitions include collection/object traversal, transport/generated-source
    and decoded-memory bounds, input-wait limits, and
-   termination/cleanup confirmation deadlines. Discuss one small scope before
+   cleanup confirmation deadlines. Discuss one small scope before
    starting it. Keep tasks to one purpose, target 1–3 files, and split long
    changes further. Explain why and which file to read first.
    Include the part label in all task/planning branch names:
@@ -197,14 +197,15 @@ Part 4j proposal notes
 were pushed as 4c36237 on docs/part-4j-planning. Part 4j was pushed as 3b4d504 on
 docs/part-4j-array-capture-limits, based on those notes. It does not authorize runtime
 implementation or a later task; its merge is verified in main at 1bad656.
-Current planning branch: docs/part-4l-planning, based on newest main at 1bad656.
+Current task branch: docs/part-4l-termination-confirmation, based on planning notes
+44c7baf and main at 1bad656. Planning notes were pushed on docs/part-4l-planning.
 Part 4k proposal notes were pushed as b3528b9 on
 docs/part-4k-planning. Correction 02b6257 was pushed on
 docs/part-4j-capture-reference-fix and locally fast-forwarded into the approved
 Part 4k branch before the user's merges were verified. Runtime implementation and a later
 task are not authorized. Recovery on 2026-10-10 pulled main to 1bad656 and verified
 Parts 4h–4k and correction 02b6257 merged by ancestry. Part 4k delivery commit:
-da8de3a. Part 4l is proposed, not approved.
+da8de3a. Part 4l documentation is approved and added; no later task is approved.
 Git author identity is resolved.
 The `gh` command and GitHub PR tools are unavailable; automated PR creation is
 blocked. Publish the branch and provide a GitHub compare link for manual review.
