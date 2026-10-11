@@ -127,7 +127,7 @@ and execution isolation restrictions still apply.
    Remaining Part 4 estimate, proposed on 2026-10-10: seven definition topics
    plus one consistency review. The count question alone approved none of these.
    - 4n: subsequently approved by "ok, continue doing the task"; documentation added.
-   - 4o: concurrency/queue capacity, preparation deadlines, and compiler sizing.
+   - 4o: approved by "ok, continue"; capacity/preparation/compiler documentation added.
    - 4p: request/trace framing, bounded buffers, and decoded-memory guards.
    - 4q: source-analysis/instrumentation budgets and generated-source limits.
    - 4r: input line/total/pending limits, waiting, overall deadline, EOF/disconnects.
@@ -143,7 +143,15 @@ and execution isolation restrictions still apply.
    launch. Four runtime checks remain planned, not run; compatibility is unverified.
    Documentation checks passed: 46-line section including primary references,
    storage arithmetic, local paths, memory/error/trace/cleanup consistency, and whitespace.
-   Deliver on docs/part-4n-container-restrictions, then pause. Parts 4o–4u await approval.
+   Part 4n delivered as 241d5e9; merge unverified. Part 4o now adds proposed
+   one occupied slot, two queued requests, 30,000 ms queue wait, 10,000 ms preparation,
+   and 256 MiB compiler heap within the 512 MiB container. Read its new section first.
+   Atomic admission/promotion/expiry, unresolved-slot retention, restart reconciliation,
+   bounded setup calls, and sequential compilers preserve existing stop/cleanup rules.
+   Four runtime checks remain planned, not run. Deliver on docs/part-4o-run-capacity,
+   then pause. Parts 4p–4u await approval; runtime enforcement remains unfinished.
+   Documentation checks passed: 46-line section, heap arithmetic, local paths,
+   admission/deadline/slot and trace/error consistency, and whitespace. No runtime tests run.
    Group related settings; discuss each scope before starting. Finish the definitions
    needed for bounded execution, then validate/tune values through an approved
    prototype. Do not treat broader V1 coverage or runtime verification as complete.
@@ -230,7 +238,7 @@ Part 4j proposal notes
 were pushed as 4c36237 on docs/part-4j-planning. Part 4j was pushed as 3b4d504 on
 docs/part-4j-array-capture-limits, based on those notes. It does not authorize runtime
 implementation or a later task; its merge is verified in main at 1bad656.
-Current task branch: docs/part-4n-container-restrictions, based on planning deac5b2.
+Current task branch: docs/part-4o-run-capacity, based on Part 4n 241d5e9.
 Part 4l 3ab61d1 is pushed but its merge is not verified. Part 4m documentation is approved.
 Main was last verified at 1bad656. Earlier planning notes: docs/part-4l-planning.
 Part 4k proposal notes were pushed as b3528b9 on

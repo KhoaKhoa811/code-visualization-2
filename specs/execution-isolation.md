@@ -1,6 +1,6 @@
 # Execution isolation: timeouts, memory, and cancellation
 
-Status: Milestone 0, Parts 4a–4n, 2026-10-10. Proposed rules for review.
+Status: Milestone 0, Parts 4a–4o, 2026-10-10. Proposed rules for review.
 Resource-limit and cancellation enforcement are not implemented or verified yet.
 
 Sources: [requirements, section 10](../requirements/PROJECT_REQUIREMENTS.md)
@@ -12,7 +12,7 @@ and [trace termination rules](trace-format.md#11-termination-and-safe-capture).
 - An external supervisor starts a monotonic timer immediately before requesting
   launch of the submitted Java JVM. JVM startup counts toward this limit.
 - Queueing, environment preparation, and compilation precede this timer.
-  Part 4d proposes a compiler deadline; queue/preparation bounds remain unfinished.
+  Parts 4d/4o propose compiler and queue/preparation deadlines respectively.
 - The timer is independent of submitted code, stdout, and trace activity.
 - Waiting or blocking does not pause this timer. Input arrival does not reset it.
 - The 5,000 ms value is a prototype proposal to measure, not a verified V1 default.
@@ -66,8 +66,8 @@ trace-data, source, metadata, array, and call-depth rules; enforcement is unfini
   Equal memory and memory-swap limits prevent extra swap allowance. Keep the
   container OOM killer enabled and verify host enforcement in the prototype.
 - These budgets are candidates to measure, not verified V1 sizing guarantees.
-  Compiler heap sizing, separate capture/traversal limits, and host-wide capacity
-  remain later decisions; never increase this budget silently for one program.
+  Part 4o proposes compiler heap and run capacity; capture/traversal limits remain
+  work. Never increase this budget silently for one program.
 
 ### When memory is exhausted
 
@@ -142,8 +142,8 @@ API responses, disconnect policy, and input-wait limits remain separate tasks.
   requesting the first isolated compiler launch; compiler JVM startup counts.
   All compiler invocations for that run share this deadline without resets.
 - Compiler output, retries, or activity never pause or extend the deadline.
-  Queueing, preparation, and source analysis precede it; their bounds remain
-  separate unfinished work. The run-container memory cap still applies.
+  Queueing and preparation precede it under Part 4o; Part 4q will refine analysis
+  bounds. The run-container memory cap still applies.
 
 ### At the compilation deadline
 
@@ -167,7 +167,7 @@ API responses, disconnect policy, and input-wait limits remain separate tasks.
 Normal compiler rejection instead yields compile_error with unavailable capture
 and actual diagnostics, unless a stop cause was already latched. Start the separate
 5,000 ms execution timer only after all required compilation succeeds with no
-latched stop cause. Confirmation/retry deadlines remain unfinished runner work.
+latched stop cause. Confirmation/retry deadlines follow Parts 4l/4m.
 
 ### Required prototype checks (planned, not run)
 
@@ -591,3 +591,50 @@ Exact launch commands and platform compatibility need prototype proof, not assum
 References: [Docker controls](https://docs.docker.com/reference/cli/docker/container/run/),
 [tmpfs](https://docs.docker.com/engine/storage/tmpfs/), [inode limits](https://docs.kernel.org/filesystems/tmpfs.html),
 [seccomp](https://docs.docker.com/engine/security/seccomp/), [network none](https://docs.docker.com/engine/network/drivers/none/).
+
+## Proposed run capacity and preparation — Part 4o
+
+- Prototype capacity: **1 occupied run slot and 2 queued requests**, unverified.
+- One supervisor owns admission for the local runner; multiple API callers share
+  these caps. No independent supervisor may bypass unresolved ownership or slots.
+- Atomically reserve before preparation; promote the oldest eligible queued request first.
+  Queue at most two in acceptance order, without containers/compilers; otherwise respond busy.
+- Queue only source already within Part 4h limits. Queue count does not replace
+  Part 4p request/decoded-memory bounds or bound all host/application memory.
+- Queue wait cap: **30,000 ms**, monotonic from acceptance into the queue.
+  At expiry, atomically remove the request and prohibit later promotion/launch.
+  Serialize promotion, cancellation, and expiry; repeated activity never resets time.
+- Queue expiry/busy responses describe scheduling, outside the terminal trace;
+  do not fabricate executed Java. Accepted user cancellation follows Part 4c.
+- Occupancy includes preparation, compilation, execution, stopping, and cleanup.
+  Release only under Parts 4l/4m; unresolved failures still consume the sole slot.
+- After supervisor restart, reconcile existing run ownership before new admission;
+  unknown environments block launch. Do not silently reset occupied-slot accounting.
+
+### Preparation deadline and compiler sizing
+
+Start a **10,000 ms** monotonic preparation deadline when the slot is reserved.
+It covers container creation, restriction checks, source staging, analysis, and
+instrumentation before the first compiler launch; retries share the remaining time.
+Require a locally installed pinned image; no per-run image download or dependency install.
+Bound outstanding setup calls; stalled work cannot block supervisor deadline handling.
+Serialize readiness with expiry/cancellation; launch the first compiler only before
+expiry with no stop cause. Then use Part 4d's separate shared compilation deadline.
+Preparation expiry latches a stop cause and exposes infrastructure failure outside
+the trace. Fence late create/launch work; confirm termination and cleanup under
+Parts 4l/4m before release. Never label setup failure compile_error or invent Java events.
+
+Propose **256 MiB (268,435,456 bytes)** compiler heap using javac -J-Xmx256m.
+Run compilers sequentially; confirm each compiler/descendant exited before the next JVM.
+The 512 MiB container cap includes compiler/native/tracer/tmpfs costs; this heap is
+not extra memory. Preserve actual compiler errors and Part 4b's verified OOM rules.
+No larger automatic retry. JVM/native headroom and analysis guards need prototype proof.
+
+### Required prototype checks (planned, not run)
+
+- Race submissions: one occupied slot, two queued; no queued container or extra worker.
+- Race queue promotion/expiry/cancel at boundaries; preserve order and prevent late launch.
+- Stall setup or restart with an unresolved run; deadlines fire and admission stays blocked.
+- Verify sequential compiler heap/phase limits, real errors, retained output, and cleanup.
+
+Reference: [Java 21 javac JVM options](https://docs.oracle.com/en/java/javase/21/docs/specs/man/javac.html).
