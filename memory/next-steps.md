@@ -1,6 +1,6 @@
 # Next steps
 
-Last updated: 2026-10-10 (Asia/Saigon).
+Last updated: 2026-10-11 (Asia/Saigon).
 
 Confirmed direction: visualize arbitrary user-authored Java as correctly as
 possible through reusable language capabilities, never exact program/algorithm
@@ -8,7 +8,10 @@ templates. Define coverage to track implementation and truthful limitations,
 not to restrict the product to examples. Runtime facts must remain captured,
 and execution isolation restrictions still apply.
 
-1. Parts 1–3 and Parts 4a–4k are merged. Main was pulled with --ff-only to
+1. Recovery on 2026-10-11 pulled main with --ff-only to bf58364; ancestry checks
+   verified Parts 4l–4r merged. Part 4s e8e6ed8 was local only; finish its publication.
+   Part 4s review found no correction needed; its base files match current main.
+   Earlier recovery verified Parts 1–3 and Parts 4a–4k merged at
    1bad656 on 2026-10-10; ancestry checks verified Parts 4h–4k and Part 4j correction
    02b6257. Main matched origin/main; no application/runner implementation exists.
    Milestone 0 remains incomplete. Part 4b commit 1884354 and Part 4c
@@ -131,7 +134,7 @@ and execution isolation restrictions still apply.
    - 4p: approved by "ok, continue"; transport/decoding bounds documentation added.
    - 4q: approved by "ok, continue"; analysis/generated-source documentation added.
    - 4r: approved by "ok, continue"; interactive input/EOF/disconnect documentation added.
-   - 4s: collection and string capture budgets with truthful cutoff behavior.
+   - 4s: approved by "ok, continue"; collection/string capture budget documentation added.
    - 4t: object traversal depth/count/reference budgets, aliases, and cycles.
    - 4u: consistency review and prototype acceptance checklist; fix stale cross-references.
    This is an estimated breakdown, not eight approved tasks or a 40-line guarantee.
@@ -172,14 +175,25 @@ and execution isolation restrictions still apply.
    Input JSON messages cap at 32 KiB across fragments under Part 4p parsing guards.
    Preserve line order, duplicate handling, Java EOF/token behavior, and cancellation
    cutoff. Controller loss cancels; observers do not. Replay never resends input.
-   Four runtime checks remain planned, not run. Deliver on docs/part-4r-input-limits,
-   then pause. Parts 4s–4u await approval; enforcement/Scanner/API/test-input details remain work.
+   Part 4r delivered as 4c3a2b6; merge unverified. Four runtime checks remain unrun.
    Documentation checks passed: 56-line section, byte/escaped-line arithmetic,
    local paths, deadline/EOF/disconnect/cancellation and trace-status consistency, and whitespace.
+   Part 4s: read its new section first. Proposed 4,096 UTF-16 units per String and
+   1,024 logical collection entries; preserve complete content, identities, aliases,
+   and actual evaluation. Covered overflow uses safe partial/unavailable capture
+   and confirmed limited termination. Trace v1 has no collections; contracts and
+   verified adapters remain required before implementation. Four checks are planned,
+   not run. Part 4s commit e8e6ed8 was not pushed before interruption; recovery
+   rechecked its schema references, safe-prefix rules, and whitespace without
+   finding a required correction. Publish on docs/part-4s-collection-string-limits,
+   including separate recovery notes, then pause. Its merge remains pending.
+   Parts 4t–4u await approval; enforcement/Scanner/API/test-input details remain work.
+   Documentation checks passed: 48-line section, String-only event/UTF-16 schema
+   consistency, local paths, alias/callback/safe-prefix/status consistency, and whitespace.
    Group related settings; discuss each scope before starting. Finish the definitions
    needed for bounded execution, then validate/tune values through an approved
    prototype. Do not treat broader V1 coverage or runtime verification as complete.
-   Planning notes are on docs/part-4l-planning; main was last verified at 1bad656.
+   Planning notes are on docs/part-4l-planning; main is now verified at bf58364.
    API error shape and runtime implementation remain separate work.
    Transport/decoder/framing and generated-source enforcement, request errors,
    and other remaining isolation definitions are unfinished work.
@@ -262,9 +276,11 @@ Part 4j proposal notes
 were pushed as 4c36237 on docs/part-4j-planning. Part 4j was pushed as 3b4d504 on
 docs/part-4j-array-capture-limits, based on those notes. It does not authorize runtime
 implementation or a later task; its merge is verified in main at 1bad656.
-Current task branch: docs/part-4r-input-limits, based on Part 4q 38e114a.
+Current task branch: docs/part-4s-collection-string-limits, based on Part 4r 4c3a2b6.
 Part 4l 3ab61d1 is pushed but its merge is not verified. Part 4m documentation is approved.
-Main was last verified at 1bad656. Earlier planning notes: docs/part-4l-planning.
+Main was pulled/verified at bf58364 on 2026-10-11; Parts 4l–4r merge statements
+above are historical handoff notes superseded by this recovery. Part 4s is not merged.
+Earlier planning notes: docs/part-4l-planning.
 Part 4k proposal notes were pushed as b3528b9 on
 docs/part-4k-planning. Correction 02b6257 was pushed on
 docs/part-4j-capture-reference-fix and locally fast-forwarded into the approved

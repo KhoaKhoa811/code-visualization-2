@@ -1,6 +1,6 @@
 # Execution isolation: timeouts, memory, and cancellation
 
-Status: Milestone 0, Parts 4a–4r, 2026-10-10. Proposed rules for review.
+Status: Milestone 0, Parts 4a–4s, 2026-10-10. Proposed rules for review.
 Resource-limit and cancellation enforcement are not implemented or verified yet.
 
 Sources: [requirements, section 10](../requirements/PROJECT_REQUIREMENTS.md)
@@ -392,8 +392,8 @@ the trace; emit no invalid envelope or fake outcome. Use existing v1 fields only
   Aliases reuse its objectId/state, not duplicate objects or separate allowances.
 - Within the cap, capture all elements exactly; never keep a shortened array,
   replace missing elements with null/defaults, or drop references to make it fit.
-- Part 4g byte/record quotas still apply; element count does not bound large strings,
-  many arrays, reference traversal, or decoded memory. Their other guards remain work.
+- Parts 4g/4p byte/record/memory guards still apply. Part 4s bounds strings/collections;
+  aggregate objects and reference traversal need Part 4t; enforcement remains work.
 - This bounds capture, not Java admission. Known coverage limits use java-support.md's
   admitted output-only policy; never silently rerun after partial execution.
 
@@ -800,3 +800,52 @@ These rules do not add input events to trace v1 or define the future API message
 - Prompt without newline, repeated reads, invalid tokens, EOF, and blocked pipe behavior.
 - Duplicate input, backpressure, controller/observer loss, and cancel/write/EOF races.
 - Wait/overall boundaries and backward replay preserve truthful status, no resend, and cleanup.
+
+## Proposed string and collection capture budgets — Part 4s
+
+- Prototype string cap: **4,096 UTF-16 code units per String object**, unverified.
+  Count code units, not UTF-8 bytes, code points, or displayed characters. Preserve
+  surrogate pairs and isolated surrogate units exactly as trace v1's numeric utf16 array.
+- Apply at initialState or OBJECT_CAPTURE, using an already evaluated reference;
+  verify length before copying/encoding. Never reevaluate the producing expression.
+  Empty strings fit; null is distinct. Capture all units, never a shortened value.
+- Aliases reuse objectId; equal text does not merge distinct object identities.
+  Strings are immutable; replacement values have their actual recorded identities.
+- Proposed future collection cap: **1,024 logical entries per collection state**.
+  Lists/stacks/queues/priority queues count positions; sets count memberships;
+  maps count key/value mappings, not twice that count. Repeated values and null
+  entries each count when Java permits them; empty collections fit, null is distinct.
+- Check every captured initial state and post-operation state, including bulk changes;
+  exact caps fit. Apply per logical object/view while preserving aliases and shared backing.
+  Nested strings/collections retain their own caps; aggregate traversal is Part 4t.
+- Use only verified adapters and actual captured sizes/operations. Do not call user
+  size/iterator/getter/toString/hash/equality/comparison methods merely to count or render.
+  Guard capture work before traversal; unknown size/contents means missing coverage,
+  not permission to sample, guess ordering, or inspect JDK-private structure layouts.
+- Trace v1 represents strings and arrays only; collections require a separately
+  specified/versioned contract and operation semantics before any producer/consumer changes.
+  This budget does not add collection support, new event kinds, or Step boundaries.
+
+### Overflow and truthful capture
+
+Capture only after the original operation's actual evaluation; preserve side effects,
+returns, and exceptions. Never reject a Java mutation early to keep a diagram within its cap.
+For an observed covered capture overflow, latch STRING_CAPTURE_LIMIT or
+COLLECTION_CAPTURE_LIMIT, phase capture, unless an earlier stop cause already won.
+Accept no incomplete object/collection-bearing record or fabricated placeholder.
+Keep only the trusted initial state and safe observable prefix under Part 4g;
+drop unsafe trailing bookkeeping and align stepEnds/safeEventCount with that prefix.
+No trusted initial state means unavailable; otherwise partial may have zero operations.
+Stop input/record acceptance and launches; publish limited only after whole-environment
+termination is confirmed, then verify cleanup under Parts 4l/4m before slot release.
+Never claim complete capture, fill missing entries with null, or invent Java events.
+Known pre-execution tracing limits use the admitted output-only policy in java-support.md;
+never rerun after partial execution. Parts 4g/4p quotas still apply even below these caps.
+Absent collection contracts/adapters remain explicit missing coverage, not invented facts.
+
+### Required prototype checks (planned, not run)
+
+- String units at boundaries, supplementary/isolated surrogates, empty/null, and shared/distinct identities.
+- Collection boundaries, bulk updates, nulls/repeated values, aliases/views, and nested quotas.
+- Guards invoke no extra user callbacks; original effects/exceptions and recorded order remain exact.
+- Initial/runtime overflow, byte/memory limits, cancellation, backward replay, and cleanup stay truthful.

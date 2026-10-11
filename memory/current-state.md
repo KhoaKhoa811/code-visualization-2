@@ -1,6 +1,6 @@
 # Current state and conversation memory
 
-Last updated: 2026-10-10 (Asia/Saigon).
+Last updated: 2026-10-11 (Asia/Saigon).
 
 ## Recovery instructions
 
@@ -22,6 +22,11 @@ Long project instructions remain in their source files rather than being duplica
 ## Current scope
 
 - Active milestone: Milestone 0, repository and specifications; incomplete.
+- Recovery on 2026-10-11 pulled main to bf58364 and verified Parts 4l–4r merged.
+  The delivery entries below describe their original handoffs; their merges are
+  now confirmed. Part 4s e8e6ed8 was committed locally but had not been pushed.
+  Its base files exactly match current main; review found no Part 4s correction needed.
+  Finish publication on docs/part-4s-collection-string-limits with these recovery notes.
 - Part 4a runtime timeout rules are merged as documentation in
   specs/execution-isolation.md; enforcement and runner tests remain unimplemented.
   Part 4b memory-limit commit 1884354 and Part 4c cancellation commit 2ce9ca4
@@ -86,7 +91,11 @@ Long project instructions remain in their source files rather than being duplica
   Delivered as 38e114a on docs/part-4q-analysis-limits; merge not verified.
   Part 4r approved by "ok, continue": interactive input, wait/overall deadlines,
   EOF/disconnect documentation. Proposed guards and four runtime checks are unverified.
-  Task branch: docs/part-4r-input-limits. Parts 4s–4u remain proposals.
+  Delivered as 4c3a2b6 on docs/part-4r-input-limits; merge not verified.
+  Part 4s approved by "ok, continue": collection/string capture budget documentation.
+  Proposed caps and four runtime checks remain unimplemented/unverified; collection
+  contracts/adapters still require separate work. Task: docs/part-4s-collection-string-limits.
+  Parts 4t–4u remain proposals.
 - Review preference confirmed 2026-10-07: previous changes were still too large.
   Give each task one purpose, aim for 1–3 files, and split long changes further.
   Explain what changed, why, and where to read first. Commit/push each small
@@ -1367,6 +1376,48 @@ preserve user messages and label assistant summaries explicitly.
     local paths, deadline/EOF/disconnect/cancellation and trace-status consistency,
     and whitespace. No runtime tests run; automatic PR creation remains unavailable.
 
+64. User: "ok, continue"
+    Assistant proceeds with Part 4s only: collection/string capture limits.
+    Proposed 4,096 UTF-16 units per String, preserving isolated surrogate units,
+    full content, and separate identities for equal text. Gate initialState or
+    OBJECT_CAPTURE without reevaluation. Proposed future collection cap of 1,024
+    logical positions/memberships/mappings, including repeated/null entries when
+    Java permits them. Check captured initial/post-operation states and bulk changes;
+    preserve aliases/views and shared backing without extra user callbacks.
+    Trace v1 has no collection representation: contracts and operation semantics
+    must be separately specified/versioned before collection implementation.
+    Covered overflow uses STRING_CAPTURE_LIMIT/COLLECTION_CAPTURE_LIMIT with safe
+    partial/unavailable capture, confirmed termination, and verified cleanup.
+    Preserve actual evaluation, exceptions, and captured order; no truncated objects,
+    invented entries, fake events, or rerun. Known tracing limitations retain the
+    admitted output-only path. Four checks remain planned, not run.
+    Update the specification and both memory files, verify, commit/push, then pause.
+    Part 4r delivered as 4c3a2b6; merge unverified. No later part, schema change,
+    new Java coverage, dependencies, or implementation is approved.
+    Documentation checks passed: 48-line section, String-only OBJECT_CAPTURE and
+    numeric UTF-16 schema consistency, local paths, alias/callback/safe-prefix/status
+    consistency, and whitespace. No runtime tests run; automatic PR creation unavailable.
+
+65. User: "read current-state.md, next-step.md and other files to recover memory.
+    I merge all the branches to main. Last time, I saw you doing the part 4s,
+    please review and make sure it's pushed"
+    Assistant recovered AGENTS.md, memory/current-state.md, the actual
+    memory/next-steps.md, relevant requirements, Java support, trace specification,
+    and schema. The working tree was clean on the Part 4s branch at e8e6ed8,
+    with no upstream. Fetch showed main at bf58364 (PR #42); ancestry verified
+    Parts 4l–4r merged, but Part 4s was neither on main nor on a remote branch.
+    Local main was fast-forwarded to bf58364. Part 4s's parent files match that
+    main exactly, so the task contains all current project content without a
+    redundant merge or rewritten task commit. Returned to the Part 4s branch.
+    Reviewed its 48-line specification and changes to both memory files: UTF-16
+    units and String-only OBJECT_CAPTURE match the schema; collections remain
+    future contracts/adapters; aliases, callback restrictions, safe cutoffs, and
+    terminal outcomes match existing rules. No correction needed in Part 4s.
+    Schema-reference/merge checks and commit whitespace checks passed; no runtime
+    tests run. Update both memory files, commit recovery notes separately, and
+    push the missing Part 4s branch. Automatic PR creation remains unavailable;
+    provide the manual Part 4s PR link. Parts 4t/4u remain unapproved.
+
 ## Latest verification notes
 
 Part 3 added a contract schema, examples, and development validation tooling.
@@ -1455,3 +1506,6 @@ and whitespace. Four runtime checks remain planned, not run; no analysis enforce
 Part 4r documentation checks passed: 56-line section, byte/escaped-line arithmetic,
 local paths, deadline/EOF/disconnect/cancellation and trace-status consistency,
 and whitespace. Four runtime checks remain planned, not run; no input implementation.
+Part 4s documentation checks passed: 48-line section, String-only event/UTF-16 schema
+consistency, local paths, alias/callback/safe-prefix/status consistency, and whitespace.
+Four runtime checks remain planned, not run; no collection contracts or capture implementation added.
