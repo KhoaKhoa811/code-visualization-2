@@ -125,8 +125,8 @@ and execution isolation restrictions still apply.
    ownership/slot-release rules, trace-status consistency, and whitespace.
    Delivered as aa6a59a on docs/part-4m-cleanup-confirmation; merge not verified.
    Remaining Part 4 estimate, proposed on 2026-10-10: seven definition topics
-   plus one consistency review. No topic below is approved by the count question.
-   - 4n: concrete container restrictions, filesystem/disk bounds, and fail-closed setup.
+   plus one consistency review. The count question alone approved none of these.
+   - 4n: subsequently approved by "ok, continue doing the task"; documentation added.
    - 4o: concurrency/queue capacity, preparation deadlines, and compiler sizing.
    - 4p: request/trace framing, bounded buffers, and decoded-memory guards.
    - 4q: source-analysis/instrumentation budgets and generated-source limits.
@@ -135,6 +135,15 @@ and execution isolation restrictions still apply.
    - 4t: object traversal depth/count/reference budgets, aliases, and cycles.
    - 4u: consistency review and prototype acceptance checklist; fix stale cross-references.
    This is an estimated breakdown, not eight approved tasks or a 40-line guarantee.
+   Part 4n review: read its section in specs/execution-isolation.md. Proposed
+   non-root identity, dropped capabilities, no-new-privileges, read-only root,
+   seccomp, network none, no host mounts/secrets, and bounded supervisor output.
+   Writable tmpfs caps /work 64 MiB, /tmp 16 MiB, /dev/shm 16 MiB total 96 MiB;
+   inode caps 4096/1024/1024. Audit other paths and fail closed before submitted
+   launch. Four runtime checks remain planned, not run; compatibility is unverified.
+   Documentation checks passed: 46-line section including primary references,
+   storage arithmetic, local paths, memory/error/trace/cleanup consistency, and whitespace.
+   Deliver on docs/part-4n-container-restrictions, then pause. Parts 4o–4u await approval.
    Group related settings; discuss each scope before starting. Finish the definitions
    needed for bounded execution, then validate/tune values through an approved
    prototype. Do not treat broader V1 coverage or runtime verification as complete.
@@ -221,7 +230,7 @@ Part 4j proposal notes
 were pushed as 4c36237 on docs/part-4j-planning. Part 4j was pushed as 3b4d504 on
 docs/part-4j-array-capture-limits, based on those notes. It does not authorize runtime
 implementation or a later task; its merge is verified in main at 1bad656.
-Current planning branch: docs/part-4n-planning, based on Part 4m aa6a59a.
+Current task branch: docs/part-4n-container-restrictions, based on planning deac5b2.
 Part 4l 3ab61d1 is pushed but its merge is not verified. Part 4m documentation is approved.
 Main was last verified at 1bad656. Earlier planning notes: docs/part-4l-planning.
 Part 4k proposal notes were pushed as b3528b9 on
