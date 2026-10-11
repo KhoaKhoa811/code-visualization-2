@@ -1,6 +1,6 @@
 # Execution isolation: timeouts, memory, and cancellation
 
-Status: Milestone 0, Parts 4a–4o, 2026-10-10. Proposed rules for review.
+Status: Milestone 0, Parts 4a–4p, 2026-10-10. Proposed rules for review.
 Resource-limit and cancellation enforcement are not implemented or verified yet.
 
 Sources: [requirements, section 10](../requirements/PROJECT_REQUIREMENTS.md)
@@ -231,7 +231,7 @@ References: [Docker](https://docs.docker.com/reference/cli/docker/container/run/
   quota. Printed text cannot become trace events or trusted limit diagnostics.
 - Use bounded read buffers and queues; never accumulate excess bytes or permit
   unbounded duplicate container logs. Slow/disconnected consumers cannot lift
-  the quota. Concrete buffering/transport settings remain runner work.
+  the quota. Part 4p proposes concrete buffering/transport guards.
 
 ### At the output limit
 
@@ -313,8 +313,8 @@ normal completion so a fast exit cannot hide an oversized final record/index upd
   Stop retaining source as soon as overflow is known, including across chunks.
 - Malformed Unicode fails source validity; never replace invalid units to fit.
 - This decoded-source cap does not bound request bodies, JSON overhead, generated
-  instrumentation, or decoded memory. Separate transport/decoder guards remain
-  required before implementation; Part 4i proposes separate terminal-metadata limits.
+  instrumentation, or decoded memory. Part 4p proposes transport/decoder guards;
+  Part 4i proposes separate terminal-metadata limits. Enforcement remains unfinished.
 
 ### Source preservation and rejection
 
@@ -353,7 +353,7 @@ This is not a runtime limited or compile_error outcome; no playback exists.
 - Guard collection/encoding buffers while receiving text; never first assemble a
   huge message/list. Exactly a cap fits; optional additions beyond it are omitted.
 - Verify bounded runIds/codes and reserved fallback before admission; never truncate them.
-- Envelope framing outside JSON, decoded-memory bounds, request errors, and
+- Part 4p proposes framing/decoded-memory bounds. API request-error contracts and
   generated-source bounds remain separate unfinished work.
 
 ### When explanatory metadata does not fit
@@ -638,3 +638,60 @@ No larger automatic retry. JVM/native headroom and analysis guards need prototyp
 - Verify sequential compiler heap/phase limits, real errors, retained output, and cleanup.
 
 Reference: [Java 21 javac JVM options](https://docs.oracle.com/en/java/javase/21/docs/specs/man/javac.html).
+
+## Proposed transport and decoding bounds — Part 4p
+
+All values below are prototype proposals, not verified memory or transport guarantees.
+
+- Run-submission HTTP limits: **16 KiB headers**, **2 MiB body**, **2 concurrent
+  receivers** (headers/body), and **5,000 ms** body receive time from accepted headers, without resets.
+  Bound header reception by the same duration from connection acceptance; reject excess
+  readers before buffering. Guard actual incoming bytes, independent of Content-Length.
+- Accept uncompressed UTF-8 JSON only; reject compressed bodies before expansion.
+  Stream-decode escapes and apply Part 4h's separate 256 KiB exact-source cap.
+  Cap JSON nesting at **32** and request/record tokens at **65,536**, counting keys,
+  scalar values, and container starts/ends. Reject duplicate keys and malformed Unicode.
+- Oversized/invalid/slow requests never enqueue or launch. Return at most **1 KiB**
+  of fixed error JSON without source echo; HTTP/API shapes remain contract work.
+
+### Trace records and buffers
+
+Use a dedicated ordered runner-to-supervisor channel, bound to one run/source identity;
+stdout/stderr are never parsed as trace. Endpoint isolation/authenticity needs prototype proof.
+Proposed record prefix: **1-byte kind** (1 initialState, 2 event), then **4-byte unsigned
+big-endian UTF-8 JSON payload length**. Accept initialState once before ordered events.
+The **256 KiB** Part 4g record cap includes all five prefix bytes; reject the announced
+length before allocation. Chunking cannot reset counters; never resynchronize past corruption.
+Derive stepEnds under trace-format.md section 10; charge index growth/received framing under Part 4g.
+Source and terminal metadata are supervisor-owned envelope fields, not worker records.
+Use at most **16 KiB per read buffer** and **256 KiB pending bytes per channel** across
+all user-space queue layers; record assembly and copies also consume memory below.
+Stream terminal JSON with bounded output buffers, preserving existing source/data/metadata caps.
+Slow console/result clients must not block trace capture or duplicate retained data without
+charges. Bound each client queue to 256 KiB; disconnect lagging clients without losing facts.
+
+### Decoded memory and failure behavior
+
+Reserve **8 MiB per receiving request** and **64 MiB per active run**, within a shared
+**128 MiB supervisor transport/data budget**. Queued source, retained results, and every
+client count too; reject new admission/connections when reservations cannot fit.
+Protect active-run capacity from other requests; reserve 1 MiB within it for stop/finalization work.
+Charge conservative allocated capacities before allocation: byte/character buffers,
+parser nodes, collection capacity, state/index tables, copies, and transient encodings.
+Transfer ownership charges atomically; no refund while data remains live. Verify charges
+against runtime allocation sizes; raw JSON length alone is not decoded-memory accounting.
+These are managed-data limits, not total backend/browser/kernel/JVM heap guarantees;
+analysis/instrumentation memory is Part 4q. No silent eviction of accepted source or facts.
+Capture budget exhaustion (bytes/tokens/depth/memory) follows Part 4g TRACE_LIMIT,
+with the last safe atomic prefix, confirmed termination, and Parts 4l/4m cleanup.
+Malformed/truncated/out-of-order records instead expose infrastructure failure; retain
+trusted facts, stop the environment, and never manufacture a terminal execution status.
+Drain/validate buffered records before normal completion; limits and corruption cannot hide
+behind fast exit. Existing cancellation/stop causes win races; never append fake Java events.
+
+### Required prototype checks (planned, not run)
+
+- Request byte/token/depth/time boundaries, escaped source, compression, and duplicate keys.
+- Split headers/records, oversized lengths, truncated EOF, ordering, and forged stdout.
+- Allocation amplification, copies, queued/retained data, and slow clients stay within reservations.
+- Fast exit, cancellation, and decoder limits preserve one cause, safe prefix, and verified cleanup.

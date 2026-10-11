@@ -128,7 +128,7 @@ and execution isolation restrictions still apply.
    plus one consistency review. The count question alone approved none of these.
    - 4n: subsequently approved by "ok, continue doing the task"; documentation added.
    - 4o: approved by "ok, continue"; capacity/preparation/compiler documentation added.
-   - 4p: request/trace framing, bounded buffers, and decoded-memory guards.
+   - 4p: approved by "ok, continue"; transport/decoding bounds documentation added.
    - 4q: source-analysis/instrumentation budgets and generated-source limits.
    - 4r: input line/total/pending limits, waiting, overall deadline, EOF/disconnects.
    - 4s: collection and string capture budgets with truthful cutoff behavior.
@@ -148,17 +148,24 @@ and execution isolation restrictions still apply.
    and 256 MiB compiler heap within the 512 MiB container. Read its new section first.
    Atomic admission/promotion/expiry, unresolved-slot retention, restart reconciliation,
    bounded setup calls, and sequential compilers preserve existing stop/cleanup rules.
-   Four runtime checks remain planned, not run. Deliver on docs/part-4o-run-capacity,
-   then pause. Parts 4p–4u await approval; runtime enforcement remains unfinished.
+   Part 4o delivered as cbcfa2b; merge unverified. Four runtime checks remain unrun.
    Documentation checks passed: 46-line section, heap arithmetic, local paths,
    admission/deadline/slot and trace/error consistency, and whitespace. No runtime tests run.
+   Part 4p: read its new transport/decoding section first. Proposed request caps,
+   receive deadlines, strict JSON parsing, five-byte trace framing within Part 4g,
+   bounded channel/client queues, and 8/64 MiB reservations under a 128 MiB managed-data cap.
+   Charge decoded allocations/copies and preserve accepted facts; distinguish valid
+   capture limits from corrupt transport. Four runtime checks remain planned, not run.
+   Deliver on docs/part-4p-transport-bounds, then pause. Parts 4q–4u await approval.
+   Documentation checks passed: 56-line section, frame/source arithmetic, local paths,
+   quota/safe-prefix/status consistency, and whitespace. No runtime tests run.
    Group related settings; discuss each scope before starting. Finish the definitions
    needed for bounded execution, then validate/tune values through an approved
    prototype. Do not treat broader V1 coverage or runtime verification as complete.
    Planning notes are on docs/part-4l-planning; main was last verified at 1bad656.
    API error shape and runtime implementation remain separate work.
-   Transport/request-decoder/framing guards, generated-source bounds, request errors,
-   and other remaining isolation definitions are separate unfinished work.
+   Transport/decoder/framing enforcement, generated-source bounds, request errors,
+   and other remaining isolation definitions are unfinished work.
    Recovery on 2026-10-08 found only interrupted proposal notes in the two memory
    files, with no Part 4f specification or recorded approval. Those notes were
    published as e42efe3 and are now verified merged in main at dc4a332. Part 4f
@@ -238,7 +245,7 @@ Part 4j proposal notes
 were pushed as 4c36237 on docs/part-4j-planning. Part 4j was pushed as 3b4d504 on
 docs/part-4j-array-capture-limits, based on those notes. It does not authorize runtime
 implementation or a later task; its merge is verified in main at 1bad656.
-Current task branch: docs/part-4o-run-capacity, based on Part 4n 241d5e9.
+Current task branch: docs/part-4p-transport-bounds, based on Part 4o cbcfa2b.
 Part 4l 3ab61d1 is pushed but its merge is not verified. Part 4m documentation is approved.
 Main was last verified at 1bad656. Earlier planning notes: docs/part-4l-planning.
 Part 4k proposal notes were pushed as b3528b9 on

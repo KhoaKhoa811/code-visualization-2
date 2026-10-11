@@ -77,7 +77,10 @@ Long project instructions remain in their source files rather than being duplica
   Delivered as 241d5e9 on docs/part-4n-container-restrictions; merge not verified.
   Part 4o approved by "ok, continue": run capacity, queue/preparation deadlines,
   and compiler sizing documentation. Proposed limits and runtime checks are unverified.
-  Task branch: docs/part-4o-run-capacity. Parts 4p–4u remain proposals.
+  Delivered as cbcfa2b on docs/part-4o-run-capacity; merge not verified.
+  Part 4p approved by "ok, continue": transport framing, buffers, and decoded-memory
+  bounds documentation. Proposed guards and four runtime checks remain unverified.
+  Task branch: docs/part-4p-transport-bounds. Parts 4q–4u remain proposals.
 - Review preference confirmed 2026-10-07: previous changes were still too large.
   Give each task one purpose, aim for 1–3 files, and split long changes further.
   Explain what changed, why, and where to read first. Commit/push each small
@@ -1290,6 +1293,30 @@ preserve user messages and label assistant summaries explicitly.
     admission/deadline/slot and trace/error consistency, and whitespace. No runtime
     tests run. Automatic PR creation remains unavailable; provide a manual PR link.
 
+61. User: "ok, continue"
+    Assistant proceeds with Part 4p only: request/trace framing, bounded buffers,
+    and decoded-memory guards. Proposed request headers/body 16 KiB/2 MiB,
+    two header/body receivers, 5,000 ms reception phases, uncompressed UTF-8 JSON, depth 32,
+    65,536 tokens, duplicate-key/Unicode rejection, and separate exact-source cap.
+    Proposed dedicated trace framing: one kind byte and four length bytes, within
+    the existing 256 KiB record budget; derive/charge stepEnds atomically. No stdout
+    parsing or resynchronization after corrupt data. Source/terminal fields stay
+    supervisor-owned. Proposed 16 KiB reads and 256 KiB pending channel/client queues.
+    Proposed 8 MiB request/64 MiB active-run reservations under a shared 128 MiB
+    managed-data cap, charging decoded structures, capacities, copies, retained
+    data, and clients before allocation; reserve 1 MiB of active-run capacity for
+    stopping/finalization. This is not a whole-process memory claim.
+    Valid capture limits use existing TRACE_LIMIT and safe-prefix cleanup; corrupt
+    transport exposes infrastructure failure without invented Java outcomes.
+    Four prototype checks are planned, not run. Update both memory files, verify,
+    commit/push, and pause. No implementation, dependency, or later part approved.
+    Part 4o delivered as cbcfa2b; merge unverified. API error contracts and trusted
+    transport implementation remain unfinished.
+    Documentation checks passed: 56-line section, 262,139-byte maximum payload
+    after the five-byte prefix, escaped-source/body allowance, local paths,
+    quota/safe-prefix/status consistency, and whitespace. No runtime tests run.
+    Automatic PR creation remains unavailable; provide a manual PR link after push.
+
 ## Latest verification notes
 
 Part 3 added a contract schema, examples, and development validation tooling.
@@ -1369,3 +1396,6 @@ and whitespace. Four runtime checks remain unrun; no Docker or Java execution.
 Part 4o documentation checks passed: 46-line section, 256 MiB heap arithmetic,
 local paths, admission/deadline/slot and trace/error consistency, and whitespace.
 Four runtime checks remain planned, not run; capacity and heap sizing are unverified.
+Part 4p documentation checks passed: 56-line section, frame/source arithmetic,
+local paths, quota/safe-prefix/status consistency, and whitespace. Four runtime
+checks remain planned, not run; no transport or memory enforcement is implemented.
