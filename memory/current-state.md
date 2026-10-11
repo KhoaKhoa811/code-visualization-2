@@ -29,6 +29,9 @@ Long project instructions remain in their source files rather than being duplica
   Part 5a runner preflight was approved by "ok" and implemented on
   chore/part-5a-runner-preflight. Host WSL2 check passes; Docker Linux daemon is
   unavailable. Live image inspection and runtime isolation remain unverified.
+- Latest Part 5b update supersedes that host blocker: Docker Desktop now runs,
+  and preflight passes against the selected Java 21 JDK digest. Runtime execution
+  and isolation remain unverified. Part 5b is approved; no container launch is authorized.
 - Recovery on 2026-10-11 pulled main to bf58364 and verified Parts 4l–4r merged.
   The delivery entries below describe their original handoffs; their merges are
   now confirmed. Part 4s e8e6ed8 was committed locally but had not been pushed.
@@ -1522,6 +1525,26 @@ preserve user messages and label assistant summaries explicitly.
     No application or isolation tests were run. Both memory files are updated;
     commit/push one coherent task. GitHub CLI/PR tools remain unavailable, so
     provide a manual PR link. No later setup or runtime task is authorized.
+
+71. User: "ok, continue"
+    Assistant fetched origin and reran preflight: main still c454563; WSL2 passes,
+    Docker daemon unavailable. Proposed Part 5b service startup, Java 21 JDK image
+    selection/download, digest pinning, preflight, and commit/push. Asked because
+    Part 5a explicitly excluded service starts/downloads. User: "Approve Part 5b".
+    Created chore/part-5b-runner-image from Part 5a 7641b3c. Empty planning branch
+    docs/part-5b-planning has no independent changes or publication requirement.
+    Started Docker Desktop using its CLI; Linux/amd64 engine 29.8.0 is ready.
+    Existing image exposed a real preflight bug: Temurin metadata uses jdk-21...
+    rather than bare 21.... Accepted optional jdk- prefix without accepting Java17
+    or Java210. Three valid and six invalid metadata cases and syntax checks pass.
+    Downloaded official eclipse-temurin:21-jdk-noble for linux/amd64 after checking
+    Adoptium's image documentation. Selected immutable repository digest:
+    sha256:b468c3fc688b14450571494f588bd939378e7fd542ed5a73f8efc13f17872a87.
+    Inspected metadata declares jdk-21.0.12.1+1 and Ubuntu 24.04; preflight against
+    that digest exits 0. This proves metadata/readiness only, not actual Java/JDK
+    execution, image security, container restrictions, or isolation. No container
+    was launched by this task. Deliver in two small commits: metadata correction,
+    then image pin/setup notes and final memory handoff. No later task approved.
 
 ## Latest verification notes
 
