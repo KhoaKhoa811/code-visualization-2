@@ -1465,6 +1465,17 @@ preserve user messages and label assistant summaries explicitly.
     Stale references now point to the later completed definitions. Documentation
     review checks phase names against trace v1 and preserves safe-prefix rules.
     Runtime checks remain unrun. No later task is authorized.
+    First review commit: 5013e53. The second commit adds six prototype gates:
+    admission/capacity, worker isolation, deadlines/input, output/transport,
+    capture/replay, and stop/cleanup. All remain planned, not run. This closes
+    Part 4 documentation, not Milestone 0 or V1. Next discussion should select
+    one small prototype scope and its contract/setup prerequisites; do not start it.
+    Documentation checks cover local links, all Part 4 references, trace-v1 phases,
+    unchanged numeric budgets, and whitespace. No runtime or contract tests rerun.
+    These checks passed after correcting the ad hoc checker's encoding/regex and
+    avoiding a sandbox-blocked child-process read; no product defect was involved.
+    GitHub CLI and PR tools are unavailable; push the branch and provide a manual
+    PR link. Review Part 4t first if it is still unmerged; Part 4u depends on it.
 
 ## Latest verification notes
 

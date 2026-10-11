@@ -913,3 +913,39 @@ Backward playback restores identities/edges from that prefix without future-even
 - Self/mutual cycles, shared children, repeated aliases, nulls, and distinct equal-valued objects.
 - Repeated captures see changed edges; no extra user callbacks, duplicate identities, or guessed fields.
 - Initial/runtime overflow, staged-record rollback, backward playback, stop races, and cleanup stay truthful.
+
+## Consistency review and prototype gates — Part 4u
+
+Parts 4a–4t now define the proposed isolation budgets. This review closes that
+documentation sequence; it does not establish enforcement, complete Milestone 0,
+or authorize implementation. The corrections apply existing budgets across worker
+phases, select the interactive timer correctly, and preserve facts during stop/cleanup.
+No numeric budgets changed. Every gate below is **planned, not run**.
+
+| Gate | Parts | Required evidence before claiming the capability verified |
+| --- | --- | --- |
+| 1. Admission and capacity | 4h, 4o, 4p | Exact/over source and request bounds, slow/fragmented requests, JSON guards, shared queue/slot accounting, queue expiry, active memory reservation before promotion, and restart reconciliation. Rejection must not launch work. |
+| 2. Worker isolation | 4b, 4e, 4n, 4o, 4q | Effective identity, mounts, network, task counters, memory/no-swap, heaps, storage bytes/inodes, and sequential worker exit. Exercise analysis, compilation, and execution; spoofed errors must not assert trusted limits. |
+| 3. Deadlines and interactive input | 4a, 4d, 4o, 4q, 4r | Queue/preparation/analysis/compiler clocks, both runtime profiles, input-wait detection, line/session/pending bounds, EOF, deduplication, and disconnect. Test before/at/after deadlines; no retry or input resets a shared clock. |
+| 4. Output and transport | 4f, 4g, 4i, 4p | Shared output quota across all workers, fast-exit draining, malformed/truncated trace frames, authentication against forged facts, allocated-buffer accounting, metadata reservation, and slow consumers. Preserve the first latched cause and bounded accepted data. |
+| 5. Capture and replay | 4j, 4k, 4s, 4t | Zero/exact/over capture bounds, UTF-16 units, frames/recursion, aliases/cycles, no extra callbacks, atomic rejection, and backward reconstruction from the accepted prefix. Compare original/instrumented output, exceptions, final values, and side-effect counts for supported Java. |
+| 6. Stop and cleanup | 4c, 4l, 4m, 4r | Cancellation/limit/infrastructure races, descendants, hung control calls, ownership checks, late launches, recovery, retained facts after tmpfs loss, and exactly one slot release after both proofs. Unknown termination must block terminal playback. |
+
+Each row groups the detailed checks above; it does not replace them. Record exact
+pinned versions/image digest, Windows/PowerShell commands, input fixtures, observed
+timings/counters, retained output/trace, and cleanup evidence with each result.
+Distinguish passed, failed, blocked, and not-run cases. Docker availability alone
+is not proof. Any proposed budget adjustment needs explicit rationale and approval.
+
+Prototype scope must be approved separately in small parts. Before launch, resolve
+the exact runner profile and bounded supervisor mechanisms. API/request/error/input
+contracts, retained-result lifetime, and trustworthy trace transport remain work.
+Reliable blocked-read detection and Scanner behavior need proof before claiming
+the interactive acceptance cases complete; unknown wait state is not that proof.
+
+Trace v1 still supports arrays/strings, not collection/custom-object graph records.
+Future collection/graph gates require versioned contracts and verified adapters;
+mark them blocked on those prerequisites, not passed or removed from V1. The first
+variables/arrays prototype is an increment. Sorting/browser playback, broader Java,
+structures, separate test inputs, mappings, grid views, and evidence-based rankings
+remain required work under the requirements; this checklist does not complete V1.

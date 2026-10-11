@@ -197,7 +197,10 @@ and execution isolation restrictions still apply.
    TRAVERSAL_LIMIT rejects the affected record and preserves the safe prefix;
    four runtime checks remain planned, not run. Published as 17478b2 on
    docs/part-4t-traversal-limits; merge unverified. Part 4u review is approved:
-   first correct cross-phase rules, then add prototype gates in a separate commit.
+   cross-phase corrections are committed as 5013e53; the second commit adds six
+   prototype gates. Part 4 documentation is complete; all runtime gates are unrun.
+   Review Part 4t before Part 4u because the review branch includes its unmerged work.
+   After delivery, discuss one small prototype scope and prerequisites; await approval.
    Enforcement and graph contracts remain work; no implementation is authorized.
    Documentation checks passed: 53-line section, local paths, existing object contract,
    identity/depth/cycle/pass-budget and safe-prefix consistency, and whitespace. No runtime tests run.
