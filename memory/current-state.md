@@ -24,7 +24,8 @@ Long project instructions remain in their source files rather than being duplica
 - Active milestone: Milestone 0, repository and specifications; incomplete.
 - On 2026-10-11, main was pulled to c454563 (PR #43). Part 4s e8e6ed8 and
   recovery notes f64fc0c are verified merged; the earlier pending-publication
-  notes below are historical. Part 4t is now approved; Part 4u remains unapproved.
+  notes below are historical. Part 4t is published as 17478b2; its merge is unverified.
+  Part 4u is approved by the latest "ok, continue"; no implementation is authorized.
 - Recovery on 2026-10-11 pulled main to bf58364 and verified Parts 4l–4r merged.
   The delivery entries below describe their original handoffs; their merges are
   now confirmed. Part 4s e8e6ed8 was committed locally but had not been pushed.
@@ -101,7 +102,8 @@ Long project instructions remain in their source files rather than being duplica
   Part 4s e8e6ed8/f64fc0c is verified merged in main at c454563.
   Part 4t approved by "ok, continue" on 2026-10-11: object/traversal budget documentation.
   Task branch: docs/part-4t-traversal-limits; proposed guards/runtime checks are unverified.
-  Part 4u remains proposed; no implementation or new graph contract is approved.
+  Part 4u review is on docs/part-4u-isolation-review, based on published Part 4t.
+  No implementation or new graph contract is approved.
 - Review preference confirmed 2026-10-07: previous changes were still too large.
   Give each task one purpose, aim for 1–3 files, and split long changes further.
   Explain what changed, why, and where to read first. Commit/push each small
@@ -1450,6 +1452,19 @@ preserve user messages and label assistant summaries explicitly.
     Documentation checks passed: 53-line section, local paths, existing object
     contract, identity/depth/cycle/pass-budget and safe-prefix consistency, and whitespace.
     No runtime tests run. Automatic PR creation remains unavailable; provide a manual link.
+
+68. User: "ok, continue"
+    Assistant continues the approved Part 4u consistency review and prototype
+    checklist. Fetch confirms origin/main remains c454563; Part 4t 17478b2 is
+    published but not merged. The new branch retains Part 4t and conversation notes.
+    Review is split into two commits: (1) cross-phase consistency corrections,
+    (2) prototype gates and final handoff. No numeric budget changes or runtime work.
+    Corrections cover the interactive execution timer, analysis-worker PID/output/
+    memory/isolation rules, worker failures versus submitted Java errors, bounded
+    infrastructure stops, and retention before temporary storage disappears.
+    Stale references now point to the later completed definitions. Documentation
+    review checks phase names against trace v1 and preserves safe-prefix rules.
+    Runtime checks remain unrun. No later task is authorized.
 
 ## Latest verification notes
 

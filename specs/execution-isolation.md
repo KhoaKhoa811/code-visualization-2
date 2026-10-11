@@ -1,6 +1,6 @@
 # Execution isolation: timeouts, memory, and cancellation
 
-Status: Milestone 0, Parts 4a–4t, 2026-10-11. Proposed rules for review.
+Status: Milestone 0, Parts 4a–4u, 2026-10-11. Proposed rules for prototype validation.
 Resource-limit and cancellation enforcement are not implemented or verified yet.
 
 Sources: [requirements, section 10](../requirements/PROJECT_REQUIREMENTS.md)
@@ -49,9 +49,9 @@ Do not manufacture a Java exception, return, scope exit, or mutation on timeout.
 - Blocking execution still reaches the deadline; activity never resets the timer.
 
 These are future checks, not test results. Part 4a covers runtime timeouts only.
-Collection/object traversal, input-wait, and transport bounds remain work;
-Parts 4b–4k propose memory, cancellation, compilation, process/thread, output,
-trace-data, source, metadata, array, and call-depth rules; enforcement is unfinished.
+Parts 4b–4t define the remaining proposed budgets, including collection/object
+traversal, input-wait, and transport bounds. Part 4u groups the prototype gates;
+enforcement and runtime verification remain unfinished.
 
 ## Proposed memory budget — Part 4b
 
@@ -59,15 +59,15 @@ trace-data, source, metadata, array, and call-depth rules; enforcement is unfini
 - Submitted Java JVM heap cap: **128 MiB (134,217,728 bytes)**, using `-Xmx128m`.
   Heap includes application objects and any tracing buffers allocated there.
 - The container cap covers all its processes and accounted memory, including
-  compilation. Heap is one portion; other JVM/native memory needs headroom.
-- Set the hard container limit before compilation/execution. A soft reservation
+  analysis and compilation. Heap is one portion; other JVM/native memory needs headroom.
+- Set the hard container limit before any run worker starts. A soft reservation
   alone does not enforce this budget. Failure to establish limits blocks launch.
 - Proposed Docker values: `--memory=536870912 --memory-swap=536870912`.
   Equal memory and memory-swap limits prevent extra swap allowance. Keep the
   container OOM killer enabled and verify host enforcement in the prototype.
 - These budgets are candidates to measure, not verified V1 sizing guarantees.
-  Part 4o proposes compiler heap and run capacity; capture/traversal limits remain
-  work. Never increase this budget silently for one program.
+  Parts 4o/4q propose compiler/analysis heaps and capacity; Parts 4s/4t bound
+  collection/string capture and traversal. Never increase budgets silently for one program.
 
 ### When memory is exhausted
 
@@ -79,10 +79,13 @@ diagnostic code MEMORY_LIMIT and an explanation of the verified container limit.
 Capture is partial at the last safe accepted boundary, or unavailable; never
 fabricate missing writes, exceptions, or completed cleanup.
 
-An OutOfMemoryError reported by Java is a Java error, not proof of a container
+An OutOfMemoryError from submitted Java is a Java error, not proof of a container
 kill. Preserve caught-error behavior; an uncaught error has failed status with
 available safe capture. Do not relabel an explicitly thrown error as a verified
 resource limit. Detection and trustworthy error capture require prototype proof.
+An analysis/compiler worker crash is not a submitted-program failure or ordinary
+source rejection. Without verified container OOM evidence, report infrastructure
+failure outside the v1 trace; Part 4q governs analysis fallback eligibility.
 
 ### Required prototype checks
 
@@ -166,8 +169,9 @@ Part 4r proposes disconnect/input-wait rules; API message contracts remain separ
 
 Normal compiler rejection instead yields compile_error with unavailable capture
 and actual diagnostics, unless a stop cause was already latched. Start the separate
-5,000 ms execution timer only after all required compilation succeeds with no
-latched stop cause. Confirmation/retry deadlines follow Parts 4l/4m.
+execution timer only after all required compilation succeeds with no latched stop
+cause: 5,000 ms noninteractive, or 120,000 ms interactive under Part 4r.
+Confirmation/retry deadlines follow Parts 4l/4m.
 
 ### Required prototype checks (planned, not run)
 
@@ -179,8 +183,8 @@ latched stop cause. Confirmation/retry deadlines follow Parts 4l/4m.
 ## Proposed process/thread budget — Part 4e
 
 - Proposed cap: **128 simultaneous Linux kernel tasks per run container**, unverified.
-  Count compiler/runtime processes, descendants, JVM native threads, and helpers.
-- Proposed Docker setting: `--pids-limit=128`, established before compilation.
+  Count analysis/compiler/runtime processes, descendants, JVM native threads, and helpers.
+- Proposed Docker setting: `--pids-limit=128`, established before any run worker starts.
   Block launch if enforcement cannot be verified; never silently raise the cap.
 - Kernel task identities count; Java virtual-thread objects do not.
   PID enforcement denies creation without killing existing processes; admission
@@ -191,8 +195,8 @@ latched stop cause. Confirmation/retry deadlines follow Parts 4l/4m.
 
 ### Verified limit handling
 
-Check for a run-attributed denial counter increase during compilation/execution,
-before further compiler/application launch and before finalizing normal completion.
+Check for a run-attributed denial counter increase throughout preparation,
+compilation, and execution, before any later worker launch and normal completion.
 Attribute the evidence to this run/controller, accounting for parent limits.
 Reaching 128 tasks alone, printed text, exit codes, or Java errors do not prove a hit.
 
@@ -200,13 +204,15 @@ Serialize verified evidence with cancellation/termination; keep an already latch
 outcome. Otherwise latch the PID limit, stop input/record acceptance and new launches,
 then terminate the entire environment. Only after termination is confirmed publish
 execution.status = limited and diagnostic code PROCESS_THREAD_LIMIT with the verified
-reason and phase compile or execution. Retain safe partial capture after execution,
+reason and phase admission, compile, or execution according to the affected phase.
+Retain safe partial capture after execution,
 or unavailable before execution/without trusted initial state; never complete.
 Discard incomplete records; invent no Java events. Release the slot only after
 verified cleanup. Failed confirmation/cleanup follows the existing timeout rules.
 
 Without trusted PID evidence, preserve actual Java/compiler errors, including
-OutOfMemoryError. Monitoring and confirmation/retry bounds remain runner work.
+OutOfMemoryError, under the phase-specific rules in Part 4b. Monitoring remains
+runner work; confirmation/retry deadlines are defined in Parts 4l/4m.
 
 ### Required prototype checks (planned, not run)
 
@@ -220,9 +226,9 @@ References: [Docker](https://docs.docker.com/reference/cli/docker/container/run/
 ## Proposed stdout/stderr budget — Part 4f
 
 - Proposed quota: **1 MiB (1,048,576 bytes)** combined output per run, unverified.
-- Count raw stdout and stderr bytes from compilation and execution, including
-  descendants, before decoding/filtering. Share one atomic counter across streams
-  and all compiler invocations; starting execution does not reset it.
+- Count raw stdout and stderr bytes from all isolated run workers, including
+  analysis, compilation, execution, helpers, and descendants, before decoding/filtering.
+  Share one atomic counter across streams and phases; worker launches never reset it.
 - Exact-quota output is allowed; the first observed byte beyond it triggers the
   limit. Retain only the fitting prefix of a chunk that crosses the boundary.
 - Preserve each stream's byte order and identity; do not claim a total Java write
@@ -236,15 +242,16 @@ References: [Docker](https://docs.docker.com/reference/cli/docker/container/run/
 ### At the output limit
 
 Latch overflow against cancellation/other limits; keep an already latched stop
-cause. Stop input, trace-record acceptance, and further compiler/application launch.
+cause. Stop input, trace-record acceptance, and further run-worker launch.
 Discard excess console bytes and incomplete trace records; preserve the already
 accepted output prefix and safe trace boundary. Terminate the entire environment.
-Drain each compiler's streams before launching further compilers/the application,
+Drain each worker's streams before launching a later analysis/compiler/application worker,
 and runtime streams before final normal completion. A fast exit cannot hide
 buffered overflow. Do not wait for input or consumers; activity resets no timer.
 
 If overflow wins, publish execution.status = limited after confirmed termination,
-with diagnostic code OUTPUT_LIMIT, phase compile or execution, and quota reason.
+with diagnostic code OUTPUT_LIMIT, phase admission, compile, or execution as
+appropriate, and quota reason.
 Capture is unavailable before execution/without a trusted initial state, otherwise
 partial at the safe accepted prefix; never complete. Mark console output incomplete;
 retain exact accepted bytes, without inventing missing characters, newlines, source
@@ -255,7 +262,7 @@ the slot; failed termination/cleanup follows the timeout procedure.
 
 - Quota minus one/exact quota succeed; one extra byte yields the limit outcome.
 - Split multibyte/chunked output counts bytes; stdout/stderr share one quota.
-- Compiler output reduces runtime allowance; overflow prevents application launch.
+- Analysis/compiler output reduces later allowance; overflow prevents further launch.
 - Fast exit, slow consumer, and cancellation races preserve one outcome and cleanup.
 
 ## Proposed trace-data budget — Part 4g
@@ -466,8 +473,9 @@ No Java calls during replay; schema fields and observable Step boundaries stay u
 ## Proposed termination confirmation deadline — Part 4l
 
 - Prototype budget: **5,000 ms elapsed time**, proposed and unverified.
-- Start an external monotonic deadline when cancellation or a limit is latched,
-  before any termination control call. This budget is separate from phase timers.
+- Start an external monotonic deadline when a whole-environment stop is requested,
+  including cancellation, a verified limit, or infrastructure failure, before any
+  termination control call. This budget is separate from phase timers.
 - Cover queued/preparing/compiling/executing/input-wait runs and all descendants.
 - Stop new launches, input, and record acceptance at the existing stop cutoff.
 - Control calls, polling, and retries share this deadline; each wait uses at most
@@ -481,8 +489,9 @@ No Java calls during replay; schema fields and observable Step boundaries stay u
 ### Confirmation, expiry, and recovery
 
 Serialize evidence acceptance and deadline expiry with the latched stop cause.
-Evidence accepted before expiry permits the existing cancelled/limited outcome;
-an already confirmed earlier termination retains its actual outcome. At or after
+Evidence accepted before expiry permits the already determined terminal outcome,
+if valid; infrastructure failures stay outside the v1 trace. An already confirmed
+earlier termination retains its actual outcome. At or after
 the deadline, first record confirmation failure; never reset or hide the expiry.
 Expose infrastructure failure outside the v1 terminal trace; unknown termination
 is not a Java failure or a new execution.status. API error shape remains future work.
@@ -510,8 +519,9 @@ during infrastructure failure. Runtime enforcement and recovery need prototype p
 - Start an external monotonic deadline when whole-run termination is confirmed,
   before cleanup work. This is separate from execution and Part 4l stop timers.
 - Cover every outcome and abandoned setup; prove no pending launch for never-launched runs.
-- Preserve accepted output and trace facts outside resources being removed first;
-  any required transfer shares this budget and existing data limits.
+- Retain accepted output and trace facts in supervisor-owned storage as they are
+  accepted, within existing data limits. Do not depend on copying tmpfs after stop.
+  Any remaining cleanup transfer shares this budget; deletion cannot destroy retained facts.
 - Removal calls, verification, and retries share the remaining time without resets.
   Bound control workers; hung or abandoned calls must not block deadline handling.
 - Use a trusted inventory of this run's environment and temporary resources.
@@ -549,7 +559,7 @@ This bounds waiting, not guaranteed removal; enforcement/recovery evidence remai
 
 - Use a fresh Linux container per run, including compilation, from a vetted Java 21
   image pinned by digest during setup. Verify the Docker Desktop/WSL2 profile first.
-- Run compiler and submitted JVM as UID/GID 10001:10001, without extra groups;
+- Run analysis, compiler, and submitted JVMs as UID/GID 10001:10001, without extra groups;
   use --cap-drop=ALL, --security-opt=no-new-privileges=true, and --read-only.
 - Retain the pinned runtime's default seccomp profile; never use privileged mode,
   unconfined seccomp, host/shared PID/IPC namespaces, or additional host devices.
@@ -570,7 +580,7 @@ This bounds waiting, not guaranteed removal; enforcement/recovery evidence remai
 
 ### Verification and failure behavior
 
-Before any submitted compilation/execution, verify effective identity, namespaces,
+Before any run worker processes submitted source, verify effective identity, namespaces,
 mounts, quota/inode enforcement, seccomp, network, and existing memory/process limits.
 Use trusted configuration/evidence plus profile probes; submitted output is not proof.
 Missing or unenforceable controls block launch and expose infrastructure failure,
