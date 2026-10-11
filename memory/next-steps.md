@@ -13,10 +13,15 @@ and execution isolation restrictions still apply.
    matches origin/main. Verification notes were published as 21acb79. Part 4t is
    published as 17478b2; merge unverified. Part 4u is published as 5013e53/5f27982;
    merge unverified. Latest fetch still reports c454563; no newer main to pull.
-   Proposed Part 5a awaits approval: add a small runner PowerShell preflight and
-   usage notes checking Docker readiness, Linux-container mode, WSL2, and local
-   Java 21 image availability. No installs, image pulls, container launches, or
-   submitted Java execution. Command discovery alone is not runtime verification.
+   Part 5a approved by "ok": runner/preflight.ps1 and runner/README.md now check
+   Docker readiness, Linux-container mode, WSL2, and selected local Java 21 image
+   metadata. Eight simulated cases and missing/nonzero/timeout CLI probes passed;
+   PowerShell 5.1 syntax and whitespace passed. Real WSL2 check passes, but the
+   Docker Linux daemon pipe is unavailable; exit 1 and skipped image inspection
+   are expected. Successful live image inspection remains unverified.
+   No installs, image pulls, container launches, or submitted Java execution.
+   Next discussion: restore Docker readiness and select/pin the runner image in
+   a separately approved small task. Preflight does not establish isolation.
    Docker/WSL/Java/javac/Node are on PATH; Maven/gh were not found. Pinning and
    enforcement probes require separately approved follow-up work.
    Earlier recovery on 2026-10-11 pulled main with --ff-only to bf58364; ancestry checks
@@ -299,8 +304,8 @@ Part 4j proposal notes
 were pushed as 4c36237 on docs/part-4j-planning. Part 4j was pushed as 3b4d504 on
 docs/part-4j-array-capture-limits, based on those notes. It does not authorize runtime
 implementation or a later task; its merge is verified in main at 1bad656.
-Current discussion branch: docs/part-5a-planning, from published Part 4u 5f27982.
-Part 5a implementation is proposed, not authorized by this planning branch.
+Current task branch: chore/part-5a-runner-preflight, from planning notes ebd2d9e.
+Part 5a is implemented and verified within the limits above; no later task is approved.
 Part 4l 3ab61d1 is pushed but its merge is not verified. Part 4m documentation is approved.
 Main was pulled/verified at bf58364 on 2026-10-11; Parts 4l–4r merge statements
 above are historical handoff notes. Part 4s was subsequently verified merged at c454563.
