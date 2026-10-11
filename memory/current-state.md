@@ -70,7 +70,9 @@ Long project instructions remain in their source files rather than being duplica
   Added proposed 5,000 ms shared cleanup budget after confirmed termination,
   owned-resource inventory/proof, failure visibility, retained slot, and safe recovery.
   Runtime enforcement and four planned checks remain unfinished.
-  Task branch: docs/part-4m-cleanup-confirmation; pause for review after delivery.
+  Delivered as aa6a59a on docs/part-4m-cleanup-confirmation; merge not verified.
+  Remaining Part 4 planning estimate: seven definition topics plus one review,
+  proposed as Parts 4n–4u in next-steps.md. None is approved by the count question.
 - Review preference confirmed 2026-10-07: previous changes were still too large.
   Give each task one purpose, aim for 1–3 files, and split long changes further.
   Explain what changed, why, and where to read first. Commit/push each small
@@ -1226,6 +1228,23 @@ preserve user messages and label assistant summaries explicitly.
     Part 4m planning notes were pushed as a1511f7; Part 4l merge remains unverified.
     Automatic PR creation remains unavailable; publish the branch and provide a
     manual PR link, then pause for review.
+
+58. User: "how many more do we have to define in this part?"
+    Assistant reviewed the isolation specification and requirements: Parts 4a–4m
+    are 13 completed documentation increments, with enforcement still unfinished.
+    No fixed remaining task count had previously been agreed. Proposed estimate:
+    seven remaining definition topics plus one consistency review (about eight
+    parts, 4n–4u), listed in next-steps.md. Group related decisions instead of
+    making every numeric setting another part. This is an estimate of reviewable
+    scopes, not a guarantee that each fits 40 lines or authorization to start them.
+    Topics cover container restrictions, capacity/setup, transport buffers,
+    analysis/generated source, interactive input, collection/string capture,
+    and object traversal. Final review reconciles rules and maps prototype checks;
+    numeric tuning should then use prototype evidence rather than more speculative
+    specification rounds. Broader V1 requirements remain required in later increments.
+    Part 4m delivered as aa6a59a; its merge remains unverified. This exchange only
+    updates both memory files on docs/part-4n-planning. No runtime tests run.
+    Automatic PR creation remains unavailable; provide a manual planning PR link.
 
 ## Latest verification notes
 
