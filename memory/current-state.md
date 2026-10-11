@@ -25,7 +25,8 @@ Long project instructions remain in their source files rather than being duplica
 - On 2026-10-11, main was pulled to c454563 (PR #43). Part 4s e8e6ed8 and
   recovery notes f64fc0c are verified merged; the earlier pending-publication
   notes below are historical. Part 4t is published as 17478b2; its merge is unverified.
-  Part 4u is approved by the latest "ok, continue"; no implementation is authorized.
+  Part 4u is published as 5013e53 and 5f27982; its merge is unverified.
+  Latest discussion proposes Part 5a runner preflight; implementation awaits approval.
 - Recovery on 2026-10-11 pulled main to bf58364 and verified Parts 4l–4r merged.
   The delivery entries below describe their original handoffs; their merges are
   now confirmed. Part 4s e8e6ed8 was committed locally but had not been pushed.
@@ -1476,6 +1477,24 @@ preserve user messages and label assistant summaries explicitly.
     avoiding a sandbox-blocked child-process read; no product defect was involved.
     GitHub CLI and PR tools are unavailable; push the branch and provide a manual
     PR link. Review Part 4t first if it is still unmerged; Part 4u depends on it.
+
+69. User: "ok, continue"
+    Assistant checked recovery notes and fetched origin. Main remains c454563;
+    Parts 4t/4u are published but unmerged. The working tree was clean and the
+    Part 4u branch matched its remote. No new merges were available to pull.
+    Command discovery found Docker, WSL, Java/javac, and Node on PATH; Maven and
+    GitHub CLI were not found. This does not prove versions or service readiness.
+    Proposed next task: Part 5a runner preflight, one small PowerShell script plus
+    usage notes under runner/, with both memory updates. Check Docker daemon,
+    Linux-container mode, WSL2 state, and local Java 21 image availability; report
+    missing prerequisites clearly. Do not install tools, pull images, launch
+    containers, or execute submitted Java in this task. Pinning and container
+    enforcement probes follow separately approved work. Preflight is not isolation proof.
+    Proposed delivery: one small implementation commit, focused verification,
+    push and PR/manual link. AGENTS.md requires approval before starting a new
+    scope; ask for this concrete Part 5a scope before writing the script.
+    This exchange changes only both memory files on docs/part-5a-planning, based
+    on published Part 4u. Documentation whitespace checked; no runtime tests run.
 
 ## Latest verification notes
 
