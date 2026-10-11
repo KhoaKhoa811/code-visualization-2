@@ -130,7 +130,7 @@ and execution isolation restrictions still apply.
    - 4o: approved by "ok, continue"; capacity/preparation/compiler documentation added.
    - 4p: approved by "ok, continue"; transport/decoding bounds documentation added.
    - 4q: approved by "ok, continue"; analysis/generated-source documentation added.
-   - 4r: input line/total/pending limits, waiting, overall deadline, EOF/disconnects.
+   - 4r: approved by "ok, continue"; interactive input/EOF/disconnect documentation added.
    - 4s: collection and string capture budgets with truthful cutoff behavior.
    - 4t: object traversal depth/count/reference budgets, aliases, and cycles.
    - 4u: consistency review and prototype acceptance checklist; fix stale cross-references.
@@ -164,10 +164,18 @@ and execution isolation restrictions still apply.
    2 MiB generated Java and 2 MiB encoded maps. Guard growth and publish artifacts
    atomically with exact source mapping. Known tracing-only limits can use admitted
    original output-only execution once; timeout/crash/uncertain admission cannot bypass policy.
-   Four runtime checks remain planned, not run. Deliver on docs/part-4q-analysis-limits,
-   then pause. Parts 4r–4u await approval; runtime enforcement remains unfinished.
+   Part 4q delivered as 38e114a; merge unverified. Four runtime checks remain unrun.
    Documentation checks passed: 47-line section, byte arithmetic, local paths,
    preparation/memory/admission/fallback/source-identity consistency, and whitespace.
+   Part 4r: read its new section first. Proposed 120,000 ms interactive execution,
+   30,000 ms verified blocked-read wait, and 4/64/16 KiB line/total/pending input.
+   Input JSON messages cap at 32 KiB across fragments under Part 4p parsing guards.
+   Preserve line order, duplicate handling, Java EOF/token behavior, and cancellation
+   cutoff. Controller loss cancels; observers do not. Replay never resends input.
+   Four runtime checks remain planned, not run. Deliver on docs/part-4r-input-limits,
+   then pause. Parts 4s–4u await approval; enforcement/Scanner/API/test-input details remain work.
+   Documentation checks passed: 56-line section, byte/escaped-line arithmetic,
+   local paths, deadline/EOF/disconnect/cancellation and trace-status consistency, and whitespace.
    Group related settings; discuss each scope before starting. Finish the definitions
    needed for bounded execution, then validate/tune values through an approved
    prototype. Do not treat broader V1 coverage or runtime verification as complete.
@@ -183,7 +191,7 @@ and execution isolation restrictions still apply.
    Part 4g approval covers documentation only, not runtime implementation.
    No application/Docker implementation is approved. Other remaining
    isolation definitions include collection/object traversal, transport/generated-source
-   and decoded-memory bounds, and input-wait limits. Discuss one small scope before
+   and decoded-memory enforcement. Discuss one small scope before
    starting it. Keep tasks to one purpose, target 1–3 files, and split long
    changes further. Explain why and which file to read first.
    Include the part label in all task/planning branch names:
@@ -254,7 +262,7 @@ Part 4j proposal notes
 were pushed as 4c36237 on docs/part-4j-planning. Part 4j was pushed as 3b4d504 on
 docs/part-4j-array-capture-limits, based on those notes. It does not authorize runtime
 implementation or a later task; its merge is verified in main at 1bad656.
-Current task branch: docs/part-4q-analysis-limits, based on Part 4p 02421b8.
+Current task branch: docs/part-4r-input-limits, based on Part 4q 38e114a.
 Part 4l 3ab61d1 is pushed but its merge is not verified. Part 4m documentation is approved.
 Main was last verified at 1bad656. Earlier planning notes: docs/part-4l-planning.
 Part 4k proposal notes were pushed as b3528b9 on
