@@ -1,5 +1,8 @@
 #requires -Version 5.1
 # Fixed trusted tool commands and repository fixture only; not submitted Java.
+[CmdletBinding()]
+param([switch]$RuntimeTimeout)
+
 $ErrorActionPreference = 'Stop'
 $pin = Get-Content (Join-Path $PSScriptRoot 'image.json') -Raw | ConvertFrom-Json
 if ($pin.image -notmatch '^eclipse-temurin@sha256:[0-9a-f]{64}$' -or $pin.platform -ne 'linux/amd64') {
@@ -7,7 +10,8 @@ if ($pin.image -notmatch '^eclipse-temurin@sha256:[0-9a-f]{64}$' -or $pin.platfo
 }
 & (Join-Path $PSScriptRoot 'preflight.ps1') -Image $pin.image
 if ($LASTEXITCODE -ne 0) { exit 1 }
-$fixture = [Convert]::ToBase64String([IO.File]::ReadAllBytes((Join-Path $PSScriptRoot 'fixtures/Main.java')))
+$fixtureName = if ($RuntimeTimeout) { 'TimeoutLoop.java' } else { 'Main.java' }
+$fixture = [Convert]::ToBase64String([IO.File]::ReadAllBytes((Join-Path $PSScriptRoot "fixtures/$fixtureName")))
 $docker = (Get-Command docker.exe -CommandType Application | Select-Object -First 1).Source
 $identity = [guid]::NewGuid().ToString('N')
 $name = "codeviz-smoke-$identity"
@@ -64,6 +68,7 @@ try {
         'java -Xmx128m -Djava.io.tmpdir=/tmp -cp /work Main > /work/actual.txt 2> /work/program.err; ' +
         "printf 'runner-ok\n' > /work/expected.txt; " +
         'cmp /work/expected.txt /work/actual.txt; test ! -s /work/program.err; cat /work/actual.txt'
+    if ($RuntimeTimeout) { $probe = 'exec sleep infinity' }
     $null = Invoke-Docker ($options + '"' + $probe + '"') 10000
     $container = (Invoke-Docker "inspect $name" | ConvertFrom-Json)[0]
     $hostConfig = $container.HostConfig
@@ -77,20 +82,27 @@ try {
         throw 'Created container configuration differs from the restricted smoke profile.'
     }
     Write-Output 'PASS: inspected container user, resource settings, network, capabilities, rootfs, logs, and mounts.'
-    $output = Invoke-Docker "start --attach $name" 15000
-    $finished = (Invoke-Docker "inspect $name" | ConvertFrom-Json)[0]
-    if ($finished.State.Running -or $finished.State.ExitCode -ne 0 -or $finished.State.OOMKilled) {
-        throw 'Toolchain commands did not finish successfully.'
+    if ($RuntimeTimeout) {
+        $null = Invoke-Docker "start $name"
+        . (Join-Path $PSScriptRoot 'timeout-probe.ps1')
+        Invoke-RuntimeTimeoutProbe -ContainerName $name -DockerPath $docker -Fixture $fixture
     }
-    $lines = $output -split '\r?\n'
-    if ($lines[0] -ne '10001' -or $lines[1] -ne '10001' -or
-        $output -notmatch 'openjdk version "21[."]' -or $output -notmatch '(?m)^javac 21(?:\.|\s|$)' -or
-        $lines[-1] -ne 'runner-ok') {
-        throw "Unexpected identity/toolchain output: $output"
+    else {
+        $output = Invoke-Docker "start --attach $name" 15000
+        $finished = (Invoke-Docker "inspect $name" | ConvertFrom-Json)[0]
+        if ($finished.State.Running -or $finished.State.ExitCode -ne 0 -or $finished.State.OOMKilled) {
+            throw 'Toolchain commands did not finish successfully.'
+        }
+        $lines = $output -split '\r?\n'
+        if ($lines[0] -ne '10001' -or $lines[1] -ne '10001' -or
+            $output -notmatch 'openjdk version "21[."]' -or $output -notmatch '(?m)^javac 21(?:\.|\s|$)' -or
+            $lines[-1] -ne 'runner-ok') {
+            throw "Unexpected identity/toolchain output: $output"
+        }
+        Write-Output $output
+        Write-Output 'PASS: UID/GID 10001, Java 21, javac 21, and normal container exit.'
+        Write-Output 'PASS: fixture compiled and ran with exact runner-ok output plus LF and empty stderr.'
     }
-    Write-Output $output
-    Write-Output 'PASS: UID/GID 10001, Java 21, javac 21, and normal container exit.'
-    Write-Output 'PASS: fixture compiled and ran with exact runner-ok output plus LF and empty stderr.'
 }
 catch { $failed = $true; Write-Output "FAIL: $($_.Exception.Message)" }
 finally {

@@ -1,4 +1,4 @@
-# Runner setup (Parts 5a–5d)
+# Runner setup (Parts 5a–5e)
 
 Read `preflight.ps1` first: it is a prerequisite check, not a Java runner.
 The script supports Windows PowerShell 5.1 or later on Windows and changes no
@@ -158,3 +158,43 @@ Verified on 2026-10-12: the fixture compiles/runs successfully; compiler error,
 wrong output, and missing final LF are rejected. All four live cases verified
 container removal. The original fixture was restored byte-for-byte after negative
 checks. No submitted-source support or broader isolation gate is claimed.
+
+## Runtime timeout probe (Part 5e)
+
+```powershell
+.\runner\smoke.ps1 -RuntimeTimeout
+$LASTEXITCODE
+```
+
+This selects a second fixed fixture, [TimeoutLoop.java](fixtures/TimeoutLoop.java),
+which prints one startup marker and loops forever. The default command still runs
+Part 5d's normal-output check. Both use the same pinned image, container restrictions,
+configuration inspection, ownership labels, and cleanup. No image is downloaded.
+
+Read [timeout-probe.ps1](timeout-probe.ps1) for the focused timeout sequence:
+
+1. Start the restricted container with an idle process; compile the fixed loop
+   through a bounded Docker exec call before starting the runtime clock.
+2. Start an external monotonic **5,000 ms** timer immediately before requesting
+   the Java exec launch. Docker overhead and JVM startup count; compilation does not.
+3. Latch timeout at the deadline, kill the whole container, and use a separate
+   **5,000 ms** confirmation budget for kill, state inspection, and attachment exit.
+4. Require exited container state, PID zero, no OOM flag, closed output, and the
+   exact Java startup marker. Then the existing cleanup path removes the owned
+   container and verifies absence with its separate five-second budget.
+
+Exit `0` means the expected timeout and cleanup were verified. An early return,
+compiler failure, missing startup evidence, failed stop, or failed cleanup is a
+failed probe. A later exit cannot turn a latched timeout into normal completion.
+Timed-out control calls/unresolved attachments remain explicit failures; preserve
+the printed container identity for recovery. `EXECUTION_TIMEOUT` in the output is
+a probe label, not an implemented API response or trace envelope.
+
+Verified on 2026-10-12: the five-second deadline was handled at **5,017 ms**;
+container termination and removal passed. Early-return and compiler-error fixtures
+were rejected with cleanup. Injected stop failure stayed visible; an independent
+inventory confirmed removal without the probe claiming successful termination.
+The normal Part 5d check also passed. Modified test files were restored byte-for-byte.
+Host scheduling can delay deadline handling; this measurement is not a hard latency
+guarantee. Completion/deadline races, arbitrary descendants, cancellation, traces,
+and broader isolation/recovery enforcement remain separate prototype gates.
