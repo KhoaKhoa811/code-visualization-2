@@ -1,6 +1,6 @@
 # Execution isolation: timeouts, memory, and cancellation
 
-Status: Milestone 0, Parts 4a–4s, 2026-10-10. Proposed rules for review.
+Status: Milestone 0, Parts 4a–4t, 2026-10-11. Proposed rules for review.
 Resource-limit and cancellation enforcement are not implemented or verified yet.
 
 Sources: [requirements, section 10](../requirements/PROJECT_REQUIREMENTS.md)
@@ -392,8 +392,8 @@ the trace; emit no invalid envelope or fake outcome. Use existing v1 fields only
   Aliases reuse its objectId/state, not duplicate objects or separate allowances.
 - Within the cap, capture all elements exactly; never keep a shortened array,
   replace missing elements with null/defaults, or drop references to make it fit.
-- Parts 4g/4p byte/record/memory guards still apply. Part 4s bounds strings/collections;
-  aggregate objects and reference traversal need Part 4t; enforcement remains work.
+- Parts 4g/4p byte/record/memory guards still apply. Parts 4s/4t propose string/collection
+  and aggregate object/traversal bounds; enforcement remains work.
 - This bounds capture, not Java admission. Known coverage limits use java-support.md's
   admitted output-only policy; never silently rerun after partial execution.
 
@@ -849,3 +849,57 @@ Absent collection contracts/adapters remain explicit missing coverage, not inven
 - Collection boundaries, bulk updates, nulls/repeated values, aliases/views, and nested quotas.
 - Guards invoke no extra user callbacks; original effects/exceptions and recorded order remain exact.
 - Initial/runtime overflow, byte/memory limits, cancellation, backward replay, and cleanup stay truthful.
+
+## Proposed object and traversal budgets — Part 4t
+
+- Prototype cap: **1,024 distinct captured object identities per run**, including
+  arrays, strings, and future supported objects/collections. Count first introduction;
+  aliases do not add identities. Never refund the count or reuse IDs after unreachability.
+- Per capture pass, inspect at most **8,192 value slots**, including root bindings,
+  operation operands/results, fields, array elements, and collection adapter entries.
+  A pass covers complete initialState or one observable operation and its bookkeeping;
+  splitting records, chunks, or retries does not reset this pass budget.
+  Count primitive/null slots too; each map key and value is a separate slot.
+  String code units use Part 4s instead of field traversal. Guard before inspection.
+- Maximum object depth: **16 reference hops from a root**, with root objects at depth 0.
+  Roots are this boundary's recorded bindings and required operation references;
+  fix the root set before traversal. Use minimum distance from any root, not path length
+  around a cycle. Discover breadth-first with bounded queues and a per-pass visited set.
+- Expand an identity once per pass; retain every inspected alias/back-edge, including
+  self-cycles. A repeated target consumes a slot but neither another object nor expansion.
+  Recompute visits/distances for later boundaries; never confuse visited with unchanged.
+- Resolve identity without user equals/hashCode callbacks. Preserve actual field/index
+  associations, nulls, shared children, and recorded collection ordering; invent no tree edges.
+- Accept only stable facts at a verified observable boundary through supported capture
+  hooks/adapters. No extra getters, iteration callbacks, reevaluation, or JDK-private traversal.
+- All traversal queues, identity tables, and copies obey Parts 4g/4p memory/byte guards;
+  per-object caps in Parts 4j/4s still apply. Count pending introductions before allocation.
+
+### Overflow and graph coverage
+
+Trace v1 represents arrays/strings only. General fields, graph references, and explicit
+omission markers need a separately specified/versioned contract and capture semantics.
+This proposal does not enable custom objects or allow unresolved refs in existing v1.
+Never drop a conflicting edge, replace missing data with null, or publish a partly built object.
+On observed covered object/slot/depth overflow, latch TRAVERSAL_LIMIT, phase capture,
+with the exceeded quota, unless an earlier stop cause won. Reject the affected record
+atomically; roll back staged capture bookkeeping, not Java execution or side effects.
+Retain only trusted initialState and the safe observable prefix under Part 4g;
+align stepEnds/safeEventCount and discard unsafe trailing bookkeeping. Without trusted
+initialState use unavailable; otherwise partial may have zero operations, never complete.
+Stop input/record acceptance and launches; publish limited only after verified whole-run
+termination, and release the slot only after Parts 4l/4m cleanup verification.
+Preserve actual outcomes and accepted output; no invented Java events or automatic rerun.
+Known pre-execution coverage gaps follow admitted output-only policy in java-support.md.
+
+Graph fallback can display only facts from the accepted playback prefix. Future bounded
+views must label omitted display data and distinguish unknown from null; they must not
+use a graph to conceal missing capture. Renderer bounds do not rewrite raw trace facts.
+Backward playback restores identities/edges from that prefix without future-event leakage.
+
+### Required prototype checks (planned, not run)
+
+- Object/slot caps and depth 16/17 boundaries, including multi-root shorter paths and wide graphs.
+- Self/mutual cycles, shared children, repeated aliases, nulls, and distinct equal-valued objects.
+- Repeated captures see changed edges; no extra user callbacks, duplicate identities, or guessed fields.
+- Initial/runtime overflow, staged-record rollback, backward playback, stop races, and cleanup stay truthful.

@@ -10,10 +10,10 @@ and execution isolation restrictions still apply.
 
 1. Latest sync on 2026-10-11 pulled main with --ff-only to c454563 (PR #43).
    Part 4s e8e6ed8 and recovery notes f64fc0c are verified merged. Local main
-   matches origin/main; Parts 4t/4u still await approval. Record this verification
-   on docs/part-4s-merge-verification and return the workspace to main after publishing.
+   matches origin/main. Verification notes were published as 21acb79. Part 4t is
+   now approved below; Part 4u awaits approval.
    Earlier recovery on 2026-10-11 pulled main with --ff-only to bf58364; ancestry checks
-   verified Parts 4l–4r merged. Part 4s e8e6ed8 was local only; finish its publication.
+   verified Parts 4l–4r merged. Part 4s e8e6ed8 was then local only; publication is now complete.
    Part 4s review found no correction needed; its base files match current main.
    Earlier recovery verified Parts 1–3 and Parts 4a–4k merged at
    1bad656 on 2026-10-10; ancestry checks verified Parts 4h–4k and Part 4j correction
@@ -139,7 +139,7 @@ and execution isolation restrictions still apply.
    - 4q: approved by "ok, continue"; analysis/generated-source documentation added.
    - 4r: approved by "ok, continue"; interactive input/EOF/disconnect documentation added.
    - 4s: approved by "ok, continue"; collection/string capture budget documentation added.
-   - 4t: object traversal depth/count/reference budgets, aliases, and cycles.
+   - 4t: approved by "ok, continue" on 2026-10-11; traversal budget documentation added.
    - 4u: consistency review and prototype acceptance checklist; fix stale cross-references.
    This is an estimated breakdown, not eight approved tasks or a 40-line guarantee.
    Part 4n review: read its section in specs/execution-isolation.md. Proposed
@@ -190,8 +190,15 @@ and execution isolation restrictions still apply.
    not run. Part 4s commit e8e6ed8 was not pushed before interruption; recovery
    rechecked its schema references, safe-prefix rules, and whitespace without
    finding a required correction. Publish on docs/part-4s-collection-string-limits,
-   including separate recovery notes, then pause. Its merge remains pending.
-   Parts 4t–4u await approval; enforcement/Scanner/API/test-input details remain work.
+   including separate recovery notes. Part 4s is now verified merged at c454563.
+   Part 4t: read its new section first. Proposed 1,024 identities per run, 8,192
+   inspected slots per pass, depth 16 from the nearest root, and bounded visits
+   preserving aliases/cycles. Existing trace v1 does not add general graph support.
+   TRAVERSAL_LIMIT rejects the affected record and preserves the safe prefix;
+   four runtime checks remain planned, not run. Deliver on docs/part-4t-traversal-limits,
+   then pause. Part 4u awaits approval; enforcement and graph contracts remain work.
+   Documentation checks passed: 53-line section, local paths, existing object contract,
+   identity/depth/cycle/pass-budget and safe-prefix consistency, and whitespace. No runtime tests run.
    Documentation checks passed: 48-line section, String-only event/UTF-16 schema
    consistency, local paths, alias/callback/safe-prefix/status consistency, and whitespace.
    Group related settings; discuss each scope before starting. Finish the definitions
@@ -280,10 +287,10 @@ Part 4j proposal notes
 were pushed as 4c36237 on docs/part-4j-planning. Part 4j was pushed as 3b4d504 on
 docs/part-4j-array-capture-limits, based on those notes. It does not authorize runtime
 implementation or a later task; its merge is verified in main at 1bad656.
-Current task branch: docs/part-4s-collection-string-limits, based on Part 4r 4c3a2b6.
+Current task branch: docs/part-4t-traversal-limits, from main c454563 plus notes 21acb79.
 Part 4l 3ab61d1 is pushed but its merge is not verified. Part 4m documentation is approved.
 Main was pulled/verified at bf58364 on 2026-10-11; Parts 4l–4r merge statements
-above are historical handoff notes superseded by this recovery. Part 4s is not merged.
+above are historical handoff notes. Part 4s was subsequently verified merged at c454563.
 Earlier planning notes: docs/part-4l-planning.
 Part 4k proposal notes were pushed as b3528b9 on
 docs/part-4k-planning. Correction 02b6257 was pushed on

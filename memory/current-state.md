@@ -24,7 +24,7 @@ Long project instructions remain in their source files rather than being duplica
 - Active milestone: Milestone 0, repository and specifications; incomplete.
 - On 2026-10-11, main was pulled to c454563 (PR #43). Part 4s e8e6ed8 and
   recovery notes f64fc0c are verified merged; the earlier pending-publication
-  notes below are historical. Parts 4t/4u remain unapproved.
+  notes below are historical. Part 4t is now approved; Part 4u remains unapproved.
 - Recovery on 2026-10-11 pulled main to bf58364 and verified Parts 4l–4r merged.
   The delivery entries below describe their original handoffs; their merges are
   now confirmed. Part 4s e8e6ed8 was committed locally but had not been pushed.
@@ -98,7 +98,10 @@ Long project instructions remain in their source files rather than being duplica
   Part 4s approved by "ok, continue": collection/string capture budget documentation.
   Proposed caps and four runtime checks remain unimplemented/unverified; collection
   contracts/adapters still require separate work. Task: docs/part-4s-collection-string-limits.
-  Parts 4t–4u remain proposals.
+  Part 4s e8e6ed8/f64fc0c is verified merged in main at c454563.
+  Part 4t approved by "ok, continue" on 2026-10-11: object/traversal budget documentation.
+  Task branch: docs/part-4t-traversal-limits; proposed guards/runtime checks are unverified.
+  Part 4u remains proposed; no implementation or new graph contract is approved.
 - Review preference confirmed 2026-10-07: previous changes were still too large.
   Give each task one purpose, aim for 1–3 files, and split long changes further.
   Explain what changed, why, and where to read first. Commit/push each small
@@ -1428,6 +1431,26 @@ preserve user messages and label assistant summaries explicitly.
     docs/part-4s-merge-verification, publish the notes, then return to main.
     No new specification task or implementation started; no runtime tests needed.
 
+67. User: "ok, continue"
+    Assistant proceeds with Part 4t only: object identities, traversal slots/depth,
+    aliases, and cycles. Fetched/pulled main; c454563 was already current. Created
+    docs/part-4t-traversal-limits and fast-forwarded already-published merge notes
+    21acb79 so memory retains the preceding exchange without rewriting history.
+    Proposed 1,024 distinct object identities per run, no ID reuse/refunds; 8,192
+    inspected value slots per pass, including roots/nulls/primitives and separate
+    map keys/values; depth 16 by minimum root distance, roots at zero. Bounded
+    breadth-first traversal visits each identity once per pass while preserving
+    alias/back-edges and recomputing later states without extra user callbacks.
+    Trace v1 remains arrays/strings only; custom fields/graphs/omission markers
+    require future contracts and capture semantics. Covered overflow uses
+    TRAVERSAL_LIMIT and atomic safe-prefix rejection, without undoing Java effects.
+    Whole-run termination/cleanup and truthful output-only/replay rules remain.
+    Four prototype checks are planned, not run. Update the specification and both
+    memory files, verify, commit/push, then pause; Part 4u remains unapproved.
+    Documentation checks passed: 53-line section, local paths, existing object
+    contract, identity/depth/cycle/pass-budget and safe-prefix consistency, and whitespace.
+    No runtime tests run. Automatic PR creation remains unavailable; provide a manual link.
+
 ## Latest verification notes
 
 Part 3 added a contract schema, examples, and development validation tooling.
@@ -1519,3 +1542,6 @@ and whitespace. Four runtime checks remain planned, not run; no input implementa
 Part 4s documentation checks passed: 48-line section, String-only event/UTF-16 schema
 consistency, local paths, alias/callback/safe-prefix/status consistency, and whitespace.
 Four runtime checks remain planned, not run; no collection contracts or capture implementation added.
+Part 4t documentation checks passed: 53-line section, local paths, existing object
+contract, identity/depth/cycle/pass-budget and safe-prefix consistency, and whitespace.
+Four runtime checks remain planned, not run; no graph contract or traversal implementation added.
