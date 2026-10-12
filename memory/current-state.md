@@ -22,6 +22,11 @@ Long project instructions remain in their source files rather than being duplica
 ## Current scope
 
 - Active milestone: Milestone 0, repository and specifications; incomplete.
+- Part 5c was explicitly approved after scope discussion on 2026-10-12.
+  runner/smoke.ps1 now verifies the pinned Java/javac 21 toolchain and UID/GID
+  10001 in a restricted container, then verifies removal. Live smoke and seven
+  simulated lifecycle cases pass. This is not submitted-code execution or full
+  isolation proof. Task branch: chore/part-5c-toolchain-smoke; no later task approved.
 - Recovery on 2026-10-12 pulled main with --ff-only to 30c5171 (PR #48).
   Parts 4t/4u/5a are verified merged by ancestry. Part 5b metadata fix 5dea983
   was local only; image.json and README were unfinished/uncommitted. Preserved
@@ -1576,6 +1581,29 @@ preserve user messages and label assistant summaries explicitly.
     PR tools remain unavailable; provide a manual PR link, not a claimed created PR.
     Part 5b is complete within its approved scope; runtime Java/compiler and
     isolation checks remain unrun. Stop for review before proposing a next task.
+
+73. User: "ok, continue"
+    Proposed Part 5c: one small PowerShell smoke-check script and usage notes,
+    fixed Java/javac version and UID/GID checks in a restricted pinned container,
+    bounded waits, cleanup, and commit/push. Asked for scope confirmation because
+    Part 5b excluded container execution. User: "Approve Part 5c".
+    Fetch still shows main 30c5171; Part 5b c4512e4 is published but not merged.
+    Created chore/part-5c-toolchain-smoke from Part 5b; empty planning branch has
+    no independent changes. Reused image.json and preflight; no new dependencies.
+    Added runner/smoke.ps1: unique ownership label, create without pulling, inspect
+    configuration before start, fixed env/identity/version commands, exit check,
+    and bounded cleanup with a successful absence query. CLI timeout leaves an
+    explicit uncertain result even if cleanup inventory is later empty.
+    Applied the documented container flags/tmpfs and 128/256 MiB JVM heaps. A
+    smoke-check 15-second combined command wait does not implement submitted-run
+    phase timers. Live output: UID/GID 10001, Java and javac 21.0.12.1, exit 0;
+    owned container removed and absence verified. Seven simulated lifecycle cases
+    pass: success, bad configuration/no start, wrong Java, tool failure, timeout,
+    removal failure, and still-present container. Syntax/whitespace checks pass.
+    Updated usage notes and both memory files. No submitted Java, compilation,
+    hostile-code tests, or full isolation/recovery proof. Commit/push this single
+    coherent task and provide the manual PR link if PR tooling remains unavailable.
+    Stop for review; no next task is authorized.
 
 ## Latest verification notes
 

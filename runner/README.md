@@ -1,4 +1,4 @@
-# Runner setup (Parts 5a–5b)
+# Runner setup (Parts 5a–5c)
 
 Read `preflight.ps1` first: it is a prerequisite check, not a Java runner.
 The script supports Windows PowerShell 5.1 or later on Windows and changes no
@@ -91,3 +91,46 @@ Recovery on 2026-10-12 reverified the documented startup/digest-pull/preflight
 commands after restarting Docker. Preflight exits `0`; inspected platform,
 repository digest, and Java metadata match `image.json`. Nine metadata cases,
 PowerShell syntax, JSON pin, local references, and whitespace checks passed.
+
+## Toolchain smoke check (Part 5c)
+
+After setup, run from the repository root:
+
+```powershell
+.\runner\smoke.ps1
+$LASTEXITCODE
+```
+
+Unlike preflight, this creates and starts one uniquely named container. It runs
+only fixed `id`, `java -version`, and `javac -version` commands against the pinned
+image. It accepts no source or command parameters and never pulls an image.
+Exit `0` requires the expected UID/GID, Java/javac 21, normal exit, and verified
+container removal. Read the script in order: bounded Docker calls, container
+creation/configuration check, tool commands, then ownership-based cleanup.
+
+The profile uses UID/GID 10001, no network, read-only root, dropped capabilities,
+no-new-privileges, default seccomp, private IPC, 512 MiB memory with no extra swap,
+128 kernel tasks, disabled core dumps/restarts/healthchecks/persistent logs, and
+the specified 64/16/16 MiB tmpfs mounts with inode limits. No host mounts are added.
+The image entrypoint is replaced; `env -i` limits the tool environment to PATH
+and HOME. Runtime/compiler heaps are 128/256 MiB, used sequentially.
+
+Container creation allows 10 seconds, attached commands 15 seconds total, and
+other Docker calls 5 seconds each. Cleanup shares a 5-second budget. These are
+smoke-check waits, not implementation of the submitted-program phase timers.
+On failure the script attempts removal by its unique ownership label. If a CLI
+call times out, pending daemon work is uncertain: the script reports failure
+even if a later inventory is empty. Preserve the printed container name for
+manual recovery; do not interpret timeout as confirmed removal.
+
+Verified on 2026-10-12: Java/javac `21.0.12.1`, UID/GID 10001, normal container
+exit, and removal. Seven simulated lifecycle cases passed: success, bad
+configuration (no start), wrong Java, tool failure, timeout, removal failure,
+and a container still present. Syntax and whitespace checks passed.
+
+This is a trusted toolchain check. Configuration inspection is not proof of
+kernel limit enforcement, all writable paths, hostile-code isolation, bounded
+untrusted output, or the full lifecycle/recovery protocol. Compilation of user
+source and all remaining prototype gates are still separate work.
+See Docker's [create options](https://docs.docker.com/reference/cli/docker/container/create/)
+and [tmpfs options](https://docs.docker.com/engine/storage/tmpfs/).
