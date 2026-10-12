@@ -8,7 +8,11 @@ templates. Define coverage to track implementation and truthful limitations,
 not to restrict the product to examples. Runtime facts must remain captured,
 and execution isolation restrictions still apply.
 
-1. Recovery on 2026-10-11 pulled main with --ff-only to bf58364; ancestry checks
+1. Latest sync on 2026-10-11 pulled main with --ff-only to c454563 (PR #43).
+   Part 4s e8e6ed8 and recovery notes f64fc0c are verified merged. Local main
+   matches origin/main; Parts 4t/4u still await approval. Record this verification
+   on docs/part-4s-merge-verification and return the workspace to main after publishing.
+   Earlier recovery on 2026-10-11 pulled main with --ff-only to bf58364; ancestry checks
    verified Parts 4l–4r merged. Part 4s e8e6ed8 was local only; finish its publication.
    Part 4s review found no correction needed; its base files match current main.
    Earlier recovery verified Parts 1–3 and Parts 4a–4k merged at

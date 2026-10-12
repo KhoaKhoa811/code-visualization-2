@@ -22,6 +22,9 @@ Long project instructions remain in their source files rather than being duplica
 ## Current scope
 
 - Active milestone: Milestone 0, repository and specifications; incomplete.
+- On 2026-10-11, main was pulled to c454563 (PR #43). Part 4s e8e6ed8 and
+  recovery notes f64fc0c are verified merged; the earlier pending-publication
+  notes below are historical. Parts 4t/4u remain unapproved.
 - Recovery on 2026-10-11 pulled main to bf58364 and verified Parts 4l–4r merged.
   The delivery entries below describe their original handoffs; their merges are
   now confirmed. Part 4s e8e6ed8 was committed locally but had not been pushed.
@@ -1417,6 +1420,13 @@ preserve user messages and label assistant summaries explicitly.
     tests run. Update both memory files, commit recovery notes separately, and
     push the missing Part 4s branch. Automatic PR creation remains unavailable;
     provide the manual Part 4s PR link. Parts 4t/4u remain unapproved.
+
+66. User: "ok, I merged 4s. Please make sure you pull the newest code"
+    Assistant fetched origin and fast-forwarded local main to c454563, PR #43.
+    HEAD matched origin/main; ancestry checks confirmed e8e6ed8 and f64fc0c merged.
+    The working tree was clean. Record this exchange in both memory files on
+    docs/part-4s-merge-verification, publish the notes, then return to main.
+    No new specification task or implementation started; no runtime tests needed.
 
 ## Latest verification notes
 
