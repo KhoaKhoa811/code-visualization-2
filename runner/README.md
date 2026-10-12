@@ -1,4 +1,4 @@
-# Runner setup (Parts 5a–5c)
+# Runner setup (Parts 5a–5d)
 
 Read `preflight.ps1` first: it is a prerequisite check, not a Java runner.
 The script supports Windows PowerShell 5.1 or later on Windows and changes no
@@ -101,9 +101,10 @@ After setup, run from the repository root:
 $LASTEXITCODE
 ```
 
-Unlike preflight, this creates and starts one uniquely named container. It runs
-only fixed `id`, `java -version`, and `javac -version` commands against the pinned
-image. It accepts no source or command parameters and never pulls an image.
+Unlike preflight, this creates and starts one uniquely named container. Part 5c
+runs fixed `id`, `java -version`, and `javac -version` commands against the pinned
+image; Part 5d adds the fixed repository fixture below. It accepts no source or
+command parameters and never pulls an image.
 Exit `0` requires the expected UID/GID, Java/javac 21, normal exit, and verified
 container removal. Read the script in order: bounded Docker calls, container
 creation/configuration check, tool commands, then ownership-based cleanup.
@@ -134,3 +135,26 @@ untrusted output, or the full lifecycle/recovery protocol. Compilation of user
 source and all remaining prototype gates are still separate work.
 See Docker's [create options](https://docs.docker.com/reference/cli/docker/container/create/)
 and [tmpfs options](https://docs.docker.com/engine/storage/tmpfs/).
+
+## Compile/run fixture (Part 5d)
+
+The same `smoke.ps1` command now also compiles and runs
+[fixtures/Main.java](fixtures/Main.java), which prints `runner-ok` followed by LF.
+The fixture is a fixed installation check, not a tracing template or submitted-source API.
+
+The script encodes the repository fixture as Base64 and decodes it into the
+container's `/work/Main.java`. This keeps source text out of shell syntax and
+requires no host mount. `javac` uses UTF-8, `--release 21`, disabled annotation
+processing, and the existing compiler heap. `java` loads the resulting class
+from `/work` with the runtime heap. Source, classes, and output files stay in
+temporary container storage; no host `.class` files are produced.
+
+The shell stops on compilation/execution failure. A byte comparison requires
+exactly `runner-ok` plus LF, and a separate check requires empty program stderr.
+Any failure still goes through the existing ownership/cleanup handling. Container
+restrictions and the shared 15-second command wait remain unchanged.
+
+Verified on 2026-10-12: the fixture compiles/runs successfully; compiler error,
+wrong output, and missing final LF are rejected. All four live cases verified
+container removal. The original fixture was restored byte-for-byte after negative
+checks. No submitted-source support or broader isolation gate is claimed.
