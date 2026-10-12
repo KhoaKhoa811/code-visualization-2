@@ -26,7 +26,9 @@ Long project instructions remain in their source files rather than being duplica
   recovery notes f64fc0c are verified merged; the earlier pending-publication
   notes below are historical. Part 4t is published as 17478b2; its merge is unverified.
   Part 4u is published as 5013e53 and 5f27982; its merge is unverified.
-  Latest discussion proposes Part 5a runner preflight; implementation awaits approval.
+  Part 5a runner preflight was approved by "ok" and implemented on
+  chore/part-5a-runner-preflight. Host WSL2 check passes; Docker Linux daemon is
+  unavailable. Live image inspection and runtime isolation remain unverified.
 - Recovery on 2026-10-11 pulled main to bf58364 and verified Parts 4l–4r merged.
   The delivery entries below describe their original handoffs; their merges are
   now confirmed. Part 4s e8e6ed8 was committed locally but had not been pushed.
@@ -1495,6 +1497,31 @@ preserve user messages and label assistant summaries explicitly.
     scope; ask for this concrete Part 5a scope before writing the script.
     This exchange changes only both memory files on docs/part-5a-planning, based
     on published Part 4u. Documentation whitespace checked; no runtime tests run.
+
+70. User: "ok"
+    Approved the proposed Part 5a runner preflight. Assistant fetched origin;
+    main remains c454563, so the task branch retains published Parts 4t/4u and
+    planning notes ebd2d9e. Added runner/preflight.ps1 and runner/README.md as one
+    small deliverable, using the lean-build skill to keep the scope bounded.
+    The script checks WSL docker-desktop version 2, an explicit local named-pipe
+    desktop-linux context, Docker Desktop Linux daemon readiness, and selected
+    local image metadata declaring JAVA_VERSION=21. It prints image identity/
+    digests without pinning or trusting the image. No image is selected by default.
+    Each CLI call has a 10-second wait and 1-second output-completion allowance.
+    Missing/failed/unverified prerequisites produce exit 1; metadata success is
+    not Java/compiler execution or isolation proof. No installs, downloads,
+    container launches, service starts, or submitted Java execution occurred.
+    Verification found and fixed duplicate wsl.exe discovery by selecting the
+    first executable. Eight simulated cases passed: ready, WSL1, remote context,
+    Windows daemon, Java17, unknown Java, missing image, and no image selection.
+    Missing-command/nonzero-exit probes passed; timeout occurred at 10.03 seconds.
+    PowerShell 5.1 syntax and whitespace checks passed. Host WSL2 is confirmed,
+    but Docker's Linux named pipe is unavailable; preflight correctly exits 1
+    and skips image inspection. Host-access retry confirmed this is not solely
+    a sandbox restriction. Successful live image inspection remains unverified.
+    No application or isolation tests were run. Both memory files are updated;
+    commit/push one coherent task. GitHub CLI/PR tools remain unavailable, so
+    provide a manual PR link. No later setup or runtime task is authorized.
 
 ## Latest verification notes
 
