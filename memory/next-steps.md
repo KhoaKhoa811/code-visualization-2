@@ -1,6 +1,6 @@
 # Next steps
 
-Last updated: 2026-10-11 (Asia/Saigon).
+Last updated: 2026-10-12 (Asia/Saigon).
 
 Confirmed direction: visualize arbitrary user-authored Java as correctly as
 possible through reusable language capabilities, never exact program/algorithm
@@ -8,7 +8,19 @@ templates. Define coverage to track implementation and truthful limitations,
 not to restrict the product to examples. Runtime facts must remain captured,
 and execution isolation restrictions still apply.
 
-1. Latest sync on 2026-10-11 pulled main with --ff-only to c454563 (PR #43).
+1. Latest recovery on 2026-10-12 pulled main with --ff-only to 30c5171 (PR #48).
+   Parts 4t/4u/5a are verified merged. Part 5b fix 5dea983 was local only and its
+   image pin/README remained uncommitted. Preserved those files, merged main into
+   the Part 5b branch as 8366ca4, and restored the files without conflict.
+   Part 5b review is complete: runner/image.json pins the Java 21 JDK image;
+   README setup commands reverified after Docker restart. Preflight exits 0;
+   platform/digest/Java metadata match the pin. Nine metadata cases, syntax,
+   JSON pin, references, ancestry, and whitespace checks passed. Publish both task
+   commits and provide manual PR link; automatic PR tooling is unavailable.
+   Next: user review, then discuss a small runtime/profile probe scope. No later
+   task is approved; no container execution or isolation gate has passed.
+
+   Earlier sync on 2026-10-11 pulled main with --ff-only to c454563 (PR #43).
    Part 4s e8e6ed8 and recovery notes f64fc0c are verified merged. Local main
    matches origin/main. Verification notes were published as 21acb79. Part 4t is
    published as 17478b2; merge unverified. Part 4u is published as 5013e53/5f27982;
@@ -24,7 +36,8 @@ and execution isolation restrictions still apply.
    engine 29.8.0 responds. Downloaded official eclipse-temurin:21-jdk-noble and
    verified preflight exit 0 against its selected immutable digest. The image
    declares jdk-21.0.12.1+1; fixed preflight to accept Temurin's jdk- prefix.
-   Deliver two small commits: metadata correction, then image pin/setup notes.
+   Delivery has two small task commits: metadata correction 5dea983, then image
+   pin/setup notes. Recovery verification and publication are recorded above.
    No containers or submitted Java were launched. Preflight is not isolation proof.
    Docker/WSL/Java/javac/Node are on PATH; Maven/gh were not found. Pinning and
    enforcement probes require separately approved follow-up work.
@@ -309,7 +322,7 @@ were pushed as 4c36237 on docs/part-4j-planning. Part 4j was pushed as 3b4d504 o
 docs/part-4j-array-capture-limits, based on those notes. It does not authorize runtime
 implementation or a later task; its merge is verified in main at 1bad656.
 Current task branch: chore/part-5b-runner-image, from Part 5a 7641b3c.
-Part 5b is approved; no later task or container execution is approved.
+Part 5b implementation/setup review is complete; no later task or container execution is approved.
 Part 4l 3ab61d1 is pushed but its merge is not verified. Part 4m documentation is approved.
 Main was pulled/verified at bf58364 on 2026-10-11; Parts 4l–4r merge statements
 above are historical handoff notes. Part 4s was subsequently verified merged at c454563.

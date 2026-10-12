@@ -1,6 +1,6 @@
 # Current state and conversation memory
 
-Last updated: 2026-10-11 (Asia/Saigon).
+Last updated: 2026-10-12 (Asia/Saigon).
 
 ## Recovery instructions
 
@@ -22,6 +22,13 @@ Long project instructions remain in their source files rather than being duplica
 ## Current scope
 
 - Active milestone: Milestone 0, repository and specifications; incomplete.
+- Recovery on 2026-10-12 pulled main with --ff-only to 30c5171 (PR #48).
+  Parts 4t/4u/5a are verified merged by ancestry. Part 5b metadata fix 5dea983
+  was local only; image.json and README were unfinished/uncommitted. Preserved
+  those files and merged current main into Part 5b as 8366ca4 without conflicts.
+  Part 5b review/setup verification is complete; publish both task commits on
+  chore/part-5b-runner-image. Preflight exits 0 and the image pin matches local
+  metadata. No container execution or isolation proof; no later task approved.
 - On 2026-10-11, main was pulled to c454563 (PR #43). Part 4s e8e6ed8 and
   recovery notes f64fc0c are verified merged; the earlier pending-publication
   notes below are historical. Part 4t is published as 17478b2; its merge is unverified.
@@ -1545,6 +1552,30 @@ preserve user messages and label assistant summaries explicitly.
     execution, image security, container restrictions, or isolation. No container
     was launched by this task. Deliver in two small commits: metadata correction,
     then image pin/setup notes and final memory handoff. No later task approved.
+
+72. User: "read current-state.md, next-step.md, git change files and other files
+    to recover memory. I merged all the branches into main, so remember to pull
+    the newest code. Last time, I saw you stopped at part 5b, please review and
+    complete it"
+    Assistant read the actual memory/next-steps.md, current-state, instructions,
+    requirements, runner files, and Git changes. Fetch found main 30c5171 through
+    PR #48. Parts 4t/4u/5a are verified ancestors. Part 5b was not published:
+    5dea983 existed locally, runner/README.md was modified, image.json untracked.
+    Stashed only those two files, fast-forwarded local main, merged main into the
+    task branch as 8366ca4, then restored the files without conflict. No user work lost.
+    Initial preflight found Docker stopped again. Restarted under the existing
+    Part 5b approval and verified the documented startup/pull/preflight commands.
+    The pinned digest remains available/up to date. Preflight exits 0; separate
+    inspection verifies linux/amd64, repository digest, and jdk-21.0.12.1+1 metadata
+    exactly match image.json. Nine Java metadata cases, PowerShell syntax, JSON
+    pin, local references, ancestry, and whitespace checks passed. Clarified README
+    wording to distinguish read-only preflight from setup commands and recorded
+    the new verification date. No containers or submitted Java were launched.
+    Finish the second planned task commit with image pin, setup notes, and both
+    memory updates; push both task commits plus main integration. GitHub CLI and
+    PR tools remain unavailable; provide a manual PR link, not a claimed created PR.
+    Part 5b is complete within its approved scope; runtime Java/compiler and
+    isolation checks remain unrun. Stop for review before proposing a next task.
 
 ## Latest verification notes
 
