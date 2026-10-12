@@ -11,7 +11,14 @@ and execution isolation restrictions still apply.
 1. Latest sync on 2026-10-11 pulled main with --ff-only to c454563 (PR #43).
    Part 4s e8e6ed8 and recovery notes f64fc0c are verified merged. Local main
    matches origin/main. Verification notes were published as 21acb79. Part 4t is
-   published as 17478b2; merge unverified. Part 4u is now approved.
+   published as 17478b2; merge unverified. Part 4u is published as 5013e53/5f27982;
+   merge unverified. Latest fetch still reports c454563; no newer main to pull.
+   Proposed Part 5a awaits approval: add a small runner PowerShell preflight and
+   usage notes checking Docker readiness, Linux-container mode, WSL2, and local
+   Java 21 image availability. No installs, image pulls, container launches, or
+   submitted Java execution. Command discovery alone is not runtime verification.
+   Docker/WSL/Java/javac/Node are on PATH; Maven/gh were not found. Pinning and
+   enforcement probes require separately approved follow-up work.
    Earlier recovery on 2026-10-11 pulled main with --ff-only to bf58364; ancestry checks
    verified Parts 4l–4r merged. Part 4s e8e6ed8 was then local only; publication is now complete.
    Part 4s review found no correction needed; its base files match current main.
@@ -292,7 +299,8 @@ Part 4j proposal notes
 were pushed as 4c36237 on docs/part-4j-planning. Part 4j was pushed as 3b4d504 on
 docs/part-4j-array-capture-limits, based on those notes. It does not authorize runtime
 implementation or a later task; its merge is verified in main at 1bad656.
-Current task branch: docs/part-4u-isolation-review, from published Part 4t 17478b2.
+Current discussion branch: docs/part-5a-planning, from published Part 4u 5f27982.
+Part 5a implementation is proposed, not authorized by this planning branch.
 Part 4l 3ab61d1 is pushed but its merge is not verified. Part 4m documentation is approved.
 Main was pulled/verified at bf58364 on 2026-10-11; Parts 4l–4r merge statements
 above are historical handoff notes. Part 4s was subsequently verified merged at c454563.
