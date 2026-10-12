@@ -11,7 +11,7 @@ and execution isolation restrictions still apply.
 1. Latest sync on 2026-10-11 pulled main with --ff-only to c454563 (PR #43).
    Part 4s e8e6ed8 and recovery notes f64fc0c are verified merged. Local main
    matches origin/main. Verification notes were published as 21acb79. Part 4t is
-   now approved below; Part 4u awaits approval.
+   published as 17478b2; merge unverified. Part 4u is now approved.
    Earlier recovery on 2026-10-11 pulled main with --ff-only to bf58364; ancestry checks
    verified Parts 4l–4r merged. Part 4s e8e6ed8 was then local only; publication is now complete.
    Part 4s review found no correction needed; its base files match current main.
@@ -140,7 +140,7 @@ and execution isolation restrictions still apply.
    - 4r: approved by "ok, continue"; interactive input/EOF/disconnect documentation added.
    - 4s: approved by "ok, continue"; collection/string capture budget documentation added.
    - 4t: approved by "ok, continue" on 2026-10-11; traversal budget documentation added.
-   - 4u: consistency review and prototype acceptance checklist; fix stale cross-references.
+   - 4u: approved by "ok, continue"; consistency review and prototype acceptance checklist.
    This is an estimated breakdown, not eight approved tasks or a 40-line guarantee.
    Part 4n review: read its section in specs/execution-isolation.md. Proposed
    non-root identity, dropped capabilities, no-new-privileges, read-only root,
@@ -195,8 +195,13 @@ and execution isolation restrictions still apply.
    inspected slots per pass, depth 16 from the nearest root, and bounded visits
    preserving aliases/cycles. Existing trace v1 does not add general graph support.
    TRAVERSAL_LIMIT rejects the affected record and preserves the safe prefix;
-   four runtime checks remain planned, not run. Deliver on docs/part-4t-traversal-limits,
-   then pause. Part 4u awaits approval; enforcement and graph contracts remain work.
+   four runtime checks remain planned, not run. Published as 17478b2 on
+   docs/part-4t-traversal-limits; merge unverified. Part 4u review is approved:
+   cross-phase corrections are committed as 5013e53; the second commit adds six
+   prototype gates. Part 4 documentation is complete; all runtime gates are unrun.
+   Review Part 4t before Part 4u because the review branch includes its unmerged work.
+   After delivery, discuss one small prototype scope and prerequisites; await approval.
+   Enforcement and graph contracts remain work; no implementation is authorized.
    Documentation checks passed: 53-line section, local paths, existing object contract,
    identity/depth/cycle/pass-budget and safe-prefix consistency, and whitespace. No runtime tests run.
    Documentation checks passed: 48-line section, String-only event/UTF-16 schema
@@ -204,10 +209,10 @@ and execution isolation restrictions still apply.
    Group related settings; discuss each scope before starting. Finish the definitions
    needed for bounded execution, then validate/tune values through an approved
    prototype. Do not treat broader V1 coverage or runtime verification as complete.
-   Planning notes are on docs/part-4l-planning; main is now verified at bf58364.
+   Planning notes are on docs/part-4l-planning; latest fetched main is c454563.
    API error shape and runtime implementation remain separate work.
    Transport/decoder/framing and generated-source enforcement, request errors,
-   and other remaining isolation definitions are unfinished work.
+   and prototype validation remain unfinished work.
    Recovery on 2026-10-08 found only interrupted proposal notes in the two memory
    files, with no Part 4f specification or recorded approval. Those notes were
    published as e42efe3 and are now verified merged in main at dc4a332. Part 4f
@@ -287,7 +292,7 @@ Part 4j proposal notes
 were pushed as 4c36237 on docs/part-4j-planning. Part 4j was pushed as 3b4d504 on
 docs/part-4j-array-capture-limits, based on those notes. It does not authorize runtime
 implementation or a later task; its merge is verified in main at 1bad656.
-Current task branch: docs/part-4t-traversal-limits, from main c454563 plus notes 21acb79.
+Current task branch: docs/part-4u-isolation-review, from published Part 4t 17478b2.
 Part 4l 3ab61d1 is pushed but its merge is not verified. Part 4m documentation is approved.
 Main was pulled/verified at bf58364 on 2026-10-11; Parts 4l–4r merge statements
 above are historical handoff notes. Part 4s was subsequently verified merged at c454563.
