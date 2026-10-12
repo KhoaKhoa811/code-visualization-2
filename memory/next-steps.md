@@ -8,7 +8,17 @@ templates. Define coverage to track implementation and truthful limitations,
 not to restrict the product to examples. Runtime facts must remain captured,
 and execution isolation restrictions still apply.
 
-1. Current task: Part 5c, explicitly approved on 2026-10-12. runner/smoke.ps1 and
+1. Current discussion: proposed Part 5d. User selected "Discuss scope first";
+   implementation is not approved. Explain the gap between version commands and
+   compiling/running a class under the restricted profile. Proposed scope: one
+   tiny fixed Main.java fixture printing runner-ok, stage in /work, compile/run,
+   compare exact output and successful exits, then verify cleanup. Reuse Part 5c;
+   no submitted-source API, tracing, playback, or broader isolation claims.
+   Discuss scope changes before asking for implementation approval. Only memory
+   notes change on docs/part-5d-planning, based on published Part 5c 560f690.
+   Latest fetch still reports main 30c5171; Parts 5b/5c remain unmerged.
+
+   Previous task: Part 5c, explicitly approved on 2026-10-12. runner/smoke.ps1 and
    its README usage notes are implemented. Live restricted-container check passed:
    UID/GID 10001, Java/javac 21.0.12.1, normal exit, and verified removal. Seven
    simulated lifecycle cases plus syntax/whitespace passed. Publish on
@@ -330,8 +340,8 @@ Part 4j proposal notes
 were pushed as 4c36237 on docs/part-4j-planning. Part 4j was pushed as 3b4d504 on
 docs/part-4j-array-capture-limits, based on those notes. It does not authorize runtime
 implementation or a later task; its merge is verified in main at 1bad656.
-Current task branch: chore/part-5c-toolchain-smoke, from Part 5b c4512e4.
-Part 5c fixed toolchain execution is approved and verified; no later task is approved.
+Current discussion branch: docs/part-5d-planning, from Part 5c 560f690.
+Part 5c is published; Part 5d is proposed and awaits scope discussion/approval.
 Part 4l 3ab61d1 is pushed but its merge is not verified. Part 4m documentation is approved.
 Main was pulled/verified at bf58364 on 2026-10-11; Parts 4l–4r merge statements
 above are historical handoff notes. Part 4s was subsequently verified merged at c454563.
