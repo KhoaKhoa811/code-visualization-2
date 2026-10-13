@@ -18,6 +18,9 @@ and execution isolation restrictions still apply.
    restrictions; no API/tracing/playback or complete-isolation claim. Discuss
    scope feedback and obtain approval before implementation. Planning branch:
    docs/part-5f-planning, based on newest main. Only memory notes change now.
+   User asked what parent/child Java fixture means. Explained: a fixed test
+   program starts another Java process; both keep running so timeout can verify
+   neither survives. This explanation does not approve Part 5f implementation.
 
    Part 5e approved by "no, please implement it" after discussion. Added a fixed
    loop and timeout-probe.ps1; smoke.ps1 -RuntimeTimeout reuses the container profile

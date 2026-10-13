@@ -1725,6 +1725,15 @@ preserve user messages and label assistant summaries explicitly.
     checked; no runtime tests rerun for this recovery/discussion. Obtain explicit
     scope approval before adding the fixture or changing the probe.
 
+79. User: "what are parent and child Java fixture?"
+    Explained that a fixture is a small sample program used for testing. The
+    parent is the Java process launched by the runner; it starts a second Java
+    process, called its child. They are separate running programs. The proposed
+    fixture keeps both running so the timeout probe can verify neither survives
+    whole-container termination. This is a fixed runner test, not a required
+    program pattern for app users. Part 5f remains unapproved; only discussion
+    memory is updated. Documentation whitespace checked; no runtime tests run.
+
 ## Latest verification notes
 
 Part 3 added a contract schema, examples, and development validation tooling.
