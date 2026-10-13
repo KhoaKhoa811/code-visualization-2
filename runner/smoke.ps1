@@ -1,9 +1,10 @@
 #requires -Version 5.1
 # Fixed trusted tool commands and repository fixture only; not submitted Java.
 [CmdletBinding()]
-param([switch]$RuntimeTimeout, [switch]$ChildTimeout, [switch]$Cancel, [switch]$Filesystem)
+param([switch]$RuntimeTimeout, [switch]$ChildTimeout, [switch]$Cancel, [switch]$Filesystem, [switch]$Network)
 
 $ErrorActionPreference = 'Stop'
+if ($Network -and ($Filesystem -or $RuntimeTimeout -or $ChildTimeout -or $Cancel)) { throw 'Select network or another probe.' }
 if ($Filesystem -and ($RuntimeTimeout -or $ChildTimeout -or $Cancel)) { throw 'Select filesystem or a stop probe.' }
 if ($RuntimeTimeout -and $ChildTimeout) { throw 'Select only one timeout probe.' }
 if ($Cancel -and ($RuntimeTimeout -or $ChildTimeout)) { throw 'Select cancellation or a timeout probe.' }
@@ -15,7 +16,7 @@ if ($pin.image -notmatch '^eclipse-temurin@sha256:[0-9a-f]{64}$' -or $pin.platfo
 }
 & (Join-Path $PSScriptRoot 'preflight.ps1') -Image $pin.image
 if ($LASTEXITCODE -ne 0) { exit 1 }
-$fixtureName = if ($ChildTimeout) { 'ParentChildTimeout.java' } elseif ($RuntimeTimeout) { 'TimeoutLoop.java' } else { 'Main.java' }
+$fixtureName = if ($Network) { 'NetworkIsolation.java' } elseif ($ChildTimeout) { 'ParentChildTimeout.java' } elseif ($RuntimeTimeout) { 'TimeoutLoop.java' } else { 'Main.java' }
 $fixture = [Convert]::ToBase64String([IO.File]::ReadAllBytes((Join-Path $PSScriptRoot "fixtures/$fixtureName")))
 if ($Filesystem) {
     # Normalize Windows checkouts before sending the fixed POSIX shell fixture.
@@ -80,6 +81,11 @@ try {
         'cmp /work/expected.txt /work/actual.txt; test ! -s /work/program.err; cat /work/actual.txt'
     if ($RuntimeTimeout) { $probe = 'exec sleep infinity' }
     if ($Filesystem) { $probe = "printf %s $fixture | base64 -d > /work/filesystem.sh; /bin/sh /work/filesystem.sh" }
+    if ($Network) {
+        $probe = "printf %s $fixture | base64 -d > /work/NetworkIsolation.java; " +
+            'javac -J-Xmx256m -J-Djava.io.tmpdir=/tmp -encoding UTF-8 -proc:none --release 21 -d /work /work/NetworkIsolation.java; ' +
+            'java -Xmx128m -Djava.io.tmpdir=/tmp -cp /work NetworkIsolation'
+    }
     $null = Invoke-Docker ($options + '"' + $probe + '"') 10000
     $container = (Invoke-Docker "inspect $name" | ConvertFrom-Json)[0]
     $hostConfig = $container.HostConfig
@@ -93,6 +99,9 @@ try {
         throw 'Created container configuration differs from the restricted smoke profile.'
     }
     Write-Output 'PASS: inspected container user, resource settings, network, capabilities, rootfs, logs, and mounts.'
+    if ($Network -and ($hostConfig.PublishAllPorts -or @($hostConfig.PortBindings.PSObject.Properties).Count -gt 0)) {
+        throw 'Network probe must not publish ports.'
+    }
     if ($RuntimeTimeout) {
         $null = Invoke-Docker "start $name"
         . (Join-Path $PSScriptRoot 'timeout-probe.ps1')
@@ -104,7 +113,12 @@ try {
         if ($finished.State.Running -or $finished.State.ExitCode -ne 0 -or $finished.State.OOMKilled) {
             throw 'Fixed probe commands did not finish successfully.'
         }
-        if ($Filesystem) {
+        if ($Network) {
+            if ($output -cne 'network-ok') { throw "Unexpected network output: $output" }
+            Write-Output 'PASS: only loopback interfaces/routes; local socket transfer works.'
+            Write-Output 'PASS: representative external/private IPv4 and external IPv6 connections report network unreachable.'
+        }
+        elseif ($Filesystem) {
             if ($output -cne 'filesystem-ok') { throw "Unexpected filesystem output: $output" }
             Write-Output 'PASS: UID/GID 10001, effective read-only root, and protected writes denied.'
             Write-Output 'PASS: /work, /tmp, and /dev/shm are writable tmpfs; small files round-trip and are removed.'

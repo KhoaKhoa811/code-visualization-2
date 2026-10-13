@@ -21,6 +21,15 @@ Long project instructions remain in their source files rather than being duplica
 
 ## Current scope
 
+- Part 5i approved by "ok, continue doing next task" after the Part 5 roadmap.
+  Implemented -Network and NetworkIsolation.java on chore/part-5i-network-probe
+  from 02063de. Verified loopback-only interfaces/routes, local socket transfer,
+  and network-unreachable errors for representative IPv4/IPv6 addresses. Three
+  negative cases failed with cleanup. Relevant existing probes and syntax/mode
+  checks pass. Direct live host/peer service checks remain unverified; the private
+  literals are representative only. Fetch still reports main 49c9c29. No later
+  implementation is approved; next proposed part is 5j privilege restrictions.
+
 - User asked: "how many more tasks in part 5 that we have to implement? please
   list them". No fixed Part 5 endpoint was previously approved. Proposed 13 more
   parts, 5i through 5u, after the eight delivered parts 5a through 5h. The proposed
@@ -1873,6 +1882,27 @@ preserve user messages and label assistant summaries explicitly.
     unavailable. This proves selected paths only, not quotas, network, cross-run
     reads, a full writable-path audit, or submitted-code isolation. No next task
     is approved.
+
+87. User: "how many more tasks in part 5 that we have to implement? please list them"
+    Explained that no fixed endpoint had been approved. Proposed 13 remaining
+    parts, 5i through 5u, after eight delivered parts. Saved the list in both
+    memory files and pushed roadmap commit 02063de. This does not complete V1
+    or remove later admission, tracing, input, and playback requirements.
+
+88. User: "ok, continue doing next task"
+    Approved Part 5i network isolation. Added one fixed Java fixture and -Network
+    mode using the existing profile and cleanup. Verify no published ports,
+    exactly active loopback networking, loopback-only routes and addresses, and
+    a successful local TCP transfer. Bounded numeric IPv4/IPv6 attempts must
+    report Network is unreachable; refusal/timeouts cannot count as proof.
+    Live success and injected reachable/refused/incorrect-interface cases all
+    behaved correctly with cleanup. Temporary fixture edits restored. Filesystem,
+    cancellation (347 ms), and normal Java compile/output regressions passed;
+    syntax, four conflicting modes, and whitespace passed. Documented that
+    private literals are representative rather than live host/peer services;
+    direct service checks, DNS/UDP, and adversarial tests remain unverified.
+    Updated README and both memory files; publish chore/part-5i-network-probe.
+    No Part 5j or later implementation is approved.
 
 ## Latest verification notes
 
