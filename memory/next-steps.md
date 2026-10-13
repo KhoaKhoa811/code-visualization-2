@@ -8,7 +8,17 @@ templates. Define coverage to track implementation and truthful limitations,
 not to restrict the product to examples. Runtime facts must remain captured,
 and execution isolation restrictions still apply.
 
-1. Part 5d approved by "no, please implement it" after scope discussion.
+1. Current discussion: proposed Part 5e runtime timeout probe. User selected
+   "Discuss scope first"; implementation is not approved. Explain how a fixed
+   infinite loop would run after compilation under a five-second external runtime
+   deadline (including JVM startup), followed by whole-container stop confirmation
+   and verified cleanup. Stop/cleanup failure remains visible. Reuse current
+   restrictions; no submitted-source API, trace envelopes, or full isolation claim.
+   Record scope feedback and obtain approval before implementation. Planning
+   branch: docs/part-5e-planning, based on published Part 5d 0225ee5.
+   Latest fetch still reports main 30c5171; no newer main was available to pull.
+
+   Part 5d approved by "no, please implement it" after scope discussion.
    Added runner/fixtures/Main.java and extended smoke.ps1 to stage/compile/run it
    inside /work, compare exact runner-ok plus LF, require empty stderr, and verify
    cleanup. Restrictions/heaps/shared wait remain unchanged. Live success and
@@ -342,8 +352,8 @@ Part 4j proposal notes
 were pushed as 4c36237 on docs/part-4j-planning. Part 4j was pushed as 3b4d504 on
 docs/part-4j-array-capture-limits, based on those notes. It does not authorize runtime
 implementation or a later task; its merge is verified in main at 1bad656.
-Current task branch: chore/part-5d-compile-run, from planning notes 8208882.
-Part 5d is approved and verified within the scope above; no later task is approved.
+Current discussion branch: docs/part-5e-planning, from Part 5d 0225ee5.
+Part 5d is published; Part 5e awaits scope discussion and approval.
 Part 4l 3ab61d1 is pushed but its merge is not verified. Part 4m documentation is approved.
 Main was pulled/verified at bf58364 on 2026-10-11; Parts 4l–4r merge statements
 above are historical handoff notes. Part 4s was subsequently verified merged at c454563.

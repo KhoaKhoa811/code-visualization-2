@@ -22,6 +22,9 @@ Long project instructions remain in their source files rather than being duplica
 ## Current scope
 
 - Active milestone: Milestone 0, repository and specifications; incomplete.
+- Latest discussion: Part 5e timeout probe is proposed, not approved. User chose
+  "Discuss scope first". No timeout implementation started; planning notes are
+  on docs/part-5e-planning, based on published Part 5d 0225ee5.
 - Part 5d was explicitly approved by "no, please implement it" after scope
   discussion. The fixed Java fixture now compiles/runs inside the restricted
   smoke container with exact output verification. Four live cases pass, including
@@ -1649,6 +1652,25 @@ preserve user messages and label assistant summaries explicitly.
     automatic PR creation remains unavailable, so provide a manual link.
     This is an installation acceptance check, not tracing/template recognition,
     a submitted-source API, or proof of full isolation. No later task approved.
+
+76. User: "ok, continue"
+    Assistant proposed Part 5e: a fixed infinite-loop fixture and focused timeout
+    probe, external five-second runtime deadline, whole-container termination,
+    verified cleanup, notes, commit/push. User selected "Discuss scope first".
+    Fetched origin; main remains 30c5171. Part 5d is published as 0225ee5, with
+    Parts 5b/5c still unmerged. Working tree was clean before this discussion.
+    Explanation: Part 5d proves normal compilation/execution; Part 5e would prove
+    a program that never finishes cannot keep running indefinitely. Compilation
+    finishes before the runtime timer starts; JVM startup counts toward five
+    seconds. On expiry, stop the entire container, verify it stopped, then remove
+    owned resources and verify absence. A later exit must not turn timeout into
+    success. A stop/cleanup failure must remain visible rather than claim success.
+    Proposed scope reuses the existing image/restrictions and remains a focused
+    runner probe. It does not add a user-source API, trace envelopes, playback,
+    cancellation workflow, or claim all isolation gates passed. Exact implementation
+    and any necessary shared-helper extraction should stay small and reviewable.
+    Only both memory files change now; whitespace checked. Do not start Part 5e
+    until the user approves the scope after discussion.
 
 ## Latest verification notes
 
