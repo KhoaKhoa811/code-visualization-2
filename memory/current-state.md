@@ -22,6 +22,9 @@ Long project instructions remain in their source files rather than being duplica
 ## Current scope
 
 - Active milestone: Milestone 0, repository and specifications; incomplete.
+- Latest discussion: Part 5d is proposed, not approved. User selected "Discuss
+  scope first". No fixture or runner implementation changes are authorized yet.
+  Discussion notes are on docs/part-5d-planning, based on Part 5c 560f690.
 - Part 5c was explicitly approved after scope discussion on 2026-10-12.
   runner/smoke.ps1 now verifies the pinned Java/javac 21 toolchain and UID/GID
   10001 in a restricted container, then verifies removal. Live smoke and seven
@@ -1604,6 +1607,25 @@ preserve user messages and label assistant summaries explicitly.
     hostile-code tests, or full isolation/recovery proof. Commit/push this single
     coherent task and provide the manual PR link if PR tooling remains unavailable.
     Stop for review; no next task is authorized.
+
+74. User: "ok, continue"
+    Assistant proposed Part 5d: one fixed Java fixture, a small extension to the
+    existing smoke check to compile/run it and compare exact output, usage/memory
+    updates, and commit/push. Asked for confirmation because Part 5c ran only
+    identity/version commands. User selected "Discuss scope first".
+    Fetch confirms origin/main remains 30c5171; Parts 5b/5c are published but
+    unmerged. Working tree was clean. No application/runner changes started.
+    Discussion scope: a tiny Main.java fixture prints runner-ok; the restricted
+    container stages it in temporary /work, compiles with javac, runs with java,
+    verifies successful exits and exact output, then verifies cleanup. Reuse
+    Part 5c restrictions/ownership; no host mounts or submitted-source API.
+    Purpose: version checks do not prove temporary source writes, class generation,
+    and class execution work under the profile. This is a fixed installation
+    acceptance test, not code recognition, tracing, playback, or general Java support.
+    Proposed review size: one fixture plus a small smoke-script change and usage
+    notes, with both memory updates. Discuss changes to scope before implementation;
+    do not interpret this planning branch or discussion as Part 5d approval.
+    Only memory files change in this exchange; documentation whitespace checked.
 
 ## Latest verification notes
 
