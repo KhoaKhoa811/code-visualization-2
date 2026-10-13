@@ -22,9 +22,11 @@ Long project instructions remain in their source files rather than being duplica
 ## Current scope
 
 - Active milestone: Milestone 0, repository and specifications; incomplete.
-- Latest discussion: Part 5d is proposed, not approved. User selected "Discuss
-  scope first". No fixture or runner implementation changes are authorized yet.
-  Discussion notes are on docs/part-5d-planning, based on Part 5c 560f690.
+- Part 5d was explicitly approved by "no, please implement it" after scope
+  discussion. The fixed Java fixture now compiles/runs inside the restricted
+  smoke container with exact output verification. Four live cases pass, including
+  three expected failures and verified cleanup. Task: chore/part-5d-compile-run.
+  No submitted-source API or later task is approved.
 - Part 5c was explicitly approved after scope discussion on 2026-10-12.
   runner/smoke.ps1 now verifies the pinned Java/javac 21 toolchain and UID/GID
   10001 in a restricted container, then verifies removal. Live smoke and seven
@@ -1626,6 +1628,27 @@ preserve user messages and label assistant summaries explicitly.
     notes, with both memory updates. Discuss changes to scope before implementation;
     do not interpret this planning branch or discussion as Part 5d approval.
     Only memory files change in this exchange; documentation whitespace checked.
+
+75. User: "no, please implement it"
+    Approved the previously discussed Part 5d scope. Assistant fetched origin;
+    main remains 30c5171. Created chore/part-5d-compile-run from planning notes
+    8208882, retaining published Parts 5b/5c. Added runner/fixtures/Main.java
+    (prints runner-ok), and extended smoke.ps1 rather than adding another runner.
+    The script encodes the fixture as Base64, stages it inside /work without a
+    host mount, compiles using UTF-8/Java21/no annotation processors, and executes
+    the resulting class. Byte comparison checks runner-ok plus LF; program stderr
+    must be empty. Existing container restrictions, heaps, shared command wait,
+    ownership, and cleanup remain unchanged. No host class artifacts are generated.
+    Initial preflight failed because the pinned image was no longer cached.
+    Restored the same approved digest; did not change the pin or container policy.
+    Live success verified Java/javac 21.0.12.1, compilation, exact output, and
+    container removal. Three controlled negative fixture cases (compiler error,
+    wrong output, missing LF) all returned failure and verified removal. Restored
+    the original fixture byte-for-byte. PowerShell syntax/whitespace checks pass.
+    Updated README and both memory files. Publish one coherent Part 5d commit;
+    automatic PR creation remains unavailable, so provide a manual link.
+    This is an installation acceptance check, not tracing/template recognition,
+    a submitted-source API, or proof of full isolation. No later task approved.
 
 ## Latest verification notes
 

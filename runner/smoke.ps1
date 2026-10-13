@@ -1,5 +1,5 @@
 #requires -Version 5.1
-# Fixed trusted tool commands only. This is not an executor for submitted Java.
+# Fixed trusted tool commands and repository fixture only; not submitted Java.
 $ErrorActionPreference = 'Stop'
 $pin = Get-Content (Join-Path $PSScriptRoot 'image.json') -Raw | ConvertFrom-Json
 if ($pin.image -notmatch '^eclipse-temurin@sha256:[0-9a-f]{64}$' -or $pin.platform -ne 'linux/amd64') {
@@ -7,6 +7,7 @@ if ($pin.image -notmatch '^eclipse-temurin@sha256:[0-9a-f]{64}$' -or $pin.platfo
 }
 & (Join-Path $PSScriptRoot 'preflight.ps1') -Image $pin.image
 if ($LASTEXITCODE -ne 0) { exit 1 }
+$fixture = [Convert]::ToBase64String([IO.File]::ReadAllBytes((Join-Path $PSScriptRoot 'fixtures/Main.java')))
 $docker = (Get-Command docker.exe -CommandType Application | Select-Object -First 1).Source
 $identity = [guid]::NewGuid().ToString('N')
 $name = "codeviz-smoke-$identity"
@@ -57,7 +58,12 @@ try {
         '--tmpfs /dev/shm:rw,nosuid,nodev,noexec,size=16777216,nr_inodes=1024,uid=10001,gid=10001,mode=700 ' +
         "--workdir /work --entrypoint /usr/bin/env $($pin.image) " +
         '-i PATH=/opt/java/openjdk/bin:/usr/bin:/bin HOME=/tmp /bin/sh -ec '
-    $probe = 'id -u; id -g; java -Xmx128m -Djava.io.tmpdir=/tmp -version 2>&1; javac -J-Xmx256m -J-Djava.io.tmpdir=/tmp -version 2>&1'
+    $probe = 'id -u; id -g; java -Xmx128m -Djava.io.tmpdir=/tmp -version 2>&1; javac -J-Xmx256m -J-Djava.io.tmpdir=/tmp -version 2>&1; ' +
+        "printf %s $fixture | base64 -d > /work/Main.java; " +
+        'javac -J-Xmx256m -J-Djava.io.tmpdir=/tmp -encoding UTF-8 -proc:none --release 21 -d /work /work/Main.java; ' +
+        'java -Xmx128m -Djava.io.tmpdir=/tmp -cp /work Main > /work/actual.txt 2> /work/program.err; ' +
+        "printf 'runner-ok\n' > /work/expected.txt; " +
+        'cmp /work/expected.txt /work/actual.txt; test ! -s /work/program.err; cat /work/actual.txt'
     $null = Invoke-Docker ($options + '"' + $probe + '"') 10000
     $container = (Invoke-Docker "inspect $name" | ConvertFrom-Json)[0]
     $hostConfig = $container.HostConfig
@@ -78,11 +84,13 @@ try {
     }
     $lines = $output -split '\r?\n'
     if ($lines[0] -ne '10001' -or $lines[1] -ne '10001' -or
-        $output -notmatch 'openjdk version "21[."]' -or $output -notmatch '(?m)^javac 21(?:\.|\s|$)') {
+        $output -notmatch 'openjdk version "21[."]' -or $output -notmatch '(?m)^javac 21(?:\.|\s|$)' -or
+        $lines[-1] -ne 'runner-ok') {
         throw "Unexpected identity/toolchain output: $output"
     }
     Write-Output $output
     Write-Output 'PASS: UID/GID 10001, Java 21, javac 21, and normal container exit.'
+    Write-Output 'PASS: fixture compiled and ran with exact runner-ok output plus LF and empty stderr.'
 }
 catch { $failed = $true; Write-Output "FAIL: $($_.Exception.Message)" }
 finally {
