@@ -2,6 +2,38 @@
 
 Last updated: 2026-10-13 (Asia/Saigon).
 
+## Proposed Part 5 endpoint (awaiting approval)
+
+User asked how many Part 5 tasks remain and requested a list. No fixed endpoint
+was previously approved. Parts 5a through 5h are delivered; Part 5h is pushed as
+76f2321. Propose 13 remaining parts for the runner-isolation prototype:
+
+| Part | Proposed work |
+| --- | --- |
+| 5i | Network isolation: external, host, and other-container access denied. |
+| 5j | Effective privilege restrictions: groups, capabilities, no-new-privileges, seccomp. |
+| 5k | Audit mounts and writable paths for unexpected storage or host exposure. |
+| 5l | Verify writable-storage byte limits on all three tmpfs mounts. |
+| 5m | Verify file/inode limits on all three tmpfs mounts. |
+| 5n | Verify Java heap exhaustion and actual caught/uncaught error behavior. |
+| 5o | Verify container memory/no-swap limit, trusted OOM evidence, and whole-run stop. |
+| 5p | Verify shared process/thread cap and denial using trusted task counters. |
+| 5q | Verify compilation deadline and prevention of runtime launch after expiry. |
+| 5r | Add bounded stdout/stderr collection and verify the shared byte quota. |
+| 5s | Verify files and data cannot leak between separate runs. |
+| 5t | Verify focused stop/cleanup failures and completion/cancellation/timeout races. |
+| 5u | Consolidate repeatable checks and review remaining gaps before closing Part 5. |
+
+These labels and the count are proposed, not implementation approval or a promise
+that no task will need splitting after inspection. Keep each implementation small.
+This endpoint covers fixed runner probes and bounded supervision; it does not close
+every Part 4u gate. Admission/queue APIs, interactive input, source analysis,
+trustworthy trace transport and capture, replay, and broader V1 features remain
+required later increments. Do not drop these requirements or claim full isolation
+from passing only this list. No new implementation is authorized by this discussion.
+
+## Previous handoff
+
 Latest handoff: Part 5h approved by "ok" and verified on
 chore/part-5h-filesystem-probe, based on planning notes 16ac4e6. -Filesystem runs
 a fixed shell fixture that checks effective root read-only mounting, protected
