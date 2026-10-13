@@ -2,13 +2,16 @@
 
 Last updated: 2026-10-13 (Asia/Saigon).
 
-Part 5g delivery: 0976226 pushed; clean working tree and matching upstream verified.
-User then said "ok, continue". Proposed next scope is Part 5h: a fixed filesystem
-protection probe for effective read-only root mounting, protected-write denial,
-small-file read/write in /work, /tmp, and /dev/shm, and verified cleanup. Retain
-the current profile. Quota/inode exhaustion, network, and a complete writable-path
-audit remain separate unfinished checks. Await explicit scope approval before
-implementation. Save this discussion on docs/part-5h-planning.
+Latest handoff: Part 5h approved by "ok" and verified on
+chore/part-5h-filesystem-probe, based on planning notes 16ac4e6. -Filesystem runs
+a fixed shell fixture that checks effective root read-only mounting, protected
+write denials, and small-file round trips in /work, /tmp, and /dev/shm. Profile
+unchanged; cleanup passed. Two negative cases were rejected with cleanup and
+fixture restoration. Filesystem, cancellation (322 ms), both timeout modes
+(5,009/5,005 ms), normal Java compile/output, syntax, and mode-conflict checks
+passed. Publish and stop for review; no later task is approved. Storage quotas,
+network, cross-run reads, and a complete writable-path audit remain unfinished.
+Fetch still reports main 49c9c29; Parts 5f/5g merges remain unverified.
 
 Latest handoff: Part 5g approved by "ok" and implemented on
 chore/part-5g-cancellation-probe, based on planning notes 7026f02. -Cancel reuses
