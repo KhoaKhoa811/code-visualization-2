@@ -1,10 +1,11 @@
 # Called by smoke.ps1; uses its bounded Invoke-Docker function and owned container.
-function Invoke-RuntimeTimeoutProbe([string]$ContainerName, [string]$DockerPath, [string]$Fixture, [switch]$WithChild) {
+function Invoke-RuntimeTimeoutProbe([string]$ContainerName, [string]$DockerPath, [string]$Fixture, [switch]$WithChild, [switch]$Cancel) {
+    if ($Cancel -and -not $WithChild) { throw 'Cancellation requires the parent/child fixture.' }
     $className = if ($WithChild) { 'ParentChildTimeout' } else { 'TimeoutLoop' }
     $compile = "printf %s $Fixture | base64 -d > /work/$className.java; " +
         "javac -J-Xmx256m -J-Djava.io.tmpdir=/tmp -encoding UTF-8 -proc:none --release 21 -d /work /work/$className.java"
     $null = Invoke-Docker ("exec $ContainerName /usr/bin/env -i PATH=/opt/java/openjdk/bin:/usr/bin:/bin HOME=/tmp /bin/sh -ec " + '"' + $compile + '"') 10000
-    Write-Output 'PASS: timeout fixture compiled before the runtime deadline starts.'
+    Write-Output 'PASS: stop fixture compiled before the runtime deadline starts.'
 
     $process = New-Object Diagnostics.Process
     $process.StartInfo.FileName = $DockerPath
@@ -46,11 +47,16 @@ function Invoke-RuntimeTimeoutProbe([string]$ContainerName, [string]$DockerPath,
                 $null = $process.WaitForExit([Math]::Min(100, $remaining))
             }
         }
-        $remaining = [Math]::Max(0, 5000 - [int]$runtime.ElapsedMilliseconds)
-        if ($process.WaitForExit($remaining) -and $runtime.ElapsedMilliseconds -lt 5000) {
-            throw 'Expected an infinite loop; the runtime exited before its deadline.'
+        # This fixed probe requests cancellation once real process ancestry is observed.
+        $cancelAccepted = $Cancel -and $pairEvidence -and -not $process.HasExited -and $runtime.ElapsedMilliseconds -lt 5000
+        if (-not $cancelAccepted) {
+            $remaining = [Math]::Max(0, 5000 - [int]$runtime.ElapsedMilliseconds)
+            if ($process.WaitForExit($remaining) -and $runtime.ElapsedMilliseconds -lt 5000) {
+                throw 'Expected an infinite loop; the runtime exited before its deadline.'
+            }
         }
-        # Latch timeout before any stop call. Later exit cannot count as completion.
+        # Latch the reason before stopping. A missed cancellation uses the timeout fallback.
+        $stopReason = if ($cancelAccepted) { 'RUN_CANCELLED' } else { 'EXECUTION_TIMEOUT' }
         $elapsed = $runtime.ElapsedMilliseconds
         $termination = [Diagnostics.Stopwatch]::StartNew()
         $null = Invoke-Docker "kill --signal KILL $ContainerName" 5000
@@ -58,7 +64,7 @@ function Invoke-RuntimeTimeoutProbe([string]$ContainerName, [string]$DockerPath,
         if ($remaining -le 0) { throw 'Termination confirmation deadline expired.' }
         $state = (Invoke-Docker "inspect $ContainerName" $remaining | ConvertFrom-Json)[0].State
         if ($state.Running -or $state.Status -ne 'exited' -or $state.Pid -ne 0 -or $state.OOMKilled) {
-            throw 'Whole-container timeout termination is not confirmed.'
+            throw 'Whole-container termination is not confirmed.'
         }
         $remaining = 5000 - [int]$termination.ElapsedMilliseconds
         if ($remaining -le 0 -or -not $process.WaitForExit($remaining)) {
@@ -71,13 +77,14 @@ function Invoke-RuntimeTimeoutProbe([string]$ContainerName, [string]$DockerPath,
         if ($termination.ElapsedMilliseconds -ge 5000) { throw 'Termination confirmation deadline expired.' }
         $expected = if ($WithChild) { "parent-started`nchild-started`n" } else { "loop-started`n" }
         if ($stdout.Result -cne $expected -or $stderr.Result.Length -ne 0) {
-            throw 'Timeout occurred without the expected clean Java startup evidence.'
+            throw 'Stop occurred without the expected clean Java startup evidence.'
         }
         if ($WithChild) {
             if (-not $pairEvidence) { throw 'Parent/child process ancestry was not observed before timeout.' }
-            Write-Output "PASS: observed $pairEvidence before timeout; whole-container termination covers both."
+            Write-Output "PASS: observed $pairEvidence before stop; whole-container termination covers both."
         }
-        Write-Output "PASS: EXECUTION_TIMEOUT latched after $elapsed ms (5000 ms budget); whole container stopped."
+        if ($Cancel -and -not $cancelAccepted) { throw 'Cancellation was not accepted before timeout.' }
+        Write-Output "PASS: $stopReason latched after $elapsed ms (5000 ms budget); whole container stopped."
         Write-Output 'PASS: Java startup recorded; container PID is zero and runtime attachment has exited.'
     }
     finally {

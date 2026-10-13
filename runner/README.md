@@ -1,4 +1,4 @@
-# Runner setup (Parts 5a–5f)
+# Runner setup (Parts 5a–5g)
 
 Read `preflight.ps1` first: it is a prerequisite check, not a Java runner.
 The script supports Windows PowerShell 5.1 or later on Windows and changes no
@@ -230,3 +230,33 @@ and a parent printing both markers without starting a child were rejected with
 cleanup. The single-loop timeout (5,001 ms) and normal compile/run checks passed.
 Negative-test fixture changes were restored. This proves the fixed two-JVM case;
 arbitrary process trees, adversarial races, and full isolation remain unverified.
+
+## Fixed cancellation probe (Part 5g)
+
+```powershell
+.\runner\smoke.ps1 -Cancel
+$LASTEXITCODE
+```
+
+This mode reuses the parent/child fixture and restricted container. After observing
+the distinct Java processes and their parent relationship, the supervisor requests
+cancellation while the runtime attachment is still active and before the five-second
+deadline. It latches `RUN_CANCELLED` before force-stopping the whole container.
+Success requires the existing exited-state/PID-zero checks, closed attachment,
+exact readiness output, empty stderr, and verified owned-container removal.
+Termination confirmation and cleanup retain their separate five-second budgets.
+
+If ancestry is not observed in time, the runtime deadline still stops the container,
+but the cancellation probe fails. Early exit also fails. `-Cancel` cannot be combined
+with either timeout switch. The default compile/run check remains unchanged.
+
+Verified on 2026-10-13: cancellation latched at 337 ms after observing parent PID
+458 and child PID 477; termination and cleanup passed. An early-exiting child and
+readiness markers without a real child were rejected with verified cleanup. Test
+fixture changes were restored. Existing parent/child timeout (5,006 ms), single-loop
+timeout (5,013 ms), and normal compile/output checks passed.
+
+Cancellation here is a fixed supervisor request, not an application API or UI action.
+The label is not a trace envelope. Queued/compiling cancellation, repeated requests,
+completion/deadline races, input/trace cutoffs, and arbitrary descendants remain
+unverified. This small probe does not establish full cancellation enforcement.

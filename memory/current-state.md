@@ -21,6 +21,13 @@ Long project instructions remain in their source files rather than being duplica
 
 ## Current scope
 
+- Part 5g is approved by the user's "ok" following the concrete cancellation
+  proposal. Implemented -Cancel on chore/part-5g-cancellation-probe, based on
+  planning commit 7026f02. Latest fetch still reports main 49c9c29; Part 5f merge
+  remains unverified. Live cancellation at 337 ms, failure cases, timeout
+  regressions, normal compilation/output, and cleanup passed. No later scope
+  is approved. The pending-approval note below records the earlier proposal.
+
 - Latest exchange: user said "ok, continue" after Part 5f delivery. Part 5f was
   committed and pushed as 6486a62; working tree and upstream matched afterward.
   Proposed Part 5g: reuse the fixed parent/child fixture to request cancellation
@@ -1803,6 +1810,28 @@ preserve user messages and label assistant summaries explicitly.
     one coherent task commit and manual PR link; GitHub CLI/PR tools unavailable.
     This verifies a fixed two-JVM case, not arbitrary descendants, race handling,
     or full isolation. Stop for review; no later task approved.
+
+83. User: "ok, continue" after Part 5f delivery.
+    Proposed Part 5g: a fixed parent/child cancellation probe with shutdown,
+    cleanup, and existing probe regression checks. Planning notes were committed
+    and pushed as 7026f02; implementation awaited explicit confirmation.
+
+84. User: "ok" in response to the Part 5g approval question.
+    Approved and implemented one small coherent part: add -Cancel to smoke.ps1
+    and reuse the timeout helper and parent/child fixture. Cancellation is latched
+    after real process ancestry is observed and before the runtime deadline;
+    shared stop/cleanup checks remain required. Missing ancestry retains the
+    timeout fallback and fails the cancellation probe. No API or trace producer
+    was added. Live run observed parent 458/child 477 and cancellation at 337 ms.
+    Early child exit and fake markers without a child failed with verified cleanup;
+    temporary fixture edits were restored byte-for-byte. Existing parent/child
+    timeout (5,006 ms), single-loop timeout (5,013 ms), and normal compile/output
+    probes passed. PowerShell syntax, conflicting modes, missing-child mode,
+    restored-fixture diff, and whitespace checks passed. README and both memory
+    files record the results and limits.
+    Publish on chore/part-5g-cancellation-probe; GitHub CLI/PR tools remain absent,
+    so provide a manual PR link. Full cancellation races and application integration
+    remain unverified; no subsequent task is approved.
 
 ## Latest verification notes
 

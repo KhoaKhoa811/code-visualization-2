@@ -1,10 +1,12 @@
 #requires -Version 5.1
 # Fixed trusted tool commands and repository fixture only; not submitted Java.
 [CmdletBinding()]
-param([switch]$RuntimeTimeout, [switch]$ChildTimeout)
+param([switch]$RuntimeTimeout, [switch]$ChildTimeout, [switch]$Cancel)
 
 $ErrorActionPreference = 'Stop'
 if ($RuntimeTimeout -and $ChildTimeout) { throw 'Select only one timeout probe.' }
+if ($Cancel -and ($RuntimeTimeout -or $ChildTimeout)) { throw 'Select cancellation or a timeout probe.' }
+if ($Cancel) { $ChildTimeout = $true }
 if ($ChildTimeout) { $RuntimeTimeout = $true }
 $pin = Get-Content (Join-Path $PSScriptRoot 'image.json') -Raw | ConvertFrom-Json
 if ($pin.image -notmatch '^eclipse-temurin@sha256:[0-9a-f]{64}$' -or $pin.platform -ne 'linux/amd64') {
@@ -87,7 +89,7 @@ try {
     if ($RuntimeTimeout) {
         $null = Invoke-Docker "start $name"
         . (Join-Path $PSScriptRoot 'timeout-probe.ps1')
-        Invoke-RuntimeTimeoutProbe -ContainerName $name -DockerPath $docker -Fixture $fixture -WithChild:$ChildTimeout
+        Invoke-RuntimeTimeoutProbe -ContainerName $name -DockerPath $docker -Fixture $fixture -WithChild:$ChildTimeout -Cancel:$Cancel
     }
     else {
         $output = Invoke-Docker "start --attach $name" 15000
