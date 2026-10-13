@@ -8,7 +8,16 @@ templates. Define coverage to track implementation and truthful limitations,
 not to restrict the product to examples. Runtime facts must remain captured,
 and execution isolation restrictions still apply.
 
-1. Latest recovery on 2026-10-12 pulled main with --ff-only to 30c5171 (PR #48).
+1. Current task: Part 5c, explicitly approved on 2026-10-12. runner/smoke.ps1 and
+   its README usage notes are implemented. Live restricted-container check passed:
+   UID/GID 10001, Java/javac 21.0.12.1, normal exit, and verified removal. Seven
+   simulated lifecycle cases plus syntax/whitespace passed. Publish on
+   chore/part-5c-toolchain-smoke, based on Part 5b c4512e4 (not yet merged).
+   This verifies a fixed trusted toolchain probe, not submitted-code compilation,
+   all kernel restrictions, hostile output, or production lifecycle correctness.
+   Next scope requires discussion/approval; stop after this task's delivery.
+
+   Latest recovery on 2026-10-12 pulled main with --ff-only to 30c5171 (PR #48).
    Parts 4t/4u/5a are verified merged. Part 5b fix 5dea983 was local only and its
    image pin/README remained uncommitted. Preserved those files, merged main into
    the Part 5b branch as 8366ca4, and restored the files without conflict.
@@ -321,8 +330,8 @@ Part 4j proposal notes
 were pushed as 4c36237 on docs/part-4j-planning. Part 4j was pushed as 3b4d504 on
 docs/part-4j-array-capture-limits, based on those notes. It does not authorize runtime
 implementation or a later task; its merge is verified in main at 1bad656.
-Current task branch: chore/part-5b-runner-image, from Part 5a 7641b3c.
-Part 5b implementation/setup review is complete; no later task or container execution is approved.
+Current task branch: chore/part-5c-toolchain-smoke, from Part 5b c4512e4.
+Part 5c fixed toolchain execution is approved and verified; no later task is approved.
 Part 4l 3ab61d1 is pushed but its merge is not verified. Part 4m documentation is approved.
 Main was pulled/verified at bf58364 on 2026-10-11; Parts 4l–4r merge statements
 above are historical handoff notes. Part 4s was subsequently verified merged at c454563.
