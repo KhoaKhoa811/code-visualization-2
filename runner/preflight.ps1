@@ -81,12 +81,12 @@ else {
         $images = Read-Tool docker.exe "--context desktop-linux image inspect $Image" | ConvertFrom-Json
         if (@($images).Count -ne 1) { throw 'Expected exactly one local image.' }
         $candidate = $images[0]
-        $java21 = @($candidate.Config.Env | Where-Object { $_ -match '^JAVA_VERSION=21(?:[.+_-]|$)' }).Count -eq 1
+        $java21 = @($candidate.Config.Env | Where-Object { $_ -match '^JAVA_VERSION=(?:jdk-)?21(?:[.+_-]|$)' }).Count -eq 1
         Report ($candidate.Os -eq 'linux' -and $java21) `
-            "Image $Image is Linux and declares JAVA_VERSION=21. Missing metadata means unverified."
+            "Image $Image is Linux and declares Java 21 metadata. Missing metadata means unverified."
         Write-Output "Image ID: $($candidate.Id)"
         Write-Output "Repository digests: $(@($candidate.RepoDigests) -join ', ')"
-        Write-Output 'Java/javac execution and image trust are unverified; digest pinning is a later task.'
+        Write-Output 'Preflight does not verify Java/javac execution, image trust, or isolation.'
     }
     catch { Report $false "Image: $($_.Exception.Message) Verify the image already exists locally." }
 }
