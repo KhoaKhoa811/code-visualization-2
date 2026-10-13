@@ -21,6 +21,14 @@ Long project instructions remain in their source files rather than being duplica
 
 ## Current scope
 
+- Latest exchange: user said "ok, continue" after Part 5f delivery. Part 5f was
+  committed and pushed as 6486a62; working tree and upstream matched afterward.
+  Proposed Part 5g: reuse the fixed parent/child fixture to request cancellation
+  before the runtime deadline, verify whole-container termination and cleanup,
+  and retain timeout regression checks. This is a focused runner probe, not an
+  application cancellation API or full cancellation race verification. Explicit
+  confirmation is pending under AGENTS.md. Notes: docs/part-5g-planning.
+
 - Active milestone: Milestone 0, repository and specifications; incomplete.
 - Recovery on 2026-10-13 pulled main with --ff-only to 49c9c29 (PR #54).
   Parts 5b–5e are verified merged by ancestry; prior unmerged handoffs below are
