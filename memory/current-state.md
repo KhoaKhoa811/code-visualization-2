@@ -25,9 +25,11 @@ Long project instructions remain in their source files rather than being duplica
 - Recovery on 2026-10-13 pulled main with --ff-only to 49c9c29 (PR #54).
   Parts 5b–5e are verified merged by ancestry; prior unmerged handoffs below are
   historical. Local main matches origin/main and was clean before planning.
-  Proposed next task is Part 5f, parent/child timeout verification. User selected
-  "Discuss scope first"; no implementation is approved or started. Discussion
-  branch: docs/part-5f-planning, based on current main.
+  Part 5f was approved after discussion by "ok, I understand now. Please implement it".
+  The fixed parent/child timeout probe is implemented and verified on
+  chore/part-5f-child-timeout, based on planning notes 23cc8dd and current main.
+  Final live timeout was 5,014 ms; process ancestry, shutdown, and cleanup passed.
+  No later task is approved; full isolation remains unfinished.
 - Part 5e was approved by "no, please implement it" after scope discussion.
   smoke.ps1 -RuntimeTimeout compiles a fixed loop before the external five-second
   runtime timer, verifies whole-container stop, and reuses verified cleanup.
@@ -1763,6 +1765,36 @@ preserve user messages and label assistant summaries explicitly.
         }
     }
     ```
+
+81. User: "can I ask what it's for?"
+    Explained that the parent/child test checks that all processes started by a
+    program stop together. Otherwise a child could keep using memory or CPU
+    after its parent times out. This is a runner safety check; app users do not
+    need to write their code in this pattern. This exchange is recorded here
+    retrospectively because its explanation had not yet been saved to memory.
+
+82. User: "ok, I understand now. Please implement it"
+    Approved Part 5f. Fetched origin (main still 49c9c29), created
+    chore/part-5f-child-timeout from planning notes 23cc8dd. Added the fixed
+    ParentChildTimeout.java and -ChildTimeout mode, reusing existing restrictions,
+    compiler staging, five-second runtime deadline, stop verification, and cleanup.
+    Parent launches a second Java process, waits for its real readiness line,
+    and monitors child liveness. Both use 128 MiB heaps within the shared limits.
+    Supervisor queries Docker top within the runtime budget and requires distinct
+    Java PIDs with the correct PPID relationship; output markers alone cannot pass.
+    Docker was stopped; restarted under existing setup approval. First live run
+    passed at 5,002 ms. Negative testing caught a final process-list call exhausting
+    remaining time and reporting uncertainty. Fixed polling to cap calls at one
+    second and stop starting them in the final second. Independent inventory
+    confirmed the earlier test container was absent; failure was not hidden.
+    Final live run observed parent 1466/child 1484 and timeout at 5,014 ms, then
+    verified whole-container stop and removal. Early-exiting child and spoofed
+    markers without a child were rejected with cleanup. Fixture restored after
+    tests. Existing single-loop timeout (5,001 ms) and normal Part 5d checks pass.
+    README and both memory files updated. Syntax/whitespace checks pass. Publish
+    one coherent task commit and manual PR link; GitHub CLI/PR tools unavailable.
+    This verifies a fixed two-JVM case, not arbitrary descendants, race handling,
+    or full isolation. Stop for review; no later task approved.
 
 ## Latest verification notes
 

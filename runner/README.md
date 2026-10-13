@@ -1,4 +1,4 @@
-# Runner setup (Parts 5a–5e)
+# Runner setup (Parts 5a–5f)
 
 Read `preflight.ps1` first: it is a prerequisite check, not a Java runner.
 The script supports Windows PowerShell 5.1 or later on Windows and changes no
@@ -198,3 +198,35 @@ The normal Part 5d check also passed. Modified test files were restored byte-for
 Host scheduling can delay deadline handling; this measurement is not a hard latency
 guarantee. Completion/deadline races, arbitrary descendants, cancellation, traces,
 and broader isolation/recovery enforcement remain separate prototype gates.
+
+## Parent/child timeout probe (Part 5f)
+
+```powershell
+.\runner\smoke.ps1 -ChildTimeout
+$LASTEXITCODE
+```
+
+[ParentChildTimeout.java](fixtures/ParentChildTimeout.java) starts a second JVM
+with the same class and a child argument. Each JVM has a 128 MiB heap; both share
+the existing container limits. The parent waits for the child's startup line,
+prints two readiness markers, and fails if the child exits early. Both stay alive
+until timeout. This is a fixed runner test, not a required user-code pattern.
+
+The existing timeout helper compiles the selected fixture before the runtime
+clock starts. Inside the same five-second budget, it uses
+[Docker's process list](https://docs.docker.com/reference/cli/docker/container/top/)
+to require two distinct Java PIDs with the child's PPID matching the parent PID.
+Markers alone cannot pass. Queries have a one-second cap and no new query starts
+in the final second; polling never resets or extends the runtime deadline.
+
+The existing whole-container kill, exited-state/PID-zero checks, closed runtime
+attachment, and owned-container removal verify termination for this observed
+pair. Failed observations remain failures. `-ChildTimeout` and `-RuntimeTimeout`
+are mutually exclusive; the default Part 5d check stays unchanged.
+
+Verified on 2026-10-13: parent PID 1466 and child PID 1484 were observed; timeout
+was handled at 5,014 ms and termination/removal passed. An early-exiting child
+and a parent printing both markers without starting a child were rejected with
+cleanup. The single-loop timeout (5,001 ms) and normal compile/run checks passed.
+Negative-test fixture changes were restored. This proves the fixed two-JVM case;
+arbitrary process trees, adversarial races, and full isolation remain unverified.
