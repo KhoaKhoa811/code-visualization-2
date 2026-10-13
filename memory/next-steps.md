@@ -2,6 +2,14 @@
 
 Last updated: 2026-10-13 (Asia/Saigon).
 
+Part 5g delivery: 0976226 pushed; clean working tree and matching upstream verified.
+User then said "ok, continue". Proposed next scope is Part 5h: a fixed filesystem
+protection probe for effective read-only root mounting, protected-write denial,
+small-file read/write in /work, /tmp, and /dev/shm, and verified cleanup. Retain
+the current profile. Quota/inode exhaustion, network, and a complete writable-path
+audit remain separate unfinished checks. Await explicit scope approval before
+implementation. Save this discussion on docs/part-5h-planning.
+
 Latest handoff: Part 5g approved by "ok" and implemented on
 chore/part-5g-cancellation-probe, based on planning notes 7026f02. -Cancel reuses
 the fixed parent/child fixture and stop/cleanup checks. Live cancellation at
