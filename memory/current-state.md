@@ -22,9 +22,11 @@ Long project instructions remain in their source files rather than being duplica
 ## Current scope
 
 - Active milestone: Milestone 0, repository and specifications; incomplete.
-- Latest discussion: Part 5e timeout probe is proposed, not approved. User chose
-  "Discuss scope first". No timeout implementation started; planning notes are
-  on docs/part-5e-planning, based on published Part 5d 0225ee5.
+- Part 5e was approved by "no, please implement it" after scope discussion.
+  smoke.ps1 -RuntimeTimeout compiles a fixed loop before the external five-second
+  runtime timer, verifies whole-container stop, and reuses verified cleanup.
+  Live timeout, early-return/compiler-error rejection, injected stop-failure
+  handling, and normal smoke regression checks passed. No later task is approved.
 - Part 5d was explicitly approved by "no, please implement it" after scope
   discussion. The fixed Java fixture now compiles/runs inside the restricted
   smoke container with exact output verification. Four live cases pass, including
@@ -1671,6 +1673,29 @@ preserve user messages and label assistant summaries explicitly.
     and any necessary shared-helper extraction should stay small and reviewable.
     Only both memory files change now; whitespace checked. Do not start Part 5e
     until the user approves the scope after discussion.
+
+77. User: "no, please implement it"
+    Approved the discussed Part 5e scope. Fetched origin (main still 30c5171) and
+    created chore/part-5e-runtime-timeout from planning notes 2fdd335. Reused the
+    existing smoke profile/configuration inspection/cleanup with a RuntimeTimeout
+    switch, added fixtures/TimeoutLoop.java and the focused timeout-probe.ps1 helper.
+    The container stays alive while the fixed fixture compiles; compilation finishes
+    before an external monotonic 5,000 ms runtime clock starts immediately before
+    Java exec launch. JVM startup/Docker overhead count. Timeout is latched before
+    whole-container kill. Separate 5,000 ms stop confirmation covers kill, exited
+    container/PID-zero inspection, runtime attachment exit, and closed output.
+    Exact startup marker is required; a stalled launch alone cannot pass. Existing
+    owned-container removal/absence checks follow, with uncertainty kept visible.
+    Live expected timeout passed at 5,017 ms with termination and cleanup verified.
+    Early-return and compiler-error fixtures were rejected, with removal verified.
+    A controlled injected stop-command failure remained visible and did not claim
+    successful timeout/cleanup; independent inventory confirmed the owned container
+    was removed. The modified fixture/helper were restored byte-for-byte. Default
+    Part 5d compilation/exact-output/cleanup check still passed. Syntax and whitespace
+    checks passed. This is a focused fixed probe, not API/trace terminal handling,
+    full race/descendant/cancellation coverage, or completed isolation enforcement.
+    Update usage notes and both memory files, commit/push, then stop for review.
+    No later task approved; automatic PR creation remains unavailable.
 
 ## Latest verification notes
 
