@@ -1,6 +1,6 @@
 # Current state and conversation memory
 
-Last updated: 2026-10-12 (Asia/Saigon).
+Last updated: 2026-10-13 (Asia/Saigon).
 
 ## Recovery instructions
 
@@ -22,6 +22,12 @@ Long project instructions remain in their source files rather than being duplica
 ## Current scope
 
 - Active milestone: Milestone 0, repository and specifications; incomplete.
+- Recovery on 2026-10-13 pulled main with --ff-only to 49c9c29 (PR #54).
+  Parts 5b–5e are verified merged by ancestry; prior unmerged handoffs below are
+  historical. Local main matches origin/main and was clean before planning.
+  Proposed next task is Part 5f, parent/child timeout verification. User selected
+  "Discuss scope first"; no implementation is approved or started. Discussion
+  branch: docs/part-5f-planning, based on current main.
 - Part 5e was approved by "no, please implement it" after scope discussion.
   smoke.ps1 -RuntimeTimeout compiles a fixed loop before the external five-second
   runtime timer, verifies whole-container stop, and reuses verified cleanup.
@@ -1696,6 +1702,28 @@ preserve user messages and label assistant summaries explicitly.
     full race/descendant/cancellation coverage, or completed isolation enforcement.
     Update usage notes and both memory files, commit/push, then stop for review.
     No later task approved; automatic PR creation remains unavailable.
+
+78. User: "read current-state.md, next-step.md and other files to recover memory.
+    I merged all the branches into main, so make sure using the newest code.
+    Continue next task"
+    Assistant read current-state.md, the actual next-steps.md, instructions,
+    requirements, and runner notes. Working tree was clean. Fetched origin,
+    switched to main, and pulled --ff-only to 49c9c29 (PR #54). Ancestry checks
+    confirm c4512e4, 560f690, 0225ee5, and 895937c (Parts 5b–5e) are merged.
+    Proposed Part 5f: one fixed parent/child Java fixture and a small extension
+    to the existing timeout probe; prove child startup/activity, then verify
+    whole-container shutdown and cleanup after the existing five-second runtime
+    deadline. Recheck existing probes; update notes and commit/push.
+    User selected "Discuss scope first". No implementation started. Explained
+    that stopping only a parent can leave descendants alive; Part 5e's single
+    Java loop does not exercise a user program spawning its own child. Confirm
+    both are active before the timeout, then verify neither survives termination.
+    Reuse existing restrictions, timer, and cleanup. Whole-container termination
+    is the requirement, not merely signalling a Unix process group. No new API,
+    tracing, playback, or broad isolation-completion claim is proposed.
+    Only both memory files change on docs/part-5f-planning. Documentation whitespace
+    checked; no runtime tests rerun for this recovery/discussion. Obtain explicit
+    scope approval before adding the fixture or changing the probe.
 
 ## Latest verification notes
 
