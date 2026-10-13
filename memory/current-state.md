@@ -1734,6 +1734,36 @@ preserve user messages and label assistant summaries explicitly.
     program pattern for app users. Part 5f remains unapproved; only discussion
     memory is updated. Documentation whitespace checked; no runtime tests run.
 
+80. User: "can you give me an example?"
+    Gave an illustrative ParentChildExample Java class. Starting it with no
+    arguments enters the parent branch; ProcessBuilder launches the same class
+    in a second JVM with argument child, inheriting console output. Both then
+    sleep repeatedly forever. The expected console contains "Parent is running"
+    and "Child is running"; order can vary. After five seconds, the proposed
+    runner timeout must terminate both processes. The sample is explanatory,
+    not executed or added as a fixture. Part 5f remains unapproved.
+    Example shown:
+
+    ```java
+    public class ParentChildExample {
+        public static void main(String[] args) throws Exception {
+            if (args.length == 0) {
+                new ProcessBuilder(
+                    "java", "-cp", System.getProperty("java.class.path"),
+                    "ParentChildExample", "child"
+                ).inheritIO().start();
+                System.out.println("Parent is running");
+            } else {
+                System.out.println("Child is running");
+            }
+
+            while (true) {
+                Thread.sleep(1000);
+            }
+        }
+    }
+    ```
+
 ## Latest verification notes
 
 Part 3 added a contract schema, examples, and development validation tooling.

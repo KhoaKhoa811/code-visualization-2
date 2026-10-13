@@ -21,6 +21,9 @@ and execution isolation restrictions still apply.
    User asked what parent/child Java fixture means. Explained: a fixed test
    program starts another Java process; both keep running so timeout can verify
    neither survives. This explanation does not approve Part 5f implementation.
+   Supplied an illustrative ParentChildExample: parent starts the same Java class
+   with a child argument in another JVM; both print their roles and sleep forever.
+   Example was not executed or added as a fixture. Part 5f still awaits approval.
 
    Part 5e approved by "no, please implement it" after discussion. Added a fixed
    loop and timeout-probe.ps1; smoke.ps1 -RuntimeTimeout reuses the container profile
