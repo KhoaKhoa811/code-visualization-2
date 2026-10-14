@@ -54,6 +54,8 @@
 
 ## Verification and handoff
 
+- At the start of each part, list all planned tasks so the user can see the big picture. Update that list when the plan changes; this does not expand the approved scope.
+
 - Include the relevant part label in task and planning branch names, using `<type>/part-<id>-<purpose>` (for example, `docs/part-4f-output-limits` or `docs/part-4f-planning`). This user preference makes small parts easier to track; a planning branch does not authorize the proposed task.
 - Add meaningful tests for semantic transformations, trace contracts, intermediate replay states, adapters, and runner isolation. Compare original and instrumented supported programs for final values, output, exceptions, and side-effect counts.
 - Include browser verification for sorting playback when the frontend exists. Check source edits, backward steps, failures, limits, and cleanup against relevant acceptance cases.

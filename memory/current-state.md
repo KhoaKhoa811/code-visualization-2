@@ -1,8 +1,12 @@
 # Current state and conversation memory
 
-Last updated: 2026-10-13 (Asia/Saigon).
+Last updated: 2026-10-14 (Asia/Saigon).
 
 ## Recovery instructions
+
+User preference confirmed 2026-10-14: at the start of every part, list all planned
+tasks so the user understands the big picture. Update the list if plans change.
+This is also recorded in AGENTS.md and does not authorize scope expansion.
 
 Read this file when resuming this project, then read `../AGENTS.md`,
 `../requirements/PROJECT_REQUIREMENTS.md`, and `next-steps.md` before planning work.
@@ -20,6 +24,14 @@ available in this session; it cannot reconstruct unavailable earlier chats.
 Long project instructions remain in their source files rather than being duplicated.
 
 ## Current scope
+
+- Part 5j approved by "i'm sorry, implement 5j" and reaffirmed by the recovery
+  request on 2026-10-14. Main pulled with --ff-only to 45fa36f (PR #62); the clean
+  Part 5j branch was fast-forwarded to main. Parts 5f through 5i are now merged.
+  Implemented -Privileges and a fixed shell fixture on chore/part-5j-privilege-probe.
+  Live checks, seven altered-status rejections, relevant existing probes, cleanup,
+  syntax, and mode-conflict checks passed. Full syscall/privilege-escalation and
+  Java-worker-specific status verification remain unfinished. No next part approved.
 
 - Part 5i approved by "ok, continue doing next task" after the Part 5 roadmap.
   Implemented -Network and NetworkIsolation.java on chore/part-5i-network-probe
@@ -1903,6 +1915,28 @@ preserve user messages and label assistant summaries explicitly.
     direct service checks, DNS/UDP, and adversarial tests remain unverified.
     Updated README and both memory files; publish chore/part-5i-network-probe.
     No Part 5j or later implementation is approved.
+
+89. User first said "ok, implement 5i", then corrected: "i'm sorry, implement 5j".
+    Created chore/part-5j-privilege-probe and inspected relevant files before the
+    session stopped. No implementation changes existed at recovery.
+
+90. User requested memory recovery, said all branches were merged, and asked to
+    list every planned task at the start of each part before continuing Part 5j.
+    Recorded this preference in AGENTS.md and both memory files. Listed five tasks:
+    recover/pull, implement privilege checks, negative cases/cleanup, regressions,
+    documentation/commit/push. Read current-state.md and next-steps.md (the actual
+    filename is plural), then pulled main to 45fa36f and fast-forwarded the task
+    branch. Added a fixed shell fixture checking PID 1 and its own process status:
+    UID/GID values, group identities, five empty capability sets, NoNewPrivs=1,
+    Seccomp=2, and a positive filter count. Reject extra Docker groups/capabilities
+    or security-option overrides. Docker was stopped; started using prior setup
+    authorization. Initial probe found a PowerShell null-list counting issue;
+    corrected it, then live status and seven altered-status rejection cases passed
+    with cleanup. The negative cases changed status copies, not container security.
+    Fixture restored byte-for-byte. Filesystem/network/default Java regressions,
+    cancellation at 398 ms, syntax, five mode conflicts, and whitespace passed.
+    Documented limits and sources. Publish Part 5j; automatic PR tooling remains
+    unavailable, so provide a manual PR link. No Part 5k implementation approved.
 
 ## Latest verification notes
 

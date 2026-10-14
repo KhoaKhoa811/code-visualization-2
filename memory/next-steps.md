@@ -1,8 +1,22 @@
 # Next steps
 
-Last updated: 2026-10-13 (Asia/Saigon).
+Last updated: 2026-10-14 (Asia/Saigon).
+
+Standing user preference: begin every part by listing all planned tasks. Update
+the list when needed so the user can follow the big picture. Do not expand scope
+without approval. This preference is also recorded in AGENTS.md.
 
 ## Part 5 roadmap and latest handoff
+
+Part 5j is approved and verified on chore/part-5j-privilege-probe. Recovery pulled
+main to 45fa36f (PR #62), including Parts 5f through 5i, and fast-forwarded the
+clean task branch. -Privileges checks PID 1/probe identities, groups, empty
+capability sets, no-new-privileges, and active seccomp filters. Seven altered-status
+rejection cases, cleanup, filesystem/network/default Java regressions, cancellation
+(398 ms), syntax, and five mode conflicts passed. Full syscall-policy/adversarial
+privilege testing and Java-worker-specific status checks remain unverified.
+Publish and stop for review. Next proposed part is 5k mount/writable-path audit;
+its implementation is not approved. Older pending-merge notes below are historical.
 
 User approved the next task with "ok, continue doing next task" after the roadmap.
 Part 5i is implemented on chore/part-5i-network-probe, based on roadmap commit
@@ -23,7 +37,7 @@ was previously approved. Parts 5a through 5h are delivered; Part 5h is pushed as
 | Part | Proposed work |
 | --- | --- |
 | 5i | Implemented loopback-only network probe; evidence and limits recorded above. |
-| 5j | Effective privilege restrictions: groups, capabilities, no-new-privileges, seccomp. |
+| 5j | Implemented effective privilege probe; verified evidence and limits recorded above. |
 | 5k | Audit mounts and writable paths for unexpected storage or host exposure. |
 | 5l | Verify writable-storage byte limits on all three tmpfs mounts. |
 | 5m | Verify file/inode limits on all three tmpfs mounts. |

@@ -1,4 +1,4 @@
-# Runner setup (Parts 5a–5i)
+# Runner setup (Parts 5a–5j)
 
 Read `preflight.ps1` first: it is a prerequisite check, not a Java runner.
 The script supports Windows PowerShell 5.1 or later on Windows and changes no
@@ -324,3 +324,35 @@ loopback endpoint, a refused loopback endpoint, or a wrong interface expectation
 caused failure with verified cleanup; temporary fixture edits were restored.
 Filesystem, cancellation (347 ms), and normal Java compile/output regression
 checks passed. PowerShell syntax, four conflicting modes, and whitespace passed.
+
+## Effective privilege probe (Part 5j)
+
+```powershell
+.\runner\smoke.ps1 -Privileges
+$LASTEXITCODE
+```
+
+The fixed [shell fixture](fixtures/privileges.sh) checks `/proc/1/status` and
+the inspecting process's `/proc/self/status`. All real/effective/saved/filesystem
+UIDs and GIDs must be 10001. Supplementary group identities must be absent or
+10001 only. Inheritable, permitted, effective, bounding, and ambient capability
+sets must all be zero. `NoNewPrivs` must be 1; `Seccomp` must be 2 with at least
+one installed filter. Missing or duplicate required fields fail the probe.
+Field meanings follow the [Linux status documentation](https://www.man7.org/linux/man-pages/man5/proc_pid_status.5.html).
+
+Before launch, the supervisor rejects extra groups, added capabilities, and
+security-option overrides. It retains the existing default seccomp selection
+and restricted profile. The fixed-command wait remains 15 seconds and cleanup
+has its separate five-second budget. `-Privileges` excludes other probe switches.
+
+Verified on 2026-10-14: live status checks and cleanup passed. Seven altered
+status cases (root UID, extra group, nonzero effective capability, disabled
+no-new-privileges, disabled seccomp, zero filters, missing ambient capability)
+failed with verified cleanup. These were parser tests using modified status
+copies; container protections were never disabled. Fixture edits were restored.
+Filesystem, network, cancellation (398 ms), normal Java compile/output, syntax,
+and five conflicting-mode checks passed.
+
+This proves observed process restrictions, not a complete syscall-policy audit
+or adversarial privilege-escalation test. Filter mode/count does not identify the
+exact installed filter rules. Java-worker-specific status checks remain separate.
