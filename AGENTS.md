@@ -54,7 +54,7 @@
 
 ## Verification and handoff
 
-- At the start of each part, list all planned tasks so the user can see the big picture. Update that list when the plan changes; this does not expand the approved scope.
+- At the start of each major part (for example, Parts 4, 5, and 6), list its full planned task roadmap, including the intended smaller parts. At the start of each smaller part (for example, 5a or 5b), list its own implementation checklist. Keep both levels visible and update the relevant list when plans change. These lists explain the big picture and do not expand the approved scope or authorize later tasks.
 
 - Include the relevant part label in task and planning branch names, using `<type>/part-<id>-<purpose>` (for example, `docs/part-4f-output-limits` or `docs/part-4f-planning`). This user preference makes small parts easier to track; a planning branch does not authorize the proposed task.
 - Add meaningful tests for semantic transformations, trace contracts, intermediate replay states, adapters, and runner isolation. Compare original and instrumented supported programs for final values, output, exceptions, and side-effect counts.
