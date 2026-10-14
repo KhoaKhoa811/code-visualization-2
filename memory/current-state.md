@@ -28,6 +28,14 @@ Long project instructions remain in their source files rather than being duplica
 
 ## Current scope
 
+- Part 5m approved by "ok" after the inode-limit checklist. Added -StorageInodes
+  and storage-inodes.sh on chore/part-5m-inode-limits from 9f498e5. Fetch still
+  reports main 45fa36f. Verified total inode limits 4096/1024/1024, exhaustion
+  with bytes available, failed file/directory creation, restoration, and reuse.
+  Four negative cases, cleanup, relevant existing probes, syntax, and eight mode
+  conflicts passed. No later implementation approved. Remaining storage gaps:
+  Java-specific errors, terminal classification, concurrency, and mqueue limits.
+
 - Part 5l approved by "ok" after the five-task storage-byte proposal. Implemented
   -StorageBytes and storage-bytes.sh on chore/part-5l-storage-bytes from 4cd2ead.
   Latest fetch still reports main 45fa36f. Verified effective capacities 64/16/16
@@ -2003,6 +2011,26 @@ preserve user messages and label assistant summaries explicitly.
     passed. Updated README and both memory files. Publish Part 5l; no Part 5m or
     later implementation approved. Java-specific storage-error behavior, terminal
     classification, concurrency, inodes, and mqueue resource limits remain gaps.
+
+95. User: "ok, continue implement" after Part 5l delivery.
+    Proposed Part 5m and listed five tasks: review settings, fixed inode probe,
+    exhaustion with available bytes, recovery/failure/regression checks, publication.
+    Asked for the new scope confirmation under AGENTS.md.
+
+96. User: "ok" approving Part 5m.
+    Listed the tasks again, fetched main (still 45fa36f), and created
+    chore/part-5m-inode-limits from 9f498e5. Added a shell probe using effective
+    tmpfs inode counters. Empty files exhausted the remaining slots after accounting
+    for a probe directory and existing entries. File and directory creation both
+    failed at zero free inodes with data blocks available; removal restored each
+    baseline and creation worked again. Verified total limits 4096/1024/1024.
+    Negative tests rejected /work limits 2048/8192 and simulated successful file
+    or directory creation beyond the limit. All failures verified container cleanup;
+    temporary edits restored. Storage-byte/mount/filesystem/default Java regressions,
+    cancellation at 393 ms, syntax, eight mode conflicts, and whitespace passed.
+    Updated README and both memory files. Publish Part 5m; no Part 5n or later
+    implementation approved. These are fixed shell tests, not full submitted-Java
+    storage/error handling or message-queue resource verification.
 
 ## Latest verification notes
 
