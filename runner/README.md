@@ -1,4 +1,4 @@
-# Runner setup (Parts 5a–5g)
+# Runner setup (Parts 5a–5h)
 
 Read `preflight.ps1` first: it is a prerequisite check, not a Java runner.
 The script supports Windows PowerShell 5.1 or later on Windows and changes no
@@ -260,3 +260,34 @@ Cancellation here is a fixed supervisor request, not an application API or UI ac
 The label is not a trace envelope. Queued/compiling cancellation, repeated requests,
 completion/deadline races, input/trace cutoffs, and arbitrary descendants remain
 unverified. This small probe does not establish full cancellation enforcement.
+
+## Filesystem protection probe (Part 5h)
+
+```powershell
+.\runner\smoke.ps1 -Filesystem
+$LASTEXITCODE
+```
+
+The fixed [shell fixture](fixtures/filesystem.sh) runs as UID/GID 10001 in the
+existing restricted container. It checks `/proc/mounts` for a read-only root mount,
+then requires attempted new-file writes at `/` and `/opt/java/openjdk` to fail.
+Write denial alone does not prove read-only mounting: user permissions can also
+deny a write. The separate mount check supplies that evidence.
+
+The fixture requires `/work`, `/tmp`, and `/dev/shm` to be writable tmpfs mounts.
+It creates a small file in each, compares its bytes, removes it, and checks absence.
+The supervisor requires successful container exit and the expected marker, then
+verifies owned-container cleanup. The fixed-command wait remains 15 seconds;
+cleanup retains its separate five-second budget. Windows line endings are
+normalized before staging the shell fixture. This mode excludes all stop switches.
+
+Verified on 2026-10-13: the filesystem probe and cleanup passed. Temporarily
+expecting a writable root mount or treating `/tmp` as protected made the probe
+fail with verified cleanup; the fixture was restored. Cancellation (322 ms),
+parent/child timeout (5,009 ms), single-loop timeout (5,005 ms), and the normal
+Java compile/output check also passed. PowerShell syntax and conflicting-mode
+checks passed.
+
+This verifies selected paths with a trusted shell fixture. Storage byte/inode
+limits, cross-run reads, a complete writable-path audit, network restrictions,
+and submitted Java enforcement remain separate unfinished checks.

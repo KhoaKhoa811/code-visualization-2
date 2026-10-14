@@ -21,14 +21,15 @@ Long project instructions remain in their source files rather than being duplica
 
 ## Current scope
 
-- Latest exchange: user said "ok, continue" after Part 5g delivery. Part 5g was
-  committed and pushed as 0976226; working tree and upstream matched afterward.
-  Proposed Part 5h: a fixed filesystem protection probe that checks effective
-  read-only root mounting, rejection of protected writes, successful small-file
-  writes/reads in /work, /tmp, and /dev/shm, and container cleanup. Keep the
-  existing restricted profile unchanged. Storage quota/inode exhaustion, network,
-  and a complete writable-path audit are outside this small proposal. Explicit
-  implementation approval is pending; planning branch: docs/part-5h-planning.
+- Part 5h approved by the user's "ok" after the concrete filesystem proposal.
+  Implemented -Filesystem and a fixed shell fixture on
+  chore/part-5h-filesystem-probe, from planning commit 16ac4e6. Effective root
+  read-only mounting, protected-write denial, temporary-file round trips on
+  /work, /tmp, and /dev/shm, and cleanup passed. Two negative cases, existing
+  probes, syntax, and conflicting-mode checks passed. Profile unchanged.
+  Latest fetch still reports main 49c9c29; Parts 5f/5g merges remain unverified.
+  No later task is approved. Quotas, network, and full writable-path audit remain
+  unfinished. Part 5g was pushed as 0976226 with matching upstream and clean tree.
 
 - Part 5g is approved by the user's "ok" following the concrete cancellation
   proposal. Implemented -Cancel on chore/part-5g-cancellation-probe, based on
@@ -1841,6 +1842,27 @@ preserve user messages and label assistant summaries explicitly.
     Publish on chore/part-5g-cancellation-probe; GitHub CLI/PR tools remain absent,
     so provide a manual PR link. Full cancellation races and application integration
     remain unverified; no subsequent task is approved.
+
+85. User: "ok, continue" after Part 5g delivery.
+    Proposed Part 5h filesystem protection check; recorded and pushed planning
+    notes as 16ac4e6. Asked for scope approval under AGENTS.md.
+
+86. User: "ok" in response to the Part 5h approval question.
+    Implemented one small coherent part: fixed filesystem.sh and -Filesystem
+    mode using the existing container profile and cleanup. Check actual root
+    mount options independently of write denials, then test selected protected
+    paths and byte-for-byte temporary file round trips in all three tmpfs folders.
+    Both a wrong root-mount expectation and a writable path declared protected
+    were rejected with cleanup. Temporary fixture edits were restored. An ad hoc
+    regression wrapper failed to invoke the next check; explicit invocations
+    subsequently passed filesystem, cancellation (322 ms), parent/child timeout
+    (5,009 ms), single-loop timeout (5,005 ms), and normal Java compile/output.
+    PowerShell syntax, all three conflicting filesystem/stop switches, and
+    whitespace passed. README and both memory files updated. Publish on
+    chore/part-5h-filesystem-probe with manual PR link if automation remains
+    unavailable. This proves selected paths only, not quotas, network, cross-run
+    reads, a full writable-path audit, or submitted-code isolation. No next task
+    is approved.
 
 ## Latest verification notes
 

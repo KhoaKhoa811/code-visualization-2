@@ -1,9 +1,10 @@
 #requires -Version 5.1
 # Fixed trusted tool commands and repository fixture only; not submitted Java.
 [CmdletBinding()]
-param([switch]$RuntimeTimeout, [switch]$ChildTimeout, [switch]$Cancel)
+param([switch]$RuntimeTimeout, [switch]$ChildTimeout, [switch]$Cancel, [switch]$Filesystem)
 
 $ErrorActionPreference = 'Stop'
+if ($Filesystem -and ($RuntimeTimeout -or $ChildTimeout -or $Cancel)) { throw 'Select filesystem or a stop probe.' }
 if ($RuntimeTimeout -and $ChildTimeout) { throw 'Select only one timeout probe.' }
 if ($Cancel -and ($RuntimeTimeout -or $ChildTimeout)) { throw 'Select cancellation or a timeout probe.' }
 if ($Cancel) { $ChildTimeout = $true }
@@ -16,6 +17,11 @@ if ($pin.image -notmatch '^eclipse-temurin@sha256:[0-9a-f]{64}$' -or $pin.platfo
 if ($LASTEXITCODE -ne 0) { exit 1 }
 $fixtureName = if ($ChildTimeout) { 'ParentChildTimeout.java' } elseif ($RuntimeTimeout) { 'TimeoutLoop.java' } else { 'Main.java' }
 $fixture = [Convert]::ToBase64String([IO.File]::ReadAllBytes((Join-Path $PSScriptRoot "fixtures/$fixtureName")))
+if ($Filesystem) {
+    # Normalize Windows checkouts before sending the fixed POSIX shell fixture.
+    $source = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'fixtures/filesystem.sh')).Replace("`r`n", "`n")
+    $fixture = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($source))
+}
 $docker = (Get-Command docker.exe -CommandType Application | Select-Object -First 1).Source
 $identity = [guid]::NewGuid().ToString('N')
 $name = "codeviz-smoke-$identity"
@@ -73,6 +79,7 @@ try {
         "printf 'runner-ok\n' > /work/expected.txt; " +
         'cmp /work/expected.txt /work/actual.txt; test ! -s /work/program.err; cat /work/actual.txt'
     if ($RuntimeTimeout) { $probe = 'exec sleep infinity' }
+    if ($Filesystem) { $probe = "printf %s $fixture | base64 -d > /work/filesystem.sh; /bin/sh /work/filesystem.sh" }
     $null = Invoke-Docker ($options + '"' + $probe + '"') 10000
     $container = (Invoke-Docker "inspect $name" | ConvertFrom-Json)[0]
     $hostConfig = $container.HostConfig
@@ -95,17 +102,24 @@ try {
         $output = Invoke-Docker "start --attach $name" 15000
         $finished = (Invoke-Docker "inspect $name" | ConvertFrom-Json)[0]
         if ($finished.State.Running -or $finished.State.ExitCode -ne 0 -or $finished.State.OOMKilled) {
-            throw 'Toolchain commands did not finish successfully.'
+            throw 'Fixed probe commands did not finish successfully.'
         }
-        $lines = $output -split '\r?\n'
-        if ($lines[0] -ne '10001' -or $lines[1] -ne '10001' -or
-            $output -notmatch 'openjdk version "21[."]' -or $output -notmatch '(?m)^javac 21(?:\.|\s|$)' -or
-            $lines[-1] -ne 'runner-ok') {
-            throw "Unexpected identity/toolchain output: $output"
+        if ($Filesystem) {
+            if ($output -cne 'filesystem-ok') { throw "Unexpected filesystem output: $output" }
+            Write-Output 'PASS: UID/GID 10001, effective read-only root, and protected writes denied.'
+            Write-Output 'PASS: /work, /tmp, and /dev/shm are writable tmpfs; small files round-trip and are removed.'
         }
-        Write-Output $output
-        Write-Output 'PASS: UID/GID 10001, Java 21, javac 21, and normal container exit.'
-        Write-Output 'PASS: fixture compiled and ran with exact runner-ok output plus LF and empty stderr.'
+        else {
+            $lines = $output -split '\r?\n'
+            if ($lines[0] -ne '10001' -or $lines[1] -ne '10001' -or
+                $output -notmatch 'openjdk version "21[."]' -or $output -notmatch '(?m)^javac 21(?:\.|\s|$)' -or
+                $lines[-1] -ne 'runner-ok') {
+                throw "Unexpected identity/toolchain output: $output"
+            }
+            Write-Output $output
+            Write-Output 'PASS: UID/GID 10001, Java 21, javac 21, and normal container exit.'
+            Write-Output 'PASS: fixture compiled and ran with exact runner-ok output plus LF and empty stderr.'
+        }
     }
 }
 catch { $failed = $true; Write-Output "FAIL: $($_.Exception.Message)" }
