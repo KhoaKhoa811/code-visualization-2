@@ -2,6 +2,13 @@
 
 Last updated: 2026-10-13 (Asia/Saigon).
 
+Latest handoff: Part 5f is pushed as 6486a62. Its merge has not been verified.
+User said "ok, continue". Proposed Part 5g is a fixed parent/child cancellation
+probe: request cancellation before timeout, verify whole-container stop and
+cleanup, and rerun relevant existing probes. Implementation awaits explicit
+scope confirmation. No application API or full cancellation race coverage is
+included. Planning notes are on docs/part-5g-planning.
+
 Confirmed direction: visualize arbitrary user-authored Java as correctly as
 possible through reusable language capabilities, never exact program/algorithm
 templates. Define coverage to track implementation and truthful limitations,
