@@ -21,6 +21,15 @@ Long project instructions remain in their source files rather than being duplica
 
 ## Current scope
 
+- Latest exchange: user said "ok, continue" after Part 5g delivery. Part 5g was
+  committed and pushed as 0976226; working tree and upstream matched afterward.
+  Proposed Part 5h: a fixed filesystem protection probe that checks effective
+  read-only root mounting, rejection of protected writes, successful small-file
+  writes/reads in /work, /tmp, and /dev/shm, and container cleanup. Keep the
+  existing restricted profile unchanged. Storage quota/inode exhaustion, network,
+  and a complete writable-path audit are outside this small proposal. Explicit
+  implementation approval is pending; planning branch: docs/part-5h-planning.
+
 - Part 5g is approved by the user's "ok" following the concrete cancellation
   proposal. Implemented -Cancel on chore/part-5g-cancellation-probe, based on
   planning commit 7026f02. Latest fetch still reports main 49c9c29; Part 5f merge
