@@ -1,6 +1,6 @@
 # Next steps
 
-Last updated: 2026-10-12 (Asia/Saigon).
+Last updated: 2026-10-13 (Asia/Saigon).
 
 Confirmed direction: visualize arbitrary user-authored Java as correctly as
 possible through reusable language capabilities, never exact program/algorithm
@@ -8,7 +8,24 @@ templates. Define coverage to track implementation and truthful limitations,
 not to restrict the product to examples. Runtime facts must remain captured,
 and execution isolation restrictions still apply.
 
-1. Part 5e approved by "no, please implement it" after discussion. Added a fixed
+1. Recovery on 2026-10-13 pulled main with --ff-only to 49c9c29 (PR #54).
+   Parts 5b–5e are verified merged; earlier pending-merge notes below are historical.
+   Next proposed task: Part 5f, fixed parent/child timeout verification. User
+   selected "Discuss scope first"; implementation is not approved. Explain the
+   gap between a single Java loop and a program spawning a child: verify both
+   are active, apply the existing five-second runtime deadline, verify whole-
+   container termination and cleanup, and recheck existing probes. Reuse current
+   restrictions; no API/tracing/playback or complete-isolation claim. Discuss
+   scope feedback and obtain approval before implementation. Planning branch:
+   docs/part-5f-planning, based on newest main. Only memory notes change now.
+   User asked what parent/child Java fixture means. Explained: a fixed test
+   program starts another Java process; both keep running so timeout can verify
+   neither survives. This explanation does not approve Part 5f implementation.
+   Supplied an illustrative ParentChildExample: parent starts the same Java class
+   with a child argument in another JVM; both print their roles and sleep forever.
+   Example was not executed or added as a fixture. Part 5f still awaits approval.
+
+   Part 5e approved by "no, please implement it" after discussion. Added a fixed
    loop and timeout-probe.ps1; smoke.ps1 -RuntimeTimeout reuses the container profile
    and cleanup. Compilation precedes the 5,000 ms runtime clock; whole-container
    stop confirmation and cleanup each have their own five-second budget.
@@ -354,8 +371,8 @@ Part 4j proposal notes
 were pushed as 4c36237 on docs/part-4j-planning. Part 4j was pushed as 3b4d504 on
 docs/part-4j-array-capture-limits, based on those notes. It does not authorize runtime
 implementation or a later task; its merge is verified in main at 1bad656.
-Current task branch: chore/part-5e-runtime-timeout, from planning notes 2fdd335.
-Part 5e is approved and verified within the scope above; no later task is approved.
+Current discussion branch: docs/part-5f-planning, from main 49c9c29.
+Part 5e is verified merged; Part 5f awaits scope discussion and approval.
 Part 4l 3ab61d1 is pushed but its merge is not verified. Part 4m documentation is approved.
 Main was pulled/verified at bf58364 on 2026-10-11; Parts 4l–4r merge statements
 above are historical handoff notes. Part 4s was subsequently verified merged at c454563.

@@ -1,6 +1,6 @@
 # Current state and conversation memory
 
-Last updated: 2026-10-12 (Asia/Saigon).
+Last updated: 2026-10-13 (Asia/Saigon).
 
 ## Recovery instructions
 
@@ -22,6 +22,12 @@ Long project instructions remain in their source files rather than being duplica
 ## Current scope
 
 - Active milestone: Milestone 0, repository and specifications; incomplete.
+- Recovery on 2026-10-13 pulled main with --ff-only to 49c9c29 (PR #54).
+  Parts 5b–5e are verified merged by ancestry; prior unmerged handoffs below are
+  historical. Local main matches origin/main and was clean before planning.
+  Proposed next task is Part 5f, parent/child timeout verification. User selected
+  "Discuss scope first"; no implementation is approved or started. Discussion
+  branch: docs/part-5f-planning, based on current main.
 - Part 5e was approved by "no, please implement it" after scope discussion.
   smoke.ps1 -RuntimeTimeout compiles a fixed loop before the external five-second
   runtime timer, verifies whole-container stop, and reuses verified cleanup.
@@ -1696,6 +1702,67 @@ preserve user messages and label assistant summaries explicitly.
     full race/descendant/cancellation coverage, or completed isolation enforcement.
     Update usage notes and both memory files, commit/push, then stop for review.
     No later task approved; automatic PR creation remains unavailable.
+
+78. User: "read current-state.md, next-step.md and other files to recover memory.
+    I merged all the branches into main, so make sure using the newest code.
+    Continue next task"
+    Assistant read current-state.md, the actual next-steps.md, instructions,
+    requirements, and runner notes. Working tree was clean. Fetched origin,
+    switched to main, and pulled --ff-only to 49c9c29 (PR #54). Ancestry checks
+    confirm c4512e4, 560f690, 0225ee5, and 895937c (Parts 5b–5e) are merged.
+    Proposed Part 5f: one fixed parent/child Java fixture and a small extension
+    to the existing timeout probe; prove child startup/activity, then verify
+    whole-container shutdown and cleanup after the existing five-second runtime
+    deadline. Recheck existing probes; update notes and commit/push.
+    User selected "Discuss scope first". No implementation started. Explained
+    that stopping only a parent can leave descendants alive; Part 5e's single
+    Java loop does not exercise a user program spawning its own child. Confirm
+    both are active before the timeout, then verify neither survives termination.
+    Reuse existing restrictions, timer, and cleanup. Whole-container termination
+    is the requirement, not merely signalling a Unix process group. No new API,
+    tracing, playback, or broad isolation-completion claim is proposed.
+    Only both memory files change on docs/part-5f-planning. Documentation whitespace
+    checked; no runtime tests rerun for this recovery/discussion. Obtain explicit
+    scope approval before adding the fixture or changing the probe.
+
+79. User: "what are parent and child Java fixture?"
+    Explained that a fixture is a small sample program used for testing. The
+    parent is the Java process launched by the runner; it starts a second Java
+    process, called its child. They are separate running programs. The proposed
+    fixture keeps both running so the timeout probe can verify neither survives
+    whole-container termination. This is a fixed runner test, not a required
+    program pattern for app users. Part 5f remains unapproved; only discussion
+    memory is updated. Documentation whitespace checked; no runtime tests run.
+
+80. User: "can you give me an example?"
+    Gave an illustrative ParentChildExample Java class. Starting it with no
+    arguments enters the parent branch; ProcessBuilder launches the same class
+    in a second JVM with argument child, inheriting console output. Both then
+    sleep repeatedly forever. The expected console contains "Parent is running"
+    and "Child is running"; order can vary. After five seconds, the proposed
+    runner timeout must terminate both processes. The sample is explanatory,
+    not executed or added as a fixture. Part 5f remains unapproved.
+    Example shown:
+
+    ```java
+    public class ParentChildExample {
+        public static void main(String[] args) throws Exception {
+            if (args.length == 0) {
+                new ProcessBuilder(
+                    "java", "-cp", System.getProperty("java.class.path"),
+                    "ParentChildExample", "child"
+                ).inheritIO().start();
+                System.out.println("Parent is running");
+            } else {
+                System.out.println("Child is running");
+            }
+
+            while (true) {
+                Thread.sleep(1000);
+            }
+        }
+    }
+    ```
 
 ## Latest verification notes
 
