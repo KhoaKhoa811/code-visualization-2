@@ -2,7 +2,19 @@
 
 Last updated: 2026-10-13 (Asia/Saigon).
 
-## Proposed Part 5 endpoint (awaiting approval)
+## Part 5 roadmap and latest handoff
+
+User approved the next task with "ok, continue doing next task" after the roadmap.
+Part 5i is implemented on chore/part-5i-network-probe, based on roadmap commit
+02063de. -Network compiles a fixed Java fixture under the existing profile and
+checks no published ports, only loopback interfaces/addresses/routes, successful
+local TCP transfer, and network-unreachable errors for representative IPv4/IPv6
+destinations. Positive and three negative cases passed with cleanup. Filesystem,
+cancellation (347 ms), normal compile/output, syntax, and mode-conflict checks pass.
+Host/peer literals are representative, not discovered running services. Direct
+Windows-listener/live-peer tests and DNS/UDP/adversarial checks remain unverified;
+retain those gaps for final review. Latest fetch still reports main 49c9c29.
+Publish Part 5i and stop; Part 5j and later implementations require separate approval.
 
 User asked how many Part 5 tasks remain and requested a list. No fixed endpoint
 was previously approved. Parts 5a through 5h are delivered; Part 5h is pushed as
@@ -10,7 +22,7 @@ was previously approved. Parts 5a through 5h are delivered; Part 5h is pushed as
 
 | Part | Proposed work |
 | --- | --- |
-| 5i | Network isolation: external, host, and other-container access denied. |
+| 5i | Implemented loopback-only network probe; evidence and limits recorded above. |
 | 5j | Effective privilege restrictions: groups, capabilities, no-new-privileges, seccomp. |
 | 5k | Audit mounts and writable paths for unexpected storage or host exposure. |
 | 5l | Verify writable-storage byte limits on all three tmpfs mounts. |
@@ -30,7 +42,7 @@ This endpoint covers fixed runner probes and bounded supervision; it does not cl
 every Part 4u gate. Admission/queue APIs, interactive input, source analysis,
 trustworthy trace transport and capture, replay, and broader V1 features remain
 required later increments. Do not drop these requirements or claim full isolation
-from passing only this list. No new implementation is authorized by this discussion.
+from passing only this list. The subsequent approval covers Part 5i only.
 
 ## Previous handoff
 

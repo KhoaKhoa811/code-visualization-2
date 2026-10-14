@@ -1,4 +1,4 @@
-# Runner setup (Parts 5a–5h)
+# Runner setup (Parts 5a–5i)
 
 Read `preflight.ps1` first: it is a prerequisite check, not a Java runner.
 The script supports Windows PowerShell 5.1 or later on Windows and changes no
@@ -291,3 +291,36 @@ checks passed.
 This verifies selected paths with a trusted shell fixture. Storage byte/inode
 limits, cross-run reads, a complete writable-path audit, network restrictions,
 and submitted Java enforcement remain separate unfinished checks.
+
+## Network isolation probe (Part 5i)
+
+```powershell
+.\runner\smoke.ps1 -Network
+$LASTEXITCODE
+```
+
+The fixed [Java fixture](fixtures/NetworkIsolation.java) compiles and runs in the
+existing `--network=none` profile. The supervisor rejects published ports. The
+fixture requires exactly one active loopback interface, only loopback addresses,
+and no IPv4/IPv6 routes using another interface. A local TCP listener and client
+transfer one byte successfully as a positive control.
+
+Four numeric TCP destinations are tested with 500 ms connect deadlines:
+`192.0.2.1`, `172.17.0.1`, `172.17.0.2`, and `2001:db8::1`, all on port 9.
+Only the pinned runtime's observed `Network is unreachable` socket error passes;
+successful connections, refusal, timeouts, and other errors fail. No DNS lookup
+is needed. The existing 15-second fixed-command bound includes compilation and
+execution; cleanup retains its separate five-second budget. `-Network` excludes
+all other probe switches.
+
+The private addresses represent host/peer address categories; they are not
+discovered live services. Isolation evidence comes from the network configuration
+and effective interfaces/routes together with the socket checks, not from assuming
+those endpoints are running. Direct checks against a Windows host listener and
+a live peer container, DNS/UDP probes, and adversarial isolation remain unverified.
+
+Verified on 2026-10-13: the network probe and cleanup passed. Injecting a reachable
+loopback endpoint, a refused loopback endpoint, or a wrong interface expectation
+caused failure with verified cleanup; temporary fixture edits were restored.
+Filesystem, cancellation (347 ms), and normal Java compile/output regression
+checks passed. PowerShell syntax, four conflicting modes, and whitespace passed.
