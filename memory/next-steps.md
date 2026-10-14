@@ -2,12 +2,16 @@
 
 Last updated: 2026-10-13 (Asia/Saigon).
 
-Latest handoff: Part 5f is pushed as 6486a62. Its merge has not been verified.
-User said "ok, continue". Proposed Part 5g is a fixed parent/child cancellation
-probe: request cancellation before timeout, verify whole-container stop and
-cleanup, and rerun relevant existing probes. Implementation awaits explicit
-scope confirmation. No application API or full cancellation race coverage is
-included. Planning notes are on docs/part-5g-planning.
+Latest handoff: Part 5g approved by "ok" and implemented on
+chore/part-5g-cancellation-probe, based on planning notes 7026f02. -Cancel reuses
+the fixed parent/child fixture and stop/cleanup checks. Live cancellation at
+337 ms passed; early child exit and fake readiness markers failed with verified
+cleanup. Existing parent/child timeout (5,006 ms), single-loop timeout (5,013 ms),
+and normal compile/output checks passed. Temporary fixture edits were restored.
+Publish this small task and stop for review; no later task is approved. Application
+cancellation APIs, repeated requests, queued/compiling cancellation, input/trace
+cutoffs, and race coverage remain unfinished. Fetch still reports main 49c9c29;
+Part 5f is pushed as 6486a62 but its merge has not been verified.
 
 Confirmed direction: visualize arbitrary user-authored Java as correctly as
 possible through reusable language capabilities, never exact program/algorithm
