@@ -28,6 +28,14 @@ Long project instructions remain in their source files rather than being duplica
 
 ## Current scope
 
+- Part 5l approved by "ok" after the five-task storage-byte proposal. Implemented
+  -StorageBytes and storage-bytes.sh on chore/part-5l-storage-bytes from 4cd2ead.
+  Latest fetch still reports main 45fa36f. Verified effective capacities 64/16/16
+  MiB, real-page exhaustion with free inodes remaining, failed extra-byte append,
+  space restoration, and reuse. Three negative cases, cleanup, relevant existing
+  probes, syntax, and seven mode conflicts pass. No later implementation approved;
+  inode limits and message-queue resource verification remain unfinished.
+
 - Part 5k approved by "ok, continue implement 5k". Listed five tasks before work:
   recovery, inventory, focused probe, verification, and publication. Implemented
   -Mounts and mounts.sh on chore/part-5k-mount-audit from preference commit 721f365.
@@ -1975,6 +1983,26 @@ preserve user messages and label assistant summaries explicitly.
     Java regressions, cancellation at 475 ms, syntax, six switch-conflict checks,
     and whitespace passed. Updated README and both memory files. Publish this
     small part; no Part 5l or later implementation is approved.
+
+93. User: "ok, continue" after Part 5k delivery.
+    Proposed Part 5l with five tasks: check code/settings, add a fixed storage-byte
+    probe, verify full-capacity rejection, check cleanup/regressions, and publish
+    notes/code. Asked for scope approval. File-count limits remain Part 5m.
+
+94. User: "ok" approving Part 5l.
+    Repeated the task checklist, fetched main (still 45fa36f), and created
+    chore/part-5l-storage-bytes from Part 5k commit 4cd2ead. Added a shell fixture
+    using effective tmpfs block counters and real page writes. Verified capacities
+    of /work 64 MiB, /tmp 16 MiB, /dev/shm 16 MiB, accounting for existing files.
+    Each filled to zero available blocks with free inodes remaining, rejected an
+    extra byte without file growth, recovered its baseline space on removal, and
+    accepted a new small file. Negative cases changed /work to 32 or 128 MiB or
+    simulated successful overflow; all failed with verified container cleanup.
+    Temporary edits restored. Mount/filesystem/default Java regressions and
+    cancellation at 369 ms passed. Syntax, seven mode conflicts, and whitespace
+    passed. Updated README and both memory files. Publish Part 5l; no Part 5m or
+    later implementation approved. Java-specific storage-error behavior, terminal
+    classification, concurrency, inodes, and mqueue resource limits remain gaps.
 
 ## Latest verification notes
 

@@ -1,4 +1,4 @@
-# Runner setup (Parts 5a–5k)
+# Runner setup (Parts 5a–5l)
 
 Read `preflight.ps1` first: it is a prerequisite check, not a Java runner.
 The script supports Windows PowerShell 5.1 or later on Windows and changes no
@@ -391,3 +391,35 @@ start with cleanup. Temporary edits were restored. Privilege, filesystem, networ
 cancellation (475 ms), and normal Java compile/output regressions passed, along
 with syntax, six conflicting-mode checks, and whitespace. The existing 15-second
 fixed-command wait and separate five-second cleanup budget remain unchanged.
+
+## Storage byte-limit probe (Part 5l)
+
+```powershell
+.\runner\smoke.ps1 -StorageBytes
+$LASTEXITCODE
+```
+
+The fixed [shell fixture](fixtures/storage-bytes.sh) checks each tmpfs independently:
+`/work` must have 67,108,864 bytes total capacity; `/tmp` and `/dev/shm` must each
+have 16,777,216 bytes. Filesystem block counters provide the effective capacity;
+the fixture does not infer enforcement from a Docker setting or error text alone.
+
+For each mount, it accounts for existing files, writes real zero-filled pages into
+one probe file until available blocks reach zero, and requires an additional byte
+append to fail without growing the file. Free inodes must still remain. Removing
+the file must restore the original available-block count; a subsequent small
+write/read/remove cycle must also succeed. Only one mount is filled at a time.
+These capacities include existing source/fixture files; they are not guarantees
+of that many bytes of new user payload.
+
+Verified on 2026-10-14: all three mounts passed exhaustion, rejection, restored
+space, and reuse checks, with container cleanup. Temporary 32 MiB and 128 MiB
+`/work` configurations were rejected before filling; simulated successful overflow
+also failed the probe. All edits were restored. Mount/filesystem/default Java
+regressions and cancellation (369 ms) passed, as did syntax and seven conflicting
+mode checks. The existing 15-second fixed-command wait and separate five-second
+cleanup budget remain unchanged; `-StorageBytes` excludes every other mode.
+
+This verifies fixed shell writes against storage byte limits. Inode exhaustion
+(Part 5m), Java-specific caught storage errors, terminal classification, concurrent
+storage pressure, and the Part 5k message-queue gap remain unverified.

@@ -11,6 +11,15 @@ also recorded in AGENTS.md. Part 5j is pushed as a44a951; no next task is approv
 
 ## Part 5 roadmap and latest handoff
 
+Part 5l approved by "ok" and verified on chore/part-5l-storage-bytes from 4cd2ead.
+-StorageBytes checks effective 64/16/16 MiB tmpfs capacities, fills real pages,
+requires extra-byte failure while inodes remain available, restores space, and
+verifies reuse. Three negative cases, cleanup, mount/filesystem/default Java
+regressions, cancellation (369 ms), syntax, and seven mode conflicts pass.
+Latest fetch still reports main 45fa36f. Publish and stop for review. Next proposed
+task is 5m inode limits; it is not approved. Java storage-error behavior, terminal
+classification, concurrency, and message-queue resource controls remain unverified.
+
 Part 5k approved by "ok, continue implement 5k" and verified on
 chore/part-5k-mount-audit from 721f365. -Mounts audits configured/effective mounts,
 approved storage modes, /dev permissions, masked null devices, and management
@@ -53,7 +62,7 @@ was previously approved. Parts 5a through 5h are delivered; Part 5h is pushed as
 | 5i | Implemented loopback-only network probe; evidence and limits recorded above. |
 | 5j | Implemented effective privilege probe; verified evidence and limits recorded above. |
 | 5k | Implemented mount/writable-path audit; mqueue resource gap recorded above. |
-| 5l | Verify writable-storage byte limits on all three tmpfs mounts. |
+| 5l | Implemented storage byte-limit probe; three tmpfs capacities/exhaustion/reuse verified. |
 | 5m | Verify file/inode limits on all three tmpfs mounts. |
 | 5n | Verify Java heap exhaustion and actual caught/uncaught error behavior. |
 | 5o | Verify container memory/no-swap limit, trusted OOM evidence, and whole-run stop. |
