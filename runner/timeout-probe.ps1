@@ -1,13 +1,14 @@
 # Called by smoke.ps1; uses its bounded Invoke-Docker function and owned container.
-function Invoke-RuntimeTimeoutProbe([string]$ContainerName, [string]$DockerPath, [string]$Fixture) {
-    $compile = "printf %s $Fixture | base64 -d > /work/TimeoutLoop.java; " +
-        'javac -J-Xmx256m -J-Djava.io.tmpdir=/tmp -encoding UTF-8 -proc:none --release 21 -d /work /work/TimeoutLoop.java'
+function Invoke-RuntimeTimeoutProbe([string]$ContainerName, [string]$DockerPath, [string]$Fixture, [switch]$WithChild) {
+    $className = if ($WithChild) { 'ParentChildTimeout' } else { 'TimeoutLoop' }
+    $compile = "printf %s $Fixture | base64 -d > /work/$className.java; " +
+        "javac -J-Xmx256m -J-Djava.io.tmpdir=/tmp -encoding UTF-8 -proc:none --release 21 -d /work /work/$className.java"
     $null = Invoke-Docker ("exec $ContainerName /usr/bin/env -i PATH=/opt/java/openjdk/bin:/usr/bin:/bin HOME=/tmp /bin/sh -ec " + '"' + $compile + '"') 10000
     Write-Output 'PASS: timeout fixture compiled before the runtime deadline starts.'
 
     $process = New-Object Diagnostics.Process
     $process.StartInfo.FileName = $DockerPath
-    $process.StartInfo.Arguments = "--context desktop-linux exec $ContainerName /usr/bin/env -i PATH=/opt/java/openjdk/bin:/usr/bin:/bin HOME=/tmp java -Xmx128m -Djava.io.tmpdir=/tmp -cp /work TimeoutLoop"
+    $process.StartInfo.Arguments = "--context desktop-linux exec $ContainerName /usr/bin/env -i PATH=/opt/java/openjdk/bin:/usr/bin:/bin HOME=/tmp java -Xmx128m -Djava.io.tmpdir=/tmp -cp /work $className"
     $process.StartInfo.UseShellExecute = $false
     $process.StartInfo.CreateNoWindow = $true
     $process.StartInfo.RedirectStandardOutput = $true
@@ -19,6 +20,32 @@ function Invoke-RuntimeTimeoutProbe([string]$ContainerName, [string]$DockerPath,
         $started = $process.Start()
         $stdout = $process.StandardOutput.ReadToEndAsync()
         $stderr = $process.StandardError.ReadToEndAsync()
+        $pairEvidence = $null
+        if ($WithChild) {
+            # Observe real process ancestry; fixture text alone is insufficient.
+            while ($runtime.ElapsedMilliseconds -lt 5000 -and -not $process.HasExited) {
+                $remaining = 5000 - [int]$runtime.ElapsedMilliseconds
+                # Leave the final second for the deadline wait, not another CLI launch.
+                if ($remaining -le 1000) { break }
+                $snapshot = Invoke-Docker "top $ContainerName -eo pid,ppid,args" 1000
+                $rows = @($snapshot -split '\r?\n' | ForEach-Object {
+                    $row = [regex]::Match($_, '^\s*(\d+)\s+(\d+)\s+.*\sParentChildTimeout(\s+child)?\s*$')
+                    if ($row.Success) {
+                        [pscustomobject]@{ Pid = $row.Groups[1].Value; Parent = $row.Groups[2].Value; Child = $row.Groups[3].Success }
+                    }
+                })
+                $parents = @($rows | Where-Object { -not $_.Child })
+                $children = @($rows | Where-Object { $_.Child })
+                if ($parents.Count -eq 1 -and $children.Count -eq 1 -and
+                    $parents[0].Pid -ne $children[0].Pid -and $children[0].Parent -eq $parents[0].Pid -and
+                    $runtime.ElapsedMilliseconds -lt 5000) {
+                    $pairEvidence = "parent PID $($parents[0].Pid), child PID $($children[0].Pid)"
+                    break
+                }
+                $remaining = [Math]::Max(0, 5000 - [int]$runtime.ElapsedMilliseconds)
+                $null = $process.WaitForExit([Math]::Min(100, $remaining))
+            }
+        }
         $remaining = [Math]::Max(0, 5000 - [int]$runtime.ElapsedMilliseconds)
         if ($process.WaitForExit($remaining) -and $runtime.ElapsedMilliseconds -lt 5000) {
             throw 'Expected an infinite loop; the runtime exited before its deadline.'
@@ -42,8 +69,13 @@ function Invoke-RuntimeTimeoutProbe([string]$ContainerName, [string]$DockerPath,
             throw 'Runtime output did not close within termination confirmation.'
         }
         if ($termination.ElapsedMilliseconds -ge 5000) { throw 'Termination confirmation deadline expired.' }
-        if ($stdout.Result -cne "loop-started`n" -or $stderr.Result.Length -ne 0) {
+        $expected = if ($WithChild) { "parent-started`nchild-started`n" } else { "loop-started`n" }
+        if ($stdout.Result -cne $expected -or $stderr.Result.Length -ne 0) {
             throw 'Timeout occurred without the expected clean Java startup evidence.'
+        }
+        if ($WithChild) {
+            if (-not $pairEvidence) { throw 'Parent/child process ancestry was not observed before timeout.' }
+            Write-Output "PASS: observed $pairEvidence before timeout; whole-container termination covers both."
         }
         Write-Output "PASS: EXECUTION_TIMEOUT latched after $elapsed ms (5000 ms budget); whole container stopped."
         Write-Output 'PASS: Java startup recorded; container PID is zero and runtime attachment has exited.'

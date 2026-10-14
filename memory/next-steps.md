@@ -10,20 +10,21 @@ and execution isolation restrictions still apply.
 
 1. Recovery on 2026-10-13 pulled main with --ff-only to 49c9c29 (PR #54).
    Parts 5b–5e are verified merged; earlier pending-merge notes below are historical.
-   Next proposed task: Part 5f, fixed parent/child timeout verification. User
-   selected "Discuss scope first"; implementation is not approved. Explain the
-   gap between a single Java loop and a program spawning a child: verify both
-   are active, apply the existing five-second runtime deadline, verify whole-
-   container termination and cleanup, and recheck existing probes. Reuse current
-   restrictions; no API/tracing/playback or complete-isolation claim. Discuss
-   scope feedback and obtain approval before implementation. Planning branch:
-   docs/part-5f-planning, based on newest main. Only memory notes change now.
+   Part 5f approved by "ok, I understand now. Please implement it". Added the
+   fixed ParentChildTimeout fixture and -ChildTimeout mode. Require real Java
+   readiness and Docker PID/PPID evidence within the existing runtime budget;
+   stop process-list polling in the final second. Final timeout at 5,014 ms,
+   whole-container termination, and cleanup passed. Early-exiting child and
+   markers without a child were rejected; existing single-loop and normal checks
+   pass. Publish on chore/part-5f-child-timeout, from planning notes 23cc8dd.
+   Stop for review; no API/tracing/playback, arbitrary-descendant proof, or next task approved.
    User asked what parent/child Java fixture means. Explained: a fixed test
    program starts another Java process; both keep running so timeout can verify
    neither survives. This explanation does not approve Part 5f implementation.
    Supplied an illustrative ParentChildExample: parent starts the same Java class
    with a child argument in another JVM; both print their roles and sleep forever.
-   Example was not executed or added as a fixture. Part 5f still awaits approval.
+   That illustrative example was not executed. Subsequent Part 5f approval and
+   its distinct verified fixture are recorded above.
 
    Part 5e approved by "no, please implement it" after discussion. Added a fixed
    loop and timeout-probe.ps1; smoke.ps1 -RuntimeTimeout reuses the container profile
@@ -371,8 +372,8 @@ Part 4j proposal notes
 were pushed as 4c36237 on docs/part-4j-planning. Part 4j was pushed as 3b4d504 on
 docs/part-4j-array-capture-limits, based on those notes. It does not authorize runtime
 implementation or a later task; its merge is verified in main at 1bad656.
-Current discussion branch: docs/part-5f-planning, from main 49c9c29.
-Part 5e is verified merged; Part 5f awaits scope discussion and approval.
+Current task branch: chore/part-5f-child-timeout, from planning notes 23cc8dd.
+Part 5f is approved and verified within the scope above; no later task is approved.
 Part 4l 3ab61d1 is pushed but its merge is not verified. Part 4m documentation is approved.
 Main was pulled/verified at bf58364 on 2026-10-11; Parts 4l–4r merge statements
 above are historical handoff notes. Part 4s was subsequently verified merged at c454563.

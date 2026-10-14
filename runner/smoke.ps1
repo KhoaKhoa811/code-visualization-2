@@ -1,16 +1,18 @@
 #requires -Version 5.1
 # Fixed trusted tool commands and repository fixture only; not submitted Java.
 [CmdletBinding()]
-param([switch]$RuntimeTimeout)
+param([switch]$RuntimeTimeout, [switch]$ChildTimeout)
 
 $ErrorActionPreference = 'Stop'
+if ($RuntimeTimeout -and $ChildTimeout) { throw 'Select only one timeout probe.' }
+if ($ChildTimeout) { $RuntimeTimeout = $true }
 $pin = Get-Content (Join-Path $PSScriptRoot 'image.json') -Raw | ConvertFrom-Json
 if ($pin.image -notmatch '^eclipse-temurin@sha256:[0-9a-f]{64}$' -or $pin.platform -ne 'linux/amd64') {
     throw 'Expected the reviewed linux/amd64 image pin.'
 }
 & (Join-Path $PSScriptRoot 'preflight.ps1') -Image $pin.image
 if ($LASTEXITCODE -ne 0) { exit 1 }
-$fixtureName = if ($RuntimeTimeout) { 'TimeoutLoop.java' } else { 'Main.java' }
+$fixtureName = if ($ChildTimeout) { 'ParentChildTimeout.java' } elseif ($RuntimeTimeout) { 'TimeoutLoop.java' } else { 'Main.java' }
 $fixture = [Convert]::ToBase64String([IO.File]::ReadAllBytes((Join-Path $PSScriptRoot "fixtures/$fixtureName")))
 $docker = (Get-Command docker.exe -CommandType Application | Select-Object -First 1).Source
 $identity = [guid]::NewGuid().ToString('N')
@@ -85,7 +87,7 @@ try {
     if ($RuntimeTimeout) {
         $null = Invoke-Docker "start $name"
         . (Join-Path $PSScriptRoot 'timeout-probe.ps1')
-        Invoke-RuntimeTimeoutProbe -ContainerName $name -DockerPath $docker -Fixture $fixture
+        Invoke-RuntimeTimeoutProbe -ContainerName $name -DockerPath $docker -Fixture $fixture -WithChild:$ChildTimeout
     }
     else {
         $output = Invoke-Docker "start --attach $name" 15000
