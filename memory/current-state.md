@@ -21,6 +21,16 @@ Long project instructions remain in their source files rather than being duplica
 
 ## Current scope
 
+- User asked: "how many more tasks in part 5 that we have to implement? please
+  list them". No fixed Part 5 endpoint was previously approved. Proposed 13 more
+  parts, 5i through 5u, after the eight delivered parts 5a through 5h. The proposed
+  list is recorded at the top of next-steps.md: network, privileges, mount audit,
+  storage bytes, inodes, Java heap, container memory, tasks, compiler deadline,
+  bounded output, cross-run isolation, stop/cleanup failures and races, final
+  repeatable checks/gap review. The count may change if a part needs splitting.
+  This proposal does not approve implementation or complete all Part 4u/V1 work.
+  Part 5h is pushed as 76f2321; its working tree/upstream matched after publication.
+
 - Part 5h approved by the user's "ok" after the concrete filesystem proposal.
   Implemented -Filesystem and a fixed shell fixture on
   chore/part-5h-filesystem-probe, from planning commit 16ac4e6. Effective root
