@@ -1,6 +1,6 @@
 # Next steps
 
-Last updated: 2026-10-14 (Asia/Saigon).
+Last updated: 2026-10-15 (Asia/Saigon).
 
 Standing user preference, clarified 2026-10-14: begin each major part (4, 5, 6,
 etc.) with its full task roadmap and intended smaller parts. Begin each smaller
@@ -10,6 +10,15 @@ roadmaps do not approve later implementation or expand scope. This preference is
 also recorded in AGENTS.md. Part 5j is pushed as a44a951; no next task is approved.
 
 ## Part 5 roadmap and latest handoff
+
+Part 5n approved and recovered on 2026-10-15, completed on chore/part-5n-java-heap
+from 2a07e6d. -Heap verifies configured 128 MiB HotSpot heap, caught continuation/
+exit 0, uncaught heap error/exit 1, and zero cgroup OOM/kill counters. Seven negative
+cases, cleanup, cancellation (382 ms), timeout (5,003 ms), default Java regression,
+syntax, and nine mode conflicts passed. Fetch still reports main 45fa36f; preserved
+unfinished files and restarted Docker before tests. Publish and stop for review.
+Next proposed task is 5o container memory enforcement; it is not approved.
+Submitted-Java classification, partial traces, and container OOM handling remain gaps.
 
 Part 5m approved by "ok" and verified on chore/part-5m-inode-limits from 9f498e5.
 -StorageInodes verifies total inode capacities 4096/1024/1024, empty-file exhaustion,
@@ -73,7 +82,7 @@ was previously approved. Parts 5a through 5h are delivered; Part 5h is pushed as
 | 5k | Implemented mount/writable-path audit; mqueue resource gap recorded above. |
 | 5l | Implemented storage byte-limit probe; three tmpfs capacities/exhaustion/reuse verified. |
 | 5m | Implemented inode-limit probe; capacities, exhaustion, recovery, and reuse verified. |
-| 5n | Verify Java heap exhaustion and actual caught/uncaught error behavior. |
+| 5n | Implemented Java heap probe; caught/uncaught behavior verified without container OOM. |
 | 5o | Verify container memory/no-swap limit, trusted OOM evidence, and whole-run stop. |
 | 5p | Verify shared process/thread cap and denial using trusted task counters. |
 | 5q | Verify compilation deadline and prevention of runtime launch after expiry. |

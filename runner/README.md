@@ -1,4 +1,4 @@
-# Runner setup (Parts 5a–5m)
+# Runner setup (Parts 5a–5n)
 
 Read `preflight.ps1` first: it is a prerequisite check, not a Java runner.
 The script supports Windows PowerShell 5.1 or later on Windows and changes no
@@ -452,3 +452,36 @@ cleanup budget remain unchanged. `-StorageInodes` excludes every other probe mod
 
 Java-specific caught storage errors, terminal-status classification, concurrent
 storage pressure, and message-queue resource limits remain unverified.
+
+## Java heap-exhaustion probe (Part 5n)
+
+```powershell
+.\runner\smoke.ps1 -Heap
+$LASTEXITCODE
+```
+
+The fixed [Java fixture](fixtures/HeapExhaustion.java) retains 1 MiB arrays until
+allocation throws `OutOfMemoryError`. It checks the pinned HotSpot runtime's
+`MaxHeapSize` option equals 134,217,728 bytes and its reported usable maximum is
+positive and no larger. It does not assume usable heap equals the configured cap.
+
+The [shell checks](fixtures/heap-check.sh) run two fresh JVMs sequentially. The
+caught case releases retained references, prints its caught/continued markers,
+and exits 0 with exact stdout and empty stderr. The uncaught case exits 1 with
+only the startup marker on stdout and the expected heap-space error/stack frame
+on stderr. A fresh container's cgroup `oom` and `oom_kill` counters must each be
+present exactly once and zero before execution and after each case. Docker must
+also report no OOM kill. These checks distinguish this fixture's Java heap error
+from a container memory-limit event; they do not classify arbitrary submitted text.
+
+Verified on 2026-10-15: both cases and cleanup passed. Seven negative cases were
+rejected with cleanup: absent exhaustion, wrong continuation, uncaught success,
+64 MiB heap, injected OOM-kill evidence, missing counter, and duplicate counter.
+The counter cases use synthetic records, not actual container OOM kills. Temporary
+edits were restored. Cancellation (382 ms), timeout (5,003 ms), normal compilation/
+output, syntax, nine conflicting modes, and whitespace passed.
+
+The existing 15-second fixed-command wait covers compilation and both trusted
+cases; cleanup retains its separate five-second budget. `-Heap` excludes other
+modes. Container OOM enforcement remains Part 5o; submitted-Java classification,
+trace capture, and partial replay are not implemented by this probe.

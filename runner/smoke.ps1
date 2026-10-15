@@ -1,9 +1,10 @@
 #requires -Version 5.1
 # Fixed trusted tool commands and repository fixture only; not submitted Java.
 [CmdletBinding()]
-param([switch]$RuntimeTimeout, [switch]$ChildTimeout, [switch]$Cancel, [switch]$Filesystem, [switch]$Network, [switch]$Privileges, [switch]$Mounts, [switch]$StorageBytes, [switch]$StorageInodes)
+param([switch]$RuntimeTimeout, [switch]$ChildTimeout, [switch]$Cancel, [switch]$Filesystem, [switch]$Network, [switch]$Privileges, [switch]$Mounts, [switch]$StorageBytes, [switch]$StorageInodes, [switch]$Heap)
 
 $ErrorActionPreference = 'Stop'
+if ($Heap -and ($StorageInodes -or $StorageBytes -or $Mounts -or $Privileges -or $Network -or $Filesystem -or $RuntimeTimeout -or $ChildTimeout -or $Cancel)) { throw 'Select heap or another probe.' }
 if ($StorageInodes -and ($StorageBytes -or $Mounts -or $Privileges -or $Network -or $Filesystem -or $RuntimeTimeout -or $ChildTimeout -or $Cancel)) { throw 'Select storage inodes or another probe.' }
 if ($StorageBytes -and ($Mounts -or $Privileges -or $Network -or $Filesystem -or $RuntimeTimeout -or $ChildTimeout -or $Cancel)) { throw 'Select storage bytes or another probe.' }
 if ($Mounts -and ($Privileges -or $Network -or $Filesystem -or $RuntimeTimeout -or $ChildTimeout -or $Cancel)) { throw 'Select mounts or another probe.' }
@@ -20,7 +21,7 @@ if ($pin.image -notmatch '^eclipse-temurin@sha256:[0-9a-f]{64}$' -or $pin.platfo
 }
 & (Join-Path $PSScriptRoot 'preflight.ps1') -Image $pin.image
 if ($LASTEXITCODE -ne 0) { exit 1 }
-$fixtureName = if ($Network) { 'NetworkIsolation.java' } elseif ($ChildTimeout) { 'ParentChildTimeout.java' } elseif ($RuntimeTimeout) { 'TimeoutLoop.java' } else { 'Main.java' }
+$fixtureName = if ($Heap) { 'HeapExhaustion.java' } elseif ($Network) { 'NetworkIsolation.java' } elseif ($ChildTimeout) { 'ParentChildTimeout.java' } elseif ($RuntimeTimeout) { 'TimeoutLoop.java' } else { 'Main.java' }
 $fixture = [Convert]::ToBase64String([IO.File]::ReadAllBytes((Join-Path $PSScriptRoot "fixtures/$fixtureName")))
 if ($Filesystem -or $Privileges -or $Mounts -or $StorageBytes -or $StorageInodes) {
     # Normalize Windows checkouts before sending the fixed POSIX shell fixture.
@@ -95,6 +96,13 @@ try {
             'javac -J-Xmx256m -J-Djava.io.tmpdir=/tmp -encoding UTF-8 -proc:none --release 21 -d /work /work/NetworkIsolation.java; ' +
             'java -Xmx128m -Djava.io.tmpdir=/tmp -cp /work NetworkIsolation'
     }
+    if ($Heap) {
+        $checks = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'fixtures/heap-check.sh')).Replace("`r`n", "`n")
+        $encodedChecks = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($checks))
+        $probe = "printf %s $fixture | base64 -d > /work/HeapExhaustion.java; " +
+            'javac -J-Xmx256m -J-Djava.io.tmpdir=/tmp -encoding UTF-8 -proc:none --release 21 -d /work /work/HeapExhaustion.java; ' +
+            "printf %s $encodedChecks | base64 -d > /work/heap-check.sh; /bin/sh /work/heap-check.sh"
+    }
     $null = Invoke-Docker ($options + '"' + $probe + '"') 10000
     $container = (Invoke-Docker "inspect $name" | ConvertFrom-Json)[0]
     $hostConfig = $container.HostConfig
@@ -138,7 +146,13 @@ try {
         if ($finished.State.Running -or $finished.State.ExitCode -ne 0 -or $finished.State.OOMKilled) {
             throw 'Fixed probe commands did not finish successfully.'
         }
-        if ($StorageInodes) {
+        if ($Heap) {
+            if ($output -cne 'heap-ok') { throw "Unexpected heap output: $output" }
+            Write-Output 'PASS: 128 MiB Java heap; caught exhaustion continues and exits 0 with exact output and empty stderr.'
+            Write-Output 'PASS: uncaught exhaustion exits 1 with Java heap-space error and no continuation.'
+            Write-Output 'PASS: cgroup OOM/kill counters remain zero; container did not report OOMKilled.'
+        }
+        elseif ($StorageInodes) {
             if ($output -cne 'storage-inodes-ok') { throw "Unexpected inode output: $output" }
             Write-Output 'PASS: /work inode capacity 4096; /tmp and /dev/shm inode capacity 1024 each.'
             Write-Output 'PASS: file/directory creation rejected at zero free inodes with byte capacity remaining.'
