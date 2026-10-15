@@ -7,18 +7,25 @@ etc.) with its full task roadmap and intended smaller parts. Begin each smaller
 part (5a, 5b, etc.) with its own implementation checklist. Maintain both levels
 and update the relevant list when plans change. Apply this to future major parts;
 roadmaps do not approve later implementation or expand scope. This preference is
-also recorded in AGENTS.md. Part 5j is pushed as a44a951; no next task is approved.
+also recorded in AGENTS.md. Latest approved task is Part 5o; no later task is approved.
 
 ## Part 5 roadmap and latest handoff
 
 Latest recovery: user reported all branches merged and requested newest code.
 Pulled main with --ff-only to ccf332a (PR #68), including 618915b; main matched
 origin/main and was clean. Earlier pending-merge notes below are historical.
-Proposed Part 5o checklist: verify effective 512 MiB/no-extra-swap settings, add
-a fixed container-memory exhaustion case, require trusted OOM evidence rather
-than Java error text/exit code alone, verify whole-container stop and cleanup,
-run relevant regressions, and update/commit/push notes and code. Await explicit
-scope confirmation; no container OOM test started. Notes: docs/part-5o-planning.
+User approved Part 5o with "ok" after its checklist. Completed on
+chore/part-5o-container-memory from planning commit 227ea0f: effective 512 MiB/
+zero-swap checks, fixed Java memory pressure, trusted cgroup max/oom/oom_kill
+deltas, whole-container termination, and cleanup. Final evidence arrived at
+569 ms (235/12/2). Five negative cases rejected spoofed output, exit 137 alone,
+missing counters, preexisting OOM evidence, and the wrong expected memory limit;
+each verified cleanup. Heap, cancellation (414 ms), timeout (5,011 ms), and default
+Java regressions, syntax, ten mode conflicts, and whitespace checks passed.
+Publish this task and stop for review. Automatic PR
+creation is unavailable (no gh or GitHub tool); provide the manual branch PR link.
+Next proposed task is 5p process/thread limits; it is not approved. General
+submitted-Java classification, partial traces, and stop races remain unfinished.
 
 Part 5n approved and recovered on 2026-10-15, completed on chore/part-5n-java-heap
 from 2a07e6d. -Heap verifies configured 128 MiB HotSpot heap, caught continuation/
@@ -92,7 +99,7 @@ was previously approved. Parts 5a through 5h are delivered; Part 5h is pushed as
 | 5l | Implemented storage byte-limit probe; three tmpfs capacities/exhaustion/reuse verified. |
 | 5m | Implemented inode-limit probe; capacities, exhaustion, recovery, and reuse verified. |
 | 5n | Implemented Java heap probe; caught/uncaught behavior verified without container OOM. |
-| 5o | Verify container memory/no-swap limit, trusted OOM evidence, and whole-run stop. |
+| 5o | Implemented fixed container memory/zero-swap probe, trusted OOM evidence, and whole-run stop. |
 | 5p | Verify shared process/thread cap and denial using trusted task counters. |
 | 5q | Verify compilation deadline and prevention of runtime launch after expiry. |
 | 5r | Add bounded stdout/stderr collection and verify the shared byte quota. |

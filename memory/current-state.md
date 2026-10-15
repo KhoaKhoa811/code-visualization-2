@@ -31,10 +31,16 @@ Long project instructions remain in their source files rather than being duplica
 - Latest user request: "I merged all the branch into main, make sure you pull the
   newest code. Please continue implement". Pulled main with --ff-only to ccf332a
   (PR #68), including Part 5n 618915b and preceding delivered branches; local main
-  matched origin/main with a clean tree. Proposed Part 5o: effective 512 MiB/no-extra-
-  swap verification, fixed container memory exhaustion, trusted OOM evidence,
-  whole-container stop/cleanup, regressions, and publication. Scope confirmation
-  is pending; notes on docs/part-5o-planning. No Part 5o execution started.
+  matched origin/main with a clean tree. User approved Part 5o with "ok" after
+  its checklist. Completed on chore/part-5o-container-memory from 227ea0f:
+  effective 512 MiB/zero-swap limits, fixed Java memory pressure, trusted cgroup
+  counter evidence, whole-container termination, and cleanup. Final live evidence
+  arrived at 569 ms (max=235, oom=12, oom_kill=2). Five negative cases rejected
+  false or invalid evidence with cleanup. Heap, cancellation (414 ms), timeout
+  (5,011 ms), and default Java regressions passed. This is a fixed probe only;
+  submitted-Java classification and partial traces remain unfinished. Publish
+  this task and stop for review; Part 5p is not approved. Older scope notes below
+  describe their historical state, not current authorization.
 
 - Part 5n was approved by "ok" after its checklist and reaffirmed by the recovery
   request on 2026-10-15. Completed -Heap, HeapExhaustion.java, and heap-check.sh
@@ -2075,6 +2081,21 @@ preserve user messages and label assistant summaries explicitly.
     updated. Publish Part 5n with manual PR link if automation remains unavailable.
     No Part 5o or later implementation approved; this is not an arbitrary-program
     error classifier or proof of container OOM handling or trace preservation.
+
+100. User reported all branches merged and requested newest main before continuing.
+     Pulled main to ccf332a (PR #68), including Part 5n. Recorded the proposed
+     Part 5o checklist in planning commit 227ea0f and requested scope confirmation.
+
+101. User: "ok", approving Part 5o. Added -ContainerMemory, a focused supervisor,
+     and a fixed six-worker Java pressure fixture. Effective 512 MiB/zero-swap
+     limits and trusted max/oom/oom_kill deltas passed; final evidence at 569 ms
+     was 235/12/2. Whole-container termination and cleanup passed. Five negative
+     cases rejected false/invalid evidence with cleanup; temporary edits restored.
+     Heap, cancellation (414 ms), timeout (5,011 ms), and default Java checks passed.
+     PowerShell syntax, ten mode conflicts, and whitespace checks also passed.
+     Updated README and both memory files. Publish chore/part-5o-container-memory;
+     no gh or GitHub tool is available, so automatic PR creation remains blocked.
+     Part 5p is proposed only; no later implementation is approved.
 
 ## Latest verification notes
 
