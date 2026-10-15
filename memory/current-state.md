@@ -28,6 +28,14 @@ Long project instructions remain in their source files rather than being duplica
 
 ## Current scope
 
+- Latest user request: "I merged all the branch into main, make sure you pull the
+  newest code. Please continue implement". Pulled main with --ff-only to ccf332a
+  (PR #68), including Part 5n 618915b and preceding delivered branches; local main
+  matched origin/main with a clean tree. Proposed Part 5o: effective 512 MiB/no-extra-
+  swap verification, fixed container memory exhaustion, trusted OOM evidence,
+  whole-container stop/cleanup, regressions, and publication. Scope confirmation
+  is pending; notes on docs/part-5o-planning. No Part 5o execution started.
+
 - Part 5n was approved by "ok" after its checklist and reaffirmed by the recovery
   request on 2026-10-15. Completed -Heap, HeapExhaustion.java, and heap-check.sh
   on chore/part-5n-java-heap from 2a07e6d. Fetch still reports main 45fa36f; no

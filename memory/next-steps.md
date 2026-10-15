@@ -11,6 +11,15 @@ also recorded in AGENTS.md. Part 5j is pushed as a44a951; no next task is approv
 
 ## Part 5 roadmap and latest handoff
 
+Latest recovery: user reported all branches merged and requested newest code.
+Pulled main with --ff-only to ccf332a (PR #68), including 618915b; main matched
+origin/main and was clean. Earlier pending-merge notes below are historical.
+Proposed Part 5o checklist: verify effective 512 MiB/no-extra-swap settings, add
+a fixed container-memory exhaustion case, require trusted OOM evidence rather
+than Java error text/exit code alone, verify whole-container stop and cleanup,
+run relevant regressions, and update/commit/push notes and code. Await explicit
+scope confirmation; no container OOM test started. Notes: docs/part-5o-planning.
+
 Part 5n approved and recovered on 2026-10-15, completed on chore/part-5n-java-heap
 from 2a07e6d. -Heap verifies configured 128 MiB HotSpot heap, caught continuation/
 exit 0, uncaught heap error/exit 1, and zero cgroup OOM/kill counters. Seven negative
