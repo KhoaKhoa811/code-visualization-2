@@ -1,9 +1,10 @@
 #requires -Version 5.1
 # Fixed trusted tool commands and repository fixture only; not submitted Java.
 [CmdletBinding()]
-param([switch]$RuntimeTimeout, [switch]$ChildTimeout, [switch]$Cancel, [switch]$Filesystem, [switch]$Network, [switch]$Privileges, [switch]$Mounts)
+param([switch]$RuntimeTimeout, [switch]$ChildTimeout, [switch]$Cancel, [switch]$Filesystem, [switch]$Network, [switch]$Privileges, [switch]$Mounts, [switch]$StorageBytes)
 
 $ErrorActionPreference = 'Stop'
+if ($StorageBytes -and ($Mounts -or $Privileges -or $Network -or $Filesystem -or $RuntimeTimeout -or $ChildTimeout -or $Cancel)) { throw 'Select storage bytes or another probe.' }
 if ($Mounts -and ($Privileges -or $Network -or $Filesystem -or $RuntimeTimeout -or $ChildTimeout -or $Cancel)) { throw 'Select mounts or another probe.' }
 if ($Privileges -and ($Network -or $Filesystem -or $RuntimeTimeout -or $ChildTimeout -or $Cancel)) { throw 'Select privileges or another probe.' }
 if ($Network -and ($Filesystem -or $RuntimeTimeout -or $ChildTimeout -or $Cancel)) { throw 'Select network or another probe.' }
@@ -20,9 +21,9 @@ if ($pin.image -notmatch '^eclipse-temurin@sha256:[0-9a-f]{64}$' -or $pin.platfo
 if ($LASTEXITCODE -ne 0) { exit 1 }
 $fixtureName = if ($Network) { 'NetworkIsolation.java' } elseif ($ChildTimeout) { 'ParentChildTimeout.java' } elseif ($RuntimeTimeout) { 'TimeoutLoop.java' } else { 'Main.java' }
 $fixture = [Convert]::ToBase64String([IO.File]::ReadAllBytes((Join-Path $PSScriptRoot "fixtures/$fixtureName")))
-if ($Filesystem -or $Privileges -or $Mounts) {
+if ($Filesystem -or $Privileges -or $Mounts -or $StorageBytes) {
     # Normalize Windows checkouts before sending the fixed POSIX shell fixture.
-    $shellFixture = if ($Mounts) { 'mounts.sh' } elseif ($Privileges) { 'privileges.sh' } else { 'filesystem.sh' }
+    $shellFixture = if ($StorageBytes) { 'storage-bytes.sh' } elseif ($Mounts) { 'mounts.sh' } elseif ($Privileges) { 'privileges.sh' } else { 'filesystem.sh' }
     $source = [IO.File]::ReadAllText((Join-Path $PSScriptRoot "fixtures/$shellFixture")).Replace("`r`n", "`n")
     $fixture = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($source))
 }
@@ -86,6 +87,7 @@ try {
     if ($Filesystem) { $probe = "printf %s $fixture | base64 -d > /work/filesystem.sh; /bin/sh /work/filesystem.sh" }
     if ($Privileges) { $probe = "printf %s $fixture | base64 -d > /work/privileges.sh; /bin/sh /work/privileges.sh" }
     if ($Mounts) { $probe = "printf %s $fixture | base64 -d > /work/mounts.sh; /bin/sh /work/mounts.sh" }
+    if ($StorageBytes) { $probe = "printf %s $fixture | base64 -d > /work/storage-bytes.sh; /bin/sh /work/storage-bytes.sh" }
     if ($Network) {
         $probe = "printf %s $fixture | base64 -d > /work/NetworkIsolation.java; " +
             'javac -J-Xmx256m -J-Djava.io.tmpdir=/tmp -encoding UTF-8 -proc:none --release 21 -d /work /work/NetworkIsolation.java; ' +
@@ -134,7 +136,13 @@ try {
         if ($finished.State.Running -or $finished.State.ExitCode -ne 0 -or $finished.State.OOMKilled) {
             throw 'Fixed probe commands did not finish successfully.'
         }
-        if ($Mounts) {
+        if ($StorageBytes) {
+            if ($output -cne 'storage-bytes-ok') { throw "Unexpected storage-byte output: $output" }
+            Write-Output 'PASS: /work capacity 64 MiB; /tmp and /dev/shm capacity 16 MiB each.'
+            Write-Output 'PASS: real-page fills reach zero available blocks; extra byte rejected with free inodes remaining.'
+            Write-Output 'PASS: probe files removed, available space restored, and small writes reusable on all three mounts.'
+        }
+        elseif ($Mounts) {
             if ($output -cne 'mounts-ok') { throw "Unexpected mount audit output: $output" }
             Write-Output 'PASS: effective mount inventory matches the pinned profile; no extra configured volumes/devices.'
             Write-Output 'PASS: approved storage ownership, /dev write denial, and masked null devices verified.'
