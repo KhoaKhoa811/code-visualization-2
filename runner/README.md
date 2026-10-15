@@ -1,4 +1,4 @@
-# Runner setup (Parts 5a–5j)
+# Runner setup (Parts 5a–5k)
 
 Read `preflight.ps1` first: it is a prerequisite check, not a Java runner.
 The script supports Windows PowerShell 5.1 or later on Windows and changes no
@@ -356,3 +356,38 @@ and five conflicting-mode checks passed.
 This proves observed process restrictions, not a complete syscall-policy audit
 or adversarial privilege-escalation test. Filter mode/count does not identify the
 exact installed filter rules. Java-worker-specific status checks remain separate.
+
+## Mount and writable-path audit (Part 5k)
+
+```powershell
+.\runner\smoke.ps1 -Mounts
+$LASTEXITCODE
+```
+
+The supervisor requires exactly the three approved `HostConfig.Tmpfs` destinations
+and rejects extra configured volumes, bind mounts, inherited volumes, and device
+requests. The fixed [mount fixture](fixtures/mounts.sh) checks every `/proc/mounts`
+entry against the observed pinned profile. Unknown/duplicate entries, missing
+required mounts, writable root/system mounts, or missing temporary-storage
+restrictions fail. This intentionally fails on unreviewed platform layout changes.
+
+The audit checks storage ownership/modes, prevents user writes to `/dev`, scans
+its own filesystem for writable regular files/directories, and checks masked proc
+devices are null devices. Docker-managed hosts/hostname/resolver files must be
+read-only. Standard Docker/Podman socket paths must be absent. Kernel pseudo-filesystems
+are classified separately from the three approved regular-file storage mounts.
+
+Observed finding: `/dev/mqueue` allows creating a queue entry, but rejects ordinary
+byte writes. The probe removes its own entry and verifies absence. Message-queue
+allocation/limits and other writable kernel interfaces are not established safe
+by this audit; retain them as gaps for the final isolation review. The container
+profile is unchanged. This is not an image-secret audit or exhaustive device/API
+security proof. Storage byte/inode exhaustion remains Parts 5l/5m.
+
+Verified on 2026-10-14: the live audit passed. Five altered mount inventories
+(unknown mount, writable root, missing noexec, missing tmp, duplicate work) failed
+with cleanup. An actual extra 4 KiB tmpfs declaration was rejected before container
+start with cleanup. Temporary edits were restored. Privilege, filesystem, network,
+cancellation (475 ms), and normal Java compile/output regressions passed, along
+with syntax, six conflicting-mode checks, and whitespace. The existing 15-second
+fixed-command wait and separate five-second cleanup budget remain unchanged.

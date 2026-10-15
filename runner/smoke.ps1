@@ -1,9 +1,10 @@
 #requires -Version 5.1
 # Fixed trusted tool commands and repository fixture only; not submitted Java.
 [CmdletBinding()]
-param([switch]$RuntimeTimeout, [switch]$ChildTimeout, [switch]$Cancel, [switch]$Filesystem, [switch]$Network, [switch]$Privileges)
+param([switch]$RuntimeTimeout, [switch]$ChildTimeout, [switch]$Cancel, [switch]$Filesystem, [switch]$Network, [switch]$Privileges, [switch]$Mounts)
 
 $ErrorActionPreference = 'Stop'
+if ($Mounts -and ($Privileges -or $Network -or $Filesystem -or $RuntimeTimeout -or $ChildTimeout -or $Cancel)) { throw 'Select mounts or another probe.' }
 if ($Privileges -and ($Network -or $Filesystem -or $RuntimeTimeout -or $ChildTimeout -or $Cancel)) { throw 'Select privileges or another probe.' }
 if ($Network -and ($Filesystem -or $RuntimeTimeout -or $ChildTimeout -or $Cancel)) { throw 'Select network or another probe.' }
 if ($Filesystem -and ($RuntimeTimeout -or $ChildTimeout -or $Cancel)) { throw 'Select filesystem or a stop probe.' }
@@ -19,9 +20,9 @@ if ($pin.image -notmatch '^eclipse-temurin@sha256:[0-9a-f]{64}$' -or $pin.platfo
 if ($LASTEXITCODE -ne 0) { exit 1 }
 $fixtureName = if ($Network) { 'NetworkIsolation.java' } elseif ($ChildTimeout) { 'ParentChildTimeout.java' } elseif ($RuntimeTimeout) { 'TimeoutLoop.java' } else { 'Main.java' }
 $fixture = [Convert]::ToBase64String([IO.File]::ReadAllBytes((Join-Path $PSScriptRoot "fixtures/$fixtureName")))
-if ($Filesystem -or $Privileges) {
+if ($Filesystem -or $Privileges -or $Mounts) {
     # Normalize Windows checkouts before sending the fixed POSIX shell fixture.
-    $shellFixture = if ($Privileges) { 'privileges.sh' } else { 'filesystem.sh' }
+    $shellFixture = if ($Mounts) { 'mounts.sh' } elseif ($Privileges) { 'privileges.sh' } else { 'filesystem.sh' }
     $source = [IO.File]::ReadAllText((Join-Path $PSScriptRoot "fixtures/$shellFixture")).Replace("`r`n", "`n")
     $fixture = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($source))
 }
@@ -84,6 +85,7 @@ try {
     if ($RuntimeTimeout) { $probe = 'exec sleep infinity' }
     if ($Filesystem) { $probe = "printf %s $fixture | base64 -d > /work/filesystem.sh; /bin/sh /work/filesystem.sh" }
     if ($Privileges) { $probe = "printf %s $fixture | base64 -d > /work/privileges.sh; /bin/sh /work/privileges.sh" }
+    if ($Mounts) { $probe = "printf %s $fixture | base64 -d > /work/mounts.sh; /bin/sh /work/mounts.sh" }
     if ($Network) {
         $probe = "printf %s $fixture | base64 -d > /work/NetworkIsolation.java; " +
             'javac -J-Xmx256m -J-Djava.io.tmpdir=/tmp -encoding UTF-8 -proc:none --release 21 -d /work /work/NetworkIsolation.java; ' +
@@ -102,6 +104,17 @@ try {
         throw 'Created container configuration differs from the restricted smoke profile.'
     }
     Write-Output 'PASS: inspected container user, resource settings, network, capabilities, rootfs, logs, and mounts.'
+    if ($Mounts) {
+        $destinations = @($hostConfig.Tmpfs.PSObject.Properties.Name | Sort-Object)
+        if (($destinations -join ',') -ne '/dev/shm,/tmp,/work' -or
+            @($container.Mounts | Where-Object { $_.Destination -notin @('/dev/shm', '/tmp', '/work') }).Count -gt 0 -or
+            @($hostConfig.Binds | Where-Object { $null -ne $_ }).Count -gt 0 -or
+            @($hostConfig.VolumesFrom | Where-Object { $null -ne $_ }).Count -gt 0 -or
+            @($hostConfig.Devices | Where-Object { $null -ne $_ }).Count -gt 0 -or
+            @($hostConfig.DeviceRequests | Where-Object { $null -ne $_ }).Count -gt 0) {
+            throw 'Mount audit requires only the three approved tmpfs mounts and no host devices or volumes.'
+        }
+    }
     if ($Privileges -and ((@($hostConfig.GroupAdd | Where-Object { $null -ne $_ }).Count -gt 0) -or
         (@($hostConfig.CapAdd | Where-Object { $null -ne $_ }).Count -gt 0) -or
         @($hostConfig.SecurityOpt | Where-Object { $_ -ne 'no-new-privileges=true' }).Count -gt 0)) {
@@ -121,7 +134,12 @@ try {
         if ($finished.State.Running -or $finished.State.ExitCode -ne 0 -or $finished.State.OOMKilled) {
             throw 'Fixed probe commands did not finish successfully.'
         }
-        if ($Privileges) {
+        if ($Mounts) {
+            if ($output -cne 'mounts-ok') { throw "Unexpected mount audit output: $output" }
+            Write-Output 'PASS: effective mount inventory matches the pinned profile; no extra configured volumes/devices.'
+            Write-Output 'PASS: approved storage ownership, /dev write denial, and masked null devices verified.'
+        }
+        elseif ($Privileges) {
             if ($output -cne 'privileges-ok') { throw "Unexpected privilege output: $output" }
             Write-Output 'PASS: PID 1 and probe UID/GID 10001, no extra group identities, and all five capability sets empty.'
             Write-Output 'PASS: no-new-privileges enabled and seccomp filter mode active with at least one filter.'

@@ -28,6 +28,16 @@ Long project instructions remain in their source files rather than being duplica
 
 ## Current scope
 
+- Part 5k approved by "ok, continue implement 5k". Listed five tasks before work:
+  recovery, inventory, focused probe, verification, and publication. Implemented
+  -Mounts and mounts.sh on chore/part-5k-mount-audit from preference commit 721f365.
+  Fetch still reports main 45fa36f; Part 5j/preference merges remain unverified.
+  Live audit, five altered inventories, extra-tmpfs prelaunch rejection, existing
+  probe regressions, cleanup, syntax, and six mode conflicts passed. Important
+  finding: mqueue permits queue-entry creation but rejects ordinary byte writes;
+  probe entry removal is verified, queue resource limits are not. Profile unchanged.
+  No later implementation approved; Parts 5l/5m storage quotas remain unfinished.
+
 - Part 5j approved by "i'm sorry, implement 5j" and reaffirmed by the recovery
   request on 2026-10-14. Main pulled with --ff-only to 45fa36f (PR #62); the clean
   Part 5j branch was fast-forwarded to main. Parts 5f through 5i are now merged.
@@ -1947,6 +1957,24 @@ preserve user messages and label assistant summaries explicitly.
     a major-part roadmap plus a smaller-part checklist, maintained when plans
     change. This is a documentation-only preference update, not approval for
     Part 5k or another implementation task. Part 5j was pushed as a44a951.
+
+92. User: "ok, continue implement 5k"
+    Approved the mount/writable-path audit. Listed all five tasks at the start.
+    Fetched origin (main still 45fa36f), created chore/part-5k-mount-audit from
+    721f365, and reviewed actual mounts with a temporary diagnostic fixture.
+    Added a fixed allowlist audit, ownership/permission and masked-device checks,
+    /dev regular-file checks, standard management-socket absence, and prelaunch
+    checks for unexpected tmpfs/volumes/devices. Corrected Docker inspection to
+    read --tmpfs declarations from HostConfig.Tmpfs. Investigated a failing
+    assertion: /dev/mqueue can create an entry before rejecting ordinary writes.
+    Explicitly remove and verify absence of that probe-owned entry; document queue
+    resource controls as unverified rather than claiming no writable kernel APIs.
+    No container profile change. Five altered mount tables and an actual extra
+    4 KiB tmpfs declaration were rejected with cleanup (the latter before launch).
+    Restored all temporary edits. Live audit, privileges/filesystem/network/default
+    Java regressions, cancellation at 475 ms, syntax, six switch-conflict checks,
+    and whitespace passed. Updated README and both memory files. Publish this
+    small part; no Part 5l or later implementation is approved.
 
 ## Latest verification notes
 

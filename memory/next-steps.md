@@ -11,6 +11,17 @@ also recorded in AGENTS.md. Part 5j is pushed as a44a951; no next task is approv
 
 ## Part 5 roadmap and latest handoff
 
+Part 5k approved by "ok, continue implement 5k" and verified on
+chore/part-5k-mount-audit from 721f365. -Mounts audits configured/effective mounts,
+approved storage modes, /dev permissions, masked null devices, and management
+socket absence. Live audit, five altered-inventory failures, extra-tmpfs prelaunch
+rejection, relevant existing probes, cleanup, syntax, and six mode conflicts pass.
+Finding to retain: mqueue permits queue-entry creation but rejects ordinary byte
+writes; the probe removes its entry. Message-queue resource limits and other kernel
+interfaces remain unverified. No profile change; no full isolation claim. Fetch
+still reports main 45fa36f. Publish and stop. Next proposed part is 5l storage byte
+limits; it is not approved. Parts 5l/5m and final review must preserve these gaps.
+
 Part 5j is approved and verified on chore/part-5j-privilege-probe. Recovery pulled
 main to 45fa36f (PR #62), including Parts 5f through 5i, and fast-forwarded the
 clean task branch. -Privileges checks PID 1/probe identities, groups, empty
@@ -41,7 +52,7 @@ was previously approved. Parts 5a through 5h are delivered; Part 5h is pushed as
 | --- | --- |
 | 5i | Implemented loopback-only network probe; evidence and limits recorded above. |
 | 5j | Implemented effective privilege probe; verified evidence and limits recorded above. |
-| 5k | Audit mounts and writable paths for unexpected storage or host exposure. |
+| 5k | Implemented mount/writable-path audit; mqueue resource gap recorded above. |
 | 5l | Verify writable-storage byte limits on all three tmpfs mounts. |
 | 5m | Verify file/inode limits on all three tmpfs mounts. |
 | 5n | Verify Java heap exhaustion and actual caught/uncaught error behavior. |
