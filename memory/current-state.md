@@ -4,9 +4,12 @@ Last updated: 2026-10-14 (Asia/Saigon).
 
 ## Recovery instructions
 
-User preference confirmed 2026-10-14: at the start of every part, list all planned
-tasks so the user understands the big picture. Update the list if plans change.
-This is also recorded in AGENTS.md and does not authorize scope expansion.
+User preference confirmed and clarified 2026-10-14: at the start of every major
+part (4, 5, 6, etc.), list its full task roadmap and intended smaller parts. At
+the start of every smaller part (5a, 5b, etc.), list its own implementation
+checklist. Update either list when plans change. Apply both levels to future
+major parts. This is also recorded in AGENTS.md and does not authorize scope
+expansion or implementation of later tasks.
 
 Read this file when resuming this project, then read `../AGENTS.md`,
 `../requirements/PROJECT_REQUIREMENTS.md`, and `next-steps.md` before planning work.
@@ -1937,6 +1940,13 @@ preserve user messages and label assistant summaries explicitly.
     cancellation at 398 ms, syntax, five mode conflicts, and whitespace passed.
     Documented limits and sources. Publish Part 5j; automatic PR tooling remains
     unavailable, so provide a manual PR link. No Part 5k implementation approved.
+
+91. User clarified that task lists are required for major parts (4, 5, 6, etc.)
+    as well as smaller parts (5a, 5b, 5c, etc.), and asked that this be remembered
+    for future major parts. Updated AGENTS.md and both memory files to require
+    a major-part roadmap plus a smaller-part checklist, maintained when plans
+    change. This is a documentation-only preference update, not approval for
+    Part 5k or another implementation task. Part 5j was pushed as a44a951.
 
 ## Latest verification notes
 

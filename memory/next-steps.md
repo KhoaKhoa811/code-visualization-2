@@ -2,9 +2,12 @@
 
 Last updated: 2026-10-14 (Asia/Saigon).
 
-Standing user preference: begin every part by listing all planned tasks. Update
-the list when needed so the user can follow the big picture. Do not expand scope
-without approval. This preference is also recorded in AGENTS.md.
+Standing user preference, clarified 2026-10-14: begin each major part (4, 5, 6,
+etc.) with its full task roadmap and intended smaller parts. Begin each smaller
+part (5a, 5b, etc.) with its own implementation checklist. Maintain both levels
+and update the relevant list when plans change. Apply this to future major parts;
+roadmaps do not approve later implementation or expand scope. This preference is
+also recorded in AGENTS.md. Part 5j is pushed as a44a951; no next task is approved.
 
 ## Part 5 roadmap and latest handoff
 
