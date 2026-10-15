@@ -1,9 +1,10 @@
 #requires -Version 5.1
 # Fixed trusted tool commands and repository fixture only; not submitted Java.
 [CmdletBinding()]
-param([switch]$RuntimeTimeout, [switch]$ChildTimeout, [switch]$Cancel, [switch]$Filesystem, [switch]$Network, [switch]$Privileges, [switch]$Mounts, [switch]$StorageBytes)
+param([switch]$RuntimeTimeout, [switch]$ChildTimeout, [switch]$Cancel, [switch]$Filesystem, [switch]$Network, [switch]$Privileges, [switch]$Mounts, [switch]$StorageBytes, [switch]$StorageInodes)
 
 $ErrorActionPreference = 'Stop'
+if ($StorageInodes -and ($StorageBytes -or $Mounts -or $Privileges -or $Network -or $Filesystem -or $RuntimeTimeout -or $ChildTimeout -or $Cancel)) { throw 'Select storage inodes or another probe.' }
 if ($StorageBytes -and ($Mounts -or $Privileges -or $Network -or $Filesystem -or $RuntimeTimeout -or $ChildTimeout -or $Cancel)) { throw 'Select storage bytes or another probe.' }
 if ($Mounts -and ($Privileges -or $Network -or $Filesystem -or $RuntimeTimeout -or $ChildTimeout -or $Cancel)) { throw 'Select mounts or another probe.' }
 if ($Privileges -and ($Network -or $Filesystem -or $RuntimeTimeout -or $ChildTimeout -or $Cancel)) { throw 'Select privileges or another probe.' }
@@ -21,9 +22,9 @@ if ($pin.image -notmatch '^eclipse-temurin@sha256:[0-9a-f]{64}$' -or $pin.platfo
 if ($LASTEXITCODE -ne 0) { exit 1 }
 $fixtureName = if ($Network) { 'NetworkIsolation.java' } elseif ($ChildTimeout) { 'ParentChildTimeout.java' } elseif ($RuntimeTimeout) { 'TimeoutLoop.java' } else { 'Main.java' }
 $fixture = [Convert]::ToBase64String([IO.File]::ReadAllBytes((Join-Path $PSScriptRoot "fixtures/$fixtureName")))
-if ($Filesystem -or $Privileges -or $Mounts -or $StorageBytes) {
+if ($Filesystem -or $Privileges -or $Mounts -or $StorageBytes -or $StorageInodes) {
     # Normalize Windows checkouts before sending the fixed POSIX shell fixture.
-    $shellFixture = if ($StorageBytes) { 'storage-bytes.sh' } elseif ($Mounts) { 'mounts.sh' } elseif ($Privileges) { 'privileges.sh' } else { 'filesystem.sh' }
+    $shellFixture = if ($StorageInodes) { 'storage-inodes.sh' } elseif ($StorageBytes) { 'storage-bytes.sh' } elseif ($Mounts) { 'mounts.sh' } elseif ($Privileges) { 'privileges.sh' } else { 'filesystem.sh' }
     $source = [IO.File]::ReadAllText((Join-Path $PSScriptRoot "fixtures/$shellFixture")).Replace("`r`n", "`n")
     $fixture = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($source))
 }
@@ -88,6 +89,7 @@ try {
     if ($Privileges) { $probe = "printf %s $fixture | base64 -d > /work/privileges.sh; /bin/sh /work/privileges.sh" }
     if ($Mounts) { $probe = "printf %s $fixture | base64 -d > /work/mounts.sh; /bin/sh /work/mounts.sh" }
     if ($StorageBytes) { $probe = "printf %s $fixture | base64 -d > /work/storage-bytes.sh; /bin/sh /work/storage-bytes.sh" }
+    if ($StorageInodes) { $probe = "printf %s $fixture | base64 -d > /work/storage-inodes.sh; /bin/sh /work/storage-inodes.sh" }
     if ($Network) {
         $probe = "printf %s $fixture | base64 -d > /work/NetworkIsolation.java; " +
             'javac -J-Xmx256m -J-Djava.io.tmpdir=/tmp -encoding UTF-8 -proc:none --release 21 -d /work /work/NetworkIsolation.java; ' +
@@ -136,7 +138,13 @@ try {
         if ($finished.State.Running -or $finished.State.ExitCode -ne 0 -or $finished.State.OOMKilled) {
             throw 'Fixed probe commands did not finish successfully.'
         }
-        if ($StorageBytes) {
+        if ($StorageInodes) {
+            if ($output -cne 'storage-inodes-ok') { throw "Unexpected inode output: $output" }
+            Write-Output 'PASS: /work inode capacity 4096; /tmp and /dev/shm inode capacity 1024 each.'
+            Write-Output 'PASS: file/directory creation rejected at zero free inodes with byte capacity remaining.'
+            Write-Output 'PASS: probe files/directories removed, baseline inode counts restored, and creation reusable.'
+        }
+        elseif ($StorageBytes) {
             if ($output -cne 'storage-bytes-ok') { throw "Unexpected storage-byte output: $output" }
             Write-Output 'PASS: /work capacity 64 MiB; /tmp and /dev/shm capacity 16 MiB each.'
             Write-Output 'PASS: real-page fills reach zero available blocks; extra byte rejected with free inodes remaining.'

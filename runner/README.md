@@ -1,4 +1,4 @@
-# Runner setup (Parts 5a–5l)
+# Runner setup (Parts 5a–5m)
 
 Read `preflight.ps1` first: it is a prerequisite check, not a Java runner.
 The script supports Windows PowerShell 5.1 or later on Windows and changes no
@@ -423,3 +423,32 @@ cleanup budget remain unchanged; `-StorageBytes` excludes every other mode.
 This verifies fixed shell writes against storage byte limits. Inode exhaustion
 (Part 5m), Java-specific caught storage errors, terminal classification, concurrent
 storage pressure, and the Part 5k message-queue gap remain unverified.
+
+## Inode-limit probe (Part 5m)
+
+```powershell
+.\runner\smoke.ps1 -StorageInodes
+$LASTEXITCODE
+```
+
+The fixed [shell fixture](fixtures/storage-inodes.sh) requires effective inode
+capacities of 4,096 for `/work` and 1,024 each for `/tmp` and `/dev/shm`. It checks
+the actual tmpfs counters, including slots already used by directories and fixture
+files. These are total inode limits, not promises of that many new user files.
+
+Each mount is tested separately. A probe-owned directory consumes one inode;
+empty numeric files consume the remaining free slots. At zero free inodes, both
+another empty file and another directory must fail to be created while data blocks
+remain available. Removing the probe files and directory must restore the baseline
+free-inode count; a fresh directory/file creation and removal must also succeed.
+
+Verified on 2026-10-14: all three mounts passed exhaustion, rejection, recovery,
+reuse, and cleanup. Temporary `/work` limits of 2,048 and 8,192 were rejected;
+simulated successful file/directory creation beyond capacity also failed. Temporary
+edits were restored. Storage-byte, mount, filesystem, normal Java compile/output,
+and cancellation (393 ms) regressions passed, together with syntax, eight mode
+conflicts, and whitespace. The 15-second fixed-command wait and separate five-second
+cleanup budget remain unchanged. `-StorageInodes` excludes every other probe mode.
+
+Java-specific caught storage errors, terminal-status classification, concurrent
+storage pressure, and message-queue resource limits remain unverified.
