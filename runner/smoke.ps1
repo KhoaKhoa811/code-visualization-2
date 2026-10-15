@@ -1,9 +1,10 @@
 #requires -Version 5.1
 # Fixed trusted tool commands and repository fixture only; not submitted Java.
 [CmdletBinding()]
-param([switch]$RuntimeTimeout, [switch]$ChildTimeout, [switch]$Cancel, [switch]$Filesystem, [switch]$Network)
+param([switch]$RuntimeTimeout, [switch]$ChildTimeout, [switch]$Cancel, [switch]$Filesystem, [switch]$Network, [switch]$Privileges)
 
 $ErrorActionPreference = 'Stop'
+if ($Privileges -and ($Network -or $Filesystem -or $RuntimeTimeout -or $ChildTimeout -or $Cancel)) { throw 'Select privileges or another probe.' }
 if ($Network -and ($Filesystem -or $RuntimeTimeout -or $ChildTimeout -or $Cancel)) { throw 'Select network or another probe.' }
 if ($Filesystem -and ($RuntimeTimeout -or $ChildTimeout -or $Cancel)) { throw 'Select filesystem or a stop probe.' }
 if ($RuntimeTimeout -and $ChildTimeout) { throw 'Select only one timeout probe.' }
@@ -18,9 +19,10 @@ if ($pin.image -notmatch '^eclipse-temurin@sha256:[0-9a-f]{64}$' -or $pin.platfo
 if ($LASTEXITCODE -ne 0) { exit 1 }
 $fixtureName = if ($Network) { 'NetworkIsolation.java' } elseif ($ChildTimeout) { 'ParentChildTimeout.java' } elseif ($RuntimeTimeout) { 'TimeoutLoop.java' } else { 'Main.java' }
 $fixture = [Convert]::ToBase64String([IO.File]::ReadAllBytes((Join-Path $PSScriptRoot "fixtures/$fixtureName")))
-if ($Filesystem) {
+if ($Filesystem -or $Privileges) {
     # Normalize Windows checkouts before sending the fixed POSIX shell fixture.
-    $source = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'fixtures/filesystem.sh')).Replace("`r`n", "`n")
+    $shellFixture = if ($Privileges) { 'privileges.sh' } else { 'filesystem.sh' }
+    $source = [IO.File]::ReadAllText((Join-Path $PSScriptRoot "fixtures/$shellFixture")).Replace("`r`n", "`n")
     $fixture = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($source))
 }
 $docker = (Get-Command docker.exe -CommandType Application | Select-Object -First 1).Source
@@ -81,6 +83,7 @@ try {
         'cmp /work/expected.txt /work/actual.txt; test ! -s /work/program.err; cat /work/actual.txt'
     if ($RuntimeTimeout) { $probe = 'exec sleep infinity' }
     if ($Filesystem) { $probe = "printf %s $fixture | base64 -d > /work/filesystem.sh; /bin/sh /work/filesystem.sh" }
+    if ($Privileges) { $probe = "printf %s $fixture | base64 -d > /work/privileges.sh; /bin/sh /work/privileges.sh" }
     if ($Network) {
         $probe = "printf %s $fixture | base64 -d > /work/NetworkIsolation.java; " +
             'javac -J-Xmx256m -J-Djava.io.tmpdir=/tmp -encoding UTF-8 -proc:none --release 21 -d /work /work/NetworkIsolation.java; ' +
@@ -99,6 +102,11 @@ try {
         throw 'Created container configuration differs from the restricted smoke profile.'
     }
     Write-Output 'PASS: inspected container user, resource settings, network, capabilities, rootfs, logs, and mounts.'
+    if ($Privileges -and ((@($hostConfig.GroupAdd | Where-Object { $null -ne $_ }).Count -gt 0) -or
+        (@($hostConfig.CapAdd | Where-Object { $null -ne $_ }).Count -gt 0) -or
+        @($hostConfig.SecurityOpt | Where-Object { $_ -ne 'no-new-privileges=true' }).Count -gt 0)) {
+        throw 'Privilege probe must retain no extra groups/capabilities and the default seccomp selection.'
+    }
     if ($Network -and ($hostConfig.PublishAllPorts -or @($hostConfig.PortBindings.PSObject.Properties).Count -gt 0)) {
         throw 'Network probe must not publish ports.'
     }
@@ -113,7 +121,12 @@ try {
         if ($finished.State.Running -or $finished.State.ExitCode -ne 0 -or $finished.State.OOMKilled) {
             throw 'Fixed probe commands did not finish successfully.'
         }
-        if ($Network) {
+        if ($Privileges) {
+            if ($output -cne 'privileges-ok') { throw "Unexpected privilege output: $output" }
+            Write-Output 'PASS: PID 1 and probe UID/GID 10001, no extra group identities, and all five capability sets empty.'
+            Write-Output 'PASS: no-new-privileges enabled and seccomp filter mode active with at least one filter.'
+        }
+        elseif ($Network) {
             if ($output -cne 'network-ok') { throw "Unexpected network output: $output" }
             Write-Output 'PASS: only loopback interfaces/routes; local socket transfer works.'
             Write-Output 'PASS: representative external/private IPv4 and external IPv6 connections report network unreachable.'
