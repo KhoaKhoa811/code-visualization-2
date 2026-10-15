@@ -1,6 +1,6 @@
 # Current state and conversation memory
 
-Last updated: 2026-10-14 (Asia/Saigon).
+Last updated: 2026-10-15 (Asia/Saigon).
 
 ## Recovery instructions
 
@@ -27,6 +27,14 @@ available in this session; it cannot reconstruct unavailable earlier chats.
 Long project instructions remain in their source files rather than being duplicated.
 
 ## Current scope
+
+- Part 5n was approved by "ok" after its checklist and reaffirmed by the recovery
+  request on 2026-10-15. Completed -Heap, HeapExhaustion.java, and heap-check.sh
+  on chore/part-5n-java-heap from 2a07e6d. Fetch still reports main 45fa36f; no
+  newer main changes were available. Caught/uncaught Java exhaustion, seven
+  negative cases, cleanup, cancellation/timeout/default Java regressions, syntax,
+  and nine mode conflicts passed. Container OOM counters stayed zero in live heap
+  cases. No Part 5o implementation approved; full container OOM/trace handling remains.
 
 - Part 5m approved by "ok" after the inode-limit checklist. Added -StorageInodes
   and storage-inodes.sh on chore/part-5m-inode-limits from 9f498e5. Fetch still
@@ -2031,6 +2039,34 @@ preserve user messages and label assistant summaries explicitly.
     Updated README and both memory files. Publish Part 5m; no Part 5n or later
     implementation approved. These are fixed shell tests, not full submitted-Java
     storage/error handling or message-queue resource verification.
+
+97. User: "ok" after Part 5m delivery.
+    Proposed Part 5n and listed tasks: check code/128 MiB heap, fixed caught and
+    uncaught cases, actual Java behavior versus container OOM, regressions/cleanup,
+    and documentation/publication. Container memory exhaustion remains Part 5o.
+
+98. User: "ok" approving Part 5n.
+    Created chore/part-5n-java-heap from 2a07e6d. Added the fixed Java fixture,
+    shell assertions, and -Heap. Initial test exposed an incorrect assumption that
+    Runtime.maxMemory must equal the configured ceiling. Corrected the fixture to
+    inspect HotSpot MaxHeapSize and bound the usable maximum. Live cases passed
+    before the session stopped; changes and results had not yet been committed.
+
+99. User requested current-state/next-step/Git recovery and continuation of Part 5n.
+    On 2026-10-15, read current-state.md and actual next-steps.md, inspected the
+    three unfinished files, and fetched origin (main still 45fa36f). Preserved the
+    implementation. Strengthened cgroup-counter checks to require each OOM field
+    exactly once, with explicit rejection diagnostics. Docker was stopped and was
+    restarted under existing setup approval. Seven negative cases rejected missing
+    exhaustion, wrong continuation, uncaught success, 64 MiB heap, synthetic kill
+    evidence, missing counter, and duplicate counter, all with cleanup. Restored
+    temporary edits. Final live caught case exited 0 and continued; uncaught exited
+    1 with heap-space error. Cgroup OOM/kill counters stayed zero; Docker OOMKilled
+    was false. Cancellation (382 ms), timeout (5,003 ms), normal Java compile/output,
+    syntax, nine mode conflicts, and whitespace passed. README and both memory files
+    updated. Publish Part 5n with manual PR link if automation remains unavailable.
+    No Part 5o or later implementation approved; this is not an arbitrary-program
+    error classifier or proof of container OOM handling or trace preservation.
 
 ## Latest verification notes
 
