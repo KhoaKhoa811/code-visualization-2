@@ -1,9 +1,10 @@
 #requires -Version 5.1
 # Fixed trusted tool commands and repository fixture only; not submitted Java.
 [CmdletBinding()]
-param([switch]$RuntimeTimeout, [switch]$ChildTimeout, [switch]$Cancel, [switch]$Filesystem, [switch]$Network, [switch]$Privileges, [switch]$Mounts, [switch]$StorageBytes, [switch]$StorageInodes, [switch]$Heap, [switch]$ContainerMemory, [switch]$Tasks)
+param([switch]$RuntimeTimeout, [switch]$ChildTimeout, [switch]$Cancel, [switch]$Filesystem, [switch]$Network, [switch]$Privileges, [switch]$Mounts, [switch]$StorageBytes, [switch]$StorageInodes, [switch]$Heap, [switch]$ContainerMemory, [switch]$Tasks, [switch]$CompilationTimeout)
 
 $ErrorActionPreference = 'Stop'
+if ($CompilationTimeout -and ($Tasks -or $ContainerMemory -or $Heap -or $StorageInodes -or $StorageBytes -or $Mounts -or $Privileges -or $Network -or $Filesystem -or $RuntimeTimeout -or $ChildTimeout -or $Cancel)) { throw 'Select compilation timeout or another probe.' }
 if ($Tasks -and ($ContainerMemory -or $Heap -or $StorageInodes -or $StorageBytes -or $Mounts -or $Privileges -or $Network -or $Filesystem -or $RuntimeTimeout -or $ChildTimeout -or $Cancel)) { throw 'Select tasks or another probe.' }
 if ($ContainerMemory -and ($Heap -or $StorageInodes -or $StorageBytes -or $Mounts -or $Privileges -or $Network -or $Filesystem -or $RuntimeTimeout -or $ChildTimeout -or $Cancel)) { throw 'Select container memory or another probe.' }
 if ($Heap -and ($StorageInodes -or $StorageBytes -or $Mounts -or $Privileges -or $Network -or $Filesystem -or $RuntimeTimeout -or $ChildTimeout -or $Cancel)) { throw 'Select heap or another probe.' }
@@ -87,7 +88,7 @@ try {
         'java -Xmx128m -Djava.io.tmpdir=/tmp -cp /work Main > /work/actual.txt 2> /work/program.err; ' +
         "printf 'runner-ok\n' > /work/expected.txt; " +
         'cmp /work/expected.txt /work/actual.txt; test ! -s /work/program.err; cat /work/actual.txt'
-    if ($RuntimeTimeout -or $ContainerMemory -or $Tasks) { $probe = 'exec sleep infinity' }
+    if ($RuntimeTimeout -or $ContainerMemory -or $Tasks -or $CompilationTimeout) { $probe = 'exec sleep infinity' }
     if ($Filesystem) { $probe = "printf %s $fixture | base64 -d > /work/filesystem.sh; /bin/sh /work/filesystem.sh" }
     if ($Privileges) { $probe = "printf %s $fixture | base64 -d > /work/privileges.sh; /bin/sh /work/privileges.sh" }
     if ($Mounts) { $probe = "printf %s $fixture | base64 -d > /work/mounts.sh; /bin/sh /work/mounts.sh" }
@@ -137,7 +138,12 @@ try {
     if ($Network -and ($hostConfig.PublishAllPorts -or @($hostConfig.PortBindings.PSObject.Properties).Count -gt 0)) {
         throw 'Network probe must not publish ports.'
     }
-    if ($Tasks) {
+    if ($CompilationTimeout) {
+        $null = Invoke-Docker "start $name"
+        . (Join-Path $PSScriptRoot 'compilation-probe.ps1')
+        Invoke-CompilationTimeoutProbe -ContainerName $name -DockerPath $docker -Fixture $fixture
+    }
+    elseif ($Tasks) {
         $null = Invoke-Docker "start $name"
         . (Join-Path $PSScriptRoot 'task-probe.ps1')
         Invoke-TaskLimitProbe -ContainerName $name -Fixture $fixture
