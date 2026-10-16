@@ -1,4 +1,4 @@
-# Runner setup (Parts 5a–5n)
+# Runner setup (Parts 5a–5o)
 
 Read `preflight.ps1` first: it is a prerequisite check, not a Java runner.
 The script supports Windows PowerShell 5.1 or later on Windows and changes no
@@ -485,3 +485,42 @@ The existing 15-second fixed-command wait covers compilation and both trusted
 cases; cleanup retains its separate five-second budget. `-Heap` excludes other
 modes. Container OOM enforcement remains Part 5o; submitted-Java classification,
 trace capture, and partial replay are not implemented by this probe.
+
+## Container memory probe (Part 5o)
+
+```powershell
+.\runner\smoke.ps1 -ContainerMemory
+$LASTEXITCODE
+```
+
+The fixed [Java fixture](fixtures/ContainerMemoryPressure.java) starts six workers,
+each retaining 80 MiB of touched arrays with its own 128 MiB heap. Serial GC and
+one active processor keep worker thread counts low. All workers share the existing
+512 MiB container budget; the container profile is unchanged.
+
+The [supervisor](memory-probe.ps1) reads effective cgroup `memory.max=536870912`
+and `memory.swap.max=0` through trusted Docker commands. After compilation, OOM
+and OOM-kill counters must be zero. During pressure, `max`, `oom`, and `oom_kill`
+must all increase before the runtime deadline. Output text, exit code 137, and
+Docker's `OOMKilled` flag alone cannot establish this evidence. A child may be
+the kernel's victim while PID 1 and other workers remain alive, so the supervisor
+then kills the whole container and verifies exited status, PID zero, attachment
+exit, and closed output streams. Normal ownership cleanup verifies absence.
+
+Compilation has a 10-second budget; runtime evidence has five seconds. Termination
+and cleanup each have separate five-second budgets. Missing, duplicate, invalid,
+late, or preexisting OOM evidence fails the probe. `-ContainerMemory` excludes all
+other modes. Fixed-fixture output is small; general output quotas remain Part 5r.
+
+Verified on 2026-10-15: final live evidence arrived after 569 ms with counters
+max=235, oom=12, oom_kill=2, followed by whole-container stop and cleanup. Five
+negative cases rejected spoofed output without pressure, exit 137 without OOM,
+a missing counter, preexisting OOM evidence, and an incorrect expected memory
+limit. Every negative case verified cleanup; temporary edits were restored.
+Heap, cancellation (414 ms), timeout (5,011 ms), and normal Java regressions passed.
+PowerShell syntax, ten conflicting-mode rejections, and whitespace checks passed.
+
+This proves the fixed local pressure case. Kernel victim selection and timings
+vary. `MEMORY_LIMIT` is a probe result, not an implemented API/trace status.
+Arbitrary submitted programs, partial traces, all failure races, and public
+deployment readiness remain outside this evidence.
