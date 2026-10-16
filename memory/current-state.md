@@ -1,6 +1,6 @@
 # Current state and conversation memory
 
-Last updated: 2026-10-15 (Asia/Saigon).
+Last updated: 2026-10-16 (Asia/Saigon).
 
 ## Recovery instructions
 
@@ -27,6 +27,21 @@ available in this session; it cannot reconstruct unavailable earlier chats.
 Long project instructions remain in their source files rather than being duplicated.
 
 ## Current scope
+
+- Part 5r approved by "ok" after 5q and reaffirmed by the 2026-10-16 recovery
+  request. Pulled main --ff-only to 238abf6 (PR #72), then merged it into
+  chore/part-5r-output-quota as 52b2b64. Preserved and restored all unfinished
+  files using a temporary stash; no conflicts or lost edits. Parts 5o–5q are merged.
+  Review breakdown: 5r.1 collector/local tests, 4d3533c; 5r.2 isolated workers,
+  fixtures and integration gate, bda02e4; 5r.3 README and memory handoff.
+  All nine output cases passed: below/exact/over quota, stderr, combined streams,
+  multibyte bytes, shared phases, compile overflow, and continuous flood. Cleanup
+  passed for each. Local boundary/concurrency/fault/launch tests passed, as did
+  compilation timeout (10,011 ms), cancellation (488 ms), normal Java, syntax,
+  thirteen mode conflicts, OutputCase guard, and whitespace. Docker Desktop had
+  to be restarted from its per-user installation. Only -OutputQuota uses the new
+  bounded collector; legacy probes, general integration, trace/UI transport, and
+  output/cancellation races remain work. Publish and stop; Part 5s is not approved.
 
 - Latest user: "ok", approving Part 5q compilation-deadline checks. Listed five
   tasks: recover Git/notes, fixed compiler stall, deadline/runtime gate, stop/
@@ -2152,6 +2167,28 @@ preserve user messages and label assistant summaries explicitly.
      README and both memory files. No later part is approved. Automatic PR creation
      is unavailable; manual link:
      https://github.com/KhoaKhoa811/code-visualization-2/pull/new/chore/part-5q-compilation-timeout
+
+104. User: "ok", approving Part 5r after the 5q handoff. Listed output-spec recovery,
+     shared byte collection, boundary/stream tests, stop/cleanup/regressions, and
+     publication. Split review into collector/tests, Docker integration, and notes.
+     Applied lean-build to preserve the existing runner boundary. Explained that
+     the C# collector is a PowerShell helper, not a backend language change.
+     Committed 4d3533c; stdout overflow passed before the usage-limit interruption.
+     Docker integration remained uncommitted and memory had not yet been updated.
+
+105. User requested recovery from memory/Git and completion of 5r, reporting all
+     branches merged. On 2026-10-16 pulled main to 238abf6, integrated it into the
+     task branch, and restored unfinished files. Collector tests passed; Docker
+     was stopped. The conventional Program Files start path was absent; started
+     the installed LocalAppData/Programs/DockerDesktop executable instead.
+     Ensured readers yield before draining so continuous output cannot hold the
+     supervisor's calling thread. Added permanent nine-case integration checks
+     and launch/fault assertions. All output cases and cleanup passed. Compiler
+     timeout (10,011 ms), cancellation (488 ms), normal Java, syntax, thirteen mode
+     conflicts, OutputCase guard, and whitespace passed. Committed integration as
+     bda02e4. Updated README and both memory files; no later task is approved.
+     Automatic PR creation remains unavailable without gh/GitHub tooling; manual link:
+     https://github.com/KhoaKhoa811/code-visualization-2/pull/new/chore/part-5r-output-quota
 
 ## Latest verification notes
 
