@@ -28,6 +28,19 @@ Long project instructions remain in their source files rather than being duplica
 
 ## Current scope
 
+- Latest user: "ok", approving Part 5t stop/cleanup failures and outcome ordering.
+  Checklist: existing logic/specs, failed stop/cleanup, completion/cancel/timeout
+  ordering, visible failures and owned recovery, then notes/publication. Fetch
+  still reports main 238abf6; test/part-5t-stop-failures starts from Part 5s 8fe8091
+  and retains unmerged 5r/5s. Test commit 91a2836 adds a temporary-copy harness and
+  test-only fault hook; production scripts are unchanged. All seven cases passed:
+  failed kill, false termination proof, failed removal, late cleanup proof, early
+  completion, cancellation first, and successful exit after timeout. Original
+  failures remain visible; independent owned-container absence was verified after
+  every case. Syntax/whitespace passed. Exact-boundary and broader launch/input/
+  output races, hung daemon operations, slots, and trace publication remain work.
+  Publish and stop. Part 5u final prototype review is proposed, not approved.
+
 - Latest user: "ok", approving Part 5s cross-run file/data isolation. Checklist:
   recover notes/Git, distinct markers, concurrent visibility, fresh-run absence/
   cleanup/regressions, and publication. Fetch still reports main 238abf6;
@@ -2214,6 +2227,20 @@ preserve user messages and label assistant summaries explicitly.
      Java, syntax, fourteen mode conflicts, and whitespace passed. Updated README
      and both memory files. Next proposed 5t is not approved. Manual PR link:
      https://github.com/KhoaKhoa811/code-visualization-2/pull/new/chore/part-5s-run-isolation
+
+107. User: "ok", approving Part 5t after the 5s handoff. Listed five tasks and
+     reviewed current stop code/specs. Fetch still reports main 238abf6; branched
+     from 8fe8091. Explained use of disposable script copies for fault injection
+     while preserving production behavior. Added test-only CLI hooks and bounded,
+     ownership-checked independent recovery. Seven live cases passed: failed kill,
+     false confirmation, failed removal, cleanup proof delayed 5,100 ms, completion
+     before cancellation, cancellation before timeout, and a successful exit after
+     timeout. The last case verified attachment exit 0 while EXECUTION_TIMEOUT
+     remained latched. No false success was accepted; independent absence verified
+     after each case. Syntax/whitespace passed. Test commit 91a2836; notes delivered
+     separately. Broader races and lifecycle integration remain unfinished. No 5u
+     implementation approved. Automatic PR creation unavailable; manual link:
+     https://github.com/KhoaKhoa811/code-visualization-2/pull/new/test/part-5t-stop-failures
 
 ## Latest verification notes
 

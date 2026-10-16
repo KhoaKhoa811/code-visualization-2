@@ -1,4 +1,4 @@
-# Runner setup (Parts 5a–5s)
+# Runner setup (Parts 5a–5t)
 
 Read `preflight.ps1` first: it is a prerequisite check, not a Java runner.
 The script supports Windows PowerShell 5.1 or later on Windows and changes no
@@ -686,3 +686,41 @@ This verifies fixed files on the three approved tmpfs mounts. It does not prove
 physical memory erasure, isolation of every kernel/IPC interface, cross-run trace
 or console routing, or arbitrary adversarial-program isolation. Those gaps remain
 visible alongside the earlier network, message-queue, and transport limitations.
+
+## Stop failures and ordering (Part 5t)
+
+```powershell
+.\runner\test-stop-failures.ps1
+$LASTEXITCODE
+```
+
+The [test harness](test-stop-failures.ps1) copies the relevant runner files into
+a unique system-temp directory. Only those copies load the [fault hook](stop-test-hook.ps1);
+production probe logic is unchanged. Tests run real restricted containers and
+retain each original probe result before independent recovery. Recovery uses the
+same bounded Docker CLI helper and the exact invocation's GUID ownership label.
+It verifies absence and never removes unrelated containers. The temporary directory
+is removed only after checking its absolute location and generated name.
+
+Verified on 2026-10-16:
+
+| Case | Verified result |
+| --- | --- |
+| Kill call fails | No successful cancellation or cleanup claim; original failure remains visible. |
+| False running/PID evidence after kill | Termination stays unconfirmed; no successful cancellation claim. |
+| Removal call fails | Probe fails; independent recovery removes the owned remaining container. |
+| Removal returns after 5,100 ms delay | Cleanup deadline fails even though removal occurred. |
+| Java completes before cancellation | Expected-loop probe fails without latching a stop cause. |
+| Cancellation accepted first | RUN_CANCELLED remains the confirmed outcome and cleanup succeeds. |
+| Java succeeds after timeout | A 5,200 ms sleeper and 750 ms delayed kill produce attachment exit 0; EXECUTION_TIMEOUT remains latched. |
+
+All seven cases verified independent absence afterward. Syntax and whitespace
+checks passed. The harness does not conceal the injected failures as successful
+production runs. Each recovery CLI call is separately bounded to five seconds;
+this test recovery is outside the original failed cleanup deadline.
+
+These are controlled orderings, not an exhaustive concurrency proof. Exact-boundary
+timing, hung daemon operations, duplicate cancellation, launch/input/output races,
+slot accounting, trace publication, and restart recovery remain unfinished. Early
+completion is rejected by the expected-loop test; this does not implement a general
+normal-completion API. Existing Part 5 gaps remain for the final prototype review.
