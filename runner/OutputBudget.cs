@@ -26,6 +26,8 @@ namespace Codeviz.Probes
 
         public async Task DrainAsync(Stream stream, bool errorStream)
         {
+            // Return control before draining even a continuously readable producer.
+            await Task.Yield();
             byte[] buffer = new byte[4096];
             int read;
             while ((read = await stream.ReadAsync(buffer, 0, buffer.Length).ConfigureAwait(false)) != 0)

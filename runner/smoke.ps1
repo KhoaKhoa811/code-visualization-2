@@ -1,9 +1,12 @@
 #requires -Version 5.1
 # Fixed trusted tool commands and repository fixture only; not submitted Java.
 [CmdletBinding()]
-param([switch]$RuntimeTimeout, [switch]$ChildTimeout, [switch]$Cancel, [switch]$Filesystem, [switch]$Network, [switch]$Privileges, [switch]$Mounts, [switch]$StorageBytes, [switch]$StorageInodes, [switch]$Heap, [switch]$ContainerMemory, [switch]$Tasks, [switch]$CompilationTimeout)
+param([switch]$RuntimeTimeout, [switch]$ChildTimeout, [switch]$Cancel, [switch]$Filesystem, [switch]$Network, [switch]$Privileges, [switch]$Mounts, [switch]$StorageBytes, [switch]$StorageInodes, [switch]$Heap, [switch]$ContainerMemory, [switch]$Tasks, [switch]$CompilationTimeout, [switch]$OutputQuota,
+    [ValidateSet('below','exact','stdout','stderr','combined','multibyte','phases','compile-over','flood')][string]$OutputCase = 'stdout')
 
 $ErrorActionPreference = 'Stop'
+if ($OutputQuota -and ($CompilationTimeout -or $Tasks -or $ContainerMemory -or $Heap -or $StorageInodes -or $StorageBytes -or $Mounts -or $Privileges -or $Network -or $Filesystem -or $RuntimeTimeout -or $ChildTimeout -or $Cancel)) { throw 'Select output quota or another probe.' }
+if (-not $OutputQuota -and $PSBoundParameters.ContainsKey('OutputCase')) { throw 'OutputCase requires OutputQuota.' }
 if ($CompilationTimeout -and ($Tasks -or $ContainerMemory -or $Heap -or $StorageInodes -or $StorageBytes -or $Mounts -or $Privileges -or $Network -or $Filesystem -or $RuntimeTimeout -or $ChildTimeout -or $Cancel)) { throw 'Select compilation timeout or another probe.' }
 if ($Tasks -and ($ContainerMemory -or $Heap -or $StorageInodes -or $StorageBytes -or $Mounts -or $Privileges -or $Network -or $Filesystem -or $RuntimeTimeout -or $ChildTimeout -or $Cancel)) { throw 'Select tasks or another probe.' }
 if ($ContainerMemory -and ($Heap -or $StorageInodes -or $StorageBytes -or $Mounts -or $Privileges -or $Network -or $Filesystem -or $RuntimeTimeout -or $ChildTimeout -or $Cancel)) { throw 'Select container memory or another probe.' }
@@ -24,7 +27,7 @@ if ($pin.image -notmatch '^eclipse-temurin@sha256:[0-9a-f]{64}$' -or $pin.platfo
 }
 & (Join-Path $PSScriptRoot 'preflight.ps1') -Image $pin.image
 if ($LASTEXITCODE -ne 0) { exit 1 }
-$fixtureName = if ($Tasks) { 'TaskLimit.java' } elseif ($ContainerMemory) { 'ContainerMemoryPressure.java' } elseif ($Heap) { 'HeapExhaustion.java' } elseif ($Network) { 'NetworkIsolation.java' } elseif ($ChildTimeout) { 'ParentChildTimeout.java' } elseif ($RuntimeTimeout) { 'TimeoutLoop.java' } else { 'Main.java' }
+$fixtureName = if ($OutputQuota) { 'OutputFlood.java' } elseif ($Tasks) { 'TaskLimit.java' } elseif ($ContainerMemory) { 'ContainerMemoryPressure.java' } elseif ($Heap) { 'HeapExhaustion.java' } elseif ($Network) { 'NetworkIsolation.java' } elseif ($ChildTimeout) { 'ParentChildTimeout.java' } elseif ($RuntimeTimeout) { 'TimeoutLoop.java' } else { 'Main.java' }
 $fixture = [Convert]::ToBase64String([IO.File]::ReadAllBytes((Join-Path $PSScriptRoot "fixtures/$fixtureName")))
 if ($Filesystem -or $Privileges -or $Mounts -or $StorageBytes -or $StorageInodes) {
     # Normalize Windows checkouts before sending the fixed POSIX shell fixture.
@@ -88,7 +91,7 @@ try {
         'java -Xmx128m -Djava.io.tmpdir=/tmp -cp /work Main > /work/actual.txt 2> /work/program.err; ' +
         "printf 'runner-ok\n' > /work/expected.txt; " +
         'cmp /work/expected.txt /work/actual.txt; test ! -s /work/program.err; cat /work/actual.txt'
-    if ($RuntimeTimeout -or $ContainerMemory -or $Tasks -or $CompilationTimeout) { $probe = 'exec sleep infinity' }
+    if ($RuntimeTimeout -or $ContainerMemory -or $Tasks -or $CompilationTimeout -or $OutputQuota) { $probe = 'exec sleep infinity' }
     if ($Filesystem) { $probe = "printf %s $fixture | base64 -d > /work/filesystem.sh; /bin/sh /work/filesystem.sh" }
     if ($Privileges) { $probe = "printf %s $fixture | base64 -d > /work/privileges.sh; /bin/sh /work/privileges.sh" }
     if ($Mounts) { $probe = "printf %s $fixture | base64 -d > /work/mounts.sh; /bin/sh /work/mounts.sh" }
@@ -138,7 +141,12 @@ try {
     if ($Network -and ($hostConfig.PublishAllPorts -or @($hostConfig.PortBindings.PSObject.Properties).Count -gt 0)) {
         throw 'Network probe must not publish ports.'
     }
-    if ($CompilationTimeout) {
+    if ($OutputQuota) {
+        $null = Invoke-Docker "start $name"
+        . (Join-Path $PSScriptRoot 'output-probe.ps1')
+        Invoke-OutputQuotaProbe -ContainerName $name -DockerPath $docker -Fixture $fixture -Case $OutputCase
+    }
+    elseif ($CompilationTimeout) {
         $null = Invoke-Docker "start $name"
         . (Join-Path $PSScriptRoot 'compilation-probe.ps1')
         Invoke-CompilationTimeoutProbe -ContainerName $name -DockerPath $docker -Fixture $fixture

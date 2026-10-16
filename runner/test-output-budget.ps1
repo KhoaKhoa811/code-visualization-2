@@ -41,3 +41,14 @@ try {
     $outPipe.Dispose(); $errPipe.Dispose(); $outRead.Dispose(); $errRead.Dispose()
 }
 Write-Output 'PASS: byte boundaries, split/raw bytes, stream identity, persistent quota, and concurrent readers.'
+. (Join-Path $PSScriptRoot 'output-worker.ps1')
+$blocked = $false
+try { $null = Invoke-OutputWorker $budget 'unused' 'unused' 'unused' 1000 }
+catch { $blocked = $_.Exception.Message -eq 'Output quota already exceeded; worker launch blocked.' }
+if (-not $blocked) { throw 'Overflow did not prevent another worker launch.' }
+$closed = [IO.MemoryStream]::new()
+$closed.Dispose()
+$failedRead = $budget.DrainAsync($closed, $false)
+try { $null = $failedRead.GetAwaiter().GetResult() } catch { }
+if (-not $failedRead.IsFaulted) { throw 'Read failure was hidden as successful EOF.' }
+Write-Output 'PASS: overflow blocks later launch; reader faults remain failures.'
