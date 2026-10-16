@@ -28,6 +28,18 @@ Long project instructions remain in their source files rather than being duplica
 
 ## Current scope
 
+- Latest user: "ok", approving Part 5s cross-run file/data isolation. Checklist:
+  recover notes/Git, distinct markers, concurrent visibility, fresh-run absence/
+  cleanup/regressions, and publication. Fetch still reports main 238abf6;
+  chore/part-5s-run-isolation starts from Part 5r f87531c, not yet merged into main.
+  Added -RunIsolation, a focused supervisor, and a fixed shell fixture. Verified
+  private exact marker contents on /work, /tmp, /dev/shm; a recreated peer has a
+  new ID and no prior markers. Original contents survive peer writes and cleanup.
+  Two negative cases and final isolation/mount/filesystem/normal Java regressions,
+  cleanup, syntax, fourteen mode conflicts, and whitespace passed. This is fixed
+  file isolation, not proof of every IPC/kernel interface or trace/output routing.
+  Publish and stop for review. Part 5t is proposed only; no later task approved.
+
 - Part 5r approved by "ok" after 5q and reaffirmed by the 2026-10-16 recovery
   request. Pulled main --ff-only to 238abf6 (PR #72), then merged it into
   chore/part-5r-output-quota as 52b2b64. Preserved and restored all unfinished
@@ -2189,6 +2201,19 @@ preserve user messages and label assistant summaries explicitly.
      bda02e4. Updated README and both memory files; no later task is approved.
      Automatic PR creation remains unavailable without gh/GitHub tooling; manual link:
      https://github.com/KhoaKhoa811/code-visualization-2/pull/new/chore/part-5r-output-quota
+
+106. User: "ok", approving Part 5s after the 5r handoff. Listed five tasks before
+     implementation. Fetch still reports main 238abf6; retained unmerged Part 5r
+     and branched from f87531c. Added fixed marker checks with one original and a
+     peer recreated under the same name after verified removal. Initial comparison
+     caught Docker's OomKillDisable normalization between created/running states;
+     corrected comparison to inspect both running profiles without relaxing limits.
+     Concurrent/fresh marker checks and cleanup passed on all three tmpfs mounts.
+     Crossed-target and injected-foreign-marker cases failed with both containers
+     cleaned; temporary edits restored. Final isolation, mounts, filesystem, normal
+     Java, syntax, fourteen mode conflicts, and whitespace passed. Updated README
+     and both memory files. Next proposed 5t is not approved. Manual PR link:
+     https://github.com/KhoaKhoa811/code-visualization-2/pull/new/chore/part-5s-run-isolation
 
 ## Latest verification notes
 

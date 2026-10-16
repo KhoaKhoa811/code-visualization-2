@@ -1,10 +1,11 @@
 #requires -Version 5.1
 # Fixed trusted tool commands and repository fixture only; not submitted Java.
 [CmdletBinding()]
-param([switch]$RuntimeTimeout, [switch]$ChildTimeout, [switch]$Cancel, [switch]$Filesystem, [switch]$Network, [switch]$Privileges, [switch]$Mounts, [switch]$StorageBytes, [switch]$StorageInodes, [switch]$Heap, [switch]$ContainerMemory, [switch]$Tasks, [switch]$CompilationTimeout, [switch]$OutputQuota,
+param([switch]$RuntimeTimeout, [switch]$ChildTimeout, [switch]$Cancel, [switch]$Filesystem, [switch]$Network, [switch]$Privileges, [switch]$Mounts, [switch]$StorageBytes, [switch]$StorageInodes, [switch]$Heap, [switch]$ContainerMemory, [switch]$Tasks, [switch]$CompilationTimeout, [switch]$OutputQuota, [switch]$RunIsolation,
     [ValidateSet('below','exact','stdout','stderr','combined','multibyte','phases','compile-over','flood')][string]$OutputCase = 'stdout')
 
 $ErrorActionPreference = 'Stop'
+if ($RunIsolation -and ($OutputQuota -or $CompilationTimeout -or $Tasks -or $ContainerMemory -or $Heap -or $StorageInodes -or $StorageBytes -or $Mounts -or $Privileges -or $Network -or $Filesystem -or $RuntimeTimeout -or $ChildTimeout -or $Cancel)) { throw 'Select run isolation or another probe.' }
 if ($OutputQuota -and ($CompilationTimeout -or $Tasks -or $ContainerMemory -or $Heap -or $StorageInodes -or $StorageBytes -or $Mounts -or $Privileges -or $Network -or $Filesystem -or $RuntimeTimeout -or $ChildTimeout -or $Cancel)) { throw 'Select output quota or another probe.' }
 if (-not $OutputQuota -and $PSBoundParameters.ContainsKey('OutputCase')) { throw 'OutputCase requires OutputQuota.' }
 if ($CompilationTimeout -and ($Tasks -or $ContainerMemory -or $Heap -or $StorageInodes -or $StorageBytes -or $Mounts -or $Privileges -or $Network -or $Filesystem -or $RuntimeTimeout -or $ChildTimeout -or $Cancel)) { throw 'Select compilation timeout or another probe.' }
@@ -91,7 +92,7 @@ try {
         'java -Xmx128m -Djava.io.tmpdir=/tmp -cp /work Main > /work/actual.txt 2> /work/program.err; ' +
         "printf 'runner-ok\n' > /work/expected.txt; " +
         'cmp /work/expected.txt /work/actual.txt; test ! -s /work/program.err; cat /work/actual.txt'
-    if ($RuntimeTimeout -or $ContainerMemory -or $Tasks -or $CompilationTimeout -or $OutputQuota) { $probe = 'exec sleep infinity' }
+    if ($RuntimeTimeout -or $ContainerMemory -or $Tasks -or $CompilationTimeout -or $OutputQuota -or $RunIsolation) { $probe = 'exec sleep infinity' }
     if ($Filesystem) { $probe = "printf %s $fixture | base64 -d > /work/filesystem.sh; /bin/sh /work/filesystem.sh" }
     if ($Privileges) { $probe = "printf %s $fixture | base64 -d > /work/privileges.sh; /bin/sh /work/privileges.sh" }
     if ($Mounts) { $probe = "printf %s $fixture | base64 -d > /work/mounts.sh; /bin/sh /work/mounts.sh" }
@@ -141,7 +142,12 @@ try {
     if ($Network -and ($hostConfig.PublishAllPorts -or @($hostConfig.PortBindings.PSObject.Properties).Count -gt 0)) {
         throw 'Network probe must not publish ports.'
     }
-    if ($OutputQuota) {
+    if ($RunIsolation) {
+        $null = Invoke-Docker "start $name"
+        . (Join-Path $PSScriptRoot 'run-isolation-probe.ps1')
+        Invoke-RunIsolationProbe -ContainerName $name -Label $label -Options $options
+    }
+    elseif ($OutputQuota) {
         $null = Invoke-Docker "start $name"
         . (Join-Path $PSScriptRoot 'output-probe.ps1')
         Invoke-OutputQuotaProbe -ContainerName $name -DockerPath $docker -Fixture $fixture -Case $OutputCase

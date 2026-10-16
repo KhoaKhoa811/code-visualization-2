@@ -1,4 +1,4 @@
-# Runner setup (Parts 5a–5r)
+# Runner setup (Parts 5a–5s)
 
 Read `preflight.ps1` first: it is a prerequisite check, not a Java runner.
 The script supports Windows PowerShell 5.1 or later on Windows and changes no
@@ -649,3 +649,40 @@ their previous collectors. General submitted-program integration, analysis outpu
 trace envelopes, disconnected/slow UI clients, Docker transport-error attribution,
 and output/cancellation races remain unfinished. Results are fixed-probe evidence,
 not full executor or public-deployment readiness.
+
+## Cross-run file isolation (Part 5s)
+
+```powershell
+.\runner\smoke.ps1 -RunIsolation
+$LASTEXITCODE
+```
+
+The [probe](run-isolation-probe.ps1) keeps one original container alive while
+creating, removing, and recreating a peer from the same pinned restricted profile.
+At most two containers are alive at once. Both running HostConfig records, image,
+and user must match; container identities must differ. Profiles are compared after
+startup because Docker populates OomKillDisable during that transition.
+
+The fixed [shell fixture](fixtures/run-isolation.sh) writes synthetic GUID tokens
+to the same filename and a token-specific filename on each of `/work`, `/tmp`, and
+`/dev/shm`. Each run must see its own exact bytes and no other run's token files.
+Writing the peer's same-name files must leave the original run unchanged. The
+recreated peer must have a different container ID and no previous markers before
+writing its own. The original is checked again after both peer cleanups.
+
+Each peer has a separate ownership label. Removal and absence verification share
+a five-second cleanup budget and run even after a failed assertion. Uncertain
+cleanup fails the probe; the original still receives its independent cleanup.
+Fixed CLI checks retain their existing bounded waits; this is not an admission
+or concurrency scheduler. No host mounts or persistent volumes are added.
+
+Verified on 2026-10-16: concurrent marker isolation, fresh-peer storage, unchanged
+original contents, and all cleanup checks passed. Two temporary negative cases
+crossed run targets and inserted a foreign marker; both failed with peer/original
+cleanup. Edits were restored. Final isolation, mount, filesystem, and normal Java
+regressions passed, together with syntax, fourteen mode conflicts, and whitespace.
+
+This verifies fixed files on the three approved tmpfs mounts. It does not prove
+physical memory erasure, isolation of every kernel/IPC interface, cross-run trace
+or console routing, or arbitrary adversarial-program isolation. Those gaps remain
+visible alongside the earlier network, message-queue, and transport limitations.
