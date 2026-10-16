@@ -28,6 +28,19 @@ Long project instructions remain in their source files rather than being duplica
 
 ## Current scope
 
+- Latest user: "ok, continue", approving Part 5p process/thread limits. Checklist:
+  recover Git/notes; verify effective shared cap; add a fixed denial fixture;
+  verify counters, stop, cleanup, and regressions; update notes and publish.
+  Fetch still reports main ccf332a; preserved Part 5o bee99c8 and branched
+  chore/part-5p-task-limits from it. Added -Tasks, TaskLimit.java, and task-probe.ps1.
+  Final fixed case reached 128 tasks and verified both thread/process denial,
+  with five trusted counter events in 529 ms and no container OOM. Whole-container
+  stop and cleanup passed. Five negative cases rejected false/invalid evidence.
+  Container-memory (515 ms), heap, cancellation (347 ms), child-timeout (5,016 ms),
+  normal Java, syntax, eleven mode conflicts, and whitespace checks passed.
+  Continuous monitoring, task headroom, phase/race handling, and terminal traces
+  remain unfinished. Part 5q is proposed only; no later task is approved.
+
 - Latest user request: "I merged all the branch into main, make sure you pull the
   newest code. Please continue implement". Pulled main with --ff-only to ccf332a
   (PR #68), including Part 5n 618915b and preceding delivered branches; local main
@@ -2096,6 +2109,22 @@ preserve user messages and label assistant summaries explicitly.
      Updated README and both memory files. Publish chore/part-5o-container-memory;
      no gh or GitHub tool is available, so automatic PR creation remains blocked.
      Part 5p is proposed only; no later implementation is approved.
+
+102. User: "ok, continue", approving Part 5p after the Part 5o handoff. Listed the
+     five-step checklist before implementation. Fetched origin; main remains
+     ccf332a, so the new task branch retains unmerged Part 5o bee99c8. Added a fixed
+     Java child/thread pressure fixture and focused PowerShell supervisor. Trusted
+     counters, saturated task count, separate thread/process denials, no container
+     OOM, whole-container stop, and cleanup passed. Five negative cases rejected
+     fake success, fake process error, missing counter, prior denial, and wrong
+     expected cap. Temporary edits restored. Container-memory (515 ms), heap,
+     cancellation (347 ms), child-timeout (5,016 ms), normal Java, syntax, eleven
+     mode conflicts, and whitespace checks passed. Updated README and both memory files.
+     Publish chore/part-5p-task-limits; Part 5q is not approved. Fixed fixture
+     cooperation releases task slots before independent supervisor reads; this is
+     not continuous monitoring of arbitrary submitted programs at saturation.
+     No gh or GitHub tool is available; manual PR creation link:
+     https://github.com/KhoaKhoa811/code-visualization-2/pull/new/chore/part-5p-task-limits
 
 ## Latest verification notes
 

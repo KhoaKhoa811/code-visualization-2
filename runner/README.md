@@ -1,4 +1,4 @@
-# Runner setup (Parts 5a–5o)
+# Runner setup (Parts 5a–5p)
 
 Read `preflight.ps1` first: it is a prerequisite check, not a Java runner.
 The script supports Windows PowerShell 5.1 or later on Windows and changes no
@@ -524,3 +524,46 @@ This proves the fixed local pressure case. Kernel victim selection and timings
 vary. `MEMORY_LIMIT` is a probe result, not an implemented API/trace status.
 Arbitrary submitted programs, partial traces, all failure races, and public
 deployment readiness remain outside this evidence.
+
+## Process/thread probe (Part 5p)
+
+```powershell
+.\runner\smoke.ps1 -Tasks
+$LASTEXITCODE
+```
+
+The fixed [Java fixture](fixtures/TaskLimit.java) starts one sleeping child, then
+creates sleeping platform threads until creation fails. It requires exactly 128
+current kernel tasks and an increased `pids.events:max` counter. At that same
+cap, a process-creation attempt must fail with a further counter increase. A Java
+error alone cannot pass either check. The loop attempts at most 128 new threads.
+The fixture uses 128 MiB heap, 256 KiB thread stacks, Serial GC, and one active
+processor; it does not change the container's existing limits.
+
+The [supervisor](task-probe.ps1) checks effective `pids.max=128` and zero denial
+counters before and after compilation. Once the fixed fixture exits and releases
+its daemon threads, the supervisor independently reads the same container's PID
+counter and requires at least two denials, with no cgroup OOM/kill evidence.
+It forcibly stops the remaining environment, checks exited status and PID zero,
+then uses the existing ownership cleanup and absence verification. The child
+remains alive through the fixture's last assertion and is covered by this stop.
+
+Compilation has 10 seconds; the fixture invocation has five seconds. Counter reads
+are individually bounded to one second. Termination and cleanup each have separate
+five-second budgets. `-Tasks` excludes every other mode. The fixed fixture can
+read counters without creating a helper at saturation; a fresh `docker exec`
+reader may itself be denied at the cap. This does not implement continuous
+monitoring of arbitrary submitted programs, phase-wide denial handling, task
+headroom measurements, terminal trace statuses, or race arbitration.
+
+Verified on 2026-10-15: final fixture completed in 529 ms with five PID denials,
+followed by whole-container stop and cleanup. Five negative cases rejected fake
+success without pressure, a fake process-creation error without a counter change,
+a missing counter, preexisting denial, and an incorrect expected cap. Each
+verified cleanup, and all temporary edits were restored.
+Container-memory (515 ms), heap, cancellation (347 ms), child-timeout (5,016 ms),
+and normal Java regressions passed, together with PowerShell syntax, eleven
+conflicting-mode rejections, and whitespace checks.
+
+Counter semantics: [Linux cgroup v2 PID controller](https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html#pid).
+This evidence covers the fixed local profile, not general executor readiness.

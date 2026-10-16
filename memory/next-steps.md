@@ -7,9 +7,25 @@ etc.) with its full task roadmap and intended smaller parts. Begin each smaller
 part (5a, 5b, etc.) with its own implementation checklist. Maintain both levels
 and update the relevant list when plans change. Apply this to future major parts;
 roadmaps do not approve later implementation or expand scope. This preference is
-also recorded in AGENTS.md. Latest approved task is Part 5o; no later task is approved.
+also recorded in AGENTS.md. Latest approved task is Part 5p; no later task is approved.
 
 ## Part 5 roadmap and latest handoff
+
+Part 5p approved by "ok, continue" after the Part 5o handoff. Checklist: recover
+notes/Git, effective shared cap, fixed denial fixture, evidence/stop/cleanup and
+regressions, then notes and publication. Fetch still reports main ccf332a; branch
+chore/part-5p-task-limits starts from Part 5o bee99c8, which is not yet on main.
+Added -Tasks, TaskLimit.java, and task-probe.ps1. Final fixed case reached 128
+tasks, verified thread and process denials, and recorded five PID counter events
+in 529 ms without container OOM. Whole-container stop and cleanup passed. Five
+negative cases rejected fake/invalid evidence with cleanup; temporary edits restored.
+Container-memory (515 ms), heap, cancellation (347 ms), child-timeout (5,016 ms),
+normal Java, syntax, eleven mode conflicts, and whitespace checks passed.
+Continuous monitoring at saturation, phase/race handling, headroom measurements,
+and terminal traces remain work. Publish and stop for review; Part 5q compilation
+deadline verification is the next proposal, not approved. Older scope notes below
+record their historical state. Automatic PR creation remains unavailable.
+Manual PR: https://github.com/KhoaKhoa811/code-visualization-2/pull/new/chore/part-5p-task-limits
 
 Latest recovery: user reported all branches merged and requested newest code.
 Pulled main with --ff-only to ccf332a (PR #68), including 618915b; main matched
@@ -100,7 +116,7 @@ was previously approved. Parts 5a through 5h are delivered; Part 5h is pushed as
 | 5m | Implemented inode-limit probe; capacities, exhaustion, recovery, and reuse verified. |
 | 5n | Implemented Java heap probe; caught/uncaught behavior verified without container OOM. |
 | 5o | Implemented fixed container memory/zero-swap probe, trusted OOM evidence, and whole-run stop. |
-| 5p | Verify shared process/thread cap and denial using trusted task counters. |
+| 5p | Implemented fixed shared 128-task cap, thread/process denial counters, and whole-run stop. |
 | 5q | Verify compilation deadline and prevention of runtime launch after expiry. |
 | 5r | Add bounded stdout/stderr collection and verify the shared byte quota. |
 | 5s | Verify files and data cannot leak between separate runs. |
