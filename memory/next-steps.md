@@ -7,9 +7,24 @@ etc.) with its full task roadmap and intended smaller parts. Begin each smaller
 part (5a, 5b, etc.) with its own implementation checklist. Maintain both levels
 and update the relevant list when plans change. Apply this to future major parts;
 roadmaps do not approve later implementation or expand scope. This preference is
-also recorded in AGENTS.md. Latest approved task is Part 5p; no later task is approved.
+also recorded in AGENTS.md. Latest approved task is Part 5q; no later task is approved.
 
 ## Part 5 roadmap and latest handoff
+
+Part 5q approved by "ok" after the Part 5p handoff. Checklist: recovery, fixed
+compiler stall, deadline/runtime gate, stop/cleanup/regressions, notes/publication.
+Fetch still reports main ccf332a. chore/part-5q-compilation-timeout starts from
+fac15b1 and retains unmerged 5o/5p. Added -CompilationTimeout and a focused helper
+using the existing Main.java. A real javac blocks on an argument-file FIFO;
+the final ten-second deadline latched at 10,007 ms. Runtime stayed blocked,
+whole-container termination and cleanup passed. Normal compilation, actual Java
+error, and fake-compiler controls passed; temporary edits restored. Task-limit
+(521 ms), cancellation (433 ms), child-timeout (5,014 ms), normal Java, syntax,
+twelve mode conflicts, and whitespace checks passed. Multiple compiler invocations,
+noisy output, compiler descendants, phase races, and trace envelopes remain gaps.
+Publish and stop for review. Next proposed task: 5r bounded stdout/stderr and shared
+byte quota; not approved. Automatic PR creation is unavailable; manual link:
+https://github.com/KhoaKhoa811/code-visualization-2/pull/new/chore/part-5q-compilation-timeout
 
 Part 5p approved by "ok, continue" after the Part 5o handoff. Checklist: recover
 notes/Git, effective shared cap, fixed denial fixture, evidence/stop/cleanup and
@@ -117,7 +132,7 @@ was previously approved. Parts 5a through 5h are delivered; Part 5h is pushed as
 | 5n | Implemented Java heap probe; caught/uncaught behavior verified without container OOM. |
 | 5o | Implemented fixed container memory/zero-swap probe, trusted OOM evidence, and whole-run stop. |
 | 5p | Implemented fixed shared 128-task cap, thread/process denial counters, and whole-run stop. |
-| 5q | Verify compilation deadline and prevention of runtime launch after expiry. |
+| 5q | Implemented fixed javac stall, ten-second deadline, runtime gate, and whole-run stop. |
 | 5r | Add bounded stdout/stderr collection and verify the shared byte quota. |
 | 5s | Verify files and data cannot leak between separate runs. |
 | 5t | Verify focused stop/cleanup failures and completion/cancellation/timeout races. |

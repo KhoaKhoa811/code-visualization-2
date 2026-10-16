@@ -28,6 +28,19 @@ Long project instructions remain in their source files rather than being duplica
 
 ## Current scope
 
+- Latest user: "ok", approving Part 5q compilation-deadline checks. Listed five
+  tasks: recover Git/notes, fixed compiler stall, deadline/runtime gate, stop/
+  cleanup/regressions, and notes/publication. Fetch still reports main ccf332a;
+  chore/part-5q-compilation-timeout starts from Part 5p fac15b1 and retains 5o/5p.
+  Added -CompilationTimeout and compilation-probe.ps1, reusing Main.java. A real
+  javac blocks on an argument FIFO. Final deadline latched at 10,007 ms; runtime
+  launch stayed blocked, whole container stopped, and cleanup passed. Success,
+  actual Java-error, and non-compiler controls passed with restored temporary edits.
+  Task-limit (521 ms), cancellation (433 ms), child-timeout (5,014 ms), normal Java,
+  syntax, twelve mode conflicts, and whitespace checks passed. Multiple compiler
+  invocations, output quotas, phase races, and trace envelopes remain unfinished.
+  Publish and stop for review; Part 5r output quotas is proposed, not approved.
+
 - Latest user: "ok, continue", approving Part 5p process/thread limits. Checklist:
   recover Git/notes; verify effective shared cap; add a fixed denial fixture;
   verify counters, stop, cleanup, and regressions; update notes and publish.
@@ -2125,6 +2138,20 @@ preserve user messages and label assistant summaries explicitly.
      not continuous monitoring of arbitrary submitted programs at saturation.
      No gh or GitHub tool is available; manual PR creation link:
      https://github.com/KhoaKhoa811/code-visualization-2/pull/new/chore/part-5p-task-limits
+
+103. User: "ok", approving Part 5q after the Part 5p handoff. Listed the checklist,
+     fetched origin (main remains ccf332a), and branched from fac15b1. Implemented
+     a fixed argument-FIFO javac stall and a ten-second external deadline. Runtime
+     requires successful compilation and output closure before expiry. Initial
+     timeout was 10,016 ms; final check after tightening the output-closure gate
+     was 10,007 ms. Both stopped the container and verified cleanup. Normal
+     compilation launched runner-ok; invalid Java preserved diagnostics without
+     runtime; a non-compiler stall failed evidence checks. Temporary edits restored.
+     Task-limit (521 ms), cancellation (433 ms), child-timeout (5,014 ms), normal
+     Java, syntax, twelve mode conflicts, and whitespace checks passed. Updated
+     README and both memory files. No later part is approved. Automatic PR creation
+     is unavailable; manual link:
+     https://github.com/KhoaKhoa811/code-visualization-2/pull/new/chore/part-5q-compilation-timeout
 
 ## Latest verification notes
 

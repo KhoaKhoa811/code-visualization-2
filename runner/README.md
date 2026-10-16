@@ -1,4 +1,4 @@
-# Runner setup (Parts 5a–5p)
+# Runner setup (Parts 5a–5q)
 
 Read `preflight.ps1` first: it is a prerequisite check, not a Java runner.
 The script supports Windows PowerShell 5.1 or later on Windows and changes no
@@ -567,3 +567,37 @@ conflicting-mode rejections, and whitespace checks.
 
 Counter semantics: [Linux cgroup v2 PID controller](https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html#pid).
 This evidence covers the fixed local profile, not general executor readiness.
+
+## Compilation deadline probe (Part 5q)
+
+```powershell
+.\runner\smoke.ps1 -CompilationTimeout
+$LASTEXITCODE
+```
+
+The [fixed supervisor](compilation-probe.ps1) stages the existing `Main.java`
+fixture and creates an argument-file FIFO with no writer. A real Java 21 `javac`
+blocks while reading that FIFO. This deliberately stalls compiler startup without
+depending on slow hardware, huge source files, or user-supplied compiler plugins.
+The supervisor observes `javac` through Docker's process inventory.
+
+One monotonic 10,000 ms deadline starts before the compiler launch request and
+includes JVM startup, observation, and output closure. Expiry latches the timeout
+and closes the runtime launch gate. Whole-container kill, exited status, PID zero,
+attachment exit, and closed output are verified within a separate five-second
+termination budget. Existing ownership cleanup has its own five-second budget.
+`-CompilationTimeout` excludes all other modes. Setup occurs before the timer.
+
+Verified on 2026-10-15: final timeout latched at 10,007 ms, with runtime never
+launched, whole-container stop confirmed, and cleanup verified. Three temporary
+controls passed: a normal argument file compiled the fixture and ran `runner-ok`;
+invalid Java source preserved compiler diagnostics and blocked runtime; an unrelated
+sleeping process failed the real-compiler evidence check. All controls correctly
+failed the expected-stall probe and verified cleanup; edits were restored.
+Task-limit (521 ms), cancellation (433 ms), child-timeout (5,014 ms), normal Java,
+PowerShell syntax, twelve mode conflicts, and whitespace checks passed.
+
+This is one fixed compiler invocation, not general compilation orchestration.
+Multiple compiler invocations sharing a budget, noisy compiler output, compiler
+descendant fixtures, deadline/completion/cancellation races, and terminal trace
+envelopes remain unfinished. `COMPILATION_TIMEOUT` is a probe result only.
