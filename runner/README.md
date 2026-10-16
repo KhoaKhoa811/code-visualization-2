@@ -1,4 +1,10 @@
-# Runner setup (Parts 5a–5t)
+# Runner setup (Parts 5a–5u)
+
+For the consolidated gate, verified scope, remaining gaps, and proposed next part,
+read [the Part 5u prototype review](PROTOTYPE_REVIEW.md). Run
+`powershell -NoProfile -File runner/test-prototype.ps1` for the fixed-probe gate.
+Older part sections retain their historical measurements; the review is the
+current coverage summary. Passing these probes does not complete isolation or V1.
 
 Read `preflight.ps1` first: it is a prerequisite check, not a Java runner.
 The script supports Windows PowerShell 5.1 or later on Windows and changes no
