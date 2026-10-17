@@ -2,6 +2,13 @@
 
 Last updated: 2026-10-17 (Asia/Saigon).
 
+Specialized-agent decision (2026-10-17): keep one agent following AGENTS.md and
+specs for current small, sequential tasks. Do not create backend-agent,
+frontend-agent, or reviewer-agent configuration now. Revisit when frontend
+integration begins or independent parallel work becomes useful; verify supported
+Codex configuration before creating files. The user asked to save this decision
+and explicitly approved Part 6c. No sub-agents were created or delegated work.
+
 ## Recovery instructions
 
 User preference confirmed and clarified 2026-10-14: at the start of every major
@@ -27,6 +34,25 @@ available in this session; it cannot reconstruct unavailable earlier chats.
 Long project instructions remain in their source files rather than being duplicated.
 
 ## Current scope
+
+- Part 6c explicitly approved after recording the specialized-agent decision.
+  Fetch still reports main f3e7ffd; feat/part-6c-docker-adapter starts at published
+  6b b2664fa and includes unmerged 6a/6b. Implemented immutable pinned profile,
+  UUID ownership/full container ID binding, bounded CLI calls (one worker, no
+  queue, 64 KiB output, shared operation deadlines), inspected start/stop/removal,
+  and fail-closed quarantine. No Spring/API wiring or submitted Java execution.
+  Review pieces: 6c.1 995808d profile/spec; 6c.2 ecb48b4 bounded calls/tests;
+  6c.3 7928ff5 owned adapter/tests; 6c.4 docs/memory. Full clean verify with live
+  Docker enabled passed all 13 tests, zero failures/errors/skips, on 2026-10-17.
+  Real fixed-idle container creation/start/stop/removal passed. Docker Desktop
+  initially stopped; restarted it and verified failed-create identity absent.
+  Windows embedded quotes are explicitly rejected after a failed round-trip test.
+  Bounded waiting is not proof of daemon cancellation: unresolved identity stays
+  quarantined, with no automatic retry/recovery or slot release. Part 6d is next
+  proposed, not approved. Milestone 0, full isolation, and V1 remain incomplete.
+  Guide: backend/DOCKER_CONTROL.md. Automatic PR tooling unavailable; manual link:
+  https://github.com/KhoaKhoa811/code-visualization-2/compare/feat/part-6b-lifecycle-contracts...feat/part-6c-docker-adapter?expand=1
+  Earlier scope/approval/merge entries below are historical.
 
 - Part 6b is approved, implemented, and verified. Branch
   feat/part-6b-lifecycle-contracts starts at published 6a fc9c115; fetched main
@@ -56,7 +82,7 @@ Long project instructions remain in their source files rather than being duplica
 
 - 6a: Java 21/Spring Boot/Maven setup (implemented and verified).
 - 6b: lifecycle contracts (implemented and verified; enforcement remains later).
-- 6c: bounded Docker adapter and resource ownership (proposed).
+- 6c: bounded Docker adapter and resource ownership (implemented and verified).
 - 6d: shared output quotas and deadlines (proposed).
 - 6e: cancellation, run slots, and recovery (proposed).
 - 6f: fixed-fixture API integration (proposed).
@@ -2342,6 +2368,29 @@ preserve user messages and label assistant summaries explicitly.
      hash/byte limits, and evidence enforcement are documented as later work.
      Commits: 205f92a request; 24336c0 snapshots/rules/tests; docs/memory follow.
      Automatic PR tooling unavailable; manual compare link provided at handoff.
+113. User asked whether agent/spec files existed, then clarified specialized files
+     such as backend-agent, frontend-agent, or technical agents. Assistant explained
+     shared AGENTS.md/specs already exist, while custom-agent definitions do not;
+     they are optional and require environment compatibility checks. User asked
+     whether needed now. Assistant recommended one agent for current sequential
+     tasks, revisiting when frontend integration or independent parallel work helps.
+114. User: "ok, save it to remember when needed. after that, continue implement
+     part 6c". Saved the decision near the top of both memory files. No agents
+     created or delegated. Listed four review pieces: immutable profile/identity,
+     bounded control runner, owned adapter/tests, docs/memory. Fetched latest main
+     f3e7ffd; branched from published 6b b2664fa because 6a/6b remain unmerged.
+     Implemented and tested fixed-idle Docker control only. Initial process test
+     exposed Windows quote removal; explicit java.exe alone did not fix it, so
+     unsupported embedded quotes now fail before launch. Docker was stopped for
+     first live attempt; started Desktop and confirmed its recorded name absent.
+     Live lifecycle then passed. Review added stop-before-start fencing and late
+     completion deadline checking. Final Maven clean verify with live enabled:
+     13 tests passed, zero failures/errors/skips; JAR packaged. Local timeout
+     fixture termination, busy rejection, output bounds, ownership/profile failure,
+     false acknowledgements, and real cleanup covered. No dependency additions,
+     broad runner rerun, submitted source, HTTP orchestration, or slot/restart
+     recovery. Commits 995808d/ecb48b4/7928ff5 plus docs/memory; branch pushed for
+     review. Part 6d remains proposed. Automatic PR tooling unavailable.
 ## Latest verification notes
 
 Part 3 added a contract schema, examples, and development validation tooling.
