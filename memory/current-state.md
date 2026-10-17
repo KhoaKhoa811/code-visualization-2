@@ -28,6 +28,20 @@ Long project instructions remain in their source files rather than being duplica
 
 ## Current scope
 
+- Latest user: "ok", approving Part 5u final prototype review. Checklist: Git/
+  roadmap recovery, probe/spec comparison, final gate, explicit gaps/next roadmap,
+  and notes/publication. Fetch still reports main 238abf6; test/part-5u-final-gate
+  starts from Part 5t a9a337b and includes unmerged 5r–5t. Gate commit 650e384 adds
+  runner/test-prototype.ps1. All fifteen smoke modes, nine output cases, seven
+  stop-failure/order cases, collector tests, and syntax passed on 2026-10-16;
+  cleanup/recovery absence verified. Review: runner/PROTOTYPE_REVIEW.md maps the
+  evidence to all six Part 4u gates without marking full isolation passed.
+  Part 5's planned fixed-probe sequence is complete; Milestone 0 and V1 are not.
+  Proposed Part 6 roadmap is recorded in the review: 6a Java/Spring Boot/Maven
+  setup, 6b contracts, 6c Docker adapter, 6d quotas/deadlines, 6e cancellation/slots,
+  6f fixed-fixture API integration, 6g admission/tracing prerequisite review.
+  No Part 6 task is approved. Publish and stop for review.
+
 - Latest user: "ok", approving Part 5t stop/cleanup failures and outcome ordering.
   Checklist: existing logic/specs, failed stop/cleanup, completion/cancel/timeout
   ordering, visible failures and owned recovery, then notes/publication. Fetch
@@ -2241,6 +2255,21 @@ preserve user messages and label assistant summaries explicitly.
      separately. Broader races and lifecycle integration remain unfinished. No 5u
      implementation approved. Automatic PR creation unavailable; manual link:
      https://github.com/KhoaKhoa811/code-visualization-2/pull/new/test/part-5t-stop-failures
+
+108. User: "ok", approving Part 5u after the 5t handoff. Listed the five-step
+     checklist and used verify-and-stop for evidence-focused review. Fetched origin
+     (main remains 238abf6); branched from a9a337b. Added one repeatable gate and
+     reviewed Parts 5a–5t against all six Part 4u isolation gates. Gate 650e384 passed
+     fifteen smoke modes, nine output cases, seven failure/order cases, collector
+     tests, and syntax. All applicable cleanup/recovery checks passed. Runtime and
+     child timeouts: 5,010 ms; cancellation: 330 ms; compile timeout: 10,009 ms;
+     memory: 500 ms (622/29/1 counters); tasks: 544 ms (five PID denials).
+     Recorded current coverage, explicit security/lifecycle/trace gaps, and the full
+     proposed 6a–6g roadmap in runner/PROTOTYPE_REVIEW.md. No budget, runtime profile,
+     producer/consumer contract, or application behavior changed. Part 5 fixed probes
+     close; Milestone 0, tracing milestones, and V1 remain incomplete. Updated README
+     and both memory files. Part 6 is unapproved. Automatic PR creation unavailable:
+     https://github.com/KhoaKhoa811/code-visualization-2/pull/new/test/part-5u-final-gate
 
 ## Latest verification notes
 

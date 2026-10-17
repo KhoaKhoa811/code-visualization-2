@@ -7,9 +7,25 @@ etc.) with its full task roadmap and intended smaller parts. Begin each smaller
 part (5a, 5b, etc.) with its own implementation checklist. Maintain both levels
 and update the relevant list when plans change. Apply this to future major parts;
 roadmaps do not approve later implementation or expand scope. This preference is
-also recorded in AGENTS.md. Latest approved task is Part 5t; no later task is approved.
+also recorded in AGENTS.md. Latest approved task is Part 5u; no later task is approved.
 
 ## Part 5 roadmap and latest handoff
+
+Part 5u approved by "ok" after the 5t handoff. Checklist: recovery, probe/spec
+review, final checks, gap/next-roadmap recording, publication. Fetch still reports
+main 238abf6; test/part-5u-final-gate starts from a9a337b and includes unmerged
+5r–5t. Gate commit 650e384 adds runner/test-prototype.ps1. On 2026-10-16, all fifteen
+smoke modes, nine output cases, seven stop-failure/order cases, collector tests,
+and syntax passed. Cleanup/recovery absence verified throughout. Review and
+timings: [Part 5u review](../runner/PROTOTYPE_REVIEW.md). The planned fixed-probe
+sequence is complete; full isolation, Milestone 0, tracing and V1 remain incomplete.
+Publish and stop. Full proposed Part 6 roadmap (unapproved) is in the review:
+6a Java 21/Spring Boot/Maven setup; 6b lifecycle contracts; 6c bounded Docker adapter;
+6d shared quotas/deadlines; 6e cancellation/slots/recovery; 6f fixed-fixture API
+integration; 6g admission/isolation-gap review before tracing. Start no Part 6 work
+without approval; when approved, show its full major roadmap and the small-part
+checklist again. Automatic PR creation unavailable; manual link:
+https://github.com/KhoaKhoa811/code-visualization-2/pull/new/test/part-5u-final-gate
 
 Part 5t approved by "ok" after the 5s handoff. Checklist: review logic/specs,
 stop/cleanup failure tests, outcome orderings, visible failure/recovery, publication.
@@ -181,7 +197,7 @@ was previously approved. Parts 5a through 5h are delivered; Part 5h is pushed as
 | 5r | Implemented bounded shared output collector and nine fixed compile/runtime quota cases. |
 | 5s | Implemented fixed concurrent/fresh-run marker isolation on all three tmpfs mounts. |
 | 5t | Verified seven controlled stop/cleanup failures and completion/cancel/timeout orderings; broader races remain gaps. |
-| 5u | Consolidate repeatable checks and review remaining gaps before closing Part 5. |
+| 5u | Consolidated gate passed; reviewed six isolation gates and recorded remaining gaps/proposed Part 6. |
 
 These labels and the count are proposed, not implementation approval or a promise
 that no task will need splitting after inspection. Keep each implementation small.
