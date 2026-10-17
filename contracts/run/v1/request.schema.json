@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/KhoaKhoa811/code-visualization-2/contracts/run/v1/request.schema.json",
+  "title": "Run request 1.0.0 (noninteractive contract slice)",
+  "type": "object",
+  "properties": {
+    "schemaVersion": { "const": "1.0.0" },
+    "source": { "$ref": "../../trace/v1/trace.schema.json#/$defs/source" },
+    "inputMode": { "const": "none" }
+  },
+  "required": ["schemaVersion", "source", "inputMode"],
+  "additionalProperties": false
+}
