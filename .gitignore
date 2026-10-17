@@ -1,0 +1,5 @@
+# Local bootstrap tools and dependency caches.
+.tools/
+
+# Backend build output.
+backend/target/
