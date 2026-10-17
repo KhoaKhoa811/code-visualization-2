@@ -1,14 +1,43 @@
 # Next steps
 
-Last updated: 2026-10-16 (Asia/Saigon).
+Last updated: 2026-10-17 (Asia/Saigon).
 
 Standing user preference, clarified 2026-10-14: begin each major part (4, 5, 6,
 etc.) with its full task roadmap and intended smaller parts. Begin each smaller
 part (5a, 5b, etc.) with its own implementation checklist. Maintain both levels
 and update the relevant list when plans change. Apply this to future major parts;
 roadmaps do not approve later implementation or expand scope. This preference is
-also recorded in AGENTS.md. Latest approved task is Part 5u; no later task is approved.
+also recorded in AGENTS.md. Latest approved task is Part 6a; Part 6b and later tasks are not approved.
 
+## Part 6 roadmap and latest handoff
+
+Part 6a is implemented and verified on 2026-10-17. Pulled merged main f3e7ffd;
+branch chore/part-6a-backend-setup contains only this new setup increment.
+Checklist completed: recover, inspect/pin tools, minimal backend, build/test,
+setup notes and memory. Review pieces: 6a.1 build/test commit 0acafc2; 6a.2 docs
+and memory commit. Publish both for review; do not merge automatically.
+
+1. 6a: Java 21/Spring Boot/Maven setup (implemented and verified).
+2. 6b: lifecycle contracts (next proposed task, not approved).
+3. 6c: bounded Docker adapter and resource ownership (proposed).
+4. 6d: shared output quotas and deadlines (proposed).
+5. 6e: cancellation, run slots, and recovery (proposed).
+6. 6f: fixed-fixture API integration (proposed).
+7. 6g: admission/isolation-gap review before tracing (proposed).
+
+Verified wrapper clean verify on Oracle JDK 21.0.12.1 with Spring Boot 4.1.1,
+Maven 3.9.16, wrapper 3.3.4 and pinned distribution SHA-256. One real HTTP test
+passed; POST /api/runs returns 404. Executable JAR packaged. Build/cache outputs
+ignored. Packaged launch and Unix wrapper not separately tested. Instructions:
+[backend setup](../backend/README.md). No run API, Docker orchestration, tracing,
+or frontend added. Milestone 0 and V1 remain incomplete.
+
+No gh/connected GitHub tool is available for automatic PR creation. Manual link:
+https://github.com/KhoaKhoa811/code-visualization-2/pull/new/chore/part-6a-backend-setup
+
+Part 6b proposal: define lifecycle request/result ownership and phase boundaries
+before introducing Docker process management. Discuss its small checklist before
+implementation. Older handoffs below are historical; all Part 5 branches are merged.
 ## Part 5 roadmap and latest handoff
 
 Part 5u approved by "ok" after the 5t handoff. Checklist: recovery, probe/spec
