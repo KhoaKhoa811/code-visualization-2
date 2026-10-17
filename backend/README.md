@@ -49,6 +49,6 @@ Submitted Java must eventually run in the isolated runner, never in this JVM.
 
 ## Next scope
 
-Part 6b proposes lifecycle contracts. Docker orchestration and submitted-source
-admission remain later work. See [next steps](../memory/next-steps.md) for the
+Part 6b defines [lifecycle contracts](../contracts/run/README.md). Docker orchestration
+and submitted-source admission remain later work. See [next steps](../memory/next-steps.md) for the
 full Part 6 roadmap and approval state.

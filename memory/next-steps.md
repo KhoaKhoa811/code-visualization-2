@@ -7,9 +7,30 @@ etc.) with its full task roadmap and intended smaller parts. Begin each smaller
 part (5a, 5b, etc.) with its own implementation checklist. Maintain both levels
 and update the relevant list when plans change. Apply this to future major parts;
 roadmaps do not approve later implementation or expand scope. This preference is
-also recorded in AGENTS.md. Latest approved task is Part 6a; Part 6b and later tasks are not approved.
+also recorded in AGENTS.md. Latest approved task is Part 6b; Part 6c and later tasks are not approved.
 
 ## Part 6 roadmap and latest handoff
+
+- Part 6b approved explicitly by "ok, continue implement part 6b" and completed.
+  Fetch reports main f3e7ffd, so feat/part-6b-lifecycle-contracts starts from
+  published 6a fc9c115, still unmerged remotely. Contracts only: no endpoint or
+  orchestration added. 6b.1 request 205f92a; 6b.2 snapshot/rules/tests 24336c0;
+  6b.3 documentation/memory. All 51 contract tests passed (five new, 46 existing).
+  Schemas separate infrastructure failures from terminal Java traces and enforce
+  phase/proof/slot combinations. Transition histories and trusted evidence remain
+  future enforcement. Noninteractive input only in this contract slice; live and
+  separate test inputs remain required V1 work. See contracts/run/README.md and
+  specs/run-lifecycle.md. Part 6c is next proposed, not approved. Milestone 0 and
+  V1 remain incomplete. Manual PR creation required; publish branch for review.
+Part 6b checklist complete: recovery, request ownership, lifecycle snapshots and
+failure separation, schema tests, docs/memory, commits and publication handoff.
+Run `npm test` from contracts/: 51 passed, zero failures. No runtime orchestration
+or admission enforcement was tested. Branch includes unmerged 6a; use that branch
+as PR base until merged, or main afterward. Manual PR link:
+https://github.com/KhoaKhoa811/code-visualization-2/compare/chore/part-6a-backend-setup...feat/part-6b-lifecycle-contracts?expand=1
+Next proposed: 6c bounded Docker adapter and resource ownership. Obtain approval
+before implementation. Older handoffs and approval states below are historical.
+
 
 Part 6a is implemented and verified on 2026-10-17. Pulled merged main f3e7ffd;
 branch chore/part-6a-backend-setup contains only this new setup increment.
@@ -18,7 +39,7 @@ setup notes and memory. Review pieces: 6a.1 build/test commit 0acafc2; 6a.2 docs
 and memory commit. Publish both for review; do not merge automatically.
 
 1. 6a: Java 21/Spring Boot/Maven setup (implemented and verified).
-2. 6b: lifecycle contracts (next proposed task, not approved).
+2. 6b: lifecycle contracts (implemented and verified).
 3. 6c: bounded Docker adapter and resource ownership (proposed).
 4. 6d: shared output quotas and deadlines (proposed).
 5. 6e: cancellation, run slots, and recovery (proposed).
