@@ -7,9 +7,23 @@ etc.) with its full task roadmap and intended smaller parts. Begin each smaller
 part (5a, 5b, etc.) with its own implementation checklist. Maintain both levels
 and update the relevant list when plans change. Apply this to future major parts;
 roadmaps do not approve later implementation or expand scope. This preference is
-also recorded in AGENTS.md. Latest approved task is Part 5r; no later task is approved.
+also recorded in AGENTS.md. Latest approved task is Part 5s; no later task is approved.
 
 ## Part 5 roadmap and latest handoff
+
+Part 5s approved by "ok" after the 5r handoff. Checklist: recovery, distinct run
+markers, concurrent visibility, fresh-run absence/cleanup/regressions, publication.
+Fetch still reports main 238abf6; chore/part-5s-run-isolation starts from f87531c
+and includes unmerged Part 5r. Added -RunIsolation, a supervisor and shell fixture.
+Private marker bytes, absent foreign files, fresh recreated-peer contents, and
+original-run survival after peer cleanup passed on /work, /tmp, and /dev/shm.
+Both running restricted profiles match. Two negative cases failed with cleanup;
+final isolation/mount/filesystem/normal Java regressions, syntax, fourteen mode
+conflicts, and whitespace passed. Kernel/IPC-wide isolation, physical memory erasure,
+and cross-run trace/console routing remain unverified. Publish and stop for review.
+Next proposed task: 5t stop/cleanup failures and completion/cancel/timeout races;
+not approved. Automatic PR creation unavailable; manual link:
+https://github.com/KhoaKhoa811/code-visualization-2/pull/new/chore/part-5s-run-isolation
 
 Part 5r is implemented and verified after the 2026-10-16 recovery request.
 Pulled main to 238abf6 (PR #72); merged into chore/part-5r-output-quota as 52b2b64
@@ -151,7 +165,7 @@ was previously approved. Parts 5a through 5h are delivered; Part 5h is pushed as
 | 5p | Implemented fixed shared 128-task cap, thread/process denial counters, and whole-run stop. |
 | 5q | Implemented fixed javac stall, ten-second deadline, runtime gate, and whole-run stop. |
 | 5r | Implemented bounded shared output collector and nine fixed compile/runtime quota cases. |
-| 5s | Verify files and data cannot leak between separate runs. |
+| 5s | Implemented fixed concurrent/fresh-run marker isolation on all three tmpfs mounts. |
 | 5t | Verify focused stop/cleanup failures and completion/cancellation/timeout races. |
 | 5u | Consolidate repeatable checks and review remaining gaps before closing Part 5. |
 
