@@ -1,15 +1,32 @@
 # Next steps
 
-Last updated: 2026-10-15 (Asia/Saigon).
+Last updated: 2026-10-16 (Asia/Saigon).
 
 Standing user preference, clarified 2026-10-14: begin each major part (4, 5, 6,
 etc.) with its full task roadmap and intended smaller parts. Begin each smaller
 part (5a, 5b, etc.) with its own implementation checklist. Maintain both levels
 and update the relevant list when plans change. Apply this to future major parts;
 roadmaps do not approve later implementation or expand scope. This preference is
-also recorded in AGENTS.md. Latest approved task is Part 5q; no later task is approved.
+also recorded in AGENTS.md. Latest approved task is Part 5r; no later task is approved.
 
 ## Part 5 roadmap and latest handoff
+
+Part 5r is implemented and verified after the 2026-10-16 recovery request.
+Pulled main to 238abf6 (PR #72); merged into chore/part-5r-output-quota as 52b2b64
+and restored unfinished files without conflicts. Parts 5o–5q are now merged.
+Review commits: 5r.1 collector/tests 4d3533c; 5r.2 integration bda02e4; 5r.3 notes.
+The fixed -OutputQuota path shares 1 MiB of raw stdout/stderr across compile and
+runtime, drains before normal completion, blocks launches after overflow, and
+confirms whole-container stop/cleanup. All nine integration cases and local
+boundary/concurrency/raw-byte/fault/launch checks passed. Compilation timeout
+(10,011 ms), cancellation (488 ms), normal Java, syntax, thirteen mode conflicts,
+OutputCase guard, and whitespace checks passed. Restarted installed Docker Desktop.
+Legacy probe collectors, general executor integration, analysis output, UI/trace
+transport, transport-error attribution, and output/cancellation races remain gaps.
+Publish and stop for review. Next proposed task: 5s cross-run file/data isolation;
+not approved. Automatic PR creation unavailable; manual link:
+https://github.com/KhoaKhoa811/code-visualization-2/pull/new/chore/part-5r-output-quota
+Older scope and merge notes below are historical.
 
 Part 5q approved by "ok" after the Part 5p handoff. Checklist: recovery, fixed
 compiler stall, deadline/runtime gate, stop/cleanup/regressions, notes/publication.
@@ -133,7 +150,7 @@ was previously approved. Parts 5a through 5h are delivered; Part 5h is pushed as
 | 5o | Implemented fixed container memory/zero-swap probe, trusted OOM evidence, and whole-run stop. |
 | 5p | Implemented fixed shared 128-task cap, thread/process denial counters, and whole-run stop. |
 | 5q | Implemented fixed javac stall, ten-second deadline, runtime gate, and whole-run stop. |
-| 5r | Add bounded stdout/stderr collection and verify the shared byte quota. |
+| 5r | Implemented bounded shared output collector and nine fixed compile/runtime quota cases. |
 | 5s | Verify files and data cannot leak between separate runs. |
 | 5t | Verify focused stop/cleanup failures and completion/cancellation/timeout races. |
 | 5u | Consolidate repeatable checks and review remaining gaps before closing Part 5. |

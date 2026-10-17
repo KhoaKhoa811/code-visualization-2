@@ -1,4 +1,4 @@
-# Runner setup (Parts 5a–5q)
+# Runner setup (Parts 5a–5r)
 
 Read `preflight.ps1` first: it is a prerequisite check, not a Java runner.
 The script supports Windows PowerShell 5.1 or later on Windows and changes no
@@ -601,3 +601,51 @@ This is one fixed compiler invocation, not general compilation orchestration.
 Multiple compiler invocations sharing a budget, noisy compiler output, compiler
 descendant fixtures, deadline/completion/cancellation races, and terminal trace
 envelopes remain unfinished. `COMPILATION_TIMEOUT` is a probe result only.
+
+## Shared output quota (Part 5r)
+
+```powershell
+.\runner\test-output-budget.ps1
+.\runner\test-output-quota.ps1
+# One case instead of the full integration gate:
+.\runner\smoke.ps1 -OutputQuota -OutputCase combined
+```
+
+The [byte collector](OutputBudget.cs) runs inside Windows PowerShell; this does
+not change the Java/Spring Boot backend choice. Two asynchronous raw-stream readers
+share a locked 1,048,576-byte allowance. Exactly the quota is allowed; the first
+extra observed byte latches overflow. Each stream retains its fitting prefix and
+identity without text decoding or an invented cross-stream write order. Readers
+discard excess in 4 KiB chunks until the supervisor terminates the environment.
+
+The [worker supervisor](output-worker.ps1) reuses one collector for compilation
+and runtime. It drains both streams before accepting normal exit or starting the
+next worker, including after fast process exit. Overflow blocks further launches
+and triggers whole-container stop. Confirmation checks exited status, PID zero,
+attachment exit, and reader completion. Worker deadlines are 10 seconds for the
+fixed compilation and five for execution; termination and ownership cleanup each
+have separate five-second budgets. Existing Docker logging remains disabled.
+
+Collector payload capacity is two fixed 1 MiB arrays, although their combined
+accepted length never exceeds 1 MiB. Each worker has two 4 KiB read buffers;
+post-drain verification snapshots total at most 1 MiB. There are no consumer
+queues or decoding buffers in this path. These bounds do not measure total
+PowerShell, .NET, Docker, or kernel memory, or implement Part 4p's global budget.
+
+Verified on 2026-10-16: all nine [integration cases](test-output-quota.ps1) passed
+with cleanup: quota minus one, exact quota, stdout overflow, stderr overflow,
+concurrent combined streams, multibyte bytes cut inside UTF-8, compile/runtime
+shared allowance, compile-phase overflow preventing runtime, and continuous flood.
+The compile-phase cases use fixed shell output around javac. Every overflow retained
+exactly 1 MiB; the shared-phase case retained one stderr byte plus 1,048,575 stdout
+bytes. Accepted contents and stream identities were checked byte-for-byte.
+Local tests also cover chunk boundaries, invalid raw bytes, concurrent reads,
+quota persistence, blocked later launch, and surfaced reader faults. Compilation
+timeout (10,011 ms), cancellation (488 ms), normal Java, PowerShell syntax,
+thirteen mode conflicts, the OutputCase guard, and whitespace checks passed.
+
+This bounded path is used by `-OutputQuota` only. Legacy trusted probes still use
+their previous collectors. General submitted-program integration, analysis output,
+trace envelopes, disconnected/slow UI clients, Docker transport-error attribution,
+and output/cancellation races remain unfinished. Results are fixed-probe evidence,
+not full executor or public-deployment readiness.
