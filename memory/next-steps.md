@@ -7,9 +7,23 @@ etc.) with its full task roadmap and intended smaller parts. Begin each smaller
 part (5a, 5b, etc.) with its own implementation checklist. Maintain both levels
 and update the relevant list when plans change. Apply this to future major parts;
 roadmaps do not approve later implementation or expand scope. This preference is
-also recorded in AGENTS.md. Latest approved task is Part 5s; no later task is approved.
+also recorded in AGENTS.md. Latest approved task is Part 5t; no later task is approved.
 
 ## Part 5 roadmap and latest handoff
+
+Part 5t approved by "ok" after the 5s handoff. Checklist: review logic/specs,
+stop/cleanup failure tests, outcome orderings, visible failure/recovery, publication.
+Fetch still reports main 238abf6; test/part-5t-stop-failures starts from 8fe8091
+and includes unmerged 5r/5s. Test commit 91a2836 adds disposable script copies and
+a test-only fault hook. Seven live checks passed: kill failure, false termination
+proof, removal failure, late cleanup proof, early completion, cancellation first,
+and successful exit after timeout. Original errors remain visible; separate owned
+recovery verifies absence after each case. Syntax/whitespace passed; production
+scripts did not change. Exact-boundary timing, hung daemon operations, duplicate
+cancellation, launch/input/output races, slots, trace publication, and restart
+recovery remain gaps. Publish and stop. Next proposed: 5u final prototype gate
+review with explicit verified/unfinished coverage; not approved. Manual PR link:
+https://github.com/KhoaKhoa811/code-visualization-2/pull/new/test/part-5t-stop-failures
 
 Part 5s approved by "ok" after the 5r handoff. Checklist: recovery, distinct run
 markers, concurrent visibility, fresh-run absence/cleanup/regressions, publication.
@@ -166,7 +180,7 @@ was previously approved. Parts 5a through 5h are delivered; Part 5h is pushed as
 | 5q | Implemented fixed javac stall, ten-second deadline, runtime gate, and whole-run stop. |
 | 5r | Implemented bounded shared output collector and nine fixed compile/runtime quota cases. |
 | 5s | Implemented fixed concurrent/fresh-run marker isolation on all three tmpfs mounts. |
-| 5t | Verify focused stop/cleanup failures and completion/cancellation/timeout races. |
+| 5t | Verified seven controlled stop/cleanup failures and completion/cancel/timeout orderings; broader races remain gaps. |
 | 5u | Consolidate repeatable checks and review remaining gaps before closing Part 5. |
 
 These labels and the count are proposed, not implementation approval or a promise
