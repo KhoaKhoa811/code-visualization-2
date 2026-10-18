@@ -30,6 +30,10 @@ $env:MAVEN_USER_HOME = Join-Path (Split-Path $PWD) '.tools\maven-home'
 .\mvnw.cmd -B -ntp '-Dmaven.repo.local=../.tools/m2' clean verify
 ```
 
+Since Part 7c the backend depends on `runner/tracer` and bundles its runtime jar,
+so build from the repository root pom (see [traced runs](TRACED_RUNS.md)). The
+command above works only after the tracer has been installed or built by the reactor.
+
 The first build needs network access to download Maven and dependencies. These
 commands keep caches in the ignored root `.tools/` directory. Quote Maven `-D`
 arguments in PowerShell. Build output stays in ignored `backend/target/`.

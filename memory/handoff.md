@@ -12,44 +12,40 @@
 - Status: ready for review. No approved task is unfinished.
 - Milestone: trace engine (Part 7); Milestone 0, full isolation and V1 incomplete
 
-## Last approved task: Part 7b host trace-v1 producer (complete)
+## Last approved task: Part 7c container tracing (complete)
 
-User merged 6e and 7a (main 528d45d) and said "please continue implement part 7b".
-Claude treated that as accepting ADR 0004 and used the split proposed with 7a:
-7b host producer, 7c container, 7d run API, 7e frontend. Told the user.
+User: "I approve" (2026-10-18) for 7c: run the tracer inside the 6d/6e container
+lifecycle. Guide: [backend/TRACED_RUNS.md](../backend/TRACED_RUNS.md).
 
-- [x] 1. ADR 0004 Accepted; [bytecode-tracing.md](../specs/bytecode-tracing.md) — 7de00b5
-- [x] 2. Shared `contracts/trace/check.cjs` — 27722f4
-- [x] 3. `runner/tracer/` analyzer, instrumenter, recorder, builder, tests — 42bc5f6
-- [x] 4. [runner/tracer/README.md](../runner/tracer/README.md), memory (this commit)
-
-Coverage: first increment inside `Main.main` only. Out of scope (output-only):
-helpers/recursion, uninitialized declarations, compound assignment, string
-concatenation, collections, other types.
+- [x] 1. Tracer Prepare CLI, plan file, stop causes, torn records — 1a4387c
+- [x] 2. Shaded tracer-runtime.jar, root reactor pom, backend dependency — 99a83d2
+- [x] 3. Stdin staging, bounded reads, TracedRunLifecycle, unit tests — d1682ad
+- [x] 4. Live container tests; recorder flushes every 100 ms — 239a39a
+- [x] 5. Docs, spec section, memory (this commit)
 
 ## Git
 
-- Branch `feat/part-7b-trace-producer` from main 528d45d. Pushed with this commit.
-- PR (manual, `gh` unavailable):
-  https://github.com/KhoaKhoa811/code-visualization-2/pull/new/feat/part-7b-trace-producer
+- Branch `feat/part-7c-container-tracing`, stacked on `feat/part-7b-trace-producer`
+  (681e4e0, PR not merged yet; main 528d45d). Pushed with this commit.
+- PRs (manual, `gh` unavailable): open 7b first, then 7c against the 7b branch:
+  https://github.com/KhoaKhoa811/code-visualization-2/compare/feat/part-7b-trace-producer...feat/part-7c-container-tracing?expand=1
 
 ## Verification (2026-10-18, Claude)
 
-- `runner/tracer`: `mvn test` (Maven 3.9.16, JDK 21.0.12.1,
-  `-Dmaven.repo.local=../../.tools/m2`): **27 tests, 0 failures**
-  (`.tools/part-7b-tests.log`). Traces in `runner/tracer/target/traces/`.
-- Every trace passed `node contracts/trace/check.cjs`; every traced program
-  matched the original's stdout, exit status and exception line.
-- `npm --prefix contracts test`: 51 passed after the check.cjs refactor.
-- Host JVM processes on trusted programs only; no container run yet.
+- Root reactor `clean verify` with live Docker (command in TRACED_RUNS.md):
+  **98 tests, 0 failures/errors/skips** (tracer 33; backend 65 incl. all 6c-6e
+  live tests and 7 new traced live tests). Log `.tools/part-7c-verify.log`.
+- Every traced live trace passed `contracts/trace/check.cjs`; no owned container left.
+- Build note: backend now depends on runner/tracer; build from the root pom.
 
 ## Decisions in this task
 
-- Plan/bytecode one-to-one matching; mismatch means output-only (`TRACE_MAPPING`).
-- User JVM records only site + values; builder supplies ranges, operators,
-  declarations, previous values; inconsistent records end capture (partial).
-- Scopes derived from static block chains plus declaration re-execution.
-- javac classpath is empty: submitted code cannot see tracer/recorder classes.
+- Stage files via `docker exec -i` stdin (Windows 32K command-line cap).
+- Read plan.json before runtime; reject plans for other source (SHA-256).
+- After runtime, `kill -9 -1` as the run user, then read raw records, then stop
+  (tmpfs is lost on stop). Reads never quarantine.
+- Recorder flushes every 100 ms (first live timeout run lost its whole prefix).
+- Trace built only after confirmed termination; stop causes always give partial.
 
 ## Resources
 
@@ -57,6 +53,5 @@ concatenation, collections, other types.
 
 ## Next action
 
-Wait for review/merge. Propose 7c (run the tracer inside the 6d/6e container
-lifecycle: stage recorder jar, compile+instrument in the compile phase, copy the
-site table out before runtime, fetch raw records, build trace) for approval.
+Wait for review/merge of 7b and 7c. Propose 7d (minimal run API: submit, poll,
+cancel, fetch trace, through the run supervisor) for approval.

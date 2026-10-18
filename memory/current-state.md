@@ -24,6 +24,7 @@ or live input yet.
 | 6e | Cancellation, one run slot + queue, explicit recovery ([guide](../backend/CANCELLATION_RECOVERY.md)); 49 tests passed with live Docker | Merged (PR #82) |
 | 7a | Trace-engine spike: ASM bytecode tracer, 20 tests, report and ADR 0004 ([report](../runner/tracer-spike/SPIKE_REPORT.md)) | Merged (PR #83) |
 | 7b | Host trace-v1 producer for the first increment in main ([guide](../runner/tracer/README.md)); 27 tests | Done, pushed, awaiting review |
+| 7c | Tracer inside the container lifecycle ([guide](../backend/TRACED_RUNS.md)); root reactor verify 98 tests with live Docker | Done, pushed, awaiting review |
 
 ## Verified environment
 
@@ -35,6 +36,7 @@ or live input yet.
   [runner/image.json](../runner/image.json).
 - Node.js 22 for `contracts/` tests (`npm test`).
 - `gh` is not installed in either agent's session so far; PRs are opened manually from pushed branches.
+- Build from the repository root pom (tracer, then backend) since Part 7c; see backend/TRACED_RUNS.md.
 
 ## Standing decisions and user preferences
 

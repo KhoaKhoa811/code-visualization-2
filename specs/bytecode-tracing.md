@@ -90,3 +90,21 @@ observable event (`partial`). The recorder stops at 16 MiB of raw records, write
 limits from [execution isolation](execution-isolation.md) and reports `limited`
 with `TRACE_LIMIT`. Trace integrity relies on the rejected recorder package and
 on the first increment admitting no other calls (no reflection or file access).
+
+## Container execution (Part 7c)
+
+The producer runs inside the owned restricted container through the 6d/6e
+phases; see [backend/TRACED_RUNS.md](../backend/TRACED_RUNS.md). Source is
+admitted first (well-formed, at most 256 KiB UTF-8). Preparation stages the
+shaded tracer runtime and the exact source through `docker exec -i` stdin. The
+compile phase runs `codeviz.tracer.Prepare`, which writes the classes to run and
+`plan.json` (sites, conditions, diagnostics, source SHA-256). The backend reads
+the plan before any submitted code runs and rejects a plan for other text.
+
+After the runtime phase, whatever stopped it, all processes of the run user are
+killed and the raw records are read while the container still exists; only then
+is the container stopped and removed. The recorder flushes at least every
+100 ms, so a kill keeps a recent prefix; a torn final line is discarded. The
+backend builds trace-v1 only after termination is confirmed. A latched stop cause
+(timeout, output limit, cancellation) always yields partial capture with its
+execution status and diagnostic; a compile-phase stop yields unavailable capture.
