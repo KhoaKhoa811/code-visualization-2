@@ -11,13 +11,13 @@ only. For the active task, [handoff.md](handoff.md) is authoritative. History:
 - Approved 2026-10-18: Core V1 / V1.1 tiers (see requirements); Part 7a engine
   spike including trying the ASM dependency; skip 6g and shrink 6f until the
   first visible slice exists.
-- Not approved yet: 7b and later. Propose with a checklist and wait for approval.
+- Done, awaiting review: 7a spike. Not approved yet: ADR 0004 acceptance, 7b and later.
 - Never merge pull requests; the user merges.
 
 ## Part 7 roadmap (trace engine and first visible slice)
 
 1. 7a engine spike: ASM bytecode tracer vs source rewriting on AC-01 to AC-05,
-   AC-07, AC-10 and recursion; report and ADR 0004. In progress.
+   AC-07, AC-10 and recursion; report and ADR 0004. Done; ADR awaiting acceptance.
 2. 7b first trace producer: scalars, arrays, comparisons, frames emitting trace-v1,
    run inside the existing 6d/6e container lifecycle. Proposed.
 3. 7c minimal run API (slimmed 6f): run, poll, cancel, fetch trace. Proposed.

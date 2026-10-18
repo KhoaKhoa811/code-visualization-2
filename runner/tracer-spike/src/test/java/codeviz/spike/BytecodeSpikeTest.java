@@ -65,6 +65,13 @@ class BytecodeSpikeTest {
         assertFalse(traced.events().isEmpty());
     }
 
+    /** Source-rewrite comparison: only the carefully hoisted rewrite preserves behavior. */
+    @Test void sourceRewriteMustHoistEveryTemporary() throws Exception {
+        String original = run("ac07", false).stdout();
+        assertEquals(original, run("ac07-source-rewritten", false).stdout());
+        assertNotEquals(original, run("ac07-source-naive", false).stdout());
+    }
+
     @Test void ac01ScalarAssignments() throws Exception {
         assertContainsInOrder(run("ac01", true).events(), "ENTER Main.main", "LOCAL x=int:5", "LOCAL x=int:8", "EXIT");
     }

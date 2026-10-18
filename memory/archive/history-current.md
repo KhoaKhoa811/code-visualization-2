@@ -35,3 +35,15 @@ not verbatim transcripts, unless quoted.
 - Commits 4649fa3 (6e.1 cancellation/lifecycle/recovery, builds alone, 33 unit
   tests) and 94bb1ac (6e.2 supervisor). Full live clean verify: 49 tests passed,
   0 owned containers left. Guide backend/CANCELLATION_RECOVERY.md.
+
+## 2026-10-18 — Project review and Part 7a spike (Claude Code)
+
+- Claude reviewed the project: product feasible, but the tracing engine was
+  missing while effort went into isolation; recommended engine spike, Core V1 /
+  V1.1 tiers, thin end-to-end slice. User approved all three recommendations.
+- 9289e6c records tiers in requirements and the Part 7 roadmap.
+- ddebca4 ASM bytecode tracer spike; later commit adds the AC-07 source-rewrite
+  comparison, SPIKE_REPORT.md and ADR 0004 (Proposed). 20 tests passed: identical
+  behavior for 9 programs; AC-01..05, AC-07, AC-10, recursion facts correct;
+  naive source rewrite changes behavior. Recommendation: bytecode for facts,
+  javac tree API for source ranges. Waiting for ADR acceptance and 7b approval.

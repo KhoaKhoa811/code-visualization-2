@@ -8,47 +8,47 @@
 ## Status
 
 - Updated: 2026-10-18 (Asia/Saigon)
-- Active owner: Claude Code
-- Status: active, Part 7a
-- Milestone: moving from backend orchestration to the trace engine; Milestone 0,
-  full isolation and V1 remain incomplete
+- Owner: Claude Code
+- Status: ready for review. No approved task is unfinished.
+- Milestone: trace engine (Part 7); Milestone 0, full isolation and V1 incomplete
 
-## Approved task
+## Last approved task: Part 7a trace-engine spike (complete)
 
-**Part 7a trace-engine spike.** After Claude's project review, the user approved
-on 2026-10-18 ("1. I approve 2. I approve 3. I approve"):
-(1) Core V1 / V1.1 tiers, recorded in requirements; (2) engine spike comparing
-ASM bytecode instrumentation with source instrumentation, including trying the
-ASM dependency; (3) skip 6g, shrink 6f until the first visible slice exists.
-Excludes: 7b trace-v1 producer, run API, frontend.
+Approved 2026-10-18 ("1. I approve 2. I approve 3. I approve"): Core V1 / V1.1
+tiers, engine spike with ASM, skip 6g and shrink 6f.
 
-Checklist:
-- [ ] 1. Record decisions (requirements tiers, next-steps roadmap, this handoff)
-- [ ] 2. ASM bytecode tracer prototype in `runner/tracer-spike/`
-- [ ] 3. Acceptance programs AC-01..05, AC-07, AC-10, recursion; differential tests
-      (original vs instrumented output) and expected-event checks
-- [ ] 4. Minimal source-rewrite comparison on hard cases
-- [ ] 5. Spike report, ADR 0004, memory, commit, push
+- [x] 1. Decisions recorded (requirements tiers, roadmap) — 9289e6c
+- [x] 2. ASM bytecode tracer prototype `runner/tracer-spike/` — ddebca4
+- [x] 3. Differential + event tests: AC-01..05, AC-07, AC-10, recursion, broad
+- [x] 4. Source-rewrite comparison on AC-07 (hand-written naive vs correct rewrite)
+- [x] 5. [SPIKE_REPORT.md](../runner/tracer-spike/SPIKE_REPORT.md),
+      [ADR 0004](../specs/decisions/0004-bytecode-instrumentation.md) (Proposed), memory
 
-Spike programs are trusted repository fixtures run as separate host JVM
-processes (not the Spring JVM). Container execution is 7b work.
+## Waiting on the user
+
+1. Accept or reject ADR 0004 (bytecode instrumentation + javac tree API mapping).
+2. Merge 6e, then 7a. Approve 7b (first trace-v1 producer) with its checklist.
 
 ## Git
 
 - Branch `feat/part-7a-engine-spike`, stacked on `feat/part-6e-cancellation-recovery`
-  5f52d8f (6e PR not merged yet; main is fe68059). Rebase onto main after 6e merges.
-- Part 6e PR: manual link
-  https://github.com/KhoaKhoa811/code-visualization-2/pull/new/feat/part-6e-cancellation-recovery
+  (5f52d8f, not merged; main fe68059). Pushed. After 6e merges, rebase onto main.
+- PR (manual, `gh` unavailable), base = 6e branch until it merges:
+  https://github.com/KhoaKhoa811/code-visualization-2/compare/feat/part-6e-cancellation-recovery...feat/part-7a-engine-spike?expand=1
 
-## Verification
+## Verification (2026-10-18, Claude)
 
-- None yet for 7a. Last verified baseline: 6e full live verify, 49 tests passed.
+- `runner/tracer-spike`: `mvn test` (Maven 3.9.16 at `.tools/apache-maven-3.9.16`,
+  JDK 21.0.12.1, `-Dmaven.repo.local=<repo>/.tools/m2`): **20 tests, 0 failures**.
+  Log `.tools/part-7a-spike.log` (local). Host JVM processes on trusted fixtures,
+  not the isolated runner.
+- Backend unchanged since 6e verify (49 tests).
 
 ## Resources
 
-- No commands running; no owned containers.
+- No commands running; no containers. Scratch traces only in the session scratchpad.
 
 ## Next action
 
-Commit decision docs, then build the ASM prototype with Maven 3.9.16 at
-`.tools/apache-maven-3.9.16/bin/mvn.cmd` and JDK 21.0.12.1.
+Wait for the user's ADR 0004 decision and 7b approval. Proposed 7b checklist is in
+the spike report's "Gaps and risks" and next-steps.md.
