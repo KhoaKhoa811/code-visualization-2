@@ -2,7 +2,6 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { createHash } = require('node:crypto');
 const Ajv2020 = require('ajv/dist/2020');
 
 const root = path.resolve(__dirname, '../v1');
@@ -13,31 +12,8 @@ const validate = ajv.compile(schema);
 const validateValue = ajv.getSchema(`${schema.$id}#/$defs/value`);
 const cases = read('examples/manifest.json');
 
-// Deliberately limited to envelope/source/boundary checks. This is not a
-// production semantic validator, Java interpreter, or playback reducer.
-function metadataErrors(trace) {
-  const errors = [];
-  const hash = createHash('sha256').update(trace.source.text, 'utf8').digest('hex');
-  if (hash !== trace.source.sha256) errors.push('source-hash');
-  if (!trace.source.text.isWellFormed()) errors.push('source-unicode');
-  if (trace.capture.safeEventCount !== trace.events.length) errors.push('safe-count');
-  const operations = trace.events.filter(event => 'step' in event);
-  trace.events.forEach((event, index) => {
-    if (event.seq !== index + 1) errors.push('sequence');
-    if (event.source && (event.source.start > event.source.end ||
-        event.source.end > trace.source.text.length)) errors.push('source-range');
-  });
-  if (operations.length !== trace.stepEnds.length) errors.push('step-count');
-  operations.forEach((event, index) => {
-    if (event.step !== index + 1) errors.push('step-number');
-    const expected = index === operations.length - 1 && trace.capture.status === 'complete'
-      ? trace.events.length : event.seq;
-    if (trace.stepEnds[index] !== expected) errors.push('step-boundary');
-  });
-  if (trace.capture.status === 'partial' && operations.length === 0 && trace.events.length)
-    errors.push('partial-empty-prefix');
-  return errors;
-}
+// Envelope/source/boundary checks are shared with producer tests in ../check.cjs.
+const { metadataErrors } = require('../check.cjs');
 
 test('schema declares and validates against the 2020-12 meta-schema', () => {
   assert.equal(schema.$schema, 'https://json-schema.org/draft/2020-12/schema');
