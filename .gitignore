@@ -3,3 +3,6 @@
 
 # Backend build output.
 backend/target/
+
+# Spike build output.
+runner/tracer-spike/target/
