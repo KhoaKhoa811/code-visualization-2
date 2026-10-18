@@ -94,3 +94,17 @@ not verbatim transcripts, unless quoted.
   arborist crash. First browser run showed main's variables vanish at the final
   cursor (correct FRAME_END cleanup); the last cursor now also shows the recorded
   pre-cleanup state, labelled. 7 unit and 2 browser tests passed.
+
+## 2026-10-18 — Part 8a graceful partial coverage (Claude Code)
+
+- User: "ok, continue part 8a". Contract 1.1.0 (0470f06): unknown state value,
+  UNCAPTURED step, array OBJECT_CAPTURE; 1.0.0 retired.
+- 433c3b1 tracer: per-statement rollback to uncaptured regions with effect
+  analysis; javac -Xjcov CharacterRangeTable gives exact statement bytecode ranges
+  (tabs verified); recorder re-reads arrays after writing regions and captures
+  arrays first seen from uncaptured code; integrity guard keeps reflection/file/
+  process/net/thread programs output-only; helper classes now shipped.
+- ec73605 frontend, af58047 live/browser tests. First live verify: API test hit
+  RUNNER_UNAVAILABLE because idle Docker answered the 5 s startup inventory late;
+  15 s was rejected by the 10 s control cap, so 10 s. Final: 126 Java tests,
+  54 contract, 9 reducer, 3 browser tests passed; no containers left.

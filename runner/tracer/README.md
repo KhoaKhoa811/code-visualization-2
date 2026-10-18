@@ -28,8 +28,11 @@ untrusted input.
 | `TraceBuilder` | Rebuilds trace-v1 from the site table, raw records and exit code; checks records against its own state | Yes |
 | `Tracer` | Facade: `prepare(source)` then `trace(prepared, runId, raw, exitCode)` | Yes |
 
-Programs outside coverage still run unchanged with `capture: unavailable` and an
-`UNSUPPORTED_CONSTRUCT` diagnostic. Compile errors give `compile_error`.
+Since Part 8a ([partial coverage](../../specs/partial-coverage.md)) an unsupported statement in
+`main` runs uncaptured as one `UNCAPTURED` step with an `UNSUPPORTED_CONSTRUCT`
+diagnostic, and the rest of the program is traced. Only program-wide limits (no
+`Main.main`, a package, reflection/files/processes/networking/threads) still give
+`capture: unavailable`. Compile errors give `compile_error`.
 
 ## Run the tests
 
@@ -50,7 +53,10 @@ the uninstrumented original.
 
 - Coverage is the java-support first increment in `main` only. Helper methods and
   recursion, uninitialized declarations, compound assignment, string
-  concatenation, collections and other types run output-only for now.
+  concatenation, collections and other types run as uncaptured statements (8a);
+  their internals are not traced. Locals they assign stay unknown until the next
+  covered store; arrays are re-read after statements that may write them.
+- 8a host tests: **40 tests, 0 failures** on 2026-10-18 (13 new or changed cases).
 - Scope entry/exit is derived from recorded operations and static block structure
   (see the spec); blocks with no recorded operation leave no trace.
 - On the host, a builder-side trace limit marks the run `limited` even though the

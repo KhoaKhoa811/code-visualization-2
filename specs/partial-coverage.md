@@ -92,3 +92,27 @@ diagnostics with source ranges.
   trace passes the shared checker; unknown and re-observed state is correct;
   covered programs produce the same trace as before 8a.
 - Live container and browser tests with mixed programs.
+
+## Review pieces and results (2026-10-18)
+
+| Part | Commit | Change |
+| --- | --- | --- |
+| 8a.1 | `0470f06` | Contract 1.1.0, examples, this spec (the producer still emitted 1.0.0 until 8a.2; review together) |
+| 8a.2 | `433c3b1` | Analyzer, instrumenter, recorder, builder, plan file, integrity guard, tracer tests |
+| 8a.3 | `ec73605` | Frontend 1.1.0 playback and display |
+| 8a.4 | `af58047` | Live container and browser tests; 10 s startup inventory |
+| 8a.5 | docs commit | Guides and memory |
+
+- Tracer host tests: 40 passed. Each traced program matched the original's
+  output, exit status and uncaught-exception line; each trace passed the shared
+  checker; all earlier covered-program expectations were unchanged.
+- Root reactor `clean verify` with live Docker: 126 passed (tracer 40, backend 86),
+  including a container run with helper classes, `Arrays.sort`, an object
+  creation and uncaptured loop statements. No owned container remained.
+- Contracts: 54 passed. Frontend: 9 reducer tests, type check and build passed;
+  3 browser tests passed against the real backend and Docker.
+
+Known limits: locals assigned only by uncaptured code stay unknown (no local
+re-read yet); arrays are re-read in full after each writing statement, which
+costs raw-record budget in tight loops; helper internals are not traced (8d);
+the integrity guard is a deny list, not a sandbox.

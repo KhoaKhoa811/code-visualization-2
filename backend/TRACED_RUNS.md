@@ -70,6 +70,8 @@ cancellation during runtime (cancelled). Every trace passed
   records still buffered at the kill (at most ~100 ms) are lost. Both are
   honest prefixes of what ran.
 - The tracer runtime is on the program's classpath. Traced programs cannot use
-  calls or reflection, and javac sees only the JDK, so they cannot reach it.
+  reflection, file, process, networking or thread APIs (8a integrity guard keeps
+  such programs output-only), and javac sees only the JDK. This is a guard against
+  interference, not a sandbox boundary.
 - No live console yet. Full isolation and V1 remain
   incomplete; this is not public deployment readiness.
