@@ -82,6 +82,9 @@ public final class BoundedCommandRunner implements CommandRunner, AutoCloseable 
     }
 
     @Override
+    public boolean settled() { return closed.get() && worker.isTerminated(); }
+
+    @Override
     public void close() {
         closed.set(true);
         Process process = active.get();

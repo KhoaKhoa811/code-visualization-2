@@ -67,4 +67,42 @@ class FixedFixtureLifecycleTest {
         assertFalse(control.removed); assertTrue(control.stopped);
         assertEquals(2, result.infrastructureFailures().size());
     }
+
+    @Test void cancellationDuringPreparationOrBetweenPhasesStillStopsAndRemoves() {
+        var lifecycle = new java.util.concurrent.atomic.AtomicReference<FixedFixtureLifecycle>();
+        var preparing = new Control() {
+            @Override public void prepare(FixedFixture fixture) { assertTrue(lifecycle.get().cancel()); }
+        };
+        lifecycle.set(new FixedFixtureLifecycle(preparing, (cmd, out, budget) -> {
+            fail("Cancelled preparation cannot launch a phase"); return null;
+        }));
+        var prepared = lifecycle.get().run(FixedFixture.NORMAL);
+        assertEquals(FixedFixtureLifecycle.Outcome.CANCELLED, prepared.outcome());
+        assertTrue(preparing.stopped); assertTrue(preparing.removed);
+        assertTrue(prepared.terminationConfirmed()); assertTrue(prepared.cleanupVerified());
+        assertTrue(prepared.infrastructureFailures().isEmpty());
+
+        var calls = new AtomicInteger(); var control = new Control();
+        lifecycle.set(new FixedFixtureLifecycle(control, (cmd, out, budget) -> {
+            calls.incrementAndGet(); assertTrue(lifecycle.get().cancel());
+            return new PhaseProcess.Result(PhaseGate.Cause.EXIT, 0);
+        }));
+        var compiled = lifecycle.get().run(FixedFixture.NORMAL);
+        assertEquals(1, calls.get()); assertFalse(compiled.runtimeRequested());
+        assertEquals(FixedFixtureLifecycle.Outcome.CANCELLED, compiled.outcome());
+        assertTrue(control.stopped); assertTrue(control.removed); assertTrue(compiled.cleanupVerified());
+        assertFalse(lifecycle.get().cancel());
+    }
+
+    @Test void cancellationBeforeRunCreatesNothingAndNeedsNoCleanup() {
+        var control = new Control(); control.failPrepare = true;
+        var lifecycle = new FixedFixtureLifecycle(control, (cmd, out, budget) -> {
+            fail("Cancelled run cannot launch a phase"); return null;
+        });
+        assertTrue(lifecycle.cancel());
+        var result = lifecycle.run(FixedFixture.NORMAL);
+        assertEquals(FixedFixtureLifecycle.Outcome.CANCELLED, result.outcome());
+        assertFalse(control.stopped); assertFalse(control.removed);
+        assertTrue(result.terminationConfirmed()); assertTrue(result.cleanupVerified());
+    }
 }

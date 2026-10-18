@@ -5,7 +5,7 @@ import java.util.function.LongSupplier;
 
 /** Serializes observed deadline, bytes, and fully drained completion. */
 final class PhaseGate {
-    enum Cause { EXIT, TIMEOUT, OUTPUT_LIMIT, TRANSPORT_FAILURE }
+    enum Cause { EXIT, TIMEOUT, OUTPUT_LIMIT, TRANSPORT_FAILURE, CANCELLED }
     private final RunOutput output;
     private final LongSupplier clock;
     private final long deadline;
@@ -32,4 +32,6 @@ final class PhaseGate {
         if (cause() == null) cause = observed;
         return cause;
     }
+
+    synchronized void alreadyCancelled() { if (cause == null) cause = Cause.CANCELLED; }
 }
