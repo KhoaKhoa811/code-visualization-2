@@ -23,6 +23,29 @@ work. Private chat/history, local agent memory, and hidden reasoning do not
 transfer automatically; record all material user decisions and evidence in Git.
 Never promise identical internal context or reconstruct unavailable conversations.
 
+## First takeover and session differences
+
+Start the incoming agent in the same repository directory. If the handoff files
+are not on main yet, give it the published handoff branch or commit from the
+outgoing message. Inspect the current checkout before switching branches; do
+not overwrite unfinished files or assume "not on main" means the files are missing.
+For a different machine, verify that the required branch/checkpoint is pushed
+and available before claiming to have recovered it.
+
+User task approval transfers with its recorded scope; execution permissions,
+sandbox approvals, credentials, installed tools, MCP connections, skills and
+agent session IDs do not. Check capabilities in the incoming session. Follow its
+own permission controls and report blockers; never copy credentials into memory
+or bypass restrictions because the previous agent ran a command. An unavailable
+local skill is not part of the shared contract: preserve the task's recorded
+requirements and explain any necessary workflow difference.
+
+An explicit user statement that the previous agent stopped is sufficient for
+ownership confirmation unless current evidence contradicts it. Do not repeatedly
+ask for the same confirmation. Otherwise resolve uncertain ownership before edits.
+There is no automatic notification, usage-limit detector, or cross-agent lock.
+The user starts the next session and provides the takeover request.
+
 ## Outgoing agent: checkpoint continuously
 
 1. Update the handoff after every coherent implementation step, decision, test
@@ -72,6 +95,12 @@ Never promise identical internal context or reconstruct unavailable conversation
 8. If work stopped abruptly with stale notes, reconstruct from files/Git/results,
    mark unknowns explicitly, and repair shared notes before progressing.
 
+Before implementation, give the user a short recovery acknowledgment containing:
+active owner; branch and actual HEAD; approved task; completed versus unfinished
+work; latest relevant test evidence; unknowns/blockers; and the next action.
+This is a comprehension check, not a new approval request for already approved
+work. If anything material cannot be recovered, identify it rather than guessing.
+
 ## Handoff fields (maintain these in handoff.md)
 
 - Updated date/time and timezone; outgoing/current owner; ready/active status.
@@ -82,6 +111,7 @@ Never promise identical internal context or reconstruct unavailable conversation
 - Verification command, working directory, evidence, failures and unrun checks.
 - Running processes/containers, ownership, cleanup, local-only artifacts.
 - Important decisions, uncertainties, blockers, exact next action.
+- Session-specific tool/permission limitations and unresolved user questions.
 
 Use actual hashes for known checkpoints. A file cannot contain the hash of its
 own future commit; label that distinction and re-read Git HEAD on takeover.

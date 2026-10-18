@@ -1,7 +1,7 @@
 # Current agent handoff
 
 Updated: 2026-10-18 (Asia/Saigon). Outgoing owner: Codex.
-Status: documentation delivery; ready for user-selected takeover after this Codex
+Status: handoff review complete; ready for user-selected takeover after this Codex
 turn ends. Do not edit concurrently. Follow [the shared protocol](agent-handoff-protocol.md).
 
 ## Approved scope and next action
@@ -10,6 +10,10 @@ User approved saving the sequential Codex/Claude strategy and all necessary
 recovery instructions. This is documentation only. Checklist: shared rules,
 Claude entry point, protocol, current snapshot, both memory updates, checks,
 commit/push and PR handoff. Implementation is complete; verify publication in Git.
+User also requested a second review. Clarified one recovery read order, unmerged
+branch discovery, session-specific permissions/tools, ownership confirmation,
+and the incoming agent's recovery acknowledgment. No unresolved scope question
+remains for this documentation task. A real Claude takeover has not been tested.
 
 Part 6d implementation is complete. **Part 6e is proposed, not approved.**
 After recovering and confirming the outgoing agent stopped, discuss 6e's checklist
@@ -21,6 +25,8 @@ approval for 6e. Milestone 0, full isolation, and V1 remain incomplete.
 - Repository: https://github.com/KhoaKhoa811/code-visualization-2
 - Current documentation branch: `docs/part-6d-agent-handoff`.
 - Starting/code checkpoint: `f3c68da`, published Part 6d handoff commit.
+- Initial shared-workflow commits: `e0dacf8` rules and `47de002` snapshot/memory,
+  both published. Read Git HEAD for the subsequent clarification commit.
 - Last fetched main: `d36e5c0` (merged through 6c). Part 6d was not merged at
   this inspection. Check remote again; user may merge after this note.
 - Read `git log -3 --oneline` for this documentation task's final commits; this
@@ -29,6 +35,7 @@ approval for 6e. Milestone 0, full isolation, and V1 remain incomplete.
   documentation edits are intended to be committed before handoff. No unfinished
   application changes. Inspect actual Git status rather than assuming clean state.
 - PR creation unavailable in this Codex session (no gh/connected GitHub tool).
+  This is session-specific; Claude must check its own capabilities and approvals.
   After push, manual review against 6d until it merges:
   https://github.com/KhoaKhoa811/code-visualization-2/compare/feat/part-6d-fixture-lifecycle...docs/part-6d-agent-handoff?expand=1
 
@@ -76,3 +83,16 @@ No new application failures or unfinished tests are known for the approved 6d sc
 - Full Part 6 roadmap and approval history remain in [next-steps.md](next-steps.md)
   and [current-state.md](current-state.md). Only the active owner updates these
   and this handoff as work progresses.
+
+## User's takeover message
+
+Use only after the outgoing agent has stopped:
+
+> The previous agent has stopped. In this repository, read AGENTS.md and
+> memory/agent-handoff-protocol.md, then recover the shared handoff and Git state.
+> Handoff branch: docs/part-6d-agent-handoff. Report your recovery acknowledgment.
+> Continue only unfinished approved work; Part 6e still needs approval.
+
+The same message works for either agent. Update the branch/task details on future
+switches. Shared files provide the same recorded project context, not identical
+private chat history or guaranteed identical reasoning.

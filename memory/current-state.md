@@ -31,8 +31,8 @@ checklist. Update either list when plans change. Apply both levels to future
 major parts. This is also recorded in AGENTS.md and does not authorize scope
 expansion or implementation of later tasks.
 
-Read this file when resuming this project, then read `../AGENTS.md`,
-`../requirements/PROJECT_REQUIREMENTS.md`, and `next-steps.md` before planning work.
+After the shared entry/protocol/handoff, read this file, `next-steps.md`, and
+`../requirements/PROJECT_REQUIREMENTS.md` before planning work.
 Requirements define intent; specifications define intended behavior; this file
 records conversation and verified local progress. Memory does not override either.
 
@@ -47,6 +47,15 @@ available in this session; it cannot reconstruct unavailable earlier chats.
 Long project instructions remain in their source files rather than being duplicated.
 
 ## Current scope
+
+Handoff second review (2026-10-18): fixed contradictory recovery read-order
+wording and clarified discovery of an unmerged handoff branch, session-local
+tools/credentials/permissions, and explicit ownership confirmation without
+repeated approval questions. Incoming agent must report branch/HEAD, approved
+scope, progress, evidence, unknowns and next action. These files are a shared
+record, not an automatic session bridge. Claude loading/takeover has not yet
+been exercised. Current protocol and copyable takeover message are in
+agent-handoff-protocol.md and handoff.md. Part 6e remains unapproved.
 
 - Latest approved task: document sequential Codex/Claude handoff before Part 6e.
   Added shared AGENTS.md rule, CLAUDE.md entry point, agent-handoff-protocol.md,
@@ -2481,6 +2490,15 @@ preserve user messages and label assistant summaries explicitly.
      Rules commit e0dacf8; snapshot/memory follow. Checked documentation paths,
      scope consistency and whitespace. No application tests or Claude session
      execution claimed; no agents launched. Part 6e remains unapproved.
+121. User requested another review of whether the shared instructions are sufficient
+     for Codex/Claude cooperation and asked to clarify gaps. Reviewed actual entry
+     points, protocol, handoff, memory and Git state. Fixed conflicting read-order
+     wording; added unmerged-branch bootstrap, session-specific permission/tool
+     boundaries, non-redundant ownership confirmation, and a recovery acknowledgment.
+     Added a copyable takeover message and updated checkpoint hashes. No private
+     memory synchronization or successful Claude-session test is claimed. All local
+     document links and whitespace checked; no application code/tests changed.
+     Clarification continues docs/part-6d-agent-handoff; Part 6e remains unapproved.
 ## Latest verification notes
 
 Part 3 added a contract schema, examples, and development validation tooling.

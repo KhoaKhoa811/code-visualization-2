@@ -28,6 +28,15 @@ also recorded in AGENTS.md. Latest approved task is Part 6d; Part 6e and later t
 
 ## Sequential-agent handoff setup
 
+Handoff second review (2026-10-18): fixed contradictory recovery read-order
+wording and clarified discovery of an unmerged handoff branch, session-local
+tools/credentials/permissions, and explicit ownership confirmation without
+repeated approval questions. Incoming agent must report branch/HEAD, approved
+scope, progress, evidence, unknowns and next action. These files are a shared
+record, not an automatic session bridge. Claude loading/takeover has not yet
+been exercised. Current protocol and copyable takeover message are in
+agent-handoff-protocol.md and handoff.md. Part 6e remains unapproved.
+
 - Latest approved task: document sequential Codex/Claude handoff before Part 6e.
   Added shared AGENTS.md rule, CLAUDE.md entry point, agent-handoff-protocol.md,
   and an actual handoff.md snapshot. First commit e0dacf8 records shared rules;
