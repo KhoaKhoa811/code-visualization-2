@@ -95,15 +95,19 @@ final class TraceBuilder {
         List<Diagnostic> diagnostics = new ArrayList<>();
         Map<String, Object> failure = null;
         try {
-            if (raw.isEmpty() || !raw.get(0).startsWith("M ")) throw new Inconsistent("missing main entry record");
-            entry(raw.get(0));
-            for (int i = 1; i < raw.size() && terminal == null; i++) {
-                String line = raw.get(i);
-                if (line.equals("R")) terminal = "R";
-                else if (line.equals("L")) terminal = "L";
-                else if (line.startsWith("S")) stringSight(line);
-                else if (line.startsWith("x")) { failure = exception(line); terminal = "x"; }
-                else operation(line);
+            // No records at all (killed before the first flush) is absence, not inconsistency:
+            // initialState stays null and capture is unavailable.
+            if (!raw.isEmpty()) {
+                if (!raw.get(0).startsWith("M ")) throw new Inconsistent("missing main entry record");
+                entry(raw.get(0));
+                for (int i = 1; i < raw.size() && terminal == null; i++) {
+                    String line = raw.get(i);
+                    if (line.equals("R")) terminal = "R";
+                    else if (line.equals("L")) terminal = "L";
+                    else if (line.startsWith("S")) stringSight(line);
+                    else if (line.startsWith("x")) { failure = exception(line); terminal = "x"; }
+                    else operation(line);
+                }
             }
         } catch (Inconsistent | RuntimeException e) {
             stopReason = "Recording stopped being consistent with reconstructed state: " + e.getMessage();

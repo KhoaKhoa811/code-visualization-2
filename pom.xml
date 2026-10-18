@@ -16,4 +16,15 @@
         <module>runner/tracer</module>
         <module>backend</module>
     </modules>
+
+    <build>
+        <plugins>
+            <!-- Pinned to the version already used by the backend so offline builds work. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-clean-plugin</artifactId>
+                <version>3.5.0</version>
+            </plugin>
+        </plugins>
+    </build>
 </project>

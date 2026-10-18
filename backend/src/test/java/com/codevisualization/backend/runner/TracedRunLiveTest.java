@@ -1,0 +1,126 @@
+package com.codevisualization.backend.runner;
+
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.Duration;
+import java.util.List;
+import java.util.concurrent.*;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
+import static org.junit.jupiter.api.Assertions.*;
+
+/**
+ * Part 7c live checks: real traced runs inside the owned restricted container.
+ * Every trace must pass the shared trace-v1 checker, and every run must confirm
+ * whole-container termination and removal.
+ */
+@EnabledIfSystemProperty(named = "codeviz.docker.live", matches = "true")
+class TracedRunLiveTest {
+    private static Path docker() { return Path.of(System.getProperty("codeviz.docker.executable")); }
+
+    private static String program(String body) {
+        return "public class Main {\n    public static void main(String[] args) {\n" + body + "\n    }\n}\n";
+    }
+
+    private static TracedRunLifecycle.Result run(String name, String source) throws Exception {
+        var result = new TracedRunLifecycle(docker()).run(source);
+        System.out.println("Traced " + name + ": " + result.runId());
+        assertTrue(result.terminationConfirmed(), result.infrastructureFailures().toString());
+        assertTrue(result.cleanupVerified(), result.infrastructureFailures().toString());
+        assertTrue(result.infrastructureFailures().isEmpty(), result.infrastructureFailures().toString());
+        assertNotNull(result.trace());
+        check(name, result.trace());
+        return result;
+    }
+
+    static void check(String name, String trace) throws Exception {
+        Path dir = Path.of("target", "live-traces");
+        Files.createDirectories(dir);
+        Path file = dir.resolve(name + ".json");
+        Files.writeString(file, trace, StandardCharsets.UTF_8);
+        Process node = new ProcessBuilder("node", Path.of("../contracts/trace/check.cjs").toString(), file.toString())
+                .redirectErrorStream(true).start();
+        String output = new String(node.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        assertTrue(node.waitFor(60, TimeUnit.SECONDS));
+        assertEquals(0, node.exitValue(), "trace-v1 check failed: " + output);
+    }
+
+    private static String stdout(TracedRunLifecycle.Result r) { return new String(r.stdout(), StandardCharsets.UTF_8); }
+
+    @Test void bubbleSortIsTracedInsideTheContainer() throws Exception {
+        var r = run("bubble-sort", program("""
+                int[] a = {3, 1, 2};
+                for (int i = 0; i < a.length - 1; i++) {
+                    for (int j = 0; j < a.length - 1 - i; j++) {
+                        if (a[j] > a[j + 1]) {
+                            int t = a[j];
+                            a[j] = a[j + 1];
+                            a[j + 1] = t;
+                        }
+                    }
+                }
+                for (int k = 0; k < a.length; k++) System.out.println(a[k]);"""));
+        assertEquals("1\n2\n3\n", stdout(r));
+        assertTrue(r.trace().contains("\"execution\":{\"status\":\"completed\""));
+        assertTrue(r.trace().contains("\"capture\":{\"status\":\"complete\""));
+        assertTrue(r.trace().contains("\"operator\":\">\""));
+    }
+
+    @Test void uncaughtFailureIsCompleteAndFailed() throws Exception {
+        var r = run("failed-write", program("int[] a = {0};\nint x = 0;\na[2] = ++x;"));
+        assertTrue(r.trace().contains("\"status\":\"failed\"") && r.trace().contains("\"status\":\"complete\""));
+        assertTrue(r.trace().contains("ArrayIndexOutOfBoundsException"));
+        assertTrue(new String(r.stderr(), StandardCharsets.UTF_8).contains("ArrayIndexOutOfBoundsException"));
+    }
+
+    @Test void outputOnlyAndCompileErrorPaths() throws Exception {
+        var helper = run("output-only", "public class Main {\n    static int two() { return 2; }\n"
+                + "    public static void main(String[] args) { System.out.println(two()); }\n}\n");
+        assertEquals("2\n", stdout(helper));
+        assertTrue(helper.trace().contains("\"status\":\"unavailable\"") && helper.trace().contains("UNSUPPORTED_CONSTRUCT"));
+        var broken = run("compile-error", program("int x = ;"));
+        assertTrue(broken.trace().contains("\"status\":\"compile_error\""));
+    }
+
+    @Test void runtimeTimeoutKeepsTheSafePrefix() throws Exception {
+        var r = run("timeout", program("int n = 1;\nwhile (true) { }"));
+        assertTrue(r.trace().contains("\"status\":\"limited\"") && r.trace().contains("EXECUTION_TIMEOUT"));
+        assertTrue(r.trace().contains("\"status\":\"partial\"") && r.trace().contains("\"kind\":\"DECLARE\""));
+    }
+
+    @Test void rawRecordLimitHaltsTheProgram() throws Exception {
+        var r = run("raw-limit", program("int i = 0;\nwhile (true) { i++; }"));
+        assertTrue(r.trace().contains("\"status\":\"limited\"") && r.trace().contains("TRACE_LIMIT"), r.trace().substring(0, 600));
+        assertTrue(r.trace().contains("\"status\":\"partial\""));
+    }
+
+    @Test void cancellationDuringRuntimeStopsAndCleansUp() throws Exception {
+        var lifecycle = new TracedRunLifecycle(docker());
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        try {
+            Future<TracedRunLifecycle.Result> future = executor.submit(() -> lifecycle.run(program("int n = 1;\nwhile (true) { }")));
+            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(20);
+            while (!lifecycle.progress().phase().equals("executing") && System.nanoTime() < deadline) Thread.sleep(20);
+            assertEquals("executing", lifecycle.progress().phase());
+            Thread.sleep(300); // let the JVM start and record main entry
+            assertTrue(lifecycle.cancel());
+            var r = future.get(20, TimeUnit.SECONDS);
+            assertTrue(r.terminationConfirmed() && r.cleanupVerified(), r.infrastructureFailures().toString());
+            check("cancelled", r.trace());
+            assertTrue(r.trace().contains("\"status\":\"cancelled\"") && r.trace().contains("RUN_CANCELLED"));
+        } finally {
+            executor.shutdown();
+            assertTrue(executor.awaitTermination(30, TimeUnit.SECONDS));
+        }
+    }
+
+    @Test void noOwnedContainerRemainsAfterTracedRuns() throws Exception {
+        bubbleSortIsTracedInsideTheContainer();
+        try (var control = new BoundedCommandRunner()) {
+            String owned = control.execute(List.of(docker().toString(), "--context", "desktop-linux", "ps", "--all",
+                    "--no-trunc", "--filter", "label=" + ContainerProfile.LABEL, "--format", "{{.ID}}"), Duration.ofSeconds(5));
+            assertTrue(owned.isBlank(), "owned containers left: " + owned);
+        }
+    }
+}
