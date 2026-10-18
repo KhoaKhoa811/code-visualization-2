@@ -22,6 +22,7 @@ or live input yet.
 | 6d | Fixed-fixture compile/run lifecycle, deadlines, shared 1 MiB output quota ([guide](../backend/FIXTURE_LIFECYCLE.md)); 36 tests passed with live Docker | Merged (PR #80) |
 | 6e.0 | Handoff-efficiency docs for Codex/Claude cooperation | Done, pushed on the 6e branch |
 | 6e | Cancellation, one run slot + queue, explicit recovery ([guide](../backend/CANCELLATION_RECOVERY.md)); 49 tests passed with live Docker | Done, pushed, awaiting merge |
+| 7a | Trace-engine spike: ASM bytecode vs source instrumentation | In progress, see handoff |
 
 ## Verified environment
 
@@ -46,7 +47,7 @@ or live input yet.
   merge automatically (2026-09-29).
 - Product goal: visualize any user-written Java as correctly as possible from
   captured execution facts, never from algorithm templates (2026-10-06).
-- All discussed features are V1 scope (2026-10-06); see requirements.
+- All discussed features are V1 scope (2026-10-06), delivered as Core V1 then V1.1 (2026-10-18); see requirements.
 - Fixed-fixture backend code lives in `backend/.../runner`; root `runner/` holds
   probes and fixtures. No Dockerfile yet; the pinned image is used directly.
 
