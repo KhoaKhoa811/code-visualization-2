@@ -47,7 +47,7 @@ export class Playback {
 
   constructor(trace: Trace, checkpointEvery = 256) {
     this.every = checkpointEvery;
-    if (trace.schemaVersion !== '1.2.0') throw new TraceError(`Unsupported trace version ${String(trace.schemaVersion)}`);
+    if (trace.schemaVersion !== '1.3.0') throw new TraceError(`Unsupported trace version ${String(trace.schemaVersion)}`);
     this.trace = trace;
     this.steps = trace.stepEnds.length;
     if (trace.initialState === null) {
@@ -161,6 +161,7 @@ function apply(state: State, event: TraceEvent, seen?: Set<string>): void {
     }
     case 'EXPRESSION':
     case 'EXCEPTION':
+    case 'SWITCH':
       return;
     case 'UNCAPTURED': {
       activeFrame(state, event.frameId);

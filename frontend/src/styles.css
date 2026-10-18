@@ -91,3 +91,13 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 /* Part 8a: statements that ran without visualization and values nothing has observed since. */
 .step-detail.uncaptured { border-left-color: var(--warning); color: var(--warning); }
 .cell.unknown .cell-value { color: var(--muted); font-style: italic; }
+
+/* Part 8c: an array of arrays is drawn as rows; each row is the referenced array itself. */
+.rows { display: flex; flex-direction: column; gap: 4px; }
+.row { display: flex; align-items: center; gap: 6px; border-radius: 6px; padding: 2px; }
+.row .row { padding: 0; }
+.row-index { min-width: 22px; font-size: 11px; color: var(--muted); text-align: right; font-family: Consolas, monospace; }
+.row.read { background: var(--read); }
+.row.write { background: var(--write); }
+.row.allocated .cells, .array.allocated .rows { outline: 2px solid var(--accent); outline-offset: 2px; }
+.cell-null { font-family: Consolas, monospace; color: var(--muted); padding: 6px 8px; }

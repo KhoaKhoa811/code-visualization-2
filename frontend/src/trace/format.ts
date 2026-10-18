@@ -17,10 +17,18 @@ export function formatValue(value: Value, objects?: Map<string, TraceObject>): s
     case 'ref': {
       const object = objects?.get(value.objectId);
       if (object?.kind === 'string') return JSON.stringify(stringText(object));
-      if (object?.kind === 'array') return `${object.elementType}[${object.elements.length}]`;
+      if (object?.kind === 'array') return arrayType(object);
       return `ref ${value.objectId}`;
     }
   }
+}
+
+/** Java notation with the length in the first dimension: int[3], int[2][] for rows of int[]. */
+export function arrayType(array: TraceObject & { kind: 'array' }): string {
+  const t = array.elementType;
+  const nested = t.indexOf('[');
+  const base = nested < 0 ? t : t.slice(0, nested);
+  return `${base.replace('java.lang.', '')}[${array.elements.length}]${nested < 0 ? '' : t.slice(nested)}`;
 }
 
 export function stringText(object: TraceObject & { kind: 'string' }): string {
@@ -39,9 +47,25 @@ export function fromBits(bits: string): string {
   return Number.isInteger(number) ? number.toFixed(1) : String(number);
 }
 
-/** Names of the bindings that currently refer to an object (aliases share it). */
-export function namesOf(state: State, objectId: string): string[] {
-  return state.bindings.filter(b => b.value.kind === 'ref' && b.value.objectId === objectId).map(b => b.name);
+/**
+ * Names that currently reach an object: bindings first (aliases share it), then element
+ * paths through arrays such as g[1] for a row of g.
+ */
+export function namesOf(state: State, objectId: string, visiting: Set<string> = new Set()): string[] {
+  const direct = state.bindings.filter(b => b.value.kind === 'ref' && b.value.objectId === objectId).map(b => b.name);
+  if (visiting.has(objectId) || visiting.size >= 4) return direct;
+  visiting.add(objectId);
+  const paths: string[] = [];
+  for (const parent of state.objects.values()) {
+    if (parent.kind !== 'array') continue;
+    parent.elements.forEach((element, index) => {
+      if (element.kind === 'ref' && element.objectId === objectId) {
+        for (const name of namesOf(state, parent.objectId, visiting)) paths.push(`${name}[${index}]`);
+      }
+    });
+  }
+  visiting.delete(objectId);
+  return [...direct, ...paths];
 }
 
 function operand(o: Operand, objects: Map<string, TraceObject>): string {
@@ -67,7 +91,13 @@ export function describe(event: ObservableEvent, state: State): string {
     }
     case 'ALLOCATE': {
       const o = event.data.object;
-      return o.kind === 'array' ? `Create ${o.elementType}[${o.elements.length}]` : 'Create string';
+      return o.kind === 'array' ? `Create ${arrayType(o)}` : 'Create string';
+    }
+    case 'SWITCH': {
+      const value = formatValue(event.data.value);
+      if (event.data.matched === 'case') return `Switch on ${value}: matching case`;
+      if (event.data.matched === 'default') return `Switch on ${value}: no case matches, default`;
+      return `Switch on ${value}: no case matches`;
     }
     case 'ARRAY_READ':
       return `Read ${arrayName(event.data.objectId)}[${event.data.index}] = ${formatValue(event.data.value, objects)}`;
