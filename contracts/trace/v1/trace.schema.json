@@ -1,12 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/KhoaKhoa811/code-visualization-2/contracts/trace/v1/trace.schema.json",
-  "title": "Recorded Java trace 1.0.0",
+  "title": "Recorded Java trace 1.1.0",
   "description": "Candidate contract. Structural validity is not proof of Java execution or semantic replay correctness.",
   "type": "object",
   "properties": {
     "schemaVersion": {
-      "const": "1.0.0"
+      "const": "1.1.0"
     },
     "runId": {
       "$ref": "#/$defs/id"
@@ -360,6 +360,9 @@
             "kind"
           ],
           "additionalProperties": false
+        },
+        {
+          "$ref": "#/$defs/unknown"
         }
       ]
     },
@@ -503,7 +506,7 @@
         "elements": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/value"
+            "$ref": "#/$defs/stateValue"
           }
         }
       },
@@ -831,7 +834,7 @@
               "$ref": "#/$defs/id"
             },
             "previous": {
-              "$ref": "#/$defs/value"
+              "$ref": "#/$defs/stateValue"
             },
             "value": {
               "$ref": "#/$defs/value"
@@ -1038,7 +1041,7 @@
               "$ref": "#/$defs/count"
             },
             "previous": {
-              "$ref": "#/$defs/value"
+              "$ref": "#/$defs/stateValue"
             },
             "value": {
               "$ref": "#/$defs/value"
@@ -1392,7 +1395,7 @@
           "type": "object",
           "properties": {
             "object": {
-              "$ref": "#/$defs/stringObject"
+              "$ref": "#/$defs/object"
             }
           },
           "required": [
@@ -1444,6 +1447,9 @@
           "$ref": "#/$defs/EXCEPTION"
         },
         {
+          "$ref": "#/$defs/UNCAPTURED"
+        },
+        {
           "$ref": "#/$defs/SCOPE_ENTER"
         },
         {
@@ -1456,6 +1462,106 @@
           "$ref": "#/$defs/OBJECT_CAPTURE"
         }
       ]
+    },
+    "unknown": {
+      "type": "object",
+      "description": "State a covered operation has not observed since uncaptured code may have changed it (1.1.0). Never an operand, result or read value.",
+      "properties": {
+        "kind": {
+          "const": "unknown"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "additionalProperties": false
+    },
+    "stateValue": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/value"
+        },
+        {
+          "$ref": "#/$defs/unknown"
+        }
+      ]
+    },
+    "UNCAPTURED": {
+      "type": "object",
+      "description": "A statement ran without capture (1.1.0). Applies its recorded effects: bindings it may have assigned become unknown, re-observed array contents replace state, arrays it may have changed but that were not re-observed become unknown.",
+      "properties": {
+        "seq": {
+          "$ref": "#/$defs/positive"
+        },
+        "step": {
+          "$ref": "#/$defs/positive"
+        },
+        "source": {
+          "$ref": "#/$defs/sourceRange"
+        },
+        "frameId": {
+          "$ref": "#/$defs/id"
+        },
+        "kind": {
+          "const": "UNCAPTURED"
+        },
+        "data": {
+          "type": "object",
+          "properties": {
+            "unknownBindings": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "$ref": "#/$defs/id"
+              }
+            },
+            "arrays": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "objectId": {
+                    "$ref": "#/$defs/id"
+                  },
+                  "elements": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/$defs/value"
+                    }
+                  }
+                },
+                "required": [
+                  "objectId",
+                  "elements"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "unknownArrays": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "$ref": "#/$defs/id"
+              }
+            }
+          },
+          "required": [
+            "unknownBindings",
+            "arrays",
+            "unknownArrays"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "seq",
+        "step",
+        "source",
+        "frameId",
+        "kind",
+        "data"
+      ],
+      "additionalProperties": false
     }
   }
 }
