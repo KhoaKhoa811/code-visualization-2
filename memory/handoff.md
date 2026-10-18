@@ -1,102 +1,89 @@
 # Current agent handoff
 
-Updated: 2026-10-18 (Asia/Saigon). Outgoing owner: Codex.
-Status: handoff review complete; ready for user-selected takeover after this Codex
-turn ends. Do not edit concurrently. Follow [the shared protocol](agent-handoff-protocol.md).
+<!-- Snapshot file: REPLACE the whole content on every update; never append.
+     Keep it under ~100 lines. History goes to current-state.md at task end.
+     This file is the authority for the active task (see agent-handoff-protocol.md). -->
 
-## Approved scope and next action
+## Status
 
-User approved saving the sequential Codex/Claude strategy and all necessary
-recovery instructions. This is documentation only. Checklist: shared rules,
-Claude entry point, protocol, current snapshot, both memory updates, checks,
-commit/push and PR handoff. Implementation is complete; verify publication in Git.
-User also requested a second review. Clarified one recovery read order, unmerged
-branch discovery, session-specific permissions/tools, ownership confirmation,
-and the incoming agent's recovery acknowledgment. No unresolved scope question
-remains for this documentation task. A real Claude takeover has not been tested.
-User additionally required an explicit near-limit checkpoint rule. It is saved
-in AGENTS.md and the shared protocol: write the handoff before more work, then
-update both memory files, preserve changes/resources, and publish safe checkpoints
-when possible. No actual usage-limit warning is being claimed by this note.
+- Updated: 2026-10-18 (Asia/Saigon)
+- Active owner: Claude Code (took over after Codex stopped at its usage limit;
+  user confirmed Codex stopped)
+- Status: active
+- Milestone: Part 6 backend run orchestration; Milestone 0, full isolation and
+  V1 remain incomplete
 
-Part 6d implementation is complete. **Part 6e is proposed, not approved.**
-After recovering and confirming the outgoing agent stopped, discuss 6e's checklist
-and obtain user approval before implementation. Do not treat "take over" as
-approval for 6e. Milestone 0, full isolation, and V1 remain incomplete.
+## Approved tasks
 
-## Git checkpoints
+1. **Active now — 6e.0 handoff-efficiency docs.** User approved on 2026-10-18
+   ("I approve, and make sure Codex can understand and work with you efficiently")
+   after Claude proposed five parts. Scope: (1) snapshot-style handoff and protocol;
+   (2) archive memory history, shrink current-state/next-steps, fix stale 6e
+   approval text; (3) task-scoped permission rule in AGENTS.md; (4) .gitattributes
+   without renormalizing files; (5) record missing referenced documents without
+   inventing them. Documentation only; commit on this branch before 6e code.
+2. **Paused — Part 6e cancellation, run slots and recovery.** Approved by the user
+   before this takeover ("is it enough for AIs work together, please review one
+   more time. If it's good, then continue implement part 6e"). Spec:
+   [fixture-cancellation-recovery.md](../specs/fixture-cancellation-recovery.md).
+   Excludes 6f API, submitted-source execution and tracing.
 
-- Repository: https://github.com/KhoaKhoa811/code-visualization-2
-- Current documentation branch: `docs/part-6d-agent-handoff`.
-- Starting/code checkpoint: `f3c68da`, published Part 6d handoff commit.
-- Initial shared-workflow commits: `e0dacf8` rules and `47de002` snapshot/memory,
-  both published. Read Git HEAD for the subsequent clarification commit.
-- Last fetched main: `d36e5c0` (merged through 6c). Part 6d was not merged at
-  this inspection. Check remote again; user may merge after this note.
-- Read `git log -3 --oneline` for this documentation task's final commits; this
-  file cannot contain its own future commit hash.
-- No pre-existing dirty files or stashes were introduced by this task. Its own
-  documentation edits are intended to be committed before handoff. No unfinished
-  application changes. Inspect actual Git status rather than assuming clean state.
-- PR creation unavailable in this Codex session (no gh/connected GitHub tool).
-  This is session-specific; Claude must check its own capabilities and approvals.
-  After push, manual review against 6d until it merges:
-  https://github.com/KhoaKhoa811/code-visualization-2/compare/feat/part-6d-fixture-lifecycle...docs/part-6d-agent-handoff?expand=1
+## Git
 
-## Verified application checkpoint
+- Branch: `feat/part-6e-cancellation-recovery`, fast-forwarded on 2026-10-18 to
+  `origin/main` fe68059 (6d PR #80 and handoff docs PR #81 are merged).
+  Not yet pushed. Read `git log` for 6e.0 commit hashes.
+- PR: none yet. `gh` is unavailable in both agents' sessions so far; use the manual link
+  https://github.com/KhoaKhoa811/code-visualization-2/pull/new/feat/part-6e-cancellation-recovery
 
-Part 6d guide: [backend/FIXTURE_LIFECYCLE.md](../backend/FIXTURE_LIFECYCLE.md).
-Specs: [fixed lifecycle](../specs/fixed-fixture-lifecycle.md),
-[Docker control](../specs/docker-control.md),
-[run contract](../specs/run-lifecycle.md), and
-[execution isolation](../specs/execution-isolation.md).
+## Part 6e checklist
 
-On 2026-10-18, the code subsequently committed in 3c5b2f8, e3aa793, 4677239,
-and 512ef3b passed the full backend build: 36 tests, zero failures/errors/skips,
-including 12 live fixture cases and the 6c live idle-container check. All live
-cases verified whole-container termination/removal. Executable JAR packaged.
-The f3c68da change was documentation only. Command, from backend/:
+- [x] Shared cancellation signal (`RunCancellation`), CANCELLED cause/outcome
+- [x] Supervisor: one slot, two FIFO queued, 30 s expiry (`FixtureRunSupervisor`)
+- [x] Known-ID recovery (`DockerControlAdapter.recover`, `FixedFixtureLifecycle.recover`)
+- [ ] Live tests pass (one failure, see below)
+- [ ] Review concerns resolved (see below)
+- [ ] Full clean verify with live Docker; FIXTURE guide/spec/memory; commits; push
 
-```powershell
-$env:JAVA_HOME = 'C:\Program Files\Java\jdk-21.0.12.1'
-$env:MAVEN_USER_HOME = Join-Path (Split-Path $PWD) '.tools\maven-home'
-$dockerPath = (Get-Command docker.exe -CommandType Application).Source
-.\mvnw.cmd -B -ntp '-Dmaven.repo.local=../.tools/m2' '-Dcodeviz.docker.live=true' "-Dcodeviz.docker.executable=$dockerPath" clean verify
-```
+## Uncommitted 6e work (Codex, intact; do not discard)
 
-Local evidence: `.tools/part-6d-verify.log` and backend/target/surefire-reports,
-both ignored and not guaranteed on another machine. No current-task application
-tests were run: only documentation consistency, paths and whitespace checks.
-No new application failures or unfinished tests are known for the approved 6d scope.
+Modified: runner `BoundedCommandRunner`, `CommandRunner`, `DockerControlAdapter`,
+`FixedFixtureLifecycle`, `FixtureControl`, `PhaseGate`, `PhaseProcess`, test
+`FixedFixtureLifecycleTest`. Untracked: `FixtureRunSupervisor`, `RunCancellation`,
+tests `CancellationRecoveryLiveTest`, `FixtureRunSupervisorTest`,
+`RunCancellationTest`, and `specs/fixture-cancellation-recovery.md`.
 
-## Resources, decisions, and limits
+## Verification evidence (working tree above, 2026-10-18, Codex runs)
 
-- No command/test was left running by this documentation task. Part 6d tests
-  finished, and their owned containers were removed. Current Docker Desktop
-  service state has not been rechecked here; it was started during 6d verification.
-- Local tools/cache live under ignored `.tools/`; do not commit them or credentials.
-- Codex and Claude alternate as the sole implementer. No specialized-agent files
-  or parallel delegation now. CLAUDE.md is only an entry point to shared rules.
-- Backend runner package is production orchestration; its src/test files test it.
-  Root runner/ holds fixtures/probes. No package move was requested after discussion.
-- No Dockerfile yet: use the existing pinned Java 21 image. Revisit when packaging
-  tracing runtime/helpers; runtime restrictions still belong in orchestration.
-- Fixed fixtures only: no submitted-source API, tracing, cancellation manager,
-  global run slots, or restart recovery. Nonzero Docker exec exit is not yet
-  sufficient attribution for a public Java failure result.
-- Full Part 6 roadmap and approval history remain in [next-steps.md](next-steps.md)
-  and [current-state.md](current-state.md). Only the active owner updates these
-  and this handoff as work progresses.
+- Unit: 16 existing tests passed (`.tools/part-6e-tests.log`); 10 new
+  cancellation/supervisor/lifecycle tests passed (`.tools/part-6e-new-tests.log`).
+- Live (`.tools/part-6e-live.log`, UTF-16): 13 run, **1 failure**:
+  `CancellationRecoveryLiveTest.cancelsRealCompilerAndRuntimeAndRemovesTheirContainers:36
+  Actual isolated worker must start before cancellation`. It failed on the first
+  fixture, COMPILE_TIMEOUT: `docker top ... -eo comm` never showed `javac` within
+  5 s. RUNTIME_TIMEOUT case never ran. Recovery live test passed.
+- Last full verified baseline: Part 6d clean verify, 36 tests, see
+  [backend/FIXTURE_LIFECYCLE.md](../backend/FIXTURE_LIFECYCLE.md).
+- Command (backend/, PowerShell):
+  `$env:JAVA_HOME='C:\Program Files\Java\jdk-21.0.12.1'; $env:MAVEN_USER_HOME=Join-Path (Split-Path $PWD) '.tools\maven-home'`
+  then `.\mvnw.cmd -B -ntp '-Dmaven.repo.local=../.tools/m2' '-Dcodeviz.docker.live=true' "-Dcodeviz.docker.executable=$dockerPath" clean verify`
+  with `$dockerPath=(Get-Command docker.exe -CommandType Application).Source`.
 
-## User's takeover message
+## Open review concerns in 6e code (Claude review, unverified)
 
-Use only after the outgoing agent has stopped:
+1. `FixedFixtureLifecycle` decides "final phase" by `budget.equals(Duration.ofSeconds(5))`;
+   fragile coupling to budget values.
+2. `transports` is a plain `ArrayList` written by the run thread and read by `recover()`.
+3. `RunCancellation.request()` interrupts the run thread; during `prepare` this may
+   quarantine the adapter so stop/remove fail and the slot is HELD after a plain cancel.
 
-> The previous agent has stopped. In this repository, read AGENTS.md and
-> memory/agent-handoff-protocol.md, then recover the shared handoff and Git state.
-> Handoff branch: docs/part-6d-agent-handoff. Report your recovery acknowledgment.
-> Continue only unfinished approved work; Part 6e still needs approval.
+## Resources
 
-The same message works for either agent. Update the branch/task details on future
-switches. Shared files provide the same recorded project context, not identical
-private chat history or guaranteed identical reasoning.
+- Docker 29.8.0 running; `docker ps -a` showed 0 containers at takeover. No
+  commands or tests running. Local logs/tools in ignored `.tools/`.
+
+## Next action
+
+Finish 6e.0 parts 2-5, commit each, push branch. Then resume 6e: diagnose the live
+failure (start by checking the javac process name and the 5 s observation window
+against preparation time), address the review concerns, run full live verify.
