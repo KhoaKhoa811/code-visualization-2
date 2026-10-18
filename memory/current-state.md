@@ -28,6 +28,17 @@ Long project instructions remain in their source files rather than being duplica
 
 ## Current scope
 
+- Part 6b is approved, implemented, and verified. Branch
+  feat/part-6b-lifecycle-contracts starts at published 6a fc9c115; fetched main
+  remains f3e7ffd. Review commits: 205f92a request, 24336c0 lifecycle/tests,
+  then docs/memory. All 51 contract tests passed. Contracts only: runtime
+  transition/evidence enforcement, Docker orchestration, API and input handling
+  remain later work. See specs/run-lifecycle.md and contracts/run/README.md.
+  Both memory files record the handoff. Part 6c is next proposed, not approved.
+  Milestone 0 and V1 remain incomplete. Older scope entries below are historical.
+  Automatic PR tooling unavailable; manual compare link:
+  https://github.com/KhoaKhoa811/code-visualization-2/compare/chore/part-6a-backend-setup...feat/part-6b-lifecycle-contracts?expand=1
+
 - Part 6a backend setup implemented and verified on 2026-10-17. User requested
   recovery and continuation after merging all branches. Pulled main to f3e7ffd;
   branch chore/part-6a-backend-setup starts there. Part 5 is merged.
@@ -44,7 +55,7 @@ Long project instructions remain in their source files rather than being duplica
 ### Part 6 roadmap
 
 - 6a: Java 21/Spring Boot/Maven setup (implemented and verified).
-- 6b: lifecycle contracts (proposed).
+- 6b: lifecycle contracts (implemented and verified; enforcement remains later).
 - 6c: bounded Docker adapter and resource ownership (proposed).
 - 6d: shared output quotas and deadlines (proposed).
 - 6e: cancellation, run slots, and recovery (proposed).
@@ -2314,6 +2325,23 @@ preserve user messages and label assistant summaries explicitly.
      integration, tracing, frontend, isolation gates, and V1 remain incomplete.
      Setup notes in backend/README.md; Part 6b remains proposed. No gh/connected
      GitHub tool available, so a manual PR link is supplied after branch push.
+111. User asked whether backend/ is the real backend and whether work is testing
+     or specification. Assistant clarified: this is the actual Spring Boot
+     foundation; Part 4 specified rules, Part 5 tested runner prototypes, and
+     6a implemented the backend startup. No submitted-source execution exists yet.
+112. User: "ok, continue implement part 6b". Recovered specs, fetched main f3e7ffd,
+     and branched from published 6a because it remains unmerged remotely. Used
+     lean-build to keep contracts separate from later orchestration. Listed three
+     review pieces: request, result/rules/tests, documentation/memory. Added two
+     versioned JSON schemas using trace-v1 source/results, explicit infrastructure
+     codes, proof/slot combinations, and lifecycle ownership rules. Existing Ajv
+     validates five new tests plus 46 trace checks: all 51 passed. Sandbox first
+     blocked test-worker spawn; approved rerun exposed a missing strict array type,
+     corrected before the final passing run. No dependency installation, Docker
+     execution, Java/backend changes, or Maven rerun. Runtime transition, identity,
+     hash/byte limits, and evidence enforcement are documented as later work.
+     Commits: 205f92a request; 24336c0 snapshots/rules/tests; docs/memory follow.
+     Automatic PR tooling unavailable; manual compare link provided at handoff.
 ## Latest verification notes
 
 Part 3 added a contract schema, examples, and development validation tooling.
