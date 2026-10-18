@@ -1,5 +1,8 @@
 # Docker control boundary — Part 6c
 
+Part 6d adds the separately specified [fixed-fixture lifecycle](fixed-fixture-lifecycle.md).
+The fixed-idle API and its checks remain; statements below describe the 6c boundary.
+
 The backend adapter controls one owned container using the installed Docker CLI
 and explicit `desktop-linux` context. It is not a Spring bean or execution API.
 Only a fixed idle command is exposed in this increment; no source staging,

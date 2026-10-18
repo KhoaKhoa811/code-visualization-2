@@ -1,6 +1,6 @@
 # Next steps
 
-Last updated: 2026-10-17 (Asia/Saigon).
+Last updated: 2026-10-18 (Asia/Saigon).
 
 Specialized-agent decision (2026-10-17): keep one agent following AGENTS.md and
 specs for current small, sequential tasks. Do not create backend-agent,
@@ -14,9 +14,38 @@ etc.) with its full task roadmap and intended smaller parts. Begin each smaller
 part (5a, 5b, etc.) with its own implementation checklist. Maintain both levels
 and update the relevant list when plans change. Apply this to future major parts;
 roadmaps do not approve later implementation or expand scope. This preference is
-also recorded in AGENTS.md. Latest approved task is Part 6c; Part 6d and later tasks are not approved.
+also recorded in AGENTS.md. Latest approved task is Part 6d; Part 6e and later tasks are not approved.
 
 ## Part 6 roadmap and latest handoff
+
+- Part 6d approved by "ok, please implement part 6d", then explicitly resumed
+  after the usage-limit stop. Recovered unfinished tracked/untracked files and
+  fast-forwarded feat/part-6d-fixture-lifecycle to merged main d36e5c0 without
+  losing changes. Parts 6a-6c are now merged. Latest scope: fixed-fixture
+  preparation, compile/runtime deadlines and shared 1 MiB raw output only.
+  Review commits: 3c5b2f8 output/gate; e3aa793 phase transport; 4677239 fixture
+  staging; 512ef3b lifecycle/tests; documentation/memory handoff follows.
+  Full Maven clean verify with Docker live tests enabled passed on 2026-10-18:
+  36 tests, zero failures/errors/skips, executable JAR packaged. All 12 lifecycle
+  live cases and the existing idle-container case verified stop/removal. Docker
+  Desktop was restarted for this verification. Unit checks cover byte boundaries,
+  shared streams/phases, raw partial UTF-8, EOF before completion, timeout,
+  failed compilation launch gating, and retention of stop/cleanup failures.
+  No new dependencies or Dockerfile; existing pinned image remains sufficient.
+  Guide: backend/FIXTURE_LIFECYCLE.md. Results are internal probe outcomes, not
+  trace/API envelopes; nonzero CLI attribution, source admission, cancellation,
+  capacity and recovery remain unfinished. Part 6e is next proposed, not approved.
+  Milestone 0, full isolation, and V1 remain incomplete. Branch pushed for review;
+  automatic PR tooling unavailable. Manual PR:
+  https://github.com/KhoaKhoa811/code-visualization-2/pull/new/feat/part-6d-fixture-lifecycle
+  Older scope/approval/merge entries below are historical.
+Part 6d checklist complete: recovery on newest main, review, shared output/deadline
+rules, separate stream collection, fixture staging, compile/runtime gating,
+stop/cleanup tests, full live build, memory and publication. Review details:
+backend/FIXTURE_LIFECYCLE.md. Next proposed Part 6e: cancellation, run-slot
+ownership, and cleanup/recovery state transitions. Discuss its small checklist
+before implementation. Do not merge automatically or start 6e without approval.
+
 
 - Part 6c explicitly approved after recording the specialized-agent decision.
   Fetch still reports main f3e7ffd; feat/part-6c-docker-adapter starts at published
@@ -73,7 +102,7 @@ and memory commit. Publish both for review; do not merge automatically.
 1. 6a: Java 21/Spring Boot/Maven setup (implemented and verified).
 2. 6b: lifecycle contracts (implemented and verified).
 3. 6c: bounded Docker adapter and resource ownership (implemented and verified).
-4. 6d: shared output quotas and deadlines (proposed).
+4. 6d: shared output quotas and deadlines (implemented and verified for fixed fixtures).
 5. 6e: cancellation, run slots, and recovery (proposed).
 6. 6f: fixed-fixture API integration (proposed).
 7. 6g: admission/isolation-gap review before tracing (proposed).

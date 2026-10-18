@@ -1,6 +1,6 @@
 # Current state and conversation memory
 
-Last updated: 2026-10-17 (Asia/Saigon).
+Last updated: 2026-10-18 (Asia/Saigon).
 
 Specialized-agent decision (2026-10-17): keep one agent following AGENTS.md and
 specs for current small, sequential tasks. Do not create backend-agent,
@@ -34,6 +34,28 @@ available in this session; it cannot reconstruct unavailable earlier chats.
 Long project instructions remain in their source files rather than being duplicated.
 
 ## Current scope
+
+- Part 6d approved by "ok, please implement part 6d", then explicitly resumed
+  after the usage-limit stop. Recovered unfinished tracked/untracked files and
+  fast-forwarded feat/part-6d-fixture-lifecycle to merged main d36e5c0 without
+  losing changes. Parts 6a-6c are now merged. Latest scope: fixed-fixture
+  preparation, compile/runtime deadlines and shared 1 MiB raw output only.
+  Review commits: 3c5b2f8 output/gate; e3aa793 phase transport; 4677239 fixture
+  staging; 512ef3b lifecycle/tests; documentation/memory handoff follows.
+  Full Maven clean verify with Docker live tests enabled passed on 2026-10-18:
+  36 tests, zero failures/errors/skips, executable JAR packaged. All 12 lifecycle
+  live cases and the existing idle-container case verified stop/removal. Docker
+  Desktop was restarted for this verification. Unit checks cover byte boundaries,
+  shared streams/phases, raw partial UTF-8, EOF before completion, timeout,
+  failed compilation launch gating, and retention of stop/cleanup failures.
+  No new dependencies or Dockerfile; existing pinned image remains sufficient.
+  Guide: backend/FIXTURE_LIFECYCLE.md. Results are internal probe outcomes, not
+  trace/API envelopes; nonzero CLI attribution, source admission, cancellation,
+  capacity and recovery remain unfinished. Part 6e is next proposed, not approved.
+  Milestone 0, full isolation, and V1 remain incomplete. Branch pushed for review;
+  automatic PR tooling unavailable. Manual PR:
+  https://github.com/KhoaKhoa811/code-visualization-2/pull/new/feat/part-6d-fixture-lifecycle
+  Older scope/approval/merge entries below are historical.
 
 - Part 6c explicitly approved after recording the specialized-agent decision.
   Fetch still reports main f3e7ffd; feat/part-6c-docker-adapter starts at published
@@ -83,7 +105,7 @@ Long project instructions remain in their source files rather than being duplica
 - 6a: Java 21/Spring Boot/Maven setup (implemented and verified).
 - 6b: lifecycle contracts (implemented and verified; enforcement remains later).
 - 6c: bounded Docker adapter and resource ownership (implemented and verified).
-- 6d: shared output quotas and deadlines (proposed).
+- 6d: shared output quotas and deadlines (implemented and verified for fixed fixtures).
 - 6e: cancellation, run slots, and recovery (proposed).
 - 6f: fixed-fixture API integration (proposed).
 - 6g: admission/isolation-gap review before tracing (proposed).
@@ -2391,6 +2413,31 @@ preserve user messages and label assistant summaries explicitly.
      broad runner rerun, submitted source, HTTP orchestration, or slot/restart
      recovery. Commits 995808d/ecb48b4/7928ff5 plus docs/memory; branch pushed for
      review. Part 6d remains proposed. Automatic PR tooling unavailable.
+115. User asked whether the backend runner package is needed or only inspection,
+     requested moving unnecessary files out, then asked for file explanations and
+     why no Dockerfile. Assistant explained production Docker orchestration belongs
+     in backend; test fixtures are excluded from production Java classes; root
+     runner owns execution tooling. Explained each production/test file. Existing
+     pinned Temurin image already supplies Java 21; a Dockerfile is useful when
+     packaging our own tracing runtime/helpers, not a replacement for runtime
+     restrictions or orchestration. No package rename or Dockerfile was approved.
+116. User: "ok, please implement part 6d". Listed budget/deadline, phase transport,
+     fixture lifecycle, and verification/handoff pieces. Implemented draft files
+     and passed 16 focused tests on 2026-10-17, then stopped before publication.
+117. User requested memory/Git recovery, newest merged main, review and completion
+     of Part 6d after usage limit. Preserved all unfinished files; fetched and
+     fast-forwarded to main d36e5c0 (merged through 6c). Reviewed implementation,
+     restarted Docker Desktop, and ran full clean verify with live enabled.
+     All 36 tests passed on 2026-10-18, no failures/errors/skips. Twelve live
+     lifecycle cases covered normal output, compiler error, compile/runtime
+     timeout, below/exact/above quota, stderr/combined streams, raw multibyte
+     cutoff, shared compile/runtime output, and compilation overflow gating.
+     Every live case verified whole-container stop and cleanup. Existing backend
+     startup/control tests passed; JAR packaged. No broader Part 5 or unchanged
+     trace-schema rerun. Split into five review pieces, keeping fixture staging
+     separate from coordination: 3c5b2f8, e3aa793, 4677239, 512ef3b, and docs/memory.
+     Published branch feat/part-6d-fixture-lifecycle; no automatic PR tool is
+     available, so a manual PR link is supplied. Part 6e remains unapproved.
 ## Latest verification notes
 
 Part 3 added a contract schema, examples, and development validation tooling.
