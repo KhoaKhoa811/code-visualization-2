@@ -30,6 +30,10 @@ npm --prefix contracts ci --ignore-scripts --no-audit --no-fund
 npm --prefix contracts test
 ```
 
+To check produced traces with the same strict schema and envelope/boundary
+checks: `node contracts/trace/check.cjs <trace.json>...` (exit 1 on problems).
+The Part 7b producer tests use this for every generated trace.
+
 Tested environment: Windows, Node 22.23.2, npm 10.9.8, Ajv 8.17.1. The package
 and lock file pin the dependency set. Installation needs registry access or a
 populated npm cache. Dependencies stay under ignored contracts/node_modules.

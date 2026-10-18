@@ -1,7 +1,7 @@
 # ADR 0004: Bytecode instrumentation for runtime facts
 
-Status: **Proposed** (2026-10-18). Recommended by the Part 7a spike; becomes
-Accepted when the user confirms it. Until then, no production tracer is built.
+Status: **Accepted** (2026-10-18). Recommended by the Part 7a spike; the user approved
+Part 7b, which builds on it ("please continue implement part 7b"). See [bytecode-tracing.md](../bytecode-tracing.md).
 
 ## Context
 

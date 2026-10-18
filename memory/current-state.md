@@ -20,9 +20,10 @@ or live input yet.
 | 6b | Run request/snapshot contracts v1 (`contracts/run/`, [spec](../specs/run-lifecycle.md)) | Merged |
 | 6c | Bounded Docker control adapter, owned container identity ([guide](../backend/DOCKER_CONTROL.md)) | Merged |
 | 6d | Fixed-fixture compile/run lifecycle, deadlines, shared 1 MiB output quota ([guide](../backend/FIXTURE_LIFECYCLE.md)); 36 tests passed with live Docker | Merged (PR #80) |
-| 6e.0 | Handoff-efficiency docs for Codex/Claude cooperation | Done, pushed on the 6e branch |
-| 6e | Cancellation, one run slot + queue, explicit recovery ([guide](../backend/CANCELLATION_RECOVERY.md)); 49 tests passed with live Docker | Done, pushed, awaiting merge |
-| 7a | Trace-engine spike: ASM bytecode tracer, 20 tests, report and ADR 0004 (Proposed) ([report](../runner/tracer-spike/SPIKE_REPORT.md)) | Done, pushed, awaiting review |
+| 6e.0 | Handoff-efficiency docs for Codex/Claude cooperation | Merged (PR #82) |
+| 6e | Cancellation, one run slot + queue, explicit recovery ([guide](../backend/CANCELLATION_RECOVERY.md)); 49 tests passed with live Docker | Merged (PR #82) |
+| 7a | Trace-engine spike: ASM bytecode tracer, 20 tests, report and ADR 0004 ([report](../runner/tracer-spike/SPIKE_REPORT.md)) | Merged (PR #83) |
+| 7b | Host trace-v1 producer for the first increment in main ([guide](../runner/tracer/README.md)); 27 tests | Done, pushed, awaiting review |
 
 ## Verified environment
 
