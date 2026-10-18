@@ -2,6 +2,15 @@
 
 Last updated: 2026-10-18 (Asia/Saigon).
 
+Near-limit instruction approved 2026-10-18: if either agent sees a usage/context
+warning, visibly low remaining capacity, or a user warning of an imminent limit,
+prioritize saving handoff.md before more implementation or long tests. Include
+exact stopping point, unfinished files, test evidence, running resources and next
+action; then update both memory files and publish safe checkpoints when possible.
+If only one write is possible, handoff.md takes priority and must flag stale notes.
+No guaranteed limit detector is assumed; routine checkpoints still apply. The
+shared protocol contains the full procedure. Part 6e remains unapproved.
+
 Sequential-agent workflow approved 2026-10-18: Codex and Claude Code alternate
 as sole active owner, usually at usage limits. This supersedes the suggested
 implementer/reviewer pairing. No simultaneous checkout work or specialized

@@ -14,6 +14,10 @@ User also requested a second review. Clarified one recovery read order, unmerged
 branch discovery, session-specific permissions/tools, ownership confirmation,
 and the incoming agent's recovery acknowledgment. No unresolved scope question
 remains for this documentation task. A real Claude takeover has not been tested.
+User additionally required an explicit near-limit checkpoint rule. It is saved
+in AGENTS.md and the shared protocol: write the handoff before more work, then
+update both memory files, preserve changes/resources, and publish safe checkpoints
+when possible. No actual usage-limit warning is being claimed by this note.
 
 Part 6d implementation is complete. **Part 6e is proposed, not approved.**
 After recovering and confirming the outgoing agent stopped, discuss 6e's checklist

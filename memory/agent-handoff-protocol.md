@@ -71,6 +71,37 @@ The user starts the next session and provides the takeover request.
 7. End the outgoing session before another agent writes. A note saying "ready"
    is not an automatic lock or proof that another agent has stopped.
 
+## Near-limit checkpoint (required when a limit is visible)
+
+When a usage/context warning appears, remaining capacity is visibly low, or the
+user warns of an imminent limit, stop starting new implementation, broad edits,
+or long tests. Use remaining capacity to preserve context first. Do not invent a
+remaining percentage or assume either tool can reliably predict its usage limit.
+
+1. Save `memory/handoff.md` immediately with status `checkpointing: near limit`.
+   Record the approved task, owner, branch/HEAD, exact stopping point, dirty and
+   untracked files, last completed step, unfinished edits, and next concrete action.
+2. Record passed/failed/unrun/in-progress checks with commands, working directory,
+   and evidence paths. List known problems, pending decisions, and any fragile
+   assumptions the incoming agent must verify. Never turn an unrun check into a pass.
+3. Identify running commands and owned processes/containers, their results/logs,
+   and cleanup state. Reach a safe pause when possible within approved scope;
+   otherwise explicitly mark what is still active. Never claim a limit stops it.
+4. Update current-state and next-steps with concise progress and approval boundaries.
+   If interruption leaves only enough capacity for one write, prioritize handoff.md
+   and state that the other memory files may lag behind it.
+5. Commit/push completed buildable pieces if time and existing permissions permit.
+   Preserve unfinished changes; do not force an unverified completion commit.
+   For a cross-machine transfer, follow the draft-checkpoint procedure above and
+   explicitly identify anything not yet pushed. Saving the handoff comes first.
+6. Once work has stopped, mark `ready for takeover` and tell the user the branch,
+   latest checkpoint, unfinished scope, and next action. If forcibly interrupted
+   sooner, the incoming agent uses the abrupt-stop recovery procedure; a stale
+   `checkpointing` or `active` label is not proof that work is still running.
+
+This rule applies equally to Codex and Claude Code. Keep normal continuous
+checkpoints because an abrupt limit may arrive without any warning.
+
 ## Incoming agent: recover before editing
 
 1. A user-requested takeover authorizes context recovery for that request. Confirm

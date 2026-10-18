@@ -2,6 +2,15 @@
 
 Last updated: 2026-10-18 (Asia/Saigon).
 
+Near-limit instruction approved 2026-10-18: if either agent sees a usage/context
+warning, visibly low remaining capacity, or a user warning of an imminent limit,
+prioritize saving handoff.md before more implementation or long tests. Include
+exact stopping point, unfinished files, test evidence, running resources and next
+action; then update both memory files and publish safe checkpoints when possible.
+If only one write is possible, handoff.md takes priority and must flag stale notes.
+No guaranteed limit detector is assumed; routine checkpoints still apply. The
+shared protocol contains the full procedure. Part 6e remains unapproved.
+
 Sequential-agent workflow approved 2026-10-18: Codex and Claude Code alternate
 as sole active owner, usually at usage limits. This supersedes the suggested
 implementer/reviewer pairing. No simultaneous checkout work or specialized
@@ -2499,6 +2508,15 @@ preserve user messages and label assistant summaries explicitly.
      memory synchronization or successful Claude-session test is claimed. All local
      document links and whitespace checked; no application code/tests changed.
      Clarification continues docs/part-6d-agent-handoff; Part 6e remains unapproved.
+122. User asked how unfinished work is recovered after an abrupt usage-limit stop.
+     Assistant explained recovery from shared notes, Git changes, actual files,
+     running operations and relevant checks; private unrecorded reasoning cannot
+     transfer. User then explicitly requested instructions to save clearer memory
+     when an agent sees it is near a limit. Added a shared AGENTS.md rule and
+     near-limit protocol for both agents, including write priority, unfinished
+     files, evidence, active resources, safe checkpoints and readiness reporting.
+     Updated handoff and both memory files. Documentation-only checks; no usage
+     warning, application test, or successful Claude takeover is claimed.
 ## Latest verification notes
 
 Part 3 added a contract schema, examples, and development validation tooling.
