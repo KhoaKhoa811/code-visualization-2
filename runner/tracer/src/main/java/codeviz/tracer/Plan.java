@@ -12,9 +12,9 @@ final class Plan {
     private Plan() { }
 
     /** Relevant bytecode instruction families, in javac code-layout order. */
-    enum Expect { STORE, IINC, IALOAD, IASTORE, ARRAYLENGTH, NEWARRAY, NEWARRAY_LITERAL, ARITH, INEG, JUMP, GETSTATIC, INVOKE, REGION }
+    enum Expect { STORE, IINC, IALOAD, IASTORE, ARRAYLENGTH, NEWARRAY, NEWARRAY_LITERAL, ARITH, NEG, CONVERT, CMP, JUMP, GETSTATIC, INVOKE, REGION }
 
-    enum Kind { DECLARE, ASSIGN, UPDATE, ALLOCATE, ARRAY_READ, ARRAY_LENGTH, ARRAY_WRITE, ARITHMETIC, LEAF, REGION }
+    enum Kind { DECLARE, ASSIGN, UPDATE, ALLOCATE, ARRAY_READ, ARRAY_LENGTH, ARRAY_WRITE, ARITHMETIC, CAST, LEAF, REGION }
 
     /** One instrumented operation site. Fields not relevant to a kind stay null. */
     static final class Site {
@@ -33,6 +33,12 @@ final class Plan {
         List<String> unknownDeclarations = List.of(); // covered locals the statement may assign
         boolean mayWriteArrays;
         int crtStart = -1, crtEnd = -1;     // javac CharacterRangeTable positions (line << 10 | column)
+        // Part 8b. ARITHMETIC: javaType is the operation type; CAST: fromType -> javaType.
+        String fromType;
+        String operand;                     // ASSIGN via iinc: the source constant (x += c)
+        int delta;                          // ASSIGN via iinc: the iinc increment
+        boolean viaArith;                   // UPDATE of a non-int local: arithmetic then store
+        final List<Site> declareBefore = new ArrayList<>(); // declarations without initializer that precede this site
 
         Site(int id, Kind kind, int start, int end, List<String> scopes) {
             this.id = id; this.kind = kind; this.start = start; this.end = end;

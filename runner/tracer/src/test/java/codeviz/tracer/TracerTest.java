@@ -74,6 +74,9 @@ class TracerTest {
             case "ref" -> "#" + v.get("objectId");
             case "null" -> "null";
             case "unknown" -> "?";
+            case "unassigned" -> "_";
+            case "float" -> String.valueOf(Float.intBitsToFloat(Integer.parseUnsignedInt((String) v.get("bits"), 16)));
+            case "double" -> String.valueOf(Double.longBitsToDouble(Long.parseUnsignedLong((String) v.get("bits"), 16)));
             default -> String.valueOf(v.get("value"));
         };
     }
@@ -391,16 +394,16 @@ class TracerTest {
         assertFalse(c.result().raw().stream().anyMatch(l -> l.startsWith("A")), "printing never re-reads arrays");
 
         // A declaration without code is silent; uses of its variable are uncaptured.
-        Run u = main("uncaptured-uninitialized", "int x;\nx = 1;\nSystem.out.println(x);");
-        assertEquals(List.of("UNCAPTURED @x = 1;", "UNCAPTURED @System.out.println(x);"), steps(u.trace()));
-        assertEquals("1\n", u.result().stdout());
+        Run u = main("uncaptured-unsupported-type", "long[] q;\nq = new long[2];\nSystem.out.println(q.length);");
+        assertEquals(List.of("UNCAPTURED @q = new long[2];", "UNCAPTURED @System.out.println(q.length);"), steps(u.trace()));
+        assertEquals("2\n", u.result().stdout());
     }
 
     @Test void assignedBindingsBecomeUnknownUntilTheNextCoveredStore() throws Exception {
-        Run r = main("uncaptured-unknown", "int x = 1;\nx += 4;\nx = x + 1;\nint i = 0;\ni += 2;\ni++;");
+        Run r = main("uncaptured-unknown", "int x = 1;\nx = Math.max(x, 5);\nx = x + 1;\nint i = 0;\ni = Math.abs(i - 2);\ni++;");
         assertComplete(r, "completed");
-        assertEquals(List.of("DECLARE x=1 @int x = 1", "UNCAPTURED x=? @x += 4;", "EXPR + 5 1 = 6 @x + 1", "ASSIGN x ?->6 @x = x + 1",
-                "DECLARE i=0 @int i = 0", "UNCAPTURED i=? @i += 2;", "UPDATE i ?->3 =2 @i++"), steps(r.trace()));
+        assertEquals(List.of("DECLARE x=1 @int x = 1", "UNCAPTURED x=? @x = Math.max(x, 5);", "EXPR + 5 1 = 6 @x + 1", "ASSIGN x ?->6 @x = x + 1",
+                "DECLARE i=0 @int i = 0", "UNCAPTURED i=? @i = Math.abs(i - 2);", "UPDATE i ?->3 =2 @i++"), steps(r.trace()));
     }
 
     @Test void arraysChangedByUncapturedCodeAreReRead() throws Exception {
@@ -428,30 +431,156 @@ class TracerTest {
     }
 
     @Test void uncapturedStatementsInsideLoopsAndBranches() throws Exception {
-        Run r = main("uncaptured-loop", "int s = 0;\nfor (int i = 0; i < 5; i++) {\n    if (i == 3) break;\n    s += i;\n}\n"
-                + "for (int j = 0; j < 4; j += 2) System.out.println(j);\nSystem.out.println(s);");
+        Run r = main("uncaptured-loop", "int s = 0;\nfor (int i = 0; i < 5; i++) {\n    if (i == 3) break;\n    s = Math.max(s, s + i);\n}\n"
+                + "for (int j = 0; j < 4; j = Math.addExact(j, 2)) System.out.println(j);\nSystem.out.println(s);");
         assertComplete(r, "completed");
         assertEquals("0\n2\n3\n", r.result().stdout());
         List<String> steps = steps(r.trace());
-        assertEquals(3, steps.stream().filter(s -> s.equals("UNCAPTURED s=? @s += i;")).count());
+        assertEquals(3, steps.stream().filter(s -> s.equals("UNCAPTURED s=? @s = Math.max(s, s + i);")).count());
         // An unsupported for-update degrades the whole loop into one uncaptured step.
         assertEquals(1, steps.stream().filter(s -> s.startsWith("UNCAPTURED @for (int j")).count());
     }
 
     @Test void tabIndentedSourceMapsStatementRanges() throws Exception {
         Run r = run("uncaptured-tabs", "public class Main {\n\tpublic static void main(String[] args) {\n\t\tint x = 1;\n"
-                + "\t\tx += 2;\n\t\tSystem.out.println(x);\n\t}\n}\n");
+                + "\t\tx = Math.max(x, 3);\n\t\tSystem.out.println(x);\n\t}\n}\n");
         assertComplete(r, "completed");
-        assertEquals(List.of("DECLARE x=1 @int x = 1", "UNCAPTURED x=? @x += 2;"), steps(r.trace())); // println(x) is covered
+        assertEquals(List.of("DECLARE x=1 @int x = 1", "UNCAPTURED x=? @x = Math.max(x, 3);"), steps(r.trace())); // println(x) is covered
     }
 
     @Test void failureInsideAnUncapturedStatementEndsAtThatStep() throws Exception {
-        Run r = main("uncaptured-failure", "int[] a = {1};\nint x = 0;\nx += a[5];");
+        Run r = main("uncaptured-failure", "int[] a = {1};\nint x = 0;\nx = Math.floorDiv(a[0], x);");
         assertTrue(r.prepared().traced());
         assertEquals("failed", status(r.trace(), "execution"));
         assertEquals("partial", status(r.trace(), "capture"));
         List<String> steps = steps(r.trace());
-        assertEquals("UNCAPTURED x=? @x += a[5];", steps.get(steps.size() - 1));
+        assertEquals("UNCAPTURED x=? @x = Math.floorDiv(a[0], x);", steps.get(steps.size() - 1));
+    }
+
+    // ---- Part 8b: primitive types and operators --------------------------------------
+
+    @Test void allPrimitiveTypesAreTracedWithExactValues() throws Exception {
+        Run r = main("primitive-types", """
+                long big = 3000000000L;
+                big = big * 2 + 1;
+                byte b = 127;
+                b++;
+                short s = -2;
+                s--;
+                char c = 'a';
+                c += 2;
+                float f = 1.5f;
+                double d = f / 4;
+                d -= 0.125;
+                int i = (int) (d * 100);
+                long fromInt = i;
+                char letter = (char) (c + 1);
+                System.out.println(big + " " + b + " " + s + " " + c + " " + f + " " + d + " " + i + " " + fromInt + " " + letter);""");
+        assertComplete(r, "completed");
+        assertEquals("6000000001 -128 -3 c 1.5 0.25 25 25 d\n", r.result().stdout());
+        assertInOrder(steps(r.trace()),
+                "DECLARE big=3000000000 @long big = 3000000000L",
+                "EXPR * 3000000000 2 = 6000000000 @big * 2",
+                "EXPR + 6000000000 1 = 6000000001 @big * 2 + 1",
+                "ASSIGN big 3000000000->6000000001 @big = big * 2 + 1",
+                "DECLARE b=127 @byte b = 127",
+                "UPDATE b 127->-128 =127 @b++",
+                "UPDATE s -2->-3 =-2 @s--",
+                "DECLARE c=97 @char c = 'a'",
+                "EXPR + 97 2 = 99 @c += 2",
+                "ASSIGN c 97->99 @c += 2",
+                "EXPR * 0.25 100.0 = 25.0 @d * 100",
+                "EXPR (int) 25.0 = 25 @(int) (d * 100)",
+                "DECLARE fromInt=25 @long fromInt = i",
+                "EXPR (char) 100 = 100 @(char) (c + 1)");
+        String json = r.json();
+        assertTrue(json.contains("{\"kind\":\"double\",\"bits\":\"3fd0000000000000\"}"), "0.25 as exact bits");
+        assertTrue(json.contains("{\"kind\":\"char\",\"value\":100}"));
+    }
+
+    @Test void bitwiseShiftsCastsAndTernary() throws Exception {
+        Run r = main("bitwise", """
+                int x = 6;
+                int y = x & 3 | 8 ^ 1;
+                y = ~y;
+                y <<= 2;
+                long shifted = 1L << x;
+                int count = 40;
+                long viaLong = 5L >>> count;
+                int narrow = x << 34L;
+                boolean p = x > 3;
+                boolean q = p & !p | p ^ true;
+                int pick = p ? x : -x;
+                byte packed = (byte) 300;
+                packed = (byte) (packed + x * 50);
+                System.out.println(y + " " + shifted + " " + viaLong + " " + narrow + " " + q + " " + pick + " " + packed);""");
+        assertComplete(r, "completed");
+        assertEquals("-48 64 0 24 false 6 88\n", r.result().stdout());
+        assertInOrder(steps(r.trace()), "EXPR & 6 3 = 2 @x & 3", "EXPR | 2 9 = 11 @x & 3 | 8 ^ 1", "EXPR ~ 11 = -12 @~y",
+                "EXPR << -12 2 = -48 @y <<= 2", "EXPR << 1 6 = 64 @1L << x", "EXPR >>> 5 40 = 0 @5L >>> count",
+                "EXPR << 6 34 = 24 @x << 34L", "EXPR condition true = true @p", "EXPR + 44 300 = 344 @packed + x * 50",
+                "EXPR (byte) 344 = 88 @(byte) (packed + x * 50)");
+    }
+
+    @Test void longFloatAndDoubleComparisonsKeepJavaSemantics() throws Exception {
+        Run r = main("float-compare", """
+                double zero = 0;
+                double nan = zero / zero;
+                boolean any = nan < 1 || nan >= 1 || nan == nan;
+                float neg = -0.0f;
+                boolean same = neg == 0.0f;
+                long l = 5;
+                boolean greater = l > 4 && 2.5 <= l;
+                char ch = 'q';
+                boolean letter = ch >= 'a' && ch <= 'z';
+                System.out.println(any + " " + same + " " + greater + " " + letter);""");
+        assertComplete(r, "completed");
+        assertEquals("false true true true\n", r.result().stdout());
+        List<String> steps = steps(r.trace());
+        assertInOrder(steps, "EXPR < NaN 1.0 = false @nan < 1", "EXPR >= NaN 1.0 = false @nan >= 1", "EXPR == NaN NaN = false @nan == nan",
+                "EXPR == -0.0 0.0 = true @neg == 0.0f", "EXPR > 5 4 = true @l > 4", "EXPR <= 2.5 5.0 = true @2.5 <= l",
+                "EXPR >= 113 97 = true @ch >= 'a'");
+    }
+
+    @Test void compoundAssignmentAndUpdatesOnArrayElements() throws Exception {
+        Run r = main("array-compound", "int[] a = {5, 7};\na[0] += 10;\na[1]++;\nint y = a[0]--;\na[1] *= a[0];");
+        assertComplete(r, "completed");
+        assertInOrder(steps(r.trace()),
+                "READ [0]=5 @a[0]", "EXPR + 5 10 = 15 @a[0] += 10", "WRITE [0] 5->15 @a[0] += 10",
+                "READ [1]=7 @a[1]", "EXPR + 7 1 = 8 @a[1]++", "WRITE [1] 7->8 @a[1]++",
+                "READ [0]=15 @a[0]", "EXPR - 15 1 = 14 @a[0]--", "WRITE [0] 15->14 @a[0]--", "DECLARE y=15 @int y = a[0]--",
+                "READ [1]=8 @a[1]", "READ [0]=14 @a[0]", "EXPR * 8 14 = 112 @a[1] *= a[0]", "WRITE [1] 8->112 @a[1] *= a[0]");
+    }
+
+    @Test void overflowWideIncrementsAndLongDivisionByZero() throws Exception {
+        Run r = main("primitive-edges", "char c = 65535;\nc++;\nint i = 5;\ni -= 40000;\ni += 7;\nlong zero = 0;\nlong boom = 10L / zero;");
+        assertEquals("failed", status(r.trace(), "execution"));
+        assertEquals("complete", status(r.trace(), "capture"));
+        assertInOrder(steps(r.trace()), "UPDATE c 65535->0 =65535 @c++",
+                "EXPR - 5 40000 = -39995 @i -= 40000", "ASSIGN i 5->-39995 @i -= 40000",   // too large for iinc
+                "EXPR + -39995 7 = -39988 @i += 7", "ASSIGN i -39995->-39988 @i += 7",     // iinc 7
+                "EXCEPTION java.lang.ArithmeticException @10L / zero");
+    }
+
+    @Test void declarationsWithoutInitializerAppearBeforeTheirNextOperation() throws Exception {
+        Run r = main("uninitialized", """
+                int total;
+                total = 0;
+                for (int i = 0; i < 2; i++) {
+                    int square;
+                    square = i * i;
+                    total += square;
+                }
+                long unused;
+                System.out.println(total);""");
+        assertComplete(r, "completed");
+        List<String> steps = steps(r.trace());
+        assertEquals("DECLARE total=_ @int total", steps.get(0));
+        assertEquals(2, steps.stream().filter(s -> s.equals("DECLARE square=_ @int square")).count(), "a fresh binding per iteration");
+        assertInOrder(steps, "ASSIGN total _->0 @total = 0", "DECLARE square=_ @int square", "EXPR * 0 0 = 0 @i * i",
+                "ASSIGN square _->0 @square = i * i", "EXPR + 0 0 = 0 @total += square", "ASSIGN total 0->0 @total += square");
+        assertEquals("1\n", r.result().stdout());
+        assertTrue(steps.stream().noneMatch(s -> s.contains("unused")), "never followed by an operation: not observable");
     }
 
     @Test void programWideLimitsStillRunOutputOnly() throws Exception {

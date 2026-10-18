@@ -210,6 +210,7 @@ final class TraceBuilder {
     private void region(String line) throws Inconsistent {
         Site site = site(line.substring(1));
         if (site.kind != Plan.Kind.REGION) throw new Inconsistent("region record for another site");
+        declarePending(site);
         syncScopes(site);
         List<Object> unknownBindings = new ArrayList<>();
         for (String declarationId : site.unknownDeclarations) {
@@ -263,15 +264,34 @@ final class TraceBuilder {
         String[] t = line.split(" ");
         if (t.length != 3) throw new Inconsistent("malformed failure record");
         Site site = site(t[0].substring(1));
+        declarePending(site);
         syncScopes(site);
         Map<String, Object> data = ordered("exceptionType", t[1], "message", unhex(t[2]));
         addObservable(site, "EXCEPTION", data);
         return data;
     }
 
+    /**
+     * Declarations without initializer run no code; each is recorded just before the
+     * first operation that follows it in its block (Part 8b), unassigned.
+     */
+    private void declarePending(Site site) throws Inconsistent {
+        for (Site d : site.declareBefore) {
+            syncScopes(d);
+            if (liveBindings.containsKey(d.declarationId)) reenterInnermost(d);
+            String scope = scopes.get(scopes.size() - 1)[1];
+            Map<String, Object> binding = binding(d.declarationId, d.name, d.javaType, scope, ordered("kind", "unassigned"));
+            liveBindings.put(d.declarationId, binding);
+            addObservable(d, "DECLARE", ordered("binding", copy(binding)));
+        }
+    }
+
+    private String[] pendingUpdate; // Part 8b: arithmetic of a non-int ++/--, before its store
+
     private void operation(String line) throws Inconsistent {
         String[] t = line.split(" ");
         Site site = site(t[0]);
+        if (pendingUpdate == null) declarePending(site);
         syncScopes(site);
         switch (site.kind) {
             case DECLARE -> {
@@ -287,10 +307,18 @@ final class TraceBuilder {
                 Map<String, Object> binding = live(site);
                 Object previous = binding.get("value");
                 Object value = typed(site.javaType, t[1]);
+                if (site.operand != null) { // x += c compiled to iinc: the addition, then the assignment
+                    int now = Integer.parseInt(t[1]), before = now - site.delta;
+                    if (!"unknown".equals(((Map<?, ?>) previous).get("kind")) && !previous.equals(intTyped(before)))
+                        throw new Inconsistent("compound assignment previous value");
+                    addObservable(site, "EXPRESSION", ordered("operator", site.operator, "operands",
+                            List.of(operand(intTyped(before)), operand(intTyped(Integer.parseInt(site.operand)))), "result", intTyped(now)));
+                }
                 binding.put("value", value);
                 addObservable(site, "ASSIGN", ordered("bindingId", binding.get("bindingId"), "previous", previous, "value", value));
             }
             case UPDATE -> {
+                if (site.viaArith) { updateViaArithmetic(site, t); return; }
                 expect(t, 2);
                 Map<String, Object> binding = live(site);
                 int value = Integer.parseInt(t[1]);
@@ -345,25 +373,64 @@ final class TraceBuilder {
                 addObservable(site, "ARRAY_LENGTH", ordered("objectId", object(t[1]), "length", length));
             }
             case ARITHMETIC -> {
+                String type = site.javaType;
                 List<Object> operands = new ArrayList<>();
-                int result;
+                String result;
                 if (site.operator.equals("-") && t.length == 3) { // unary minus
-                    int v = Integer.parseInt(t[1]);
-                    result = Integer.parseInt(t[2]);
-                    if (result != -v) throw new Inconsistent("negation result");
-                    operands.add(operand(intTyped(v)));
+                    result = t[2];
+                    if (!Values.same(type, result, Values.negate(type, t[1]))) throw new Inconsistent("negation result");
+                    operands.add(operand(Values.typed(type, t[1])));
                 } else {
                     expect(t, 4);
-                    int l = Integer.parseInt(t[1]), r = Integer.parseInt(t[2]);
-                    result = Integer.parseInt(t[3]);
-                    if (result != arithmetic(site.operator, l, r)) throw new Inconsistent("arithmetic result");
-                    operands.add(operand(intTyped(l)));
-                    operands.add(operand(intTyped(r)));
+                    result = t[3];
+                    String expected = Values.compute(site.operator, type, t[1], t[2]);
+                    if (expected == null || !Values.same(type, result, expected)) throw new Inconsistent("arithmetic result");
+                    operands.add(operand(Values.typed(type, t[1])));
+                    if (site.operator.equals("~")) { // compiled as x ^ -1
+                        if (!Values.same(type, t[2], "-1")) throw new Inconsistent("complement operand");
+                    } else {
+                        boolean shift = site.operator.startsWith("<") || site.operator.startsWith(">");
+                        operands.add(operand(Values.typed(shift ? "int" : type, t[2])));
+                    }
                 }
-                addObservable(site, "EXPRESSION", ordered("operator", site.operator, "operands", operands, "result", intTyped(result)));
+                addObservable(site, "EXPRESSION", ordered("operator", site.operator, "operands", operands,
+                        "result", Values.typed(type, result)));
+            }
+            case CAST -> {
+                expect(t, 3);
+                if (!Values.same(Analyzer.stack(site.javaType), t[2], Values.cast(site.fromType, t[1], site.javaType)))
+                    throw new Inconsistent("cast result");
+                addObservable(site, "EXPRESSION", ordered("operator", site.operator,
+                        "operands", List.of(operand(Values.typed(site.fromType, t[1]))), "result", Values.typed(site.javaType, t[2])));
             }
             case LEAF -> leaf(site, t);
+            case REGION -> throw new Inconsistent("operation record for an uncaptured statement");
         }
+    }
+
+    /** ++/-- on a byte, short, char, long, float or double local: arithmetic record, then store record. */
+    private void updateViaArithmetic(Site site, String[] t) throws Inconsistent {
+        String stackType = Analyzer.stack(site.javaType);
+        if (pendingUpdate == null) {
+            expect(t, 4);
+            String expected = Values.compute(site.operator.equals("++") ? "+" : "-", stackType, t[1], t[2]);
+            if (expected == null || !Values.same(stackType, t[3], expected)) throw new Inconsistent("update arithmetic");
+            pendingUpdate = t;
+            return;
+        }
+        String[] arithmetic = pendingUpdate;
+        pendingUpdate = null;
+        expect(t, 2);
+        if (!Values.same(stackType, t[1], Values.cast(stackType, arithmetic[3], site.javaType))) throw new Inconsistent("update value");
+        Map<String, Object> binding = live(site);
+        Map<String, Object> previous = Values.typed(site.javaType, arithmetic[1]);
+        Object stored = binding.get("value");
+        if (!"unknown".equals(((Map<?, ?>) stored).get("kind")) && !stored.equals(previous)) throw new Inconsistent("update previous value");
+        Map<String, Object> value = Values.typed(site.javaType, t[1]);
+        binding.put("value", value);
+        addObservable(site, "UPDATE", ordered("bindingId", binding.get("bindingId"), "previous", stored,
+                "value", value, "result", site.position.equals("prefix") ? value : previous,
+                "operator", site.operator, "position", site.position));
     }
 
     private void leaf(Site site, String[] t) throws Inconsistent {
@@ -376,7 +443,11 @@ final class TraceBuilder {
         if (site.operator != null) {
             List<Object> operands = new ArrayList<>();
             int op = site.jumpOpcode;
-            if (op >= 159 && op <= 164) { // two recorded ints/booleans
+            if (List.of("long", "float", "double").contains(site.operandType)) { // recorded at lcmp/fcmp/dcmp
+                expect(t, 4);
+                operands.add(operand(Values.typed(site.operandType, t[2])));
+                operands.add(operand(Values.typed(site.operandType, t[3])));
+            } else if (op >= 159 && op <= 164) { // two recorded ints/booleans
                 expect(t, 4);
                 operands.add(operand(scalar(site.operandType, t[2])));
                 operands.add(operand(scalar(site.operandType, t[3])));
@@ -470,18 +541,14 @@ final class TraceBuilder {
 
     private Map<String, Object> typed(String javaType, String token) throws Inconsistent {
         return switch (javaType) {
-            case "int" -> intTyped(Integer.parseInt(token));
-            case "boolean" -> scalar("boolean", token);
+            case "byte", "short", "char", "int", "long", "float", "double", "boolean" -> scalar(javaType, token);
             default -> reference(token);
         };
     }
 
     private Map<String, Object> scalar(String type, String token) throws Inconsistent {
-        if (type.equals("boolean")) {
-            if (!token.equals("0") && !token.equals("1")) throw new Inconsistent("boolean value");
-            return bool(token.equals("1"));
-        }
-        return intTyped(Integer.parseInt(token));
+        try { return Values.typed(type, token); }
+        catch (IllegalArgumentException malformed) { throw new Inconsistent(type + " value"); }
     }
 
     private Map<String, Object> reference(String token) throws Inconsistent {
@@ -531,11 +598,6 @@ final class TraceBuilder {
 
     private static int intValue(Object typed) { return Integer.parseInt((String) ((Map<?, ?>) typed).get("value")); }
 
-    private static int arithmetic(String op, int l, int r) {
-        return switch (op) {
-            case "+" -> l + r; case "-" -> l - r; case "*" -> l * r; case "/" -> l / r; default -> l % r;
-        };
-    }
 
     private static Map<String, Object> intTyped(int v) { return ordered("kind", "int", "value", Integer.toString(v)); }
     private static Map<String, Object> bool(boolean v) { return ordered("kind", "boolean", "value", v); }
@@ -613,7 +675,7 @@ final class TraceBuilder {
             diagnosticJson.add(map);
         }
         return Json.write(ordered(
-                "schemaVersion", "1.1.0",
+                "schemaVersion", "1.2.0",
                 "runId", runId,
                 "source", ordered("file", Analyzer.FILE, "text", source, "sha256", sha256(source)),
                 "execution", ordered("status", executionStatus, "reason", executionReason),

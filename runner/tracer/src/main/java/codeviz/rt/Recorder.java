@@ -213,6 +213,112 @@ public final class Recorder {
 
     public static int ineg(int value, int site) { int v = -value; line(site + " " + value + " " + v); return v; }
 
+    // ---- Part 8b: other primitive types --------------------------------------------
+    // long values are decimal; float and double values are raw IEEE-754 bits in hex.
+
+    private static String f(float v) { return hex(Integer.toHexString(Float.floatToRawIntBits(v)), 8); }
+    private static String d(double v) { return hex(Long.toHexString(Double.doubleToRawLongBits(v)), 16); }
+    private static String hex(String digits, int width) { return "0".repeat(width - digits.length()) + digits; }
+
+    public static void vl(long v, int site) { line(site + " " + v); }
+    public static void vf(float v, int site) { line(site + " " + f(v)); }
+    public static void vd(double v, int site) { line(site + " " + d(v)); }
+
+    private static int i3(int l, int r, int v, int site) { line(site + " " + l + " " + r + " " + v); return v; }
+    public static int iand(int l, int r, int site) { return i3(l, r, l & r, site); }
+    public static int ior(int l, int r, int site) { return i3(l, r, l | r, site); }
+    public static int ixor(int l, int r, int site) { return i3(l, r, l ^ r, site); }
+    public static int ishl(int l, int r, int site) { return i3(l, r, l << r, site); }
+    public static int ishr(int l, int r, int site) { return i3(l, r, l >> r, site); }
+    public static int iushr(int l, int r, int site) { return i3(l, r, l >>> r, site); }
+
+    private static long l3(long l, Object r, long v, int site) { line(site + " " + l + " " + r + " " + v); return v; }
+    public static long ladd(long l, long r, int site) { return l3(l, r, l + r, site); }
+    public static long lsub(long l, long r, int site) { return l3(l, r, l - r, site); }
+    public static long lmul(long l, long r, int site) { return l3(l, r, l * r, site); }
+    public static long ldiv(long l, long r, int site) {
+        long v;
+        try { v = l / r; } catch (RuntimeException e) { fail(site, e); throw e; }
+        return l3(l, r, v, site);
+    }
+    public static long lrem(long l, long r, int site) {
+        long v;
+        try { v = l % r; } catch (RuntimeException e) { fail(site, e); throw e; }
+        return l3(l, r, v, site);
+    }
+    public static long land(long l, long r, int site) { return l3(l, r, l & r, site); }
+    public static long lor(long l, long r, int site) { return l3(l, r, l | r, site); }
+    public static long lxor(long l, long r, int site) { return l3(l, r, l ^ r, site); }
+    public static long lshl(long l, int r, int site) { return l3(l, r, l << r, site); }
+    public static long lshr(long l, int r, int site) { return l3(l, r, l >> r, site); }
+    public static long lushr(long l, int r, int site) { return l3(l, r, l >>> r, site); }
+    public static long lneg(long value, int site) { long v = -value; line(site + " " + value + " " + v); return v; }
+
+    private static float f3(float l, float r, float v, int site) { line(site + " " + f(l) + " " + f(r) + " " + f(v)); return v; }
+    public static float fadd(float l, float r, int site) { return f3(l, r, l + r, site); }
+    public static float fsub(float l, float r, int site) { return f3(l, r, l - r, site); }
+    public static float fmul(float l, float r, int site) { return f3(l, r, l * r, site); }
+    public static float fdiv(float l, float r, int site) { return f3(l, r, l / r, site); }
+    public static float frem(float l, float r, int site) { return f3(l, r, l % r, site); }
+    public static float fneg(float value, int site) { float v = -value; line(site + " " + f(value) + " " + f(v)); return v; }
+
+    private static double d3(double l, double r, double v, int site) { line(site + " " + d(l) + " " + d(r) + " " + d(v)); return v; }
+    public static double dadd(double l, double r, int site) { return d3(l, r, l + r, site); }
+    public static double dsub(double l, double r, int site) { return d3(l, r, l - r, site); }
+    public static double dmul(double l, double r, int site) { return d3(l, r, l * r, site); }
+    public static double ddiv(double l, double r, int site) { return d3(l, r, l / r, site); }
+    public static double drem(double l, double r, int site) { return d3(l, r, l % r, site); }
+    public static double dneg(double value, int site) { double v = -value; line(site + " " + d(value) + " " + d(v)); return v; }
+
+    // ---- casts: one helper per JVM stack-type pair; 'to' narrows an int result -------
+
+    private static int narrow(int v, int to) {
+        return switch (to) { case 'B' -> (byte) v; case 'S' -> (short) v; case 'C' -> (char) v; default -> v; };
+    }
+    public static int cvII(int v, int to, int site) { int r = narrow(v, to); line(site + " " + v + " " + r); return r; }
+    public static long cvIJ(int v, int site) { long r = v; line(site + " " + v + " " + r); return r; }
+    public static float cvIF(int v, int site) { float r = v; line(site + " " + v + " " + f(r)); return r; }
+    public static double cvID(int v, int site) { double r = v; line(site + " " + v + " " + d(r)); return r; }
+    public static int cvJI(long v, int to, int site) { int r = narrow((int) v, to); line(site + " " + v + " " + r); return r; }
+    public static float cvJF(long v, int site) { float r = v; line(site + " " + v + " " + f(r)); return r; }
+    public static double cvJD(long v, int site) { double r = v; line(site + " " + v + " " + d(r)); return r; }
+    public static int cvFI(float v, int to, int site) { int r = narrow((int) v, to); line(site + " " + f(v) + " " + r); return r; }
+    public static long cvFJ(float v, int site) { long r = (long) v; line(site + " " + f(v) + " " + r); return r; }
+    public static double cvFD(float v, int site) { double r = v; line(site + " " + f(v) + " " + d(r)); return r; }
+    public static int cvDI(double v, int to, int site) { int r = narrow((int) v, to); line(site + " " + d(v) + " " + r); return r; }
+    public static long cvDJ(double v, int site) { long r = (long) v; line(site + " " + d(v) + " " + r); return r; }
+    public static float cvDF(double v, int site) { float r = (float) v; line(site + " " + d(v) + " " + f(r)); return r; }
+
+    // ---- long/float/double comparisons: return the cmp result for the original jump ----
+
+    private static boolean jumps(int cmp, int jumpOpcode) {
+        return switch (jumpOpcode) {
+            case 153 -> cmp == 0; case 154 -> cmp != 0; case 155 -> cmp < 0;
+            case 156 -> cmp >= 0; case 157 -> cmp > 0; case 158 -> cmp <= 0;
+            default -> throw new IllegalArgumentException("opcode " + jumpOpcode);
+        };
+    }
+
+    public static int jlcmp(long l, long r, int jump, int site) {
+        int cmp = Long.compare(l, r);
+        line(site + " " + (jumps(cmp, jump) ? 1 : 0) + " " + l + " " + r);
+        return cmp;
+    }
+
+    /** fcmpl (149) gives -1 for NaN, fcmpg (150) gives 1; -0.0 equals 0.0. */
+    public static int jfcmp(float l, float r, int cmpOpcode, int jump, int site) {
+        int cmp = l > r ? 1 : l == r ? 0 : l < r ? -1 : cmpOpcode == 150 ? 1 : -1;
+        line(site + " " + (jumps(cmp, jump) ? 1 : 0) + " " + f(l) + " " + f(r));
+        return cmp;
+    }
+
+    /** dcmpl (151) gives -1 for NaN, dcmpg (152) gives 1; -0.0 equals 0.0. */
+    public static int jdcmp(double l, double r, int cmpOpcode, int jump, int site) {
+        int cmp = l > r ? 1 : l == r ? 0 : l < r ? -1 : cmpOpcode == 152 ? 1 : -1;
+        line(site + " " + (jumps(cmp, jump) ? 1 : 0) + " " + d(l) + " " + d(r));
+        return cmp;
+    }
+
     // ---- condition jumps: return the original jump decision -----------------------
 
     public static boolean jcmp(int l, int r, int opcode, int site) {

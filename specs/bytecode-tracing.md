@@ -118,3 +118,9 @@ Helper methods and other classes run untraced. Rules, bytecode mapping (javac
 [partial-coverage.md](partial-coverage.md). Programs using reflection, files,
 processes, networking or threads stay output-only (`TRACE_INTEGRITY`), because
 uncaptured code shares the recorder's JVM.
+
+## Primitive types (Part 8b)
+
+All primitive locals, declarations without initializer, bitwise and shift
+operators, casts, long/float/double comparisons, compound assignment and the
+conditional operator are traced; see [primitive-types.md](primitive-types.md).

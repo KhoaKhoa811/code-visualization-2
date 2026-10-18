@@ -219,28 +219,32 @@ final class Instrumenter {
         int op = insn.getOpcode();
         if (op < 0) return null; // labels, line numbers, frames
         return switch (op) {
-            case Opcodes.ISTORE, Opcodes.ASTORE -> Expect.STORE;
+            case Opcodes.ISTORE, Opcodes.LSTORE, Opcodes.FSTORE, Opcodes.DSTORE, Opcodes.ASTORE -> Expect.STORE;
             case Opcodes.IINC -> Expect.IINC;
             case Opcodes.IALOAD -> Expect.IALOAD;
             case Opcodes.IASTORE -> Expect.IASTORE;
             case Opcodes.ARRAYLENGTH -> Expect.ARRAYLENGTH;
             case Opcodes.NEWARRAY -> ((IntInsnNode) insn).operand == Opcodes.T_INT ? Expect.NEWARRAY : Expect.INVOKE;
-            case Opcodes.IADD, Opcodes.ISUB, Opcodes.IMUL, Opcodes.IDIV, Opcodes.IREM -> Expect.ARITH;
-            case Opcodes.INEG -> Expect.INEG;
+            case Opcodes.INEG, Opcodes.LNEG, Opcodes.FNEG, Opcodes.DNEG -> Expect.NEG;
+            case Opcodes.LCMP, Opcodes.FCMPL, Opcodes.FCMPG, Opcodes.DCMPL, Opcodes.DCMPG -> Expect.CMP;
             case Opcodes.IFEQ, Opcodes.IFNE, Opcodes.IFLT, Opcodes.IFGE, Opcodes.IFGT, Opcodes.IFLE,
                  Opcodes.IF_ICMPEQ, Opcodes.IF_ICMPNE, Opcodes.IF_ICMPLT, Opcodes.IF_ICMPGE, Opcodes.IF_ICMPGT,
                  Opcodes.IF_ICMPLE, Opcodes.IF_ACMPEQ, Opcodes.IF_ACMPNE, Opcodes.IFNULL, Opcodes.IFNONNULL -> Expect.JUMP;
             case Opcodes.GETSTATIC -> Expect.GETSTATIC;
-            case Opcodes.ILOAD, Opcodes.ALOAD, Opcodes.ICONST_M1, Opcodes.ICONST_0, Opcodes.ICONST_1, Opcodes.ICONST_2,
-                 Opcodes.ICONST_3, Opcodes.ICONST_4, Opcodes.ICONST_5, Opcodes.BIPUSH, Opcodes.SIPUSH, Opcodes.ACONST_NULL,
-                 Opcodes.DUP, Opcodes.GOTO, Opcodes.RETURN, Opcodes.NOP -> null;
+            case Opcodes.ILOAD, Opcodes.LLOAD, Opcodes.FLOAD, Opcodes.DLOAD, Opcodes.ALOAD, Opcodes.ICONST_M1, Opcodes.ICONST_0,
+                 Opcodes.ICONST_1, Opcodes.ICONST_2, Opcodes.ICONST_3, Opcodes.ICONST_4, Opcodes.ICONST_5, Opcodes.LCONST_0,
+                 Opcodes.LCONST_1, Opcodes.FCONST_0, Opcodes.FCONST_1, Opcodes.FCONST_2, Opcodes.DCONST_0, Opcodes.DCONST_1,
+                 Opcodes.BIPUSH, Opcodes.SIPUSH, Opcodes.ACONST_NULL, Opcodes.DUP, Opcodes.DUP_X1, Opcodes.DUP_X2,
+                 Opcodes.DUP2, Opcodes.DUP2_X1, Opcodes.DUP2_X2, Opcodes.GOTO, Opcodes.RETURN, Opcodes.NOP -> null;
             case Opcodes.LDC -> {
                 Object c = ((LdcInsnNode) insn).cst;
-                yield c instanceof Integer || c instanceof String ? null : Expect.INVOKE;
+                yield c instanceof Integer || c instanceof String || c instanceof Long || c instanceof Float
+                        || c instanceof Double ? null : Expect.INVOKE;
             }
-            // Everything else (invokes, fields, other types, throw, switch...) must be planned
-            // explicitly; only println invokes are, so anything else fails matching.
-            default -> Expect.INVOKE;
+            // Everything else (invokes, fields, throw, switch...) must be planned explicitly;
+            // only println invokes are, so anything else fails matching.
+            default -> op >= Opcodes.IADD && op <= Opcodes.DREM || op >= Opcodes.ISHL && op <= Opcodes.LXOR ? Expect.ARITH
+                    : op >= Opcodes.I2L && op <= Opcodes.I2S ? Expect.CONVERT : Expect.INVOKE;
         };
     }
 
@@ -267,15 +271,27 @@ final class Instrumenter {
             case IINC -> {
                 IincInsnNode i = (IincInsnNode) insn;
                 LocalVariableNode lv = localAfter(main, insn, i.var);
-                int delta = site.operator.equals("++") ? 1 : -1;
+                int delta = site.kind == Plan.Kind.UPDATE ? (site.operator.equals("++") ? 1 : -1) : site.delta;
                 if (lv == null || !lv.name.equals(site.name) || i.incr != delta) throw new MappingException("unexpected iinc");
             }
             case ARITH -> {
-                int expected = switch (site.operator) {
-                    case "+" -> Opcodes.IADD; case "-" -> Opcodes.ISUB; case "*" -> Opcodes.IMUL;
-                    case "/" -> Opcodes.IDIV; default -> Opcodes.IREM;
+                if (insn.getOpcode() != arithmeticOpcode(site)) throw new MappingException("arithmetic operator mismatch");
+            }
+            case NEG -> {
+                if (insn.getOpcode() != Opcodes.INEG + typeOffset(site.javaType)) throw new MappingException("negation type mismatch");
+            }
+            case CONVERT -> {
+                if (insn.getOpcode() != Opcodes.I2L + CONVERSIONS.indexOf(item.member()))
+                    throw new MappingException("expected conversion " + item.member());
+            }
+            case CMP -> {
+                int op = insn.getOpcode();
+                boolean ok = switch (site.operandType) {
+                    case "long" -> op == Opcodes.LCMP;
+                    case "float" -> op == Opcodes.FCMPL || op == Opcodes.FCMPG;
+                    default -> op == Opcodes.DCMPL || op == Opcodes.DCMPG;
                 };
-                if (insn.getOpcode() != expected) throw new MappingException("arithmetic operator mismatch");
+                if (!ok) throw new MappingException("comparison type mismatch");
             }
             case JUMP -> {
                 Boolean meaning = jumpMeaning(site, insn.getOpcode());
@@ -307,12 +323,50 @@ final class Instrumenter {
         boolean family = switch (site.operandType) {
             case "ref" -> opcode == Opcodes.IF_ACMPEQ || opcode == Opcodes.IF_ACMPNE
                     || opcode == Opcodes.IFNULL || opcode == Opcodes.IFNONNULL;
+            case "long", "float", "double" -> opcode >= Opcodes.IFEQ && opcode <= Opcodes.IFLE; // tests the cmp result
             default -> opcode >= Opcodes.IFEQ && opcode <= Opcodes.IF_ICMPLE;
         };
         if (tested == null || !family) return null;
         if (tested.equals(site.operator)) return Boolean.TRUE;
         if (tested.equals(negate(site.operator))) return Boolean.FALSE;
         return null;
+    }
+
+    /** Conversion opcodes I2L..I2S in order. */
+    static final List<String> CONVERSIONS = List.of("I2L", "I2F", "I2D", "L2I", "L2F", "L2D", "F2I", "F2L", "F2D",
+            "D2I", "D2L", "D2F", "I2B", "I2C", "I2S");
+
+    /** Helper names for IADD..DREM, INEG..DNEG and ISHL..LXOR, indexed by opcode - IADD. */
+    private static final List<String> ARITHMETIC_NAMES = List.of(
+            "iadd", "ladd", "fadd", "dadd", "isub", "lsub", "fsub", "dsub", "imul", "lmul", "fmul", "dmul",
+            "idiv", "ldiv", "fdiv", "ddiv", "irem", "lrem", "frem", "drem", "ineg", "lneg", "fneg", "dneg",
+            "ishl", "lshl", "ishr", "lshr", "iushr", "lushr", "iand", "land", "ior", "lor", "ixor", "lxor");
+
+    /** Opcode offset of a type within an I/L/F/D opcode family. */
+    private static int typeOffset(String type) {
+        return switch (Analyzer.stack(type)) { case "long" -> 1; case "float" -> 2; case "double" -> 3; default -> 0; };
+    }
+
+    private static int arithmeticOpcode(Site site) {
+        String op = site.kind == Plan.Kind.UPDATE ? (site.operator.equals("++") ? "+" : "-") : site.operator;
+        String type = site.kind == Plan.Kind.UPDATE ? Analyzer.stack(site.javaType) : site.javaType;
+        int wide = typeOffset(type);
+        return switch (op) {
+            case "+" -> Opcodes.IADD + wide; case "-" -> Opcodes.ISUB + wide; case "*" -> Opcodes.IMUL + wide;
+            case "/" -> Opcodes.IDIV + wide; case "%" -> Opcodes.IREM + wide;
+            case "&" -> Opcodes.IAND + wide; case "|" -> Opcodes.IOR + wide; case "^", "~" -> Opcodes.IXOR + wide;
+            case "<<" -> Opcodes.ISHL + wide; case ">>" -> Opcodes.ISHR + wide; default -> Opcodes.IUSHR + wide;
+        };
+    }
+
+    private static char descriptor(String type) {
+        return switch (Analyzer.stack(type)) { case "long" -> 'J'; case "float" -> 'F'; case "double" -> 'D'; default -> 'I'; };
+    }
+
+    private static AbstractInsnNode nextInstruction(AbstractInsnNode insn) {
+        AbstractInsnNode at = insn.getNext();
+        while (at != null && at.getOpcode() < 0) at = at.getNext();
+        return at;
     }
 
     private static String negate(String op) {
@@ -341,11 +395,14 @@ final class Instrumenter {
         switch (match.item().expect()) {
             case STORE -> {
                 int var = ((VarInsnNode) insn).var;
-                boolean ref = insn.getOpcode() == Opcodes.ASTORE;
                 InsnList after = new InsnList();
-                after.add(new VarInsnNode(ref ? Opcodes.ALOAD : Opcodes.ILOAD, var));
-                after.add(siteConstant(site));
-                after.add(call(ref ? "va" : "vi", ref ? "(Ljava/lang/Object;I)V" : "(II)V"));
+                switch (insn.getOpcode()) {
+                    case Opcodes.ASTORE -> { after.add(new VarInsnNode(Opcodes.ALOAD, var)); after.add(siteConstant(site)); after.add(call("va", "(Ljava/lang/Object;I)V")); }
+                    case Opcodes.LSTORE -> { after.add(new VarInsnNode(Opcodes.LLOAD, var)); after.add(siteConstant(site)); after.add(call("vl", "(JI)V")); }
+                    case Opcodes.FSTORE -> { after.add(new VarInsnNode(Opcodes.FLOAD, var)); after.add(siteConstant(site)); after.add(call("vf", "(FI)V")); }
+                    case Opcodes.DSTORE -> { after.add(new VarInsnNode(Opcodes.DLOAD, var)); after.add(siteConstant(site)); after.add(call("vd", "(DI)V")); }
+                    default -> { after.add(new VarInsnNode(Opcodes.ILOAD, var)); after.add(siteConstant(site)); after.add(call("vi", "(II)V")); }
+                }
                 list.insert(insn, after);
             }
             case IINC -> {
@@ -366,14 +423,35 @@ final class Instrumenter {
                 after.add(call("literal", "([II)V"));
                 list.insert(match.anchor(), after);
             }
-            case ARITH -> {
-                String name = switch (insn.getOpcode()) {
-                    case Opcodes.IADD -> "iadd"; case Opcodes.ISUB -> "isub"; case Opcodes.IMUL -> "imul";
-                    case Opcodes.IDIV -> "idiv"; default -> "irem";
-                };
-                replace(list, insn, site, name, "(III)I");
+            case ARITH, NEG -> {
+                int op = insn.getOpcode();
+                char t = op >= Opcodes.ISHL ? ((op - Opcodes.ISHL) % 2 == 0 ? 'I' : 'J') : "IJFD".charAt((op - Opcodes.IADD) % 4);
+                boolean shift = op >= Opcodes.ISHL && op <= Opcodes.LUSHR;
+                String desc = match.item().expect() == Expect.NEG ? "(" + t + "I)" + t
+                        : "(" + t + (shift ? 'I' : t) + "I)" + t;
+                replace(list, insn, site, ARITHMETIC_NAMES.get(op - Opcodes.IADD), desc);
             }
-            case INEG -> replace(list, insn, site, "ineg", "(II)I");
+            case CONVERT -> {
+                // One helper performs the whole cast (one or two JVM conversions) and records it.
+                char from = descriptor(site.fromType), to = descriptor(site.javaType);
+                InsnList before = new InsnList();
+                if (to == 'I') before.add(new LdcInsnNode((int) narrowCode(site.javaType)));
+                before.add(siteConstant(site));
+                list.insertBefore(insn, before);
+                if (match.item().literalLength() == 2) list.remove(nextInstruction(insn)); // the folded i2b/i2c/i2s
+                list.set(insn, call("cv" + from + to, "(" + from + (to == 'I' ? "I" : "") + "I)" + to));
+            }
+            case CMP -> {
+                int op = insn.getOpcode();
+                int jump = nextInstruction(insn).getOpcode();
+                InsnList before = new InsnList();
+                if (op != Opcodes.LCMP) before.add(new LdcInsnNode(op));
+                before.add(new LdcInsnNode(jump));
+                before.add(siteConstant(site));
+                list.insertBefore(insn, before);
+                list.set(insn, op == Opcodes.LCMP ? call("jlcmp", "(JJII)I")
+                        : op <= Opcodes.FCMPG ? call("jfcmp", "(FFIII)I") : call("jdcmp", "(DDIII)I"));
+            }
             case REGION -> {
                 // After the label (and its line/frame nodes) so every entry, including jumps, is recorded once.
                 AbstractInsnNode at = insn.getNext();
@@ -385,6 +463,8 @@ final class Instrumenter {
                 if (at == null) list.add(marker); else list.insertBefore(at, marker);
             }
             case JUMP -> {
+                // long/float/double: the comparison helper already recorded the decision.
+                if (List.of("long", "float", "double").contains(site.operandType)) return;
                 int op = insn.getOpcode();
                 String name, desc;
                 if (op >= Opcodes.IF_ICMPEQ && op <= Opcodes.IF_ICMPLE) { name = "jcmp"; desc = "(IIII)Z"; }
@@ -400,6 +480,11 @@ final class Instrumenter {
             }
             default -> { }
         }
+    }
+
+    /** Narrowing applied after an int-producing conversion: byte, short, char or none. */
+    private static char narrowCode(String type) {
+        return switch (type) { case "byte" -> 'B'; case "short" -> 'S'; case "char" -> 'C'; default -> 'I'; };
     }
 
     private static void replace(InsnList list, AbstractInsnNode insn, Site site, String name, String desc) {
