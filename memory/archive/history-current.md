@@ -16,3 +16,9 @@ not verbatim transcripts, unless quoted.
 - User approved Claude's five-part fix: "I approve, and make sure Codex can
   understand and work with you efficiently". This also approved both recommended
   options: task-scoped permissions, and committing 6e.0 on the 6e branch first.
+- 6e.0 delivered on `feat/part-6e-cancellation-recovery`: 90394c4 snapshot
+  handoff and protocol; 0c02798 archive (byte-identical) and short memory
+  files (~260 KB to ~22 KB); 32fc652 task-scoped permissions and absent
+  references in AGENTS.md; 53c5543 `.gitattributes` (index already all LF, no
+  renormalization). Documentation checks only. Part 6e code remains paused and
+  uncommitted, waiting for the user to resume it.

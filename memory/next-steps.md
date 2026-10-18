@@ -6,7 +6,7 @@ only. For the active task, [handoff.md](handoff.md) is authoritative. History:
 
 ## Approval boundaries
 
-- Approved and unfinished: 6e.0 handoff-efficiency docs; Part 6e cancellation,
+- Done: 6e.0 handoff-efficiency docs. Approved and unfinished: Part 6e cancellation,
   run slots and recovery. Details and approval wording are in handoff.md.
 - Not approved: 6f, 6g and everything after. Propose with a checklist and wait
   for explicit user approval before starting.

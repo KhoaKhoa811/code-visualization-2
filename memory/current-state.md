@@ -20,7 +20,7 @@ or live input yet.
 | 6b | Run request/snapshot contracts v1 (`contracts/run/`, [spec](../specs/run-lifecycle.md)) | Merged |
 | 6c | Bounded Docker control adapter, owned container identity ([guide](../backend/DOCKER_CONTROL.md)) | Merged |
 | 6d | Fixed-fixture compile/run lifecycle, deadlines, shared 1 MiB output quota ([guide](../backend/FIXTURE_LIFECYCLE.md)); 36 tests passed with live Docker | Merged (PR #80) |
-| 6e.0 | Handoff-efficiency docs for Codex/Claude cooperation | In progress, see handoff |
+| 6e.0 | Handoff-efficiency docs for Codex/Claude cooperation | Done, pushed on the 6e branch |
 | 6e | Cancellation, one run slot + queue, explicit recovery | Implemented, not verified, uncommitted; see handoff |
 
 ## Verified environment

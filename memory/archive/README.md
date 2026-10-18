@@ -12,3 +12,5 @@ example "Part 6e remains unapproved"; current files and handoff.md win.
 | [history-current.md](history-current.md) | Append-only history from 2026-10-18 onward; add each finished task's outcome here |
 
 Do not edit frozen files. Append new history only to history-current.md.
+Relative links inside the frozen files were written for `memory/`, so they
+resolve one directory too deep here; prefix them with `../` mentally.

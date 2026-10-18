@@ -1,7 +1,8 @@
 # Current agent handoff
 
 <!-- Snapshot file: REPLACE the whole content on every update; never append.
-     Keep it under ~100 lines. History goes to current-state.md at task end.
+     Keep it under ~100 lines. At task end, fold outcomes into current-state.md,
+     next-steps.md and archive/history-current.md.
      This file is the authority for the active task (see agent-handoff-protocol.md). -->
 
 ## Status
@@ -15,7 +16,11 @@
 
 ## Approved tasks
 
-1. **Active now — 6e.0 handoff-efficiency docs.** User approved on 2026-10-18
+1. **Done — 6e.0 handoff-efficiency docs** (commits 90394c4, 0c02798, 32fc652,
+   53c5543, plus this closing commit). Checks: links/paths (only the known
+   absent references and archived relative links break), whitespace, archive
+   byte-identical by SHA-1. Documentation only; no application tests run.
+   User approved on 2026-10-18
    ("I approve, and make sure Codex can understand and work with you efficiently")
    after Claude proposed five parts. Scope: (1) snapshot-style handoff and protocol;
    (2) archive memory history, shrink current-state/next-steps, fix stale 6e
@@ -32,7 +37,7 @@
 
 - Branch: `feat/part-6e-cancellation-recovery`, fast-forwarded on 2026-10-18 to
   `origin/main` fe68059 (6d PR #80 and handoff docs PR #81 are merged).
-  Not yet pushed. Read `git log` for 6e.0 commit hashes.
+  Pushed to origin with the 6e.0 commits only; 6e code is still uncommitted.
 - PR: none yet. `gh` is unavailable in both agents' sessions so far; use the manual link
   https://github.com/KhoaKhoa811/code-visualization-2/pull/new/feat/part-6e-cancellation-recovery
 
@@ -84,6 +89,7 @@ tests `CancellationRecoveryLiveTest`, `FixtureRunSupervisorTest`,
 
 ## Next action
 
-Finish 6e.0 parts 2-5, commit each, push branch. Then resume 6e: diagnose the live
+6e.0 is complete and pushed; the user is reviewing it in conversation. Do not
+start 6e work until the user says to continue. When resumed: diagnose the live
 failure (start by checking the javac process name and the 5 s observation window
 against preparation time), address the review concerns, run full live verify.
