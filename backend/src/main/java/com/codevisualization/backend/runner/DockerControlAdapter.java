@@ -16,15 +16,22 @@ public final class DockerControlAdapter implements FixtureControl {
     private volatile String containerId;
     private volatile boolean quarantined;
     private boolean created, started, stopped, removed;
+    private final java.util.function.Supplier<CommandRunner> recoveryRunners;
+    private CommandRunner recoveryRunner;
 
     public DockerControlAdapter(Path executable, BoundedCommandRunner runner) {
         this(executable, (CommandRunner) runner);
     }
 
     DockerControlAdapter(Path executable, CommandRunner runner) {
+        this(executable, runner, BoundedCommandRunner::new);
+    }
+
+    DockerControlAdapter(Path executable, CommandRunner runner, java.util.function.Supplier<CommandRunner> recoveryRunners) {
         if (!executable.isAbsolute()) throw new IllegalArgumentException("Absolute Docker executable required");
         this.executable = executable;
         this.runner = java.util.Objects.requireNonNull(runner);
+        this.recoveryRunners = java.util.Objects.requireNonNull(recoveryRunners);
     }
 
     public ContainerProfile.Identity identity() { return identity; }
@@ -96,10 +103,47 @@ public final class DockerControlAdapter implements FixtureControl {
     }
 
     public void prepare(FixedFixture fixture) throws IOException {
-        long deadline = System.nanoTime() + Duration.ofSeconds(10).toNanos();
+        prepare(fixture, Duration.ofSeconds(10));
+    }
+
+    public void prepare(FixedFixture fixture, Duration remaining) throws IOException {
+        long deadline = System.nanoTime() + remaining.toNanos();
         create(Duration.ofNanos(Math.max(0, deadline - System.nanoTime())));
         startIdle(Duration.ofNanos(Math.max(0, deadline - System.nanoTime())));
         stage(fixture, Duration.ofNanos(Math.max(0, deadline - System.nanoTime())));
+    }
+
+    public void recover() throws IOException {
+        if (!operation.tryLock()) throw new IOException("Container control busy");
+        try {
+            if (containerId == null) throw new IOException("Unknown create outcome; cannot prove absence");
+            if (!runner.settled() || (recoveryRunner != null && !recoveryRunner.settled()))
+                throw new IOException("Prior control worker unsettled");
+            stopped = true; // Recovery never permits another launch.
+            recoveryRunner = recoveryRunners.get();
+            long deadline = System.nanoTime() + Duration.ofSeconds(5).toNanos();
+            try {
+                String ids = recoveryCall(List.of("ps", "--all", "--no-trunc", "--filter", "id=" + containerId,
+                        "--format", "{{.ID}}"), deadline).strip();
+                if (!ids.isEmpty()) {
+                    if (!ids.equals(containerId)) throw new IOException("Unexpected recovery inventory");
+                    new ContainerInspection(recoveryCall(List.of("inspect", "--type=container", containerId), deadline),
+                            containerId, identity);
+                    recoveryCall(List.of("rm", "--force", containerId), deadline);
+                    if (!recoveryCall(List.of("ps", "--all", "--no-trunc", "--filter", "id=" + containerId,
+                            "--format", "{{.ID}}"), deadline).isBlank()) throw new IOException("Recovery absence unconfirmed");
+                }
+                removed = true;
+            } finally { if (recoveryRunner instanceof BoundedCommandRunner bounded) bounded.close(); }
+        } finally { operation.unlock(); }
+    }
+
+    private String recoveryCall(List<String> arguments, long deadline) throws IOException {
+        long remaining = deadline - System.nanoTime();
+        if (remaining <= 0) throw new IOException("Recovery deadline exceeded");
+        var command = new ArrayList<>(List.of(executable.toString(), "--context", "desktop-linux"));
+        command.addAll(arguments);
+        return recoveryRunner.execute(command, Duration.ofNanos(remaining));
     }
 
     public List<String> phaseCommand(FixedFixture fixture, boolean compilation) throws IOException {

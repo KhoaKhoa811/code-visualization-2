@@ -20,8 +20,16 @@ final class PhaseProcess {
                 return thread;
             });
 
+    boolean settled() { return workers.isTerminated() && active.get() == null; }
+
     Result execute(List<String> command, RunOutput output, Duration budget) {
+        return execute(command, output, budget, new RunCancellation(), true);
+    }
+
+    Result execute(List<String> command, RunOutput output, Duration budget,
+                   RunCancellation cancellation, boolean finalPhase) {
         var gate = new PhaseGate(output, budget);
+        cancellation.register(gate, finalPhase);
         try {
             List<String> arguments = List.copyOf(command);
             if (arguments.stream().anyMatch(argument -> argument.indexOf('"') >= 0))
@@ -30,7 +38,7 @@ final class PhaseProcess {
             while (gate.cause() == null) {
                 try {
                     int exit = completion.get(10, TimeUnit.MILLISECONDS);
-                    PhaseGate.Cause cause = gate.finish(PhaseGate.Cause.EXIT);
+                    PhaseGate.Cause cause = cancellation.completed(gate, exit);
                     return new Result(cause, cause == PhaseGate.Cause.EXIT ? exit : null);
                 } catch (TimeoutException pending) {
                     // Poll only the monotonic gate; activity cannot extend the phase.

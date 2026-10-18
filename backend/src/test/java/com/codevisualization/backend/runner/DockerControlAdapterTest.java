@@ -15,20 +15,21 @@ class DockerControlAdapterTest {
     private static class FakeDocker implements CommandRunner {
         final List<List<String>> calls = new ArrayList<>();
         DockerControlAdapter adapter;
-        boolean running, foreign, unsafe, failCreate, ignoreKill, ignoreRemove;
+        boolean running, present, foreign, unsafe, failCreate, ignoreKill, ignoreRemove;
         public String execute(List<String> args, java.time.Duration remaining) throws IOException {
             assertTrue(remaining.toMillis() <= 10_000);
             calls.add(List.copyOf(args));
             return switch (args.get(3)) {
                 case "create" -> {
                     if (failCreate) throw new IOException("uncertain create");
+                    present = true;
                     yield ID;
                 }
                 case "inspect" -> inspection();
                 case "start" -> { running = true; yield ID; }
                 case "kill" -> { if (!ignoreKill) running = false; yield ID; }
-                case "rm" -> ID;
-                case "ps" -> ignoreRemove ? ID : "";
+                case "rm" -> { if (!ignoreRemove) { present = false; running = false; } yield ID; }
+                case "ps" -> present ? ID : "";
                 default -> throw new AssertionError(args);
             };
         }
@@ -61,8 +62,12 @@ class DockerControlAdapterTest {
 
     private FakeDocker fake() {
         var fake = new FakeDocker();
-        fake.adapter = new DockerControlAdapter(Path.of("docker.exe").toAbsolutePath(), fake);
+        fake.adapter = new DockerControlAdapter(Path.of("docker.exe").toAbsolutePath(), fake, () -> fake);
         return fake;
+    }
+
+    private static boolean forcedRemoval(FakeDocker fake) {
+        return fake.calls.stream().anyMatch(call -> call.get(3).equals("rm") && call.contains("--force"));
     }
 
     @Test void ownsExactIdAndVerifiesNormalLifecycle() throws Exception {
@@ -103,6 +108,37 @@ class DockerControlAdapterTest {
         var remove = fake(); remove.adapter.create(); remove.ignoreRemove = true;
         assertThrows(IOException.class, remove.adapter::remove);
         assertTrue(remove.adapter.quarantined());
+    }
+
+    @Test void recoveryForceRemovesOnlyTheOwnedExactIdAndFencesLaunch() throws Exception {
+        var fake = fake(); fake.adapter.create(); fake.adapter.startIdle(); fake.ignoreKill = true;
+        assertThrows(IOException.class, fake.adapter::stop);
+        assertTrue(fake.adapter.quarantined());
+        fake.adapter.recover();
+        assertTrue(forcedRemoval(fake)); assertFalse(fake.present);
+        assertTrue(fake.calls.stream().filter(call -> call.get(3).equals("rm"))
+                .allMatch(call -> call.get(call.size() - 1).equals(ID)));
+        assertThrows(IOException.class, () -> fake.adapter.phaseCommand(FixedFixture.NORMAL, true));
+    }
+
+    @Test void recoveryRefusesForeignOwnerAndUnknownCreate() throws Exception {
+        var foreign = fake(); foreign.adapter.create(); foreign.foreign = true;
+        assertThrows(IOException.class, foreign.adapter::recover);
+        assertFalse(forcedRemoval(foreign)); assertTrue(foreign.present);
+
+        var uncertain = fake(); uncertain.failCreate = true;
+        assertThrows(IOException.class, uncertain.adapter::create);
+        int calls = uncertain.calls.size();
+        assertThrows(IOException.class, uncertain.adapter::recover);
+        assertEquals(calls, uncertain.calls.size());
+    }
+
+    @Test void recoveryAcceptsKnownIdAlreadyAbsentWithoutRemoval() throws Exception {
+        var fake = fake(); fake.adapter.create(); fake.present = false;
+        fake.adapter.recover();
+        assertFalse(fake.calls.stream().anyMatch(call -> call.get(3).equals("rm")));
+        var stillPresent = fake(); stillPresent.adapter.create(); stillPresent.ignoreRemove = true;
+        assertThrows(IOException.class, stillPresent.adapter::recover);
     }
 
     @Test void stopBeforeStartFencesLaterLaunch() throws Exception {

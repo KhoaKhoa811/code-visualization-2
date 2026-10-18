@@ -6,6 +6,8 @@ import java.util.List;
 /** Container ownership boundary used by the fixed-fixture coordinator. */
 interface FixtureControl {
     void prepare(FixedFixture fixture) throws IOException;
+    default void prepare(FixedFixture fixture, java.time.Duration remaining) throws IOException { prepare(fixture); }
+    default void recover() throws IOException { throw new IOException("Recovery not supported"); }
     List<String> phaseCommand(FixedFixture fixture, boolean compilation) throws IOException;
     void stop() throws IOException;
     void remove() throws IOException;

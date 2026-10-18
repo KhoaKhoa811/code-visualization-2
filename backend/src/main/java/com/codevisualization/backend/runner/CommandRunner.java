@@ -7,4 +7,5 @@ import java.util.List;
 @FunctionalInterface
 interface CommandRunner {
     String execute(List<String> command, Duration remaining) throws IOException;
+    default boolean settled() { return true; }
 }
