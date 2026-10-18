@@ -8,55 +8,47 @@
 ## Status
 
 - Updated: 2026-10-18 (Asia/Saigon)
-- Owner: Claude Code (Codex stopped at its usage limit; user confirmed)
+- Owner: Claude Code
 - Status: ready for review. No approved task is unfinished.
-- Milestone: Part 6 backend run orchestration; Milestone 0, full isolation and
-  V1 remain incomplete
+- Milestone: trace engine (Part 7); Milestone 0, full isolation and V1 incomplete
 
-## Last approved tasks (both complete)
+## Last approved task: Part 7a trace-engine spike (complete)
 
-1. 6e.0 handoff-efficiency docs. Approved 2026-10-18: "I approve, and make sure
-   Codex can understand and work with you efficiently".
-2. Part 6e cancellation, run slots and recovery. Approved before the takeover;
-   resumed 2026-10-18: "complete the part 6e to this branch first, then I'll
-   merged and we will discuss this project". Guide:
-   [backend/CANCELLATION_RECOVERY.md](../backend/CANCELLATION_RECOVERY.md).
+Approved 2026-10-18 ("1. I approve 2. I approve 3. I approve"): Core V1 / V1.1
+tiers, engine spike with ASM, skip 6g and shrink 6f.
 
-Not approved: 6f, 6g and later. The user wants to merge, then discuss the project.
+- [x] 1. Decisions recorded (requirements tiers, roadmap) — 9289e6c
+- [x] 2. ASM bytecode tracer prototype `runner/tracer-spike/` — ddebca4
+- [x] 3. Differential + event tests: AC-01..05, AC-07, AC-10, recursion, broad
+- [x] 4. Source-rewrite comparison on AC-07 (hand-written naive vs correct rewrite)
+- [x] 5. [SPIKE_REPORT.md](../runner/tracer-spike/SPIKE_REPORT.md),
+      [ADR 0004](../specs/decisions/0004-bytecode-instrumentation.md) (Proposed), memory
+
+## Waiting on the user
+
+1. Accept or reject ADR 0004 (bytecode instrumentation + javac tree API mapping).
+2. Merge 6e, then 7a. Approve 7b (first trace-v1 producer) with its checklist.
 
 ## Git
 
-- Branch `feat/part-6e-cancellation-recovery`, based on `origin/main` fe68059, pushed.
-- Commits: 6e.0 90394c4, 0c02798, 32fc652, 53c5543, 687e963; 6e.1 4649fa3;
-  6e.2 94bb1ac; 6e.3 docs/memory (this commit; read `git log -1`).
-- PR: none created (`gh` unavailable). Manual link:
-  https://github.com/KhoaKhoa811/code-visualization-2/pull/new/feat/part-6e-cancellation-recovery
-- Working tree clean after the 6e.3 commit. No stashes.
+- Branch `feat/part-7a-engine-spike`, stacked on `feat/part-6e-cancellation-recovery`
+  (5f52d8f, not merged; main fe68059). Pushed. After 6e merges, rebase onto main.
+- PR (manual, `gh` unavailable), base = 6e branch until it merges:
+  https://github.com/KhoaKhoa811/code-visualization-2/compare/feat/part-6e-cancellation-recovery...feat/part-7a-engine-spike?expand=1
 
 ## Verification (2026-10-18, Claude)
 
-- Full clean verify with live Docker on the 94bb1ac tree: **49 tests, 0 failures,
-  0 errors, 0 skips**, JAR packaged. Log `.tools/part-6e-verify.log` (local).
-- 6e.1 tree built alone in a temporary worktree: 33 unit tests passed, 2 live skipped
-  (`.tools/part-6e-build-225692f.log`; same tree as 4649fa3).
-- Command: see [backend/CANCELLATION_RECOVERY.md](../backend/CANCELLATION_RECOVERY.md).
-
-## Decisions made in this task
-
-- Codex's live failure was a test bug: `docker top <id> -eo comm` fails with
-  "Couldn't find PID field in ps output"; now `-eo pid,comm`, 15 s window.
-- Cancellation no longer interrupts the run thread (spec updated). Interrupting
-  a control call quarantined the container and held the only slot, permanently
-  if it hit `create`. Cost: cancel during preparation waits up to 10 s.
-- Runtime finality is an explicit flag, not inferred from the 5 s budget.
-- Recovery runner is injectable so wrong-owner/absent/unknown-create recovery is
-  unit tested.
+- `runner/tracer-spike`: `mvn test` (Maven 3.9.16 at `.tools/apache-maven-3.9.16`,
+  JDK 21.0.12.1, `-Dmaven.repo.local=<repo>/.tools/m2`): **20 tests, 0 failures**.
+  Log `.tools/part-7a-spike.log` (local). Host JVM processes on trusted fixtures,
+  not the isolated runner.
+- Backend unchanged since 6e verify (49 tests).
 
 ## Resources
 
-- No commands running. 0 containers with label `codeviz.owner` after verify.
-  Temporary worktree removed. Local logs under ignored `.tools/`.
+- No commands running; no containers. Scratch traces only in the session scratchpad.
 
 ## Next action
 
-Wait for the user to review/merge and discuss the project. Do not start 6f.
+Wait for the user's ADR 0004 decision and 7b approval. Proposed 7b checklist is in
+the spike report's "Gaps and risks" and next-steps.md.
