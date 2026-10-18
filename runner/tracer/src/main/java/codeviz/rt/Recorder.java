@@ -19,8 +19,9 @@ import java.util.Map;
  * Raw record lines (space separated; strings and messages as hex UTF-16 units):
  * {@code M <ref> <len>} main entry; {@code R} normal main exit; {@code L} raw limit;
  * {@code S<id> <hex>} first sight of a string; {@code x<site> <class> <hex>} failure;
- * {@code u<site>} an uncaptured statement starts (Part 8a); {@code A<id> <len> <values...>} the
- * contents of an int[] seen for the first time, or re-read after a statement that may write arrays;
+ * {@code u<site>} an uncaptured statement starts (Part 8a); {@code A<id> <class> <len> <values...>} the
+ * contents of an array seen for the first time, or re-read after a statement that may write arrays
+ * ({@code <class>} is the JVM class name such as {@code [I} or {@code [[D}; Part 8c);
  * {@code <site> <values...>} a completed operation. A ref is {@code r<id>} or {@code n}.
  */
 public final class Recorder {
@@ -69,17 +70,42 @@ public final class Recorder {
         }
     }
 
-    /** Contents of every known int[], after an uncaptured statement that may have changed them. */
+    /** Contents of every known array, after an uncaptured statement that may have changed them. */
     private static void resync() {
         Object[] byId = new Object[IDS.size() + 1];
         for (var entry : IDS.entrySet()) byId[entry.getValue()] = entry.getKey();
-        for (int id = 1; id < byId.length; id++) if (byId[id] instanceof int[] a) write(contents(id, a));
+        for (int id = 1; id < byId.length; id++) {
+            if (byId[id] != null && byId[id].getClass().isArray()) {
+                String body = contents(byId[id]); // may first record element arrays and strings seen for the first time
+                write("A" + id + " " + body);
+            }
+        }
     }
 
-    private static String contents(int id, int[] a) {
-        StringBuilder b = new StringBuilder().append('A').append(id).append(' ').append(a.length);
-        for (int v : a) b.append(' ').append(v);
+    /** {@code <class> <len> <values...>}; references to objects not yet seen record those objects first. */
+    private static String contents(Object array) {
+        StringBuilder b = new StringBuilder().append(array.getClass().getName());
+        values(b, array);
         return b.toString();
+    }
+
+    /** {@code <len> <values...>} with 8b value tokens and r/n references. */
+    private static void values(StringBuilder b, Object array) {
+        int n = java.lang.reflect.Array.getLength(array);
+        b.append(' ').append(n);
+        for (int i = 0; i < n; i++) b.append(' ').append(token(array, i));
+    }
+
+    private static String token(Object array, int i) {
+        if (array instanceof int[] a) return Integer.toString(a[i]);
+        if (array instanceof long[] a) return Long.toString(a[i]);
+        if (array instanceof double[] a) return d(a[i]);
+        if (array instanceof float[] a) return f(a[i]);
+        if (array instanceof char[] a) return Integer.toString(a[i]);
+        if (array instanceof byte[] a) return Integer.toString(a[i]);
+        if (array instanceof short[] a) return Integer.toString(a[i]);
+        if (array instanceof boolean[] a) return a[i] ? "1" : "0";
+        return ref(((Object[]) array)[i]);
     }
 
     private static void write(String record) {
@@ -109,10 +135,17 @@ public final class Recorder {
         if (o == null) return "n";
         Integer id = IDS.get(o);
         if (id == null) {
-            id = IDS.size() + 1;
             // Write before registering, so a pending re-read does not include this object twice.
-            if (o instanceof String s) line("S" + id + " " + hex(s));
-            else if (o instanceof int[] a) line(contents(id, a)); // created by uncaptured code
+            if (o instanceof String s) {
+                id = IDS.size() + 1;
+                line("S" + id + " " + hex(s));
+            } else if (o.getClass().isArray()) { // created by uncaptured code, or an element of a new array
+                String body = contents(o); // element objects first, so every reference resolves earlier
+                id = IDS.size() + 1;
+                line("A" + id + " " + body);
+            } else {
+                return "?"; // not a traced type; the builder stops capture
+            }
             IDS.put(o, id);
         }
         return "r" + id;
@@ -126,7 +159,10 @@ public final class Recorder {
 
     // ---- frame ------------------------------------------------------------------
 
-    public static void enter(String[] args) { line("M " + ref(args) + " " + args.length); }
+    public static void enter(String[] args) {
+        IDS.put(args, 1); // part of the initial state, not a first sight
+        line("M r1 " + args.length);
+    }
 
     // ---- uncaptured statements (Part 8a) -------------------------------------------
 
@@ -170,25 +206,155 @@ public final class Recorder {
         line(site + " " + r + " " + i + " " + v);
     }
 
-    public static int arraylength(int[] a, int site) {
+    public static int arraylength(Object a, int site) {
         int n;
-        try { n = a.length; } catch (RuntimeException e) { fail(site, e); throw e; }
+        try { n = java.lang.reflect.Array.getLength(a); } catch (RuntimeException e) { fail(site, e); throw e; }
         line(site + " " + ref(a) + " " + n);
         return n;
     }
 
-    public static int[] newIntArray(int n, int site) {
-        int[] a;
-        try { a = new int[n]; } catch (RuntimeException e) { fail(site, e); throw e; }
+    // ---- Part 8c: arrays of every primitive type, String and arrays ------------------------
+
+    /** newarray: {@code atype} is the JVM operand (T_BOOLEAN 4 .. T_LONG 11). Elements are defaults. */
+    public static Object newarray(int n, int atype, int site) {
+        Object a;
+        try {
+            a = switch (atype) {
+                case 4 -> new boolean[n]; case 5 -> new char[n]; case 6 -> new float[n]; case 7 -> new double[n];
+                case 8 -> new byte[n]; case 9 -> new short[n]; case 10 -> new int[n]; default -> new long[n];
+            };
+        } catch (RuntimeException e) { fail(site, e); throw e; }
         line(site + " " + fresh(a) + " " + n);
         return a;
     }
 
-    /** Called once a constant-element literal is fully initialized. */
-    public static void literal(int[] a, int site) {
-        StringBuilder b = new StringBuilder().append(site).append(' ').append(fresh(a)).append(' ').append(a.length);
-        for (int v : a) b.append(' ').append(v);
+    /** anewarray: an array of null references. */
+    public static Object anewarray(int n, Class<?> component, int site) {
+        Object a;
+        try { a = java.lang.reflect.Array.newInstance(component, n); } catch (RuntimeException e) { fail(site, e); throw e; }
+        line(site + " " + fresh(a) + " " + n);
+        return a;
+    }
+
+    /** multianewarray with 2 or 3 lengths of an array type; inner arrays are recorded as first sights. */
+    public static Object multi(int d1, int d2, Class<?> type, int site) { return multi(new int[]{d1, d2}, type, site); }
+    public static Object multi(int d1, int d2, int d3, Class<?> type, int site) { return multi(new int[]{d1, d2, d3}, type, site); }
+
+    private static Object multi(int[] dims, Class<?> type, int site) {
+        Class<?> component = type;
+        for (int i = 0; i < dims.length; i++) component = component.getComponentType();
+        Object a;
+        try { a = java.lang.reflect.Array.newInstance(component, dims); } catch (RuntimeException e) { fail(site, e); throw e; }
+        StringBuilder b = new StringBuilder().append(site).append(' ').append(fresh(a));
+        values(b, a);
         line(b.toString());
+        return a;
+    }
+
+    /** Called once an initializer has stored its last element (or at creation when empty). */
+    public static void literal(Object a, int site) {
+        StringBuilder b = new StringBuilder().append(site).append(' ').append(fresh(a));
+        values(b, a);
+        line(b.toString());
+    }
+
+    public static int baload(byte[] a, int i, int site) {
+        int v;
+        try { v = a[i]; } catch (RuntimeException e) { fail(site, e); throw e; }
+        line(site + " " + ref(a) + " " + i + " " + v);
+        return v;
+    }
+    public static int zaload(boolean[] a, int i, int site) {
+        int v;
+        try { v = a[i] ? 1 : 0; } catch (RuntimeException e) { fail(site, e); throw e; }
+        line(site + " " + ref(a) + " " + i + " " + v);
+        return v;
+    }
+    public static int caload(char[] a, int i, int site) {
+        int v;
+        try { v = a[i]; } catch (RuntimeException e) { fail(site, e); throw e; }
+        line(site + " " + ref(a) + " " + i + " " + v);
+        return v;
+    }
+    public static int saload(short[] a, int i, int site) {
+        int v;
+        try { v = a[i]; } catch (RuntimeException e) { fail(site, e); throw e; }
+        line(site + " " + ref(a) + " " + i + " " + v);
+        return v;
+    }
+    public static long laload(long[] a, int i, int site) {
+        long v;
+        try { v = a[i]; } catch (RuntimeException e) { fail(site, e); throw e; }
+        line(site + " " + ref(a) + " " + i + " " + v);
+        return v;
+    }
+    public static float faload(float[] a, int i, int site) {
+        float v;
+        try { v = a[i]; } catch (RuntimeException e) { fail(site, e); throw e; }
+        line(site + " " + ref(a) + " " + i + " " + f(v));
+        return v;
+    }
+    public static double daload(double[] a, int i, int site) {
+        double v;
+        try { v = a[i]; } catch (RuntimeException e) { fail(site, e); throw e; }
+        line(site + " " + ref(a) + " " + i + " " + d(v));
+        return v;
+    }
+    public static Object aaload(Object[] a, int i, int site) {
+        Object v;
+        try { v = a[i]; } catch (RuntimeException e) { fail(site, e); throw e; }
+        String r = ref(a), value = ref(v);
+        line(site + " " + r + " " + i + " " + value);
+        return v;
+    }
+
+    // Stores narrow exactly as bastore/castore/sastore do; the recorded value is the stored one.
+    public static void bastore(byte[] a, int i, int v, int site) {
+        String r = ref(a);
+        try { a[i] = (byte) v; } catch (RuntimeException e) { fail(site, e); throw e; }
+        line(site + " " + r + " " + i + " " + (byte) v);
+    }
+    public static void zastore(boolean[] a, int i, int v, int site) {
+        String r = ref(a);
+        try { a[i] = (v & 1) != 0; } catch (RuntimeException e) { fail(site, e); throw e; }
+        line(site + " " + r + " " + i + " " + (v & 1));
+    }
+    public static void castore(char[] a, int i, int v, int site) {
+        String r = ref(a);
+        try { a[i] = (char) v; } catch (RuntimeException e) { fail(site, e); throw e; }
+        line(site + " " + r + " " + i + " " + (int) (char) v);
+    }
+    public static void sastore(short[] a, int i, int v, int site) {
+        String r = ref(a);
+        try { a[i] = (short) v; } catch (RuntimeException e) { fail(site, e); throw e; }
+        line(site + " " + r + " " + i + " " + (short) v);
+    }
+    public static void lastore(long[] a, int i, long v, int site) {
+        String r = ref(a);
+        try { a[i] = v; } catch (RuntimeException e) { fail(site, e); throw e; }
+        line(site + " " + r + " " + i + " " + v);
+    }
+    public static void fastore(float[] a, int i, float v, int site) {
+        String r = ref(a);
+        try { a[i] = v; } catch (RuntimeException e) { fail(site, e); throw e; }
+        line(site + " " + r + " " + i + " " + f(v));
+    }
+    public static void dastore(double[] a, int i, double v, int site) {
+        String r = ref(a);
+        try { a[i] = v; } catch (RuntimeException e) { fail(site, e); throw e; }
+        line(site + " " + r + " " + i + " " + d(v));
+    }
+    public static void aastore(Object[] a, int i, Object v, int site) {
+        String r = ref(a); // before the store: a first-sight snapshot must show the previous contents
+        try { a[i] = v; } catch (RuntimeException e) { fail(site, e); throw e; }
+        String value = ref(v);
+        line(site + " " + r + " " + i + " " + value);
+    }
+
+    /** A switch selector, recorded before the original tableswitch/lookupswitch uses it. */
+    public static int sw(int value, int site) {
+        line(site + " " + value);
+        return value;
     }
 
     // ---- int arithmetic ---------------------------------------------------------

@@ -14,6 +14,7 @@ import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.*;
 
 /**
@@ -104,11 +105,16 @@ final class Instrumenter {
             List<Crt.Entry> found = crt.entries.stream()
                     .filter(e -> (e.flags() & Crt.STATEMENT) != 0 && e.charStart() == s.crtStart && e.charEnd() == s.crtEnd).toList();
             if (found.isEmpty()) throw new MappingException("no bytecode range for an uncaptured statement");
-            Crt.Entry first = found.get(0);
-            for (Crt.Entry e : found)
-                if (e.start() != first.start() || e.end() != first.end()) throw new MappingException("ambiguous statement range");
-            if (!(first.start().info instanceof LabelNode start) || !(first.end().info instanceof LabelNode end))
-                throw new MappingException("statement range labels missing");
+            // Several entries share a range when javac lowers a statement (a for-each's hidden setup
+            // carries the loop's range): the statement is the outermost one, all starting together.
+            LabelNode start = null, end = null;
+            for (Crt.Entry e : found) {
+                if (!(e.start().info instanceof LabelNode s0) || !(e.end().info instanceof LabelNode e0))
+                    throw new MappingException("statement range labels missing");
+                if (start != null && s0 != start) throw new MappingException("ambiguous statement range");
+                start = s0;
+                if (end == null || main.instructions.indexOf(e0) > main.instructions.indexOf(end)) end = e0;
+            }
             out.put(s, new Region(start, end));
         }
         return out;
@@ -174,9 +180,6 @@ final class Instrumenter {
         Map<LabelNode, Site> regionStarts = new HashMap<>();
         for (var r : regions.entrySet()) regionStarts.put(r.getValue().start(), r.getKey());
         int p = 0;
-        AbstractInsnNode literalStart = null;
-        int literalRemaining = 0;
-        Item literal = null;
         LabelNode skipUntil = null; // end of the uncaptured statement being skipped
         for (AbstractInsnNode insn : main.instructions.toArray()) {
             if (skipUntil != null) {
@@ -185,7 +188,7 @@ final class Instrumenter {
             }
             if (insn instanceof LabelNode label && regionStarts.containsKey(label)) {
                 Site site = regionStarts.get(label);
-                if (literalRemaining > 0 || p >= plan.size() || plan.get(p).site() != site)
+                if (p >= plan.size() || plan.get(p).site() != site)
                     throw new MappingException("uncaptured statement out of plan order");
                 matches.add(new Match(plan.get(p++), label, label));
                 if (regions.get(site).end() != label) skipUntil = regions.get(site).end();
@@ -193,25 +196,23 @@ final class Instrumenter {
             }
             Expect found = classify(insn);
             if (found == null) continue;
-            if (literalRemaining > 0) {
-                if (found != Expect.IASTORE) throw new MappingException("array literal interrupted at " + found);
-                if (--literalRemaining == 0) matches.add(new Match(literal, literalStart, insn));
-                continue;
-            }
             if (p >= plan.size()) throw new MappingException("unplanned instruction " + found);
             Item item = plan.get(p++);
-            if (item.expect() == Expect.NEWARRAY_LITERAL) {
-                if (found != Expect.NEWARRAY) throw new MappingException("expected array literal, found " + found);
-                literal = item; literalStart = insn; literalRemaining = item.literalLength();
-                if (literalRemaining == 0) matches.add(new Match(item, insn, insn));
-                continue;
-            }
-            if (found != item.expect()) throw new MappingException("expected " + item.expect() + ", found " + found);
+            if (found != family(item.expect())) throw new MappingException("expected " + item.expect() + ", found " + found);
             check(item, insn, main);
             if (item.site() != null) matches.add(new Match(item, insn, insn));
         }
-        if (skipUntil != null || literalRemaining > 0 || p != plan.size()) throw new MappingException("plan not fully matched");
+        if (skipUntil != null || p != plan.size()) throw new MappingException("plan not fully matched");
         return matches;
+    }
+
+    /** The instruction family a plan item matches. */
+    private static Expect family(Expect expect) {
+        return switch (expect) {
+            case NEWARRAY_LITERAL -> Expect.NEWARRAY;
+            case LITERAL_STORE -> Expect.ASTORE;
+            default -> expect;
+        };
     }
 
     /** Relevant instruction family, or null for purely structural instructions. */
@@ -221,10 +222,13 @@ final class Instrumenter {
         return switch (op) {
             case Opcodes.ISTORE, Opcodes.LSTORE, Opcodes.FSTORE, Opcodes.DSTORE, Opcodes.ASTORE -> Expect.STORE;
             case Opcodes.IINC -> Expect.IINC;
-            case Opcodes.IALOAD -> Expect.IALOAD;
-            case Opcodes.IASTORE -> Expect.IASTORE;
+            case Opcodes.IALOAD, Opcodes.LALOAD, Opcodes.FALOAD, Opcodes.DALOAD, Opcodes.AALOAD, Opcodes.BALOAD,
+                 Opcodes.CALOAD, Opcodes.SALOAD -> Expect.ALOAD;
+            case Opcodes.IASTORE, Opcodes.LASTORE, Opcodes.FASTORE, Opcodes.DASTORE, Opcodes.AASTORE, Opcodes.BASTORE,
+                 Opcodes.CASTORE, Opcodes.SASTORE -> Expect.ASTORE;
             case Opcodes.ARRAYLENGTH -> Expect.ARRAYLENGTH;
-            case Opcodes.NEWARRAY -> ((IntInsnNode) insn).operand == Opcodes.T_INT ? Expect.NEWARRAY : Expect.INVOKE;
+            case Opcodes.NEWARRAY, Opcodes.ANEWARRAY, Opcodes.MULTIANEWARRAY -> Expect.NEWARRAY;
+            case Opcodes.TABLESWITCH, Opcodes.LOOKUPSWITCH -> Expect.SWITCH;
             case Opcodes.INEG, Opcodes.LNEG, Opcodes.FNEG, Opcodes.DNEG -> Expect.NEG;
             case Opcodes.LCMP, Opcodes.FCMPL, Opcodes.FCMPG, Opcodes.DCMPL, Opcodes.DCMPG -> Expect.CMP;
             case Opcodes.IFEQ, Opcodes.IFNE, Opcodes.IFLT, Opcodes.IFGE, Opcodes.IFGT, Opcodes.IFLE,
@@ -250,7 +254,41 @@ final class Instrumenter {
 
     private static void check(Item item, AbstractInsnNode insn, MethodNode main) throws MappingException {
         Site site = item.site();
+        if (site == null && item.expect() != Expect.GETSTATIC && item.expect() != Expect.INVOKE) {
+            // A hidden for-each step (copy, length, index) or a folded conversion: its family is enough.
+            if (item.expect() == Expect.CONVERT) checkConversion(item, insn);
+            return;
+        }
         switch (item.expect()) {
+            case ALOAD -> {
+                if (insn.getOpcode() != Opcodes.IALOAD + elementOffset(Analyzer.component(site.javaType)))
+                    throw new MappingException("array load type mismatch");
+            }
+            case ASTORE, LITERAL_STORE -> {
+                if (insn.getOpcode() != Opcodes.IASTORE + elementOffset(Analyzer.component(site.javaType)))
+                    throw new MappingException("array store type mismatch");
+            }
+            case NEWARRAY, NEWARRAY_LITERAL -> {
+                String element = Analyzer.component(site.javaType);
+                boolean ok = switch (insn) {
+                    case MultiANewArrayInsnNode m -> site.dims >= 2 && m.dims == site.dims && m.desc.equals(descriptorOf(site.javaType));
+                    case TypeInsnNode t -> site.dims <= 1 && t.desc.equals(internalName(element));
+                    case IntInsnNode i -> site.dims <= 1 && i.operand == ARRAY_TYPES.indexOf(element) + Opcodes.T_BOOLEAN;
+                    default -> false;
+                };
+                if (!ok) throw new MappingException("array creation mismatch");
+            }
+            case SWITCH -> {
+                Set<Integer> keys = new HashSet<>();
+                if (insn instanceof LookupSwitchInsnNode l) keys.addAll(l.keys);
+                else {
+                    TableSwitchInsnNode t = (TableSwitchInsnNode) insn;
+                    for (int i = 0; i < t.labels.size(); i++) if (t.labels.get(i) != t.dflt) keys.add(t.min + i);
+                }
+                Set<Integer> planned = new HashSet<>();
+                for (Plan.Case c : site.cases) planned.addAll(c.values());
+                if (!keys.equals(planned)) throw new MappingException("switch cases differ");
+            }
             case GETSTATIC -> {
                 FieldInsnNode f = (FieldInsnNode) insn;
                 if (!f.owner.equals("java/lang/System") || !f.name.equals(item.member()))
@@ -280,10 +318,7 @@ final class Instrumenter {
             case NEG -> {
                 if (insn.getOpcode() != Opcodes.INEG + typeOffset(site.javaType)) throw new MappingException("negation type mismatch");
             }
-            case CONVERT -> {
-                if (insn.getOpcode() != Opcodes.I2L + CONVERSIONS.indexOf(item.member()))
-                    throw new MappingException("expected conversion " + item.member());
-            }
+            case CONVERT -> checkConversion(item, insn);
             case CMP -> {
                 int op = insn.getOpcode();
                 boolean ok = switch (site.operandType) {
@@ -301,6 +336,47 @@ final class Instrumenter {
             }
             default -> { }
         }
+    }
+
+    private static void checkConversion(Item item, AbstractInsnNode insn) throws MappingException {
+        if (insn.getOpcode() != Opcodes.I2L + CONVERSIONS.indexOf(item.member()))
+            throw new MappingException("expected conversion " + item.member());
+    }
+
+    // ---- array types (Part 8c) -------------------------------------------------------
+
+    /** newarray operand order from T_BOOLEAN (4) to T_LONG (11). */
+    private static final List<String> ARRAY_TYPES = List.of("boolean", "char", "float", "double", "byte", "short", "int", "long");
+
+    /** Opcode offset from IALOAD/IASTORE for an element type (javac: baload/bastore serve byte and boolean). */
+    private static int elementOffset(String element) {
+        return switch (element) {
+            case "int" -> 0; case "long" -> 1; case "float" -> 2; case "double" -> 3;
+            case "byte", "boolean" -> 5; case "char" -> 6; case "short" -> 7; default -> 4;
+        };
+    }
+
+    /** Recorder helper prefix per primitive element type: iaload, zastore, ... */
+    private static final Map<String, String> HELPER_PREFIX = Map.of("int", "i", "long", "l", "float", "f", "double", "d",
+            "byte", "b", "boolean", "z", "char", "c", "short", "s");
+
+    /** Stack descriptor of a primitive element value (byte, short, char and boolean travel as int). */
+    private static String loadDescriptor(String element) {
+        return switch (element) { case "long" -> "J"; case "float" -> "F"; case "double" -> "D"; default -> "I"; };
+    }
+
+    /** JVM descriptor of a traced Java type. */
+    static String descriptorOf(String type) {
+        if (type.endsWith("[]")) return "[" + descriptorOf(Analyzer.component(type));
+        return switch (type) {
+            case "int" -> "I"; case "long" -> "J"; case "float" -> "F"; case "double" -> "D"; case "boolean" -> "Z";
+            case "byte" -> "B"; case "char" -> "C"; case "short" -> "S"; default -> "L" + type.replace('.', '/') + ";";
+        };
+    }
+
+    /** Internal name of a reference type, as anewarray and checkcast use it. */
+    private static String internalName(String type) {
+        return type.endsWith("[]") ? descriptorOf(type) : type.replace('.', '/');
     }
 
     /**
@@ -412,16 +488,66 @@ final class Instrumenter {
                 after.add(call("vi", "(II)V"));
                 list.insert(insn, after);
             }
-            case IALOAD -> replace(list, insn, site, "iaload", "([III)I");
-            case IASTORE -> replace(list, insn, site, "iastore", "([IIII)V");
-            case ARRAYLENGTH -> replace(list, insn, site, "arraylength", "([II)I");
-            case NEWARRAY -> replace(list, insn, site, "newIntArray", "(II)[I");
-            case NEWARRAY_LITERAL -> {
+            case ALOAD -> {
+                String element = Analyzer.component(site.javaType);
+                if (element.endsWith("[]") || element.equals("java.lang.String")) {
+                    list.insertBefore(insn, siteConstant(site));
+                    MethodInsnNode load = call("aaload", "([Ljava/lang/Object;II)Ljava/lang/Object;");
+                    list.set(insn, load);
+                    list.insert(load, new TypeInsnNode(Opcodes.CHECKCAST, internalName(element)));
+                } else {
+                    replace(list, insn, site, HELPER_PREFIX.get(element) + "aload",
+                            "(" + descriptorOf(site.javaType) + "II)" + loadDescriptor(element));
+                }
+            }
+            case ASTORE -> {
+                String element = Analyzer.component(site.javaType);
+                boolean reference = element.endsWith("[]") || element.equals("java.lang.String");
+                String array = reference ? "[Ljava/lang/Object;" : descriptorOf(site.javaType);
+                replace(list, insn, site, (reference ? "a" : HELPER_PREFIX.get(element)) + "astore",
+                        "(" + array + "I" + (reference ? "Ljava/lang/Object;" : loadDescriptor(element)) + "I)V");
+            }
+            case ARRAYLENGTH -> replace(list, insn, site, "arraylength", "(Ljava/lang/Object;I)I");
+            case NEWARRAY -> {
+                // One helper allocates exactly once (same exceptions); the checkcast restores the static type.
+                InsnList before = new InsnList();
+                String helper, desc;
+                switch (insn) {
+                    case MultiANewArrayInsnNode multi -> {
+                        before.add(new LdcInsnNode(Type.getType(multi.desc)));
+                        helper = "multi"; desc = "(" + "I".repeat(multi.dims) + "Ljava/lang/Class;I)Ljava/lang/Object;";
+                    }
+                    case TypeInsnNode t -> {
+                        before.add(new LdcInsnNode(Type.getObjectType(t.desc)));
+                        helper = "anewarray"; desc = "(ILjava/lang/Class;I)Ljava/lang/Object;";
+                    }
+                    default -> {
+                        before.add(new LdcInsnNode(((IntInsnNode) insn).operand));
+                        helper = "newarray"; desc = "(III)Ljava/lang/Object;";
+                    }
+                }
+                before.add(siteConstant(site));
+                list.insertBefore(insn, before);
+                MethodInsnNode helperCall = call(helper, desc);
+                list.set(insn, helperCall);
+                list.insert(helperCall, new TypeInsnNode(Opcodes.CHECKCAST, descriptorOf(site.javaType)));
+            }
+            case NEWARRAY_LITERAL, LITERAL_STORE -> {
+                // An initializer is recorded once, after its last element store (or its creation when empty).
+                boolean last = match.item().expect() == Expect.NEWARRAY_LITERAL ? match.item().literalLength() == 0
+                        : match.item().literalLength() == 1;
+                if (!last) return;
                 InsnList after = new InsnList();
                 after.add(new InsnNode(Opcodes.DUP));
                 after.add(siteConstant(site));
-                after.add(call("literal", "([II)V"));
-                list.insert(match.anchor(), after);
+                after.add(call("literal", "(Ljava/lang/Object;I)V"));
+                list.insert(insn, after);
+            }
+            case SWITCH -> {
+                InsnList before = new InsnList();
+                before.add(siteConstant(site));
+                before.add(call("sw", "(II)I"));
+                list.insertBefore(insn, before);
             }
             case ARITH, NEG -> {
                 int op = insn.getOpcode();

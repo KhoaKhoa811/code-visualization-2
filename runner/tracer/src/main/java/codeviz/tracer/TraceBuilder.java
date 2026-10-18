@@ -48,13 +48,14 @@ final class TraceBuilder {
     private final List<Map<String, Object>> events = new ArrayList<>();
     private final List<Integer> observableSeqs = new ArrayList<>();
     private final Map<String, List<Map<String, Object>>> arrays = new HashMap<>();
+    private final Map<String, String> elementTypes = new HashMap<>(); // array id -> trace elementType
     private final Set<String> knownObjects = new HashSet<>();
     private final Map<String, String> pendingStrings = new HashMap<>();
-    // Part 8a: int[] contents seen first in uncaptured code, int[] identities, and the open
-    // uncaptured step whose array re-reads are still arriving.
-    private final Map<String, List<Map<String, Object>>> pendingArrays = new HashMap<>();
-    private final Set<String> intArrays = new HashSet<>();
-    private Map<String, Object> openRegion;
+    // Part 8a/8c: array contents seen first in uncaptured code or as elements of a new array (captured
+    // when first referenced), and the open uncaptured step whose array re-reads are still arriving.
+    private record PendingArray(String elementType, List<String> tokens) { }
+    private final Map<String, PendingArray> pendingArrays = new HashMap<>();
+    private Map<String, Object> openRegion, openRegionEvent;
     private final Set<String> stale = new LinkedHashSet<>();
     private boolean sawRegion;
     // Scope instances (static id -> instance id), outer to inner, and live bindings.
@@ -110,11 +111,12 @@ final class TraceBuilder {
                 entry(raw.get(0));
                 for (int i = 1; i < raw.size() && terminal == null; i++) {
                     String line = raw.get(i);
+                    // Array re-reads and the strings and arrays they reveal belong to the open uncaptured step.
                     if (line.startsWith("A")) { arrayContents(line); continue; }
+                    if (line.startsWith("S")) { stringSight(line); continue; }
                     closeRegion();
                     if (line.equals("R")) terminal = "R";
                     else if (line.equals("L")) terminal = "L";
-                    else if (line.startsWith("S")) stringSight(line);
                     else if (line.startsWith("x")) { failure = exception(line); terminal = "x"; }
                     else if (line.startsWith("u")) region(line);
                     else operation(line);
@@ -188,6 +190,7 @@ final class TraceBuilder {
         String args = object(t[1]);
         knownObjects.add(args);
         arrays.put(args, new ArrayList<>());
+        elementTypes.put(args, "java.lang.String");
         String root = "s" + nextScope++;
         scopes.add(new String[]{analysis.rootScope(), root});
         Map<String, Object> argsBinding = binding("Main.main:args", "args", "java.lang.String[]", root, ref(args));
@@ -222,27 +225,67 @@ final class TraceBuilder {
         Map<String, Object> data = ordered("unknownBindings", unknownBindings, "arrays", new ArrayList<>(), "unknownArrays", new ArrayList<>());
         addObservable(site, "UNCAPTURED", data);
         sawRegion = true;
-        if (site.mayWriteArrays) { openRegion = data; stale.addAll(intArrays); }
+        if (site.mayWriteArrays) {
+            openRegion = data;
+            openRegionEvent = events.get(events.size() - 1);
+            stale.addAll(arrays.keySet());
+        }
     }
 
-    /** {@code A<id> <len> <values>}: a re-read after the open statement, or a first sight. */
+    /** {@code A<id> <class> <len> <values>}: a re-read after the open statement, or a first sight. */
     @SuppressWarnings("unchecked")
     private void arrayContents(String line) throws Inconsistent {
         String[] t = line.split(" ");
-        if (t.length < 2) throw new Inconsistent("array contents record");
+        if (t.length < 3) throw new Inconsistent("array contents record");
         String id = "o" + Integer.parseInt(t[0].substring(1));
-        int length = Integer.parseInt(t[1]);
-        if (length < 0 || t.length != 2 + length) throw new Inconsistent("array contents length");
-        List<Map<String, Object>> elements = new ArrayList<>(length);
-        for (int i = 0; i < length; i++) elements.add(intTyped(Integer.parseInt(t[2 + i])));
-        if (!knownObjects.contains(id)) { pendingArrays.put(id, elements); return; }
+        String elementType = elementTypeOf(t[1]);
+        int length = Integer.parseInt(t[2]);
+        if (length < 0 || t.length != 3 + length) throw new Inconsistent("array contents length");
+        List<String> tokens = List.of(t).subList(3, t.length);
+        if (!knownObjects.contains(id)) {
+            if (pendingArrays.putIfAbsent(id, new PendingArray(elementType, tokens)) != null) throw new Inconsistent("array seen twice");
+            return;
+        }
         if (openRegion == null || !stale.remove(id)) throw new Inconsistent("unexpected array re-read");
+        if (!elementType.equals(elementTypes.get(id))) throw new Inconsistent("array type changed");
         List<Map<String, Object>> state = arrays.get(id);
         if (state.size() != length) throw new Inconsistent("array length changed");
+        List<Map<String, Object>> elements = beforeOpenRegion(elementType, tokens);
         if (!state.equals(elements)) {
             for (int i = 0; i < length; i++) state.set(i, elements.get(i));
             ((List<Object>) openRegion.get("arrays")).add(ordered("objectId", id, "elements", new ArrayList<>(elements)));
         }
+    }
+
+    /**
+     * Typed re-read contents. Objects they reveal (created by the uncaptured statement) are
+     * captured before that statement's step, so its data only references known objects.
+     */
+    private List<Map<String, Object>> beforeOpenRegion(String elementType, List<String> tokens) throws Inconsistent {
+        int last = events.size() - 1;
+        if (events.get(last) != openRegionEvent) throw new Inconsistent("array re-read after another event");
+        events.remove(last);
+        observableSeqs.remove(observableSeqs.size() - 1);
+        try {
+            return elements(elementType, tokens);
+        } finally {
+            openRegionEvent.put("seq", events.size() + 1);
+            events.add(openRegionEvent);
+            observableSeqs.add(events.size());
+        }
+    }
+
+    /** Trace elementType for a JVM array class name: {@code [I} int, {@code [[D} double[], {@code [Ljava.lang.String;} String. */
+    private static String elementTypeOf(String className) throws Inconsistent {
+        if (!className.startsWith("[")) throw new Inconsistent("array class");
+        String c = className.substring(1);
+        String type = switch (c) {
+            case "I" -> "int"; case "J" -> "long"; case "F" -> "float"; case "D" -> "double"; case "Z" -> "boolean";
+            case "B" -> "byte"; case "C" -> "char"; case "S" -> "short"; case "Ljava.lang.String;" -> "java.lang.String";
+            default -> c.startsWith("[") ? elementTypeOf(c) + "[]" : null;
+        };
+        if (type == null) throw new Inconsistent("array element type " + c);
+        return type;
     }
 
     /** Ends the open statement; arrays it may have changed but that were not re-read become unknown. */
@@ -256,6 +299,7 @@ final class TraceBuilder {
         }
         stale.clear();
         openRegion = null;
+        openRegionEvent = null;
     }
 
     private static Map<String, Object> unknown() { return ordered("kind", "unknown"); }
@@ -335,39 +379,51 @@ final class TraceBuilder {
             case ALLOCATE -> {
                 if (t.length < 3) throw new Inconsistent("allocation record");
                 String id = object(t[1]);
-                if (knownObjects.contains(id)) throw new Inconsistent("reused object identity");
+                if (knownObjects.contains(id) || pendingArrays.containsKey(id)) throw new Inconsistent("reused object identity");
+                String elementType = Analyzer.component(site.javaType);
                 int length = Integer.parseInt(t[2]);
+                if (length < 0) throw new Inconsistent("allocation length");
                 List<Map<String, Object>> elements = new ArrayList<>(length);
-                if (t.length == 3) for (int i = 0; i < length; i++) elements.add(intTyped(0));
-                else if (t.length == 3 + length) for (int i = 0; i < length; i++) elements.add(intTyped(Integer.parseInt(t[3 + i])));
+                if (t.length == 3) for (int i = 0; i < length; i++) elements.add(defaultValue(elementType));
+                else if (t.length == 3 + length) elements = elements(elementType, List.of(t).subList(3, t.length)); // inner arrays first
                 else throw new Inconsistent("allocation contents");
                 knownObjects.add(id);
-                intArrays.add(id);
-                pendingArrays.remove(id);
                 arrays.put(id, elements);
+                elementTypes.put(id, elementType);
                 addObservable(site, "ALLOCATE", ordered("object",
-                        ordered("objectId", id, "kind", "array", "elementType", "int", "elements", new ArrayList<>(elements))));
+                        ordered("objectId", id, "kind", "array", "elementType", elementType, "elements", new ArrayList<>(elements))));
             }
             case ARRAY_READ -> {
                 expect(t, 4);
-                List<Map<String, Object>> array = array(t[1]);
+                List<Map<String, Object>> array = array(t[1], site);
                 int index = Integer.parseInt(t[2]);
-                Map<String, Object> value = intTyped(Integer.parseInt(t[3]));
+                Map<String, Object> value = element(Analyzer.component(site.javaType), t[3]);
                 if (!array.get(index).equals(value)) throw new Inconsistent("array read disagrees with recorded state");
                 addObservable(site, "ARRAY_READ", ordered("objectId", object(t[1]), "index", index, "value", value));
             }
             case ARRAY_WRITE -> {
                 expect(t, 4);
-                List<Map<String, Object>> array = array(t[1]);
+                List<Map<String, Object>> array = array(t[1], site);
                 int index = Integer.parseInt(t[2]);
-                Map<String, Object> value = intTyped(Integer.parseInt(t[3]));
+                Map<String, Object> value = element(Analyzer.component(site.javaType), t[3]);
                 Map<String, Object> previous = array.set(index, value);
                 addObservable(site, "ARRAY_WRITE", ordered("objectId", object(t[1]), "index", index,
                         "previous", previous, "value", value));
             }
+            case SWITCH -> {
+                expect(t, 2);
+                Map<String, Object> value = scalar(site.javaType, t[1]);
+                int selector = Integer.parseInt(t[1]);
+                Plan.Case chosen = null;
+                String matched = "none";
+                for (Plan.Case c : site.cases) if (chosen == null && c.values().contains(selector)) { chosen = c; matched = "case"; }
+                for (Plan.Case c : site.cases) if (chosen == null && c.isDefault()) { chosen = c; matched = "default"; }
+                addObservable(chosen == null ? site.start : chosen.start(), chosen == null ? site.end : chosen.end(), "SWITCH",
+                        ordered("value", value, "matched", matched));
+            }
             case ARRAY_LENGTH -> {
                 expect(t, 3);
-                List<Map<String, Object>> array = array(t[1]);
+                List<Map<String, Object>> array = array(t[1], site);
                 int length = Integer.parseInt(t[2]);
                 if (array.size() != length) throw new Inconsistent("array length disagrees with recorded state");
                 addObservable(site, "ARRAY_LENGTH", ordered("objectId", object(t[1]), "length", length));
@@ -539,10 +595,36 @@ final class TraceBuilder {
 
     // ---- values -------------------------------------------------------------------
 
-    private Map<String, Object> typed(String javaType, String token) throws Inconsistent {
-        return switch (javaType) {
-            case "byte", "short", "char", "int", "long", "float", "double", "boolean" -> scalar(javaType, token);
-            default -> reference(token);
+    private Map<String, Object> typed(String javaType, String token) throws Inconsistent { return element(javaType, token); }
+
+    /** A recorded value of a static type: a scalar, or a reference to a captured object of that type. */
+    private Map<String, Object> element(String type, String token) throws Inconsistent {
+        switch (type) {
+            case "byte", "short", "char", "int", "long", "float", "double", "boolean" -> { return scalar(type, token); }
+            default -> {
+                Map<String, Object> value = reference(token);
+                if (value.get("objectId") instanceof String id) {
+                    boolean fits = type.endsWith("[]") ? Analyzer.component(type).equals(elementTypes.get(id))
+                            : type.equals("java.lang.String") && !arrays.containsKey(id);
+                    if (!fits) throw new Inconsistent("reference of another type");
+                }
+                return value;
+            }
+        }
+    }
+
+    private List<Map<String, Object>> elements(String elementType, List<String> tokens) throws Inconsistent {
+        List<Map<String, Object>> out = new ArrayList<>(tokens.size());
+        for (String token : tokens) out.add(element(elementType, token));
+        return out;
+    }
+
+    private static Map<String, Object> defaultValue(String type) {
+        return switch (type) {
+            case "float" -> Values.typed(type, "00000000");
+            case "double" -> Values.typed(type, "0000000000000000");
+            case "byte", "short", "char", "int", "long", "boolean" -> Values.typed(type, "0");
+            default -> ordered("kind", "null");
         };
     }
 
@@ -572,21 +654,27 @@ final class TraceBuilder {
         return "o" + Integer.parseInt(token.substring(1));
     }
 
-    /** An int[] created by uncaptured code, seen for the first time by covered code. */
-    private void captureArray(String id) {
-        List<Map<String, Object>> elements = pendingArrays.remove(id);
+    /**
+     * An array created by uncaptured code or inside a new array, seen for the first time by
+     * covered code. The objects it references are captured first.
+     */
+    private void captureArray(String id) throws Inconsistent {
+        PendingArray pending = pendingArrays.remove(id); // removed first: a cycle finds no record and stops capture
+        List<Map<String, Object>> elements = elements(pending.elementType(), pending.tokens());
         knownObjects.add(id);
-        intArrays.add(id);
         arrays.put(id, elements);
-        addBookkeeping("OBJECT_CAPTURE", Map.of("object",
-                ordered("objectId", id, "kind", "array", "elementType", "int", "elements", new ArrayList<>(elements))));
+        elementTypes.put(id, pending.elementType());
+        addBookkeeping("OBJECT_CAPTURE", Map.of("object", ordered("objectId", id, "kind", "array",
+                "elementType", pending.elementType(), "elements", new ArrayList<>(elements))));
     }
 
-    private List<Map<String, Object>> array(String token) throws Inconsistent {
+    private List<Map<String, Object>> array(String token, Site site) throws Inconsistent {
         String id = object(token);
         if (!knownObjects.contains(id) && pendingArrays.containsKey(id)) captureArray(id);
         List<Map<String, Object>> array = arrays.get(id);
         if (array == null) throw new Inconsistent("unknown array");
+        if (site.javaType != null && !Analyzer.component(site.javaType).equals(elementTypes.get(id)))
+            throw new Inconsistent("array of another type");
         return array;
     }
 
@@ -675,7 +763,7 @@ final class TraceBuilder {
             diagnosticJson.add(map);
         }
         return Json.write(ordered(
-                "schemaVersion", "1.2.0",
+                "schemaVersion", "1.3.0",
                 "runId", runId,
                 "source", ordered("file", Analyzer.FILE, "text", source, "sha256", sha256(source)),
                 "execution", ordered("status", executionStatus, "reason", executionReason),

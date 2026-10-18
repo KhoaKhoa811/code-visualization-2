@@ -1,12 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/KhoaKhoa811/code-visualization-2/contracts/trace/v1/trace.schema.json",
-  "title": "Recorded Java trace 1.2.0",
+  "title": "Recorded Java trace 1.3.0",
   "description": "Candidate contract. Structural validity is not proof of Java execution or semantic replay correctness.",
   "type": "object",
   "properties": {
     "schemaVersion": {
-      "const": "1.2.0"
+      "const": "1.3.0"
     },
     "runId": {
       "$ref": "#/$defs/id"
@@ -368,26 +368,8 @@
     },
     "javaType": {
       "type": "string",
-      "enum": [
-        "byte",
-        "short",
-        "int",
-        "long",
-        "char",
-        "boolean",
-        "float",
-        "double",
-        "java.lang.String",
-        "byte[]",
-        "short[]",
-        "int[]",
-        "long[]",
-        "char[]",
-        "boolean[]",
-        "float[]",
-        "double[]",
-        "java.lang.String[]"
-      ]
+      "pattern": "^(byte|short|int|long|char|boolean|float|double|java.lang.String)([])*(?![sS])",
+      "description": "A primitive type, java.lang.String, or an array of those at any depth (1.3.0)."
     },
     "frame": {
       "type": "object",
@@ -491,17 +473,8 @@
         },
         "elementType": {
           "type": "string",
-          "enum": [
-            "byte",
-            "short",
-            "int",
-            "long",
-            "char",
-            "boolean",
-            "float",
-            "double",
-            "java.lang.String"
-          ]
+          "pattern": "^(byte|short|int|long|char|boolean|float|double|java.lang.String)([])*(?![sS])",
+          "description": "Component type: a primitive, java.lang.String, or (1.3.0) an array type of those."
         },
         "elements": {
           "type": "array",
@@ -1151,6 +1124,77 @@
       ],
       "additionalProperties": false
     },
+    "SWITCH": {
+      "type": "object",
+      "properties": {
+        "seq": {
+          "$ref": "#/$defs/positive"
+        },
+        "step": {
+          "$ref": "#/$defs/positive"
+        },
+        "source": {
+          "$ref": "#/$defs/sourceRange"
+        },
+        "frameId": {
+          "$ref": "#/$defs/id"
+        },
+        "kind": {
+          "const": "SWITCH"
+        },
+        "data": {
+          "type": "object",
+          "properties": {
+            "value": {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/value"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "enum": [
+                        "byte",
+                        "short",
+                        "int",
+                        "char"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "kind"
+                  ]
+                }
+              ]
+            },
+            "matched": {
+              "type": "string",
+              "enum": [
+                "case",
+                "default",
+                "none"
+              ]
+            }
+          },
+          "required": [
+            "value",
+            "matched"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "seq",
+        "step",
+        "source",
+        "frameId",
+        "kind",
+        "data"
+      ],
+      "additionalProperties": false,
+      "description": "A switch chose a branch from its selector value (1.3.0). No state change; the source range is the chosen label, or the selector when nothing matched."
+    },
     "CALL": {
       "type": "object",
       "properties": {
@@ -1450,6 +1494,9 @@
         },
         {
           "$ref": "#/$defs/EXPRESSION"
+        },
+        {
+          "$ref": "#/$defs/SWITCH"
         },
         {
           "$ref": "#/$defs/CALL"

@@ -208,7 +208,7 @@ values; section 12 defines additional semantic checks. See the official
 
 | Top-level field | Meaning |
 | --- | --- |
-| schemaVersion | Exactly `1.2.0` (Part 8b; earlier versions retired); reject unrecognized versions rather than silently skipping facts |
+| schemaVersion | Exactly `1.3.0` (Part 8c; earlier versions retired); reject unrecognized versions rather than silently skipping facts |
 | runId | Nonempty identity for this run; identities below are local to it |
 | source | Exact source text, file `Main.java`, and lowercase SHA-256 of its UTF-8 bytes |
 | execution | Terminal status and human-readable reason; describes execution, not capture completeness |
@@ -253,7 +253,9 @@ Representation for a type does not establish tracing coverage for its operations
 Objects are either arrays (`objectId`, `kind: array`, `elementType`, `elements`)
 or strings (`objectId`, `kind: string`, `utf16` code-unit array). Array length is
 elements.length; elements are complete within this contract. The element types
-are Java primitive names and `java.lang.String`. This permits representing the
+are Java primitive names, `java.lang.String` and, since 1.3.0, array types of those at any
+depth (`int[]` for the rows of an `int[][]`); an element of a reference-element array is
+a `ref` or `null` ([statements and arrays](statements.md)). This permits representing the
 standard main argument array; it does not add broader array tracing coverage.
 String references preserve identity independently of identical text. Strings
 are immutable. Other objects or truncated arrays require a future contract;
@@ -288,6 +290,7 @@ ranges follow sections 2–3 and the Java-support specification.
 | RETURN | result, implicit; pop this frame and remove its scopes/bindings; result is JSON null for void, otherwise a typed value |
 | EXCEPTION | exceptionType, message; no successful mutation or result for the failing operation |
 | UNCAPTURED | 1.1.0: unknownBindings, arrays, unknownArrays; a statement ran without capture: listed bindings become unknown, listed array contents replace state, unknownArrays elements become unknown |
+| SWITCH | 1.3.0: value (byte, short, int or char), matched (case, default or none); a switch chose a branch; source is the chosen label, or the selector when nothing matched; no state change ([statements and arrays](statements.md)) |
 
 EXPRESSION operators are `+`, `-`, `*`, `/`, `%`, `!`, comparisons, `&&`, `||`,
 `condition`, and since 1.2.0 `&`, `|`, `^`, `~`, `<<`, `>>`, `>>>` and the primitive casts

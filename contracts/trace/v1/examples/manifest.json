@@ -35,6 +35,11 @@
     "reason": "Statements that ran without capture: an assigned binding becomes unknown, re-observed array contents replace state, and an array first seen afterwards is captured as bookkeeping (1.1.0)."
   },
   {
+    "file": "valid/switch-grid.json",
+    "schemaValid": true,
+    "reason": "A row-shared int[][] created with two lengths (rows captured as bookkeeping in the same step), a SWITCH step on the chosen case label, and a write through a row read (1.3.0)."
+  },
+  {
     "file": "valid/recursion.json",
     "schemaValid": true,
     "reason": "Distinct recursive frames with returned values 0, 1, 3; illustrative future coverage."
@@ -71,6 +76,13 @@
     "reason": "Unknown is a state value only; an operand is always a recorded value.",
     "keyword": "oneOf",
     "instancePath": "/events/7/data/operands/0/value"
+  },
+  {
+    "file": "invalid/switch-long-selector.json",
+    "schemaValid": false,
+    "keyword": "enum",
+    "instancePath": "/events/5/data/value/kind",
+    "reason": "A switch selector is byte, short, int or char; long selectors do not exist in Java."
   },
   {
     "file": "invalid/missing-write-value.json",

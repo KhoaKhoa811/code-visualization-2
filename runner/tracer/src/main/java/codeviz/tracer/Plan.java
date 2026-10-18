@@ -12,9 +12,10 @@ final class Plan {
     private Plan() { }
 
     /** Relevant bytecode instruction families, in javac code-layout order. */
-    enum Expect { STORE, IINC, IALOAD, IASTORE, ARRAYLENGTH, NEWARRAY, NEWARRAY_LITERAL, ARITH, NEG, CONVERT, CMP, JUMP, GETSTATIC, INVOKE, REGION }
+    enum Expect { STORE, IINC, ALOAD, ASTORE, ARRAYLENGTH, NEWARRAY, NEWARRAY_LITERAL, LITERAL_STORE, ARITH, NEG, CONVERT, CMP, JUMP,
+        SWITCH, GETSTATIC, INVOKE, REGION }
 
-    enum Kind { DECLARE, ASSIGN, UPDATE, ALLOCATE, ARRAY_READ, ARRAY_LENGTH, ARRAY_WRITE, ARITHMETIC, CAST, LEAF, REGION }
+    enum Kind { DECLARE, ASSIGN, UPDATE, ALLOCATE, ARRAY_READ, ARRAY_LENGTH, ARRAY_WRITE, ARITHMETIC, CAST, LEAF, SWITCH, REGION }
 
     /** One instrumented operation site. Fields not relevant to a kind stay null. */
     static final class Site {
@@ -39,12 +40,19 @@ final class Plan {
         int delta;                          // ASSIGN via iinc: the iinc increment
         boolean viaArith;                   // UPDATE of a non-int local: arithmetic then store
         final List<Site> declareBefore = new ArrayList<>(); // declarations without initializer that precede this site
+        // Part 8c. Array sites: javaType is the array type; ALLOCATE dims is the number of dimension
+        // lengths (0 for an initializer). SWITCH: javaType is the selector type, cases in source order.
+        int dims;
+        List<Case> cases = List.of();
 
         Site(int id, Kind kind, int start, int end, List<String> scopes) {
             this.id = id; this.kind = kind; this.start = start; this.end = end;
             this.scopes = List.copyOf(scopes);
         }
     }
+
+    /** One switch case: its folded constants (none for default) and its label's source range. */
+    record Case(List<Integer> values, boolean isDefault, int start, int end) { }
 
     /** Condition tree evaluated with javac jumps; operator results derive from leaves. */
     static final class Cond {

@@ -46,6 +46,9 @@ final class Analyzer {
     /** JVM stack type: byte, short, char and boolean values are ints. */
     static String stack(String t) { return switch (t) { case "byte", "short", "char", "boolean" -> "int"; default -> t; }; }
 
+    /** Element type of an array type. */
+    static String component(String arrayType) { return arrayType.substring(0, arrayType.length() - 2); }
+
     static Analysis analyze(String source) {
         JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
         var collector = new DiagnosticCollector<JavaFileObject>();
@@ -128,6 +131,10 @@ final class Analyzer {
         private final Deque<List<Site>> pending = new ArrayDeque<>();
         // Findings for the statement being planned; null outside main's statements (they block tracing).
         private List<Diagnostic> current;
+        // Part 8c: result types of the enclosing traced switch expressions, and whether the value
+        // being planned is a whole initializer or assigned value (javac's operand stack is empty).
+        private final Deque<String> yieldTypes = new ArrayDeque<>();
+        private boolean topValue;
         String rootScope;
 
         Walker(CompilationUnitTree unit, Trees trees, Elements elements, List<Diagnostic> unsupported) {
@@ -270,8 +277,10 @@ final class Analyzer {
             effects.scan(s, null);
             site.unknownDeclarations = List.copyOf(effects.assigned);
             site.mayWriteArrays = effects.writes;
-            site.crtStart = crt(start(s));
-            site.crtEnd = crt(end(s));
+            // javac positions a lowered for-each (and so its range table entry) at the iterated expression.
+            Tree ranged = s instanceof EnhancedForLoopTree f ? f.getExpression() : s;
+            site.crtStart = crt(start(ranged));
+            site.crtEnd = crt(end(ranged));
             plan.add(Item.of(Expect.REGION, site));
         }
 
@@ -409,11 +418,152 @@ final class Analyzer {
                     for (ExpressionStatementTree update : f.getUpdate()) expressionStatement(update.getExpression());
                     scopes.pop();
                 }
-                case BREAK -> { if (((BreakTree) s).getLabel() != null) unsupported(s, "labeled break"); }
-                case CONTINUE -> { if (((ContinueTree) s).getLabel() != null) unsupported(s, "labeled continue"); }
+                case DO_WHILE_LOOP -> { // javac: body, then the test jumping back (none for a constant)
+                    DoWhileLoopTree d = (DoWhileLoopTree) s;
+                    statement(d.getStatement());
+                    if (!isConstant(d.getCondition())) condition(d.getCondition());
+                }
+                case ENHANCED_FOR_LOOP -> forEach((EnhancedForLoopTree) s);
+                case SWITCH -> {
+                    SwitchTree w = (SwitchTree) s;
+                    switchBlock(w, w.getExpression(), w.getCases(), null);
+                }
+                case YIELD -> {
+                    if (yieldTypes.isEmpty()) { unsupported(s, "this yield"); return; }
+                    value(((YieldTree) s).getValue(), yieldTypes.peek());
+                }
+                case LABELED_STATEMENT -> plain(((LabeledStatementTree) s).getStatement()); // labels emit no code
+                case BREAK, CONTINUE, EMPTY_STATEMENT -> { } // jumps only, labeled or not
                 case RETURN -> { if (((ReturnTree) s).getExpression() != null) unsupported(s, "return values"); }
-                case EMPTY_STATEMENT -> { }
                 default -> unsupported(s, "this statement kind (" + s.getKind() + ")");
+            }
+        }
+
+        // ---- statements added in Part 8c --------------------------------------------
+
+        /**
+         * javac Lower.visitArrayForeachLoop: {@code T[] c = e; int n = c.length; for (int i = 0; i < n; i++) { V v = c[i]; body }}.
+         * The hidden copy, length and index are matched but never shown; the length read and each
+         * element read are steps, then the loop variable's declaration.
+         */
+        private void forEach(EnhancedForLoopTree f) {
+            String arrayType = javaType(f.getExpression());
+            VariableTree v = f.getVariable();
+            String type = javaType(v);
+            if (!array(arrayType)) { unsupported(f.getExpression(), "for-each over " + arrayType + " (only arrays are traced)"); return; }
+            if (!localType(type)) { unsupported(v, "local variables of type " + type); return; }
+            scopes.push("f" + start(f));
+            value(f.getExpression(), null);
+            plan.add(new Item(Expect.STORE, null, 0, "copy"));
+            Site length = site(Kind.ARRAY_LENGTH, f.getExpression());
+            length.javaType = arrayType;
+            plan.add(Item.of(Expect.ARRAYLENGTH, length));
+            plan.add(new Item(Expect.STORE, null, 0, "length"));
+            plan.add(new Item(Expect.STORE, null, 0, "index"));
+            plan.add(new Item(Expect.JUMP, null, 0, "index < length"));
+            Site read = site(Kind.ARRAY_READ, f.getExpression());
+            read.javaType = arrayType;
+            plan.add(Item.of(Expect.ALOAD, read));
+            coerce(component(arrayType), type);
+            Site declare = declareSite(v, type);
+            plan.add(Item.of(Expect.STORE, declare));
+            statement(f.getStatement());
+            plan.add(new Item(Expect.IINC, null, 0, "index++"));
+            scopes.pop();
+        }
+
+        private static final Set<String> SELECTORS = Set.of("int", "char", "short", "byte");
+
+        /**
+         * A switch statement ({@code yieldType} null) or a switch expression yielding {@code yieldType}:
+         * the selector, one tableswitch/lookupswitch, then the case bodies in source order.
+         */
+        private void switchBlock(Tree w, ExpressionTree selector, List<? extends CaseTree> cases, String yieldType) {
+            String type = javaType(selector);
+            if (!SELECTORS.contains(type)) { unsupported(selector, "switch on " + type); return; }
+            if (cases.isEmpty()) { unsupported(w, "an empty switch"); return; }
+            List<Plan.Case> facts = new ArrayList<>();
+            for (CaseTree c : cases) {
+                Plan.Case fact = caseFact(c);
+                if (fact == null) return;
+                facts.add(fact);
+            }
+            if (sharesGroupVariables(w, cases)) return;
+            value(selector, null);
+            Site site = site(Kind.SWITCH, strip(selector)); // a switch statement's selector includes its parentheses
+            site.javaType = type;
+            site.cases = List.copyOf(facts);
+            plan.add(Item.of(Expect.SWITCH, site));
+            scopes.push("w" + start(w));
+            pending.push(new ArrayList<>());
+            if (yieldType != null) yieldTypes.push(yieldType);
+            for (CaseTree c : cases) {
+                if (c.getCaseKind() == CaseTree.CaseKind.STATEMENT) {
+                    for (StatementTree inner : c.getStatements()) statement(inner);
+                } else if (c.getBody() instanceof ExpressionTree e) {
+                    // A rule body expression has no statement of its own: it is planned with the switch.
+                    if (yieldType != null) value(e, yieldType);
+                    else expressionStatement(e);
+                } else {
+                    statement((StatementTree) c.getBody());
+                }
+            }
+            if (yieldType != null) yieldTypes.pop();
+            pending.pop();
+            scopes.pop();
+        }
+
+        /** Folded case constants and the label's range; null (reported) for pattern or null labels. */
+        private Plan.Case caseFact(CaseTree c) {
+            if (c.getGuard() != null) { unsupported(c, "guarded switch cases"); return null; }
+            List<Integer> values = new ArrayList<>();
+            boolean isDefault = false;
+            int end = start(c);
+            for (CaseLabelTree label : c.getLabels()) {
+                if (label instanceof DefaultCaseLabelTree) {
+                    isDefault = true;
+                    end = Math.max(end, start(c) + (sourceAt(start(c), "default") ? "default".length() : "case".length()));
+                } else if (label instanceof ConstantCaseLabelTree constant && fold(constant.getConstantExpression()) instanceof Object v
+                        && !(v instanceof String) && !(v instanceof Boolean)) {
+                    values.add(v instanceof Character ch ? (int) ch : ((Number) v).intValue());
+                    end = Math.max(end, end(constant.getConstantExpression()));
+                } else {
+                    unsupported(label, "this switch case label");
+                    return null;
+                }
+            }
+            return new Plan.Case(List.copyOf(values), isDefault, start(c), end);
+        }
+
+        /**
+         * A local declared in one case group is in scope in later groups, but its declaration
+         * may never have run there; such switches are not traced.
+         */
+        private boolean sharesGroupVariables(Tree w, List<? extends CaseTree> cases) {
+            Set<Element> earlier = new HashSet<>();
+            boolean[] found = {false};
+            for (CaseTree c : cases) {
+                if (c.getCaseKind() != CaseTree.CaseKind.STATEMENT) continue;
+                if (!earlier.isEmpty()) {
+                    new TreeScanner<Void, Void>() {
+                        @Override public Void visitIdentifier(IdentifierTree i, Void p) {
+                            if (earlier.contains(element(i))) found[0] = true;
+                            return null;
+                        }
+                    }.scan(c.getStatements(), null);
+                }
+                for (StatementTree s : c.getStatements()) if (s instanceof VariableTree v) earlier.add(element(v));
+            }
+            if (found[0]) unsupported(w, "a variable declared in one switch case group and used in a later one");
+            return found[0];
+        }
+
+        private boolean sourceAt(int position, String text) {
+            try {
+                CharSequence source = unit.getSourceFile().getCharContent(true);
+                return position + text.length() <= source.length() && source.subSequence(position, position + text.length()).toString().equals(text);
+            } catch (IOException e) {
+                return false;
             }
         }
 
@@ -428,8 +578,15 @@ final class Analyzer {
         // ---- primitive types (Part 8b) ------------------------------------------------
 
         private static final Set<String> SCALARS = Set.of("byte", "short", "char", "int", "long", "float", "double", "boolean");
-        private static final Set<String> LOCAL_TYPES = Set.of("byte", "short", "char", "int", "long", "float", "double", "boolean",
-                "java.lang.String", "int[]");
+
+        /** Traced local types: primitives, String, and arrays of those at any depth (Part 8c). */
+        private static boolean localType(String t) { return SCALARS.contains(t) || t.equals("java.lang.String") || array(t); }
+
+        private static boolean array(String t) {
+            if (!t.endsWith("[]")) return false;
+            String base = t.substring(0, t.indexOf('['));
+            return SCALARS.contains(base) || base.equals("java.lang.String");
+        }
 
         private static boolean numeric(String t) { return SCALARS.contains(t) && !t.equals("boolean"); }
 
@@ -476,21 +633,27 @@ final class Analyzer {
 
         private void declaration(VariableTree v) {
             String type = javaType(v);
-            if (!LOCAL_TYPES.contains(type)) {
+            if (!localType(type)) {
                 unsupported(v, "local variables of type " + type);
                 return;
             }
+            Site site = declareSite(v, type);
+            // No code runs for a declaration without initializer: it is recorded just before
+            // the next operation that runs after it in the same block.
+            if (v.getInitializer() == null) { pending.peek().add(site); return; }
+            topValue = true;
+            value(v.getInitializer(), type);
+            plan.add(Item.of(Expect.STORE, site));
+        }
+
+        private Site declareSite(VariableTree v, String type) {
             Site site = site(Kind.DECLARE, v);
             site.declarationId = "Main.main:" + v.getName() + "@" + start(v);
             site.name = v.getName().toString();
             site.javaType = type;
             declarations.put(element(v), site);
             declared.add(element(v));
-            // No code runs for a declaration without initializer: it is recorded just before
-            // the next operation that runs after it in the same block.
-            if (v.getInitializer() == null) { pending.peek().add(site); return; }
-            value(v.getInitializer(), type);
-            plan.add(Item.of(Expect.STORE, site));
+            return site;
         }
 
         private void expressionStatement(ExpressionTree e) {
@@ -502,14 +665,16 @@ final class Analyzer {
                         Site declared = declarations.get(element(id));
                         if (declared == null) { unsupported(target, "assignment to this variable"); return; }
                         Site site = assignment(a, declared);
+                        topValue = true;
                         value(a.getExpression(), declared.javaType);
                         plan.add(Item.of(Expect.STORE, site));
-                    } else if (target instanceof ArrayAccessTree access && "int[]".equals(javaType(access.getExpression()))) {
-                        Site site = site(Kind.ARRAY_WRITE, a);
+                    } else if (target instanceof ArrayAccessTree access && array(javaType(access.getExpression()))) {
+                        String arrayType = javaType(access.getExpression());
+                        Site site = arraySite(Kind.ARRAY_WRITE, a, arrayType);
                         value(access.getExpression(), null);
                         value(access.getIndex(), "int");
-                        value(a.getExpression(), "int");
-                        plan.add(Item.of(Expect.IASTORE, site));
+                        value(a.getExpression(), component(arrayType));
+                        plan.add(Item.of(Expect.ASTORE, site));
                     } else {
                         unsupported(target, "assignment to this target");
                     }
@@ -532,7 +697,7 @@ final class Analyzer {
         /**
          * {@code x op= e} in javac's layout: an int local with a small constant +/- becomes
          * one {@code iinc}; otherwise load, operation (a step), narrowing, store (a step).
-         * For an int[] element: read (a step), operation (a step), write (a step).
+         * For a numeric or boolean array element: read (a step), operation (a step), write (a step).
          */
         private void compound(CompoundAssignmentTree c) {
             String op = switch (c.getKind()) {
@@ -544,7 +709,7 @@ final class Analyzer {
             ExpressionTree target = strip(c.getVariable());
             ExpressionTree rhs = c.getExpression();
             String rhsType = javaType(rhs);
-            String type;
+            String type, arrayType = null;
             Site declared = null;
             if (target instanceof IdentifierTree id && (declared = declarations.get(element(id))) != null && SCALARS.contains(declared.javaType)) {
                 type = declared.javaType;
@@ -564,11 +729,13 @@ final class Analyzer {
                     plan.add(Item.of(Expect.STORE, assign));
                     return;
                 }
-            } else if (target instanceof ArrayAccessTree access && "int[]".equals(javaType(access.getExpression()))) {
-                type = "int";
+            } else if (target instanceof ArrayAccessTree access && array(javaType(access.getExpression()))
+                    && SCALARS.contains(component(javaType(access.getExpression())))) {
+                arrayType = javaType(access.getExpression());
+                type = component(arrayType);
                 value(access.getExpression(), null);
                 value(access.getIndex(), "int");
-                plan.add(Item.of(Expect.IALOAD, site(Kind.ARRAY_READ, access))); // after dup2: the element is read
+                plan.add(Item.of(Expect.ALOAD, arraySite(Kind.ARRAY_READ, access, arrayType))); // after dup2: the element is read
             } else {
                 unsupported(c, "this compound assignment");
                 return;
@@ -576,13 +743,19 @@ final class Analyzer {
             if (rhsType.equals("java.lang.String") || !SCALARS.contains(rhsType)) { unsupported(c, "this compound assignment"); return; }
             boolean shift = op.startsWith("<") || op.startsWith(">");
             String opType = type.equals("boolean") ? "boolean" : shift ? promote(type) : promote(type, rhsType);
-            if (declared != null) coerce(type, opType); // the loaded variable
+            coerce(type, opType); // the loaded variable or element
             value(rhs, shift ? "int" : opType); // javac ishll/lshll: a shift distance is coerced to int
             Site arith = arithmetic(c, op, opType);
             plan.add(Item.of(Expect.ARITH, arith));
             coerce(opType, type);
             if (declared != null) plan.add(Item.of(Expect.STORE, assignment(c, declared)));
-            else plan.add(Item.of(Expect.IASTORE, site(Kind.ARRAY_WRITE, c)));
+            else plan.add(Item.of(Expect.ASTORE, arraySite(Kind.ARRAY_WRITE, c, arrayType)));
+        }
+
+        private Site arraySite(Kind kind, Tree tree, String arrayType) {
+            Site site = site(kind, tree);
+            site.javaType = arrayType;
+            return site;
         }
 
         private void output(MethodInvocationTree call) {
@@ -624,6 +797,8 @@ final class Analyzer {
          * (null: none). Constant expressions are folded by javac, already in the target type.
          */
         private void value(ExpressionTree e, String target) {
+            boolean top = topValue;
+            topValue = false;
             e = strip(e);
             if (isConstant(e)) return; // javac folds compile-time constants: nothing executes.
             String type = javaType(e);
@@ -652,22 +827,29 @@ final class Analyzer {
                      CONDITIONAL_AND, CONDITIONAL_OR, LOGICAL_COMPLEMENT -> condition(e);
                 case ARRAY_ACCESS -> {
                     ArrayAccessTree a = (ArrayAccessTree) e;
-                    if (!"int[]".equals(javaType(a.getExpression()))) { unsupported(a, "reads from non-int arrays"); return; }
+                    String arrayType = javaType(a.getExpression());
+                    if (!array(arrayType)) { unsupported(a, "reads from arrays of " + arrayType); return; }
                     value(a.getExpression(), null);
                     value(a.getIndex(), "int");
-                    plan.add(Item.of(Expect.IALOAD, site(Kind.ARRAY_READ, a)));
+                    plan.add(Item.of(Expect.ALOAD, arraySite(Kind.ARRAY_READ, a, arrayType)));
                 }
                 case MEMBER_SELECT -> {
                     MemberSelectTree m = (MemberSelectTree) e;
-                    if (!m.getIdentifier().contentEquals("length") || !"int[]".equals(javaType(m.getExpression()))) {
+                    if (!m.getIdentifier().contentEquals("length") || !array(javaType(m.getExpression()))) {
                         unsupported(m, "this member access");
                         return;
                     }
                     value(m.getExpression(), null);
-                    plan.add(Item.of(Expect.ARRAYLENGTH, site(Kind.ARRAY_LENGTH, m)));
+                    plan.add(Item.of(Expect.ARRAYLENGTH, arraySite(Kind.ARRAY_LENGTH, m, javaType(m.getExpression()))));
                 }
                 case PREFIX_INCREMENT, PREFIX_DECREMENT, POSTFIX_INCREMENT, POSTFIX_DECREMENT -> update((UnaryTree) e);
                 case NEW_ARRAY -> newArray((NewArrayTree) e);
+                case SWITCH_EXPRESSION -> {
+                    // Elsewhere javac first spills a non-empty operand stack into hidden locals.
+                    if (!top) { unsupported(e, "a switch expression that is not a whole initializer or assigned value"); return; }
+                    SwitchExpressionTree w = (SwitchExpressionTree) e;
+                    switchBlock(w, w.getExpression(), w.getCases(), type);
+                }
                 default -> unsupported(e, "this expression (" + e.getKind() + ")");
             }
             if (target != null) coerce(type, target);
@@ -700,36 +882,47 @@ final class Analyzer {
             if (ops.size() == 2) plan.add(new Item(Expect.CONVERT, null, -1, ops.get(1))); // folded into the step
         }
 
+        /**
+         * An initializer is the allocation, then per element its value and its store; it is recorded
+         * once, after the last store. A sized creation is one newarray, anewarray or multianewarray.
+         */
         private void newArray(NewArrayTree n) {
-            if (!"int[]".equals(javaType(n))) { unsupported(n, "arrays other than int[]"); return; }
-            Site site = site(Kind.ALLOCATE, n);
+            String type = javaType(n);
+            if (!array(type)) { unsupported(n, "arrays of " + type); return; }
+            Site site = arraySite(Kind.ALLOCATE, n, type);
             if (n.getInitializers() != null) {
-                for (ExpressionTree element : n.getInitializers()) {
-                    if (!isConstant(element)) { unsupported(element, "non-constant array initializer elements"); return; }
+                List<? extends ExpressionTree> elements = n.getInitializers();
+                plan.add(new Item(Expect.NEWARRAY_LITERAL, site, elements.size(), null));
+                for (int i = 0; i < elements.size(); i++) {
+                    value(elements.get(i), component(type));
+                    plan.add(new Item(Expect.LITERAL_STORE, site, i == elements.size() - 1 ? 1 : 0, null));
                 }
-                plan.add(new Item(Expect.NEWARRAY_LITERAL, site, n.getInitializers().size(), null));
-            } else if (n.getDimensions().size() == 1) {
-                value(n.getDimensions().get(0), "int");
-                plan.add(Item.of(Expect.NEWARRAY, site));
-            } else {
-                unsupported(n, "multi-dimensional arrays");
+                return;
             }
+            int dims = n.getDimensions().size();
+            if (dims > 3) { unsupported(n, "array creation with more than three lengths"); return; }
+            for (ExpressionTree d : n.getDimensions()) value(d, "int");
+            site.dims = dims;
+            plan.add(Item.of(Expect.NEWARRAY, site));
         }
 
         /**
          * ++/--: an int local is one {@code iinc}; another numeric local is load, add or
-         * subtract one, narrowing and store, recorded as one UPDATE step. On an int[]
+         * subtract one, narrowing and store, recorded as one UPDATE step. On a numeric array
          * element it is a read, an addition and a write (three steps).
          */
         private void update(UnaryTree u) {
             ExpressionTree target = strip(u.getExpression());
             String operator = switch (u.getKind()) { case PREFIX_INCREMENT, POSTFIX_INCREMENT -> "++"; default -> "--"; };
-            if (target instanceof ArrayAccessTree access && "int[]".equals(javaType(access.getExpression()))) {
+            if (target instanceof ArrayAccessTree access && array(javaType(access.getExpression()))
+                    && numeric(component(javaType(access.getExpression())))) {
+                String arrayType = javaType(access.getExpression()), type = component(arrayType);
                 value(access.getExpression(), null);
                 value(access.getIndex(), "int");
-                plan.add(Item.of(Expect.IALOAD, site(Kind.ARRAY_READ, access)));
-                plan.add(Item.of(Expect.ARITH, arithmetic(u, operator.equals("++") ? "+" : "-", "int")));
-                plan.add(Item.of(Expect.IASTORE, site(Kind.ARRAY_WRITE, u)));
+                plan.add(Item.of(Expect.ALOAD, arraySite(Kind.ARRAY_READ, access, arrayType)));
+                plan.add(Item.of(Expect.ARITH, arithmetic(u, operator.equals("++") ? "+" : "-", promote(type))));
+                coerce(promote(type), type);
+                plan.add(Item.of(Expect.ASTORE, arraySite(Kind.ARRAY_WRITE, u, arrayType)));
                 return;
             }
             Site declared = target instanceof IdentifierTree ? declarations.get(element(target)) : null;
@@ -785,11 +978,13 @@ final class Analyzer {
                     leaf.sourceOp = symbol(b.getKind());
                     return leaf(leaf, b, operandType);
                 }
-                case IDENTIFIER -> {
-                    if (!declarations.containsKey(element(e)) || !"boolean".equals(javaType(e))) {
+                case IDENTIFIER, ARRAY_ACCESS -> { // a boolean variable or boolean[] element, tested against zero
+                    if (!"boolean".equals(javaType(e))
+                            || e.getKind() == Tree.Kind.IDENTIFIER && !declarations.containsKey(element(e))) {
                         unsupported(e, "this condition");
                         return null;
                     }
+                    if (e.getKind() == Tree.Kind.ARRAY_ACCESS) value(e, null);
                     return leaf(new Cond(Cond.Op.LEAF, start(e), end(e)), e, "boolean");
                 }
                 default -> { unsupported(e, "this condition (" + e.getKind() + ")"); return null; }
@@ -813,7 +1008,7 @@ final class Analyzer {
         }
 
         private static boolean isReference(String type) {
-            return type.equals("java.lang.String") || type.equals("int[]") || type.equals("<nulltype>") || type.equals("<null>");
+            return type.equals("java.lang.String") || array(type) || type.equals("<nulltype>") || type.equals("<null>");
         }
 
         // ---- helpers -------------------------------------------------------------
