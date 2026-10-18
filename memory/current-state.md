@@ -28,6 +28,7 @@ first frontend slice exist; there is no live input yet.
 | 7d | Minimal run API: submit, poll, cancel, recover, output through one `RunSupervisor` ([guide](../backend/RUN_API.md)); 118 tests with live Docker | Done, pushed, awaiting review |
 | 7e | Coverage roadmap ([roadmap](../specs/coverage-roadmap.md)); frontend slice: Monaco, run flow, playback reducer, variable/array views ([guide](../frontend/README.md)); 7 unit + 2 browser tests with live Docker | Done, pushed, awaiting review |
 | 8a | Graceful partial coverage: unsupported statements run uncaptured, trace contract 1.1.0 ([spec](../specs/partial-coverage.md)); 126 Java tests with live Docker, 3 browser tests | Done, pushed, awaiting review |
+| 8b | All primitive types, casts, bitwise/shift operators, compound assignment, conditional operator, uninitialized declarations; trace contract 1.2.0 ([spec](../specs/primitive-types.md)); 132 Java tests with live Docker, 4 browser tests | Done, pushed, awaiting review |
 
 ## Verified environment
 

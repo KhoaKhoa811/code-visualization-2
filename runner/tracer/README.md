@@ -57,6 +57,10 @@ the uninstrumented original.
   their internals are not traced. Locals they assign stay unknown until the next
   covered store; arrays are re-read after statements that may write them.
 - 8a host tests: **40 tests, 0 failures** on 2026-10-18 (13 new or changed cases).
+- Since 8b ([primitive types](../../specs/primitive-types.md)) all primitive locals, casts, bitwise and
+  shift operators, compound assignment, ++/-- on all numeric locals and int[] elements,
+  the conditional operator and declarations without initializer are traced.
+  **46 tests, 0 failures** on 2026-10-18.
 - Scope entry/exit is derived from recorded operations and static block structure
   (see the spec); blocks with no recorded operation leave no trace.
 - On the host, a builder-side trace limit marks the run `limited` even though the

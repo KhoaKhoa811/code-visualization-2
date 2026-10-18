@@ -108,3 +108,17 @@ not verbatim transcripts, unless quoted.
   RUNNER_UNAVAILABLE because idle Docker answered the 5 s startup inventory late;
   15 s was rejected by the 10 s control cap, so 10 s. Final: 126 Java tests,
   54 contract, 9 reducer, 3 browser tests passed; no containers left.
+
+## 2026-10-18 — Part 8b primitive types and operators (Claude Code)
+
+- User: "ok" to the 8b proposal. 689d883: contract 1.2.0 and tracer for all
+  primitive locals, javac-exact constant folding and implicit conversions, casts,
+  bitwise/shift, long/float/double comparisons (NaN/-0.0 verified), compound
+  assignment (incl. iinc and int[] elements), ++/-- on all numeric locals,
+  conditional operator, declarations without initializer. e8acf40 frontend,
+  2653f6c browser test.
+- Mapping fixes found by tests: javac only special-cases constants on the right of
+  a comparison (left-constant restriction lifted); constant long shift distances
+  are folded (no l2i).
+- Final: 132 Java tests (tracer 46, backend 86) with live Docker, 54 contract,
+  10 reducer, 4 browser tests passed; no containers left.

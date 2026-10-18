@@ -12,42 +12,43 @@
 - Status: ready for review. No approved task is unfinished.
 - Milestone: Part 8 (coverage); Milestone 0, full isolation and V1 incomplete
 
-## Last approved task: Part 8a graceful partial coverage (complete)
+## Last approved task: Part 8b primitive types and operators (complete)
 
-User (2026-10-18): "ok, continue part 8a". Spec:
-[specs/partial-coverage.md](../specs/partial-coverage.md).
+User (2026-10-18): "ok" to the 8b proposal. Spec:
+[specs/primitive-types.md](../specs/primitive-types.md).
 
-- [x] 1. Trace contract 1.1.0 (unknown, UNCAPTURED, array OBJECT_CAPTURE), spec — 0470f06
-- [x] 2. Analyzer regions, -Xjcov mapping, recorder re-reads, builder, integrity guard — 433c3b1
-- [x] 3. Frontend 1.1.0 playback and display — ec73605
-- [x] 4. Live container + browser tests; 10 s startup inventory — af58047
-- [x] 5. Guides and memory (this commit)
+- [x] 1. Contract 1.2.0, specs, tracer (types, casts, bitwise, compound, ternary, uninitialized) — 689d883
+- [x] 2. Frontend 1.2.0 playback, fixtures, number-types example — e8acf40
+- [x] 3. Browser check in Docker — 2653f6c
+- [x] 4. Guides and memory (this commit)
 
 ## Git
 
-- Branch `feat/part-8a-partial-coverage`, stacked on unmerged `feat/part-7e-frontend-slice`
-  (0d87a90), which is stacked on unmerged `feat/part-7d-run-api` (bcbedd1); main 3d8fd53.
-- PRs (manual, `gh` unavailable), in order 7d, 7e, 8a:
-  https://github.com/KhoaKhoa811/code-visualization-2/compare/feat/part-7e-frontend-slice...feat/part-8a-partial-coverage?expand=1
+- Branch `feat/part-8b-primitive-types`, stacked on unmerged `feat/part-8a-partial-coverage`
+  (653436c) <- 7e (0d87a90) <- 7d (bcbedd1); main 3d8fd53.
+- PRs (manual, `gh` unavailable), in order 7d, 7e, 8a, 8b:
+  https://github.com/KhoaKhoa811/code-visualization-2/compare/feat/part-8a-partial-coverage...feat/part-8b-primitive-types?expand=1
 
 ## Verification (2026-10-18, Claude)
 
-- Root reactor `clean verify`, live Docker: **126 tests, 0 failures/skips**
-  (tracer 40, backend 86). Log `.tools/part-8a-verify.log`. No owned container left.
-- Contracts `npm test`: 54. Frontend: 9 reducer tests, `npm run build`, 3 Playwright tests.
+- Root reactor `clean verify`, live Docker: **132 tests, 0 failures/skips**
+  (tracer 46, backend 86). Log `.tools/part-8b-verify.log`. No owned container left.
+- Contracts 54; frontend 10 reducer tests, build, 4 Playwright tests (real backend + Docker).
 
 ## Decisions in this task
 
-- Contract bumped to exact 1.1.0; 1.0.0 retired (no stored traces).
-- Statement-level degradation in main only; unsupported conditions/for-parts degrade the
-  whole compound statement. Bytecode ranges from javac `-Xjcov` CharacterRangeTable
-  (JDK-internal option; mapping failure falls back to output-only).
-- Locals assigned by uncaptured code become unknown; arrays re-read after statements that
-  may write them (calls other than pure java.lang/print, `new`, element writes, object concat).
-- Integrity guard: reflection, Class/ClassLoader, files, processes, net, threads,
-  concurrency, sun/jdk/com.sun keep a program output-only (`TRACE_INTEGRITY`).
-- Traced runs now ship all compiled classes (helpers), with only Main instrumented.
-- 7d fix inside this branch: startup inventory timeout 5 s to 10 s (control maximum).
+- Contract bumped to exact 1.2.0 (operators `& | ^ ~ << >> >>>`, casts); 1.1.0 retired.
+- Analyzer reproduces javac constant folding (JLS 15.29) and `coerce` conversions; implicit
+  conversions are matched, not steps; explicit casts are one step (two-instruction casts
+  folded into one helper).
+- `x op= e` gives EXPRESSION + ASSIGN (also when javac emits `iinc`); `a[i] op= e` and
+  `a[i]++` give READ, EXPRESSION, WRITE; `b++` on non-int locals gives one UPDATE.
+- Declarations without initializer are recorded before the first recorded operation that
+  follows them in their block; never-followed declarations leave no step.
+- float/double recorded as raw bits; builder recomputes results with Java semantics.
+- Lifted the old "constant left comparison operand" restriction (javac only special-cases
+  constants on the right).
+- 8a tests that used `+=`/`int x;` as "unsupported" now use library calls.
 
 ## Resources
 
@@ -55,5 +56,6 @@ User (2026-10-18): "ok, continue part 8a". Spec:
 
 ## Next action
 
-Wait for review/merge of 7d, 7e and 8a. Propose 8b (primitive types and operators:
-long/double/char/..., casts, compound assignment, uninitialized declarations) for approval.
+Wait for review/merge of 7d, 7e, 8a and 8b. Propose 8c (statements: do, switch,
+for-each over arrays, labeled break/continue, multi-dimensional and other element-type
+arrays) for approval.

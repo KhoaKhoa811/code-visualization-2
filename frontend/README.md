@@ -16,6 +16,7 @@ from algorithm or example recognition ([coverage roadmap](../specs/coverage-road
 | 7e.3 | Playwright browser check against the real backend and Docker | 2 browser tests |
 | 7e.4 | This guide and memory | Paths checked |
 | 8a | Trace 1.1.0: uncaptured steps, unknown values (`?`), re-read arrays, warning markers, helper-and-library example ([partial coverage](../specs/partial-coverage.md)) | 9 reducer tests, 3 browser tests |
+| 8b | Trace 1.2.0: all primitive types, casts, bitwise operators; number-types example ([primitive types](../specs/primitive-types.md)) | 10 reducer tests, 4 browser tests |
 
 ## Stack and pins
 
