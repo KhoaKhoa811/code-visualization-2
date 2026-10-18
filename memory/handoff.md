@@ -10,53 +10,49 @@
 - Updated: 2026-10-18 (Asia/Saigon)
 - Owner: Claude Code
 - Status: ready for review. No approved task is unfinished.
-- Milestone: trace engine and first visible slice (Part 7); Milestone 0, full isolation and V1 incomplete
+- Milestone: first visible slice done (Part 7); Milestone 0, full isolation and V1 incomplete
 
-## Last approved task: Part 7d minimal run API (complete)
+## Last approved task: coverage roadmap + Part 7e frontend slice (complete)
 
-User (2026-10-18), after merging 7b (PR #84) and 7c (PR #85): "Last time, you
-stopped at proposal 7d, please review and continue implement." Guide:
-[backend/RUN_API.md](../backend/RUN_API.md).
+User (2026-10-18), after asking whether the path still fits "visualize all the
+code as many as possible": "ok, please write this up and then starting 7e".
+Roadmap: [specs/coverage-roadmap.md](../specs/coverage-roadmap.md). Guide:
+[frontend/README.md](../frontend/README.md).
 
-- [x] 1. Traced lifecycle: run-v1 failure codes, reserved deadline, recovery — c0e2988
-- [x] 2. `RunSupervisor`: 1 slot, 2 FIFO queued, snapshots, retention — 0dc80a1
-- [x] 3. HTTP routes, strict request parser, `RunnerAccess`, server limits — 8cd5e4a
-- [x] 4. `contracts/run/check.cjs`, live API tests — 593c6ce
-- [x] 5. Docs, spec section, memory (this commit)
+- [x] 0. Coverage roadmap, requirements clarification, next steps — 6874f7a
+- [x] 1. Pinned scaffold, trace types, playback reducer, 7 tests — ab1a22b
+- [x] 2. Run flow, Monaco, controls, views, console, statuses — bea73ed
+- [x] 3. Playwright browser check with real backend and Docker — 9626c7d
+- [x] 4. Guide and memory (this commit)
 
 ## Git
 
-- Branch `feat/part-7d-run-api` from main 3d8fd53. Pushed with this commit.
-- PR (manual, `gh` unavailable):
-  https://github.com/KhoaKhoa811/code-visualization-2/pull/new/feat/part-7d-run-api
+- Branch `feat/part-7e-frontend-slice`, stacked on unmerged `feat/part-7d-run-api`
+  (bcbedd1; main 3d8fd53). Pushed with this commit.
+- PRs (manual, `gh` unavailable): open 7d first, then 7e against the 7d branch:
+  https://github.com/KhoaKhoa811/code-visualization-2/compare/feat/part-7d-run-api...feat/part-7e-frontend-slice?expand=1
 
 ## Verification (2026-10-18, Claude)
 
-- Root reactor `clean verify` with live Docker (command in RUN_API.md):
-  **118 tests, 0 failures/errors/skips** (tracer 33; backend 85 incl. 2 live API
-  tests). Log `.tools/part-7d-verify.log`. `contracts/` `npm test`: 52 passed.
-- Every live snapshot with a trace passed `contracts/run/check.cjs`; no owned container left.
+- `npm test` (frontend): 7 passed. `npm run build`: type check and build passed.
+- `npx playwright test`: 2 passed, installed Edge, real backend jar and Docker.
+- Backend unchanged since the 7d verify (118 tests).
 
 ## Decisions in this task
 
-- Lifecycle failure enum now uses the run-v1 codes; `TRACE_TRANSFER_FAILED` and
-  `SETUP_OR_TRANSPORT_FAILED` are gone (fixture lifecycle unchanged).
-- New `RunSupervisor` instead of generalizing the 6e `FixtureRunSupervisor`; the
-  fixture supervisor remains test-only and is never wired into Spring.
-- Queued cancellation returns a `cancelled` trace-v1 envelope (unavailable
-  capture, no Java ran); queue expiry is `410 QUEUE_EXPIRED` with no snapshot.
-- Supervisor opens lazily on the first valid submission after the label inventory.
-- Request parsing uses Jackson 3 streaming (already on the classpath through the
-  web starter; no dependency added): duplicates, depth 32, 65,536 tokens.
-- Output is a separate endpoint after confirmed termination, outside trace-v1.
-- Retention: at most 4 finished/expired runs, 10 minutes each.
+- Installed exact pins, each at least two weeks old (list in frontend/README.md).
+  TypeScript 6.0.3, not 7.x. Vitest dropped (npm 10.9.8 arborist crash on its
+  optional Playwright peer); Node's test runner runs the reducer tests.
+- Dev server proxies `/api` to 127.0.0.1:8080; backend needs no CORS.
+- At the final cursor of a complete run, show the recorded pre-cleanup state,
+  labelled; never invent values.
+- Edited source hides the old playback (no remapping).
 
 ## Resources
 
-- No commands running; no containers.
+- No commands running; no containers. `frontend/node_modules` is local and ignored.
 
 ## Next action
 
-Wait for review/merge of 7d. Propose 7e (frontend slice: Vite/React/TypeScript,
-Monaco, playback reducer, array/variable views, bubble sort demo with a browser
-check) for approval. Installing frontend tooling needs explicit approval.
+Wait for review/merge of 7d and 7e. Propose 8a (graceful partial coverage) with a
+checklist and its safe-boundary rule for approval.

@@ -8,8 +8,8 @@ History: [archive/](archive/README.md).
 
 The project is still in the pre-application phase. Milestone 0 (specifications and
 instructions), full isolation verification, Milestone 1 tracing and V1 are **not
-complete**. A first-increment tracer and a minimal noninteractive run API exist;
-there is no frontend or live input yet.
+complete**. A first-increment tracer, a minimal noninteractive run API and a
+first frontend slice exist; there is no live input yet.
 
 | Part | What it delivered | Status |
 | --- | --- | --- |
@@ -26,6 +26,7 @@ there is no frontend or live input yet.
 | 7b | Host trace-v1 producer for the first increment in main ([guide](../runner/tracer/README.md)); 27 tests | Merged (PR #84) |
 | 7c | Tracer inside the container lifecycle ([guide](../backend/TRACED_RUNS.md)); root reactor verify 98 tests with live Docker | Merged (PR #85) |
 | 7d | Minimal run API: submit, poll, cancel, recover, output through one `RunSupervisor` ([guide](../backend/RUN_API.md)); 118 tests with live Docker | Done, pushed, awaiting review |
+| 7e | Coverage roadmap ([roadmap](../specs/coverage-roadmap.md)); frontend slice: Monaco, run flow, playback reducer, variable/array views ([guide](../frontend/README.md)); 7 unit + 2 browser tests with live Docker | Done, pushed, awaiting review |
 
 ## Verified environment
 
@@ -35,7 +36,8 @@ there is no frontend or live input yet.
   wrapper with caches under ignored `.tools/`.
 - Docker Desktop 29.8.0, `desktop-linux` context; pinned runner image in
   [runner/image.json](../runner/image.json).
-- Node.js 22 for `contracts/` tests (`npm test`).
+- Node.js 22 for `contracts/` tests (`npm test`). Frontend: Node 22.23.2, npm 10.9.8; Playwright uses
+  installed Microsoft Edge.
 - `gh` is not installed in either agent's session so far; PRs are opened manually from pushed branches.
 - Build from the repository root pom (tracer, then backend) since Part 7c; see backend/TRACED_RUNS.md.
 

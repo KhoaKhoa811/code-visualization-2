@@ -80,3 +80,17 @@ not verbatim transcripts, unless quoted.
   and live API tests (bubble sort, busy, queued and active cancellation, FIFO).
 - Root reactor clean verify with live Docker: 118 tests passed (tracer 33,
   backend 85); contracts 52 passed; no containers left. All passed first run.
+
+## 2026-10-18 — Coverage roadmap and Part 7e frontend slice (Claude Code)
+
+- User asked whether the path still fits "visualize all the code as many as
+  possible". Answer: yes in architecture (facts from bytecode, views by data
+  shape), not yet in breadth. User: "ok, please write this up and then starting 7e".
+- 6874f7a specs/coverage-roadmap.md: 8a graceful partial coverage first, then
+  types, statements, methods, objects + object graph (moved into Core V1),
+  collections, live input, exceptions.
+- ab1a22b pinned scaffold + playback reducer; bea73ed UI; 9626c7d Playwright on
+  installed Edge with the real backend and Docker. Vitest dropped after an npm
+  arborist crash. First browser run showed main's variables vanish at the final
+  cursor (correct FRAME_END cleanup); the last cursor now also shows the recorded
+  pre-cleanup state, labelled. 7 unit and 2 browser tests passed.
