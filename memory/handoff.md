@@ -10,42 +10,46 @@
 - Updated: 2026-10-18 (Asia/Saigon)
 - Owner: Claude Code
 - Status: ready for review. No approved task is unfinished.
-- Milestone: trace engine (Part 7); Milestone 0, full isolation and V1 incomplete
+- Milestone: trace engine and first visible slice (Part 7); Milestone 0, full isolation and V1 incomplete
 
-## Last approved task: Part 7c container tracing (complete)
+## Last approved task: Part 7d minimal run API (complete)
 
-User: "I approve" (2026-10-18) for 7c: run the tracer inside the 6d/6e container
-lifecycle. Guide: [backend/TRACED_RUNS.md](../backend/TRACED_RUNS.md).
+User (2026-10-18), after merging 7b (PR #84) and 7c (PR #85): "Last time, you
+stopped at proposal 7d, please review and continue implement." Guide:
+[backend/RUN_API.md](../backend/RUN_API.md).
 
-- [x] 1. Tracer Prepare CLI, plan file, stop causes, torn records — 1a4387c
-- [x] 2. Shaded tracer-runtime.jar, root reactor pom, backend dependency — 99a83d2
-- [x] 3. Stdin staging, bounded reads, TracedRunLifecycle, unit tests — d1682ad
-- [x] 4. Live container tests; recorder flushes every 100 ms — 239a39a
+- [x] 1. Traced lifecycle: run-v1 failure codes, reserved deadline, recovery — c0e2988
+- [x] 2. `RunSupervisor`: 1 slot, 2 FIFO queued, snapshots, retention — 0dc80a1
+- [x] 3. HTTP routes, strict request parser, `RunnerAccess`, server limits — 8cd5e4a
+- [x] 4. `contracts/run/check.cjs`, live API tests — 593c6ce
 - [x] 5. Docs, spec section, memory (this commit)
 
 ## Git
 
-- Branch `feat/part-7c-container-tracing`, stacked on `feat/part-7b-trace-producer`
-  (681e4e0, PR not merged yet; main 528d45d). Pushed with this commit.
-- PRs (manual, `gh` unavailable): open 7b first, then 7c against the 7b branch:
-  https://github.com/KhoaKhoa811/code-visualization-2/compare/feat/part-7b-trace-producer...feat/part-7c-container-tracing?expand=1
+- Branch `feat/part-7d-run-api` from main 3d8fd53. Pushed with this commit.
+- PR (manual, `gh` unavailable):
+  https://github.com/KhoaKhoa811/code-visualization-2/pull/new/feat/part-7d-run-api
 
 ## Verification (2026-10-18, Claude)
 
-- Root reactor `clean verify` with live Docker (command in TRACED_RUNS.md):
-  **98 tests, 0 failures/errors/skips** (tracer 33; backend 65 incl. all 6c-6e
-  live tests and 7 new traced live tests). Log `.tools/part-7c-verify.log`.
-- Every traced live trace passed `contracts/trace/check.cjs`; no owned container left.
-- Build note: backend now depends on runner/tracer; build from the root pom.
+- Root reactor `clean verify` with live Docker (command in RUN_API.md):
+  **118 tests, 0 failures/errors/skips** (tracer 33; backend 85 incl. 2 live API
+  tests). Log `.tools/part-7d-verify.log`. `contracts/` `npm test`: 52 passed.
+- Every live snapshot with a trace passed `contracts/run/check.cjs`; no owned container left.
 
 ## Decisions in this task
 
-- Stage files via `docker exec -i` stdin (Windows 32K command-line cap).
-- Read plan.json before runtime; reject plans for other source (SHA-256).
-- After runtime, `kill -9 -1` as the run user, then read raw records, then stop
-  (tmpfs is lost on stop). Reads never quarantine.
-- Recorder flushes every 100 ms (first live timeout run lost its whole prefix).
-- Trace built only after confirmed termination; stop causes always give partial.
+- Lifecycle failure enum now uses the run-v1 codes; `TRACE_TRANSFER_FAILED` and
+  `SETUP_OR_TRANSPORT_FAILED` are gone (fixture lifecycle unchanged).
+- New `RunSupervisor` instead of generalizing the 6e `FixtureRunSupervisor`; the
+  fixture supervisor remains test-only and is never wired into Spring.
+- Queued cancellation returns a `cancelled` trace-v1 envelope (unavailable
+  capture, no Java ran); queue expiry is `410 QUEUE_EXPIRED` with no snapshot.
+- Supervisor opens lazily on the first valid submission after the label inventory.
+- Request parsing uses Jackson 3 streaming (already on the classpath through the
+  web starter; no dependency added): duplicates, depth 32, 65,536 tokens.
+- Output is a separate endpoint after confirmed termination, outside trace-v1.
+- Retention: at most 4 finished/expired runs, 10 minutes each.
 
 ## Resources
 
@@ -53,5 +57,6 @@ lifecycle. Guide: [backend/TRACED_RUNS.md](../backend/TRACED_RUNS.md).
 
 ## Next action
 
-Wait for review/merge of 7b and 7c. Propose 7d (minimal run API: submit, poll,
-cancel, fetch trace, through the run supervisor) for approval.
+Wait for review/merge of 7d. Propose 7e (frontend slice: Vite/React/TypeScript,
+Monaco, playback reducer, array/variable views, bubble sort demo with a browser
+check) for approval. Installing frontend tooling needs explicit approval.

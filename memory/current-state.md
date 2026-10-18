@@ -8,8 +8,8 @@ History: [archive/](archive/README.md).
 
 The project is still in the pre-application phase. Milestone 0 (specifications and
 instructions), full isolation verification, Milestone 1 tracing and V1 are **not
-complete**. There is no frontend, Java instrumentation/tracing engine, run API,
-or live input yet.
+complete**. A first-increment tracer and a minimal noninteractive run API exist;
+there is no frontend or live input yet.
 
 | Part | What it delivered | Status |
 | --- | --- | --- |
@@ -23,8 +23,9 @@ or live input yet.
 | 6e.0 | Handoff-efficiency docs for Codex/Claude cooperation | Merged (PR #82) |
 | 6e | Cancellation, one run slot + queue, explicit recovery ([guide](../backend/CANCELLATION_RECOVERY.md)); 49 tests passed with live Docker | Merged (PR #82) |
 | 7a | Trace-engine spike: ASM bytecode tracer, 20 tests, report and ADR 0004 ([report](../runner/tracer-spike/SPIKE_REPORT.md)) | Merged (PR #83) |
-| 7b | Host trace-v1 producer for the first increment in main ([guide](../runner/tracer/README.md)); 27 tests | Done, pushed, awaiting review |
-| 7c | Tracer inside the container lifecycle ([guide](../backend/TRACED_RUNS.md)); root reactor verify 98 tests with live Docker | Done, pushed, awaiting review |
+| 7b | Host trace-v1 producer for the first increment in main ([guide](../runner/tracer/README.md)); 27 tests | Merged (PR #84) |
+| 7c | Tracer inside the container lifecycle ([guide](../backend/TRACED_RUNS.md)); root reactor verify 98 tests with live Docker | Merged (PR #85) |
+| 7d | Minimal run API: submit, poll, cancel, recover, output through one `RunSupervisor` ([guide](../backend/RUN_API.md)); 118 tests with live Docker | Done, pushed, awaiting review |
 
 ## Verified environment
 
@@ -60,5 +61,5 @@ or live input yet.
   "Known absent references" in [AGENTS.md](../AGENTS.md). The requirements'
   claim that JavaParser instrumentation was verified in a prototype has no
   artifact in this repository.
-- Results from 6d/6e are internal probe outcomes, not public trace/API envelopes.
+- Results from 6d/6e fixtures are internal probe outcomes; only 7d snapshots are API envelopes.
   Nonzero Docker exec exit is not yet trusted attribution of a Java error.

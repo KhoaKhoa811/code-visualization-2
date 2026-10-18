@@ -5,8 +5,8 @@
 used by the [fixed-fixture lifecycle](FIXTURE_LIFECYCLE.md), and returns a
 trace-v1 envelope. Behavior is specified in
 [bytecode-tracing.md](../specs/bytecode-tracing.md#container-execution-part-7c).
-There is no HTTP route yet (Part 7d), and runs are not yet admitted through the
-[run supervisor](CANCELLATION_RECOVERY.md); tests are the only callers.
+Since Part 7d, the [run API](RUN_API.md) admits runs through `RunSupervisor`, which
+owns the single slot and passes a run ID and preparation deadline.
 
 ## Review pieces
 
@@ -35,7 +35,7 @@ There is no HTTP route yet (Part 7d), and runs are not yet admitted through the
    run user stops the program (the container's init survives), then the raw
    records are read (at most 16 MiB + 64 KiB). The container's tmpfs disappears on
    stop, so this must happen first. A failed read gives unavailable capture and
-   `TRACE_TRANSFER_FAILED`; it never quarantines the container.
+   `TRANSPORT_FAILED` (named `TRACE_TRANSFER_FAILED` before 7d); it never quarantines the container.
 7. **Stop and remove** as in 6d/6e. The trace is built only after termination is
    confirmed; otherwise `trace` is null and the failure is reported.
 
@@ -71,5 +71,5 @@ cancellation during runtime (cancelled). Every trace passed
   honest prefixes of what ran.
 - The tracer runtime is on the program's classpath. Traced programs cannot use
   calls or reflection, and javac sees only the JDK, so they cannot reach it.
-- No supervisor admission, HTTP or live console yet. Full isolation and V1 remain
+- No live console yet. Full isolation and V1 remain
   incomplete; this is not public deployment readiness.

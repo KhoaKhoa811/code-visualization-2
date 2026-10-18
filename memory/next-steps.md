@@ -6,20 +6,20 @@ only. For the active task, [handoff.md](handoff.md) is authoritative. History:
 
 ## Approval boundaries
 
-- Merged: 6e (PR #82), 7a (PR #83). ADR 0004 accepted with the 7b approval.
-- Done, awaiting review: 7b host trace-v1 producer and 7c container tracing (branches
-  `feat/part-7b-trace-producer`, `feat/part-7c-container-tracing`).
-- Not approved yet: 7d and later. Propose with a checklist and wait for approval.
+- Merged: 6e (PR #82), 7a (PR #83), 7b (PR #84), 7c (PR #85). ADR 0004 accepted.
+- Done, awaiting review: 7d minimal run API (branch `feat/part-7d-run-api`).
+- Not approved yet: 7e and later. Propose with a checklist and wait for approval.
 - Never merge pull requests; the user merges.
 
 ## Part 7 roadmap (trace engine and first visible slice)
 
 1. 7a engine spike and ADR 0004: merged.
-2. 7b host trace-v1 producer, first increment in `main`: done, awaiting review.
+2. 7b host trace-v1 producer, first increment in `main`: merged.
 3. 7c run the tracer inside the 6d/6e container lifecycle: stage the recorder,
    compile + instrument in the compile phase, keep the site table outside the
-   program's reach, fetch raw records, build the trace. Done, awaiting review.
-4. 7d minimal run API (slimmed 6f): run, poll, cancel, fetch trace. Proposed.
+   program's reach, fetch raw records, build the trace. Merged.
+4. 7d minimal run API (slimmed 6f): submit, poll, cancel, recover, output.
+   Done, awaiting review.
 5. 7e frontend slice: Vite/React/TypeScript, Monaco, playback reducer, array and
    variable renderers; bubble sort demo with browser check. Proposed.
 6. 7f+ widen Core V1: helper methods/recursion and call-stack view, live Scanner
