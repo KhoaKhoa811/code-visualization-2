@@ -8,7 +8,7 @@ import java.util.List;
 import java.util.concurrent.locks.ReentrantLock;
 
 /** One owned fixed-idle environment; failures retain identity for later reconciliation. */
-public final class DockerControlAdapter {
+public final class DockerControlAdapter implements FixtureControl {
     private final Path executable;
     private final CommandRunner runner;
     private final ContainerProfile.Identity identity = ContainerProfile.Identity.fresh();
@@ -32,7 +32,11 @@ public final class DockerControlAdapter {
     public boolean quarantined() { return quarantined; }
 
     public void create() throws IOException {
-        perform(Duration.ofSeconds(10), deadline -> {
+        create(Duration.ofSeconds(10));
+    }
+
+    void create(Duration remaining) throws IOException {
+        perform(remaining, deadline -> {
             if (created || containerId != null) throw new IOException("Container already created");
             String id = call(ContainerProfile.createArguments(identity), deadline).strip();
             if (!id.matches("[0-9a-f]{64}")) throw new IOException("Create did not return a full container ID");
@@ -43,7 +47,11 @@ public final class DockerControlAdapter {
     }
 
     public void startIdle() throws IOException {
-        perform(Duration.ofSeconds(5), deadline -> {
+        startIdle(Duration.ofSeconds(5));
+    }
+
+    void startIdle(Duration remaining) throws IOException {
+        perform(remaining, deadline -> {
             requireCreated();
             if (started || stopped) throw new IOException("Idle container cannot restart after start/stop");
             ContainerInspection before = inspect(deadline);
@@ -80,6 +88,44 @@ public final class DockerControlAdapter {
         if (!created || removed) throw new IOException("No active owned container");
     }
 
+    void stage(FixedFixture fixture, Duration remaining) throws IOException {
+        perform(remaining, deadline -> {
+            requireRunning(deadline);
+            call(execArguments(fixture.stagingCommand()), deadline);
+        });
+    }
+
+    public void prepare(FixedFixture fixture) throws IOException {
+        long deadline = System.nanoTime() + Duration.ofSeconds(10).toNanos();
+        create(Duration.ofNanos(Math.max(0, deadline - System.nanoTime())));
+        startIdle(Duration.ofNanos(Math.max(0, deadline - System.nanoTime())));
+        stage(fixture, Duration.ofNanos(Math.max(0, deadline - System.nanoTime())));
+    }
+
+    public List<String> phaseCommand(FixedFixture fixture, boolean compilation) throws IOException {
+        if (!operation.tryLock()) throw new IOException("Container control busy");
+        try {
+            if (quarantined || !started || stopped || removed) throw new IOException("Phase launch fenced");
+            var command = new ArrayList<>(List.of(executable.toString(), "--context", "desktop-linux"));
+            command.addAll(execArguments(compilation ? fixture.compileCommand() : fixture.runtimeCommand()));
+            return List.copyOf(command);
+        } finally {
+            operation.unlock();
+        }
+    }
+
+    private void requireRunning(long deadline) throws IOException {
+        requireCreated();
+        if (!started || stopped || !inspect(deadline).running()) throw new IOException("Container not running");
+    }
+
+    private List<String> execArguments(List<String> fixedCommand) {
+        var args = new ArrayList<>(List.of("exec", containerId, "/usr/bin/env", "-i",
+                "PATH=/opt/java/openjdk/bin:/usr/bin:/bin", "HOME=/tmp"));
+        args.addAll(fixedCommand);
+        return args;
+    }
+
     private ContainerInspection inspect(long deadline) throws IOException {
         return new ContainerInspection(call(List.of("inspect", "--type=container", containerId), deadline), containerId, identity);
     }
@@ -96,6 +142,8 @@ public final class DockerControlAdapter {
         if (!operation.tryLock()) throw new IOException("Container control busy");
         try {
             if (quarantined) throw new IOException("Container quarantined; explicit reconciliation required");
+            if (budget.isNegative() || budget.isZero() || budget.compareTo(Duration.ofSeconds(10)) > 0)
+                throw new IOException("Invalid operation budget");
             action.run(System.nanoTime() + budget.toNanos());
         } catch (IOException | RuntimeException failure) {
             quarantined = true;
