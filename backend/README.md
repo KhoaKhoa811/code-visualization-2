@@ -1,7 +1,8 @@
 # Backend setup (Part 6a)
 
-Minimal Spring Boot application, bound to `127.0.0.1:8080`. No execution API,
-Docker integration, tracing, or frontend is implemented here yet.
+Minimal Spring Boot application, bound to `127.0.0.1:8080`. Part 6c adds an
+[independently tested Docker control adapter](DOCKER_CONTROL.md), not yet wired
+into the application. No execution API, tracing, or frontend is implemented here.
 
 ## Pinned tools
 
@@ -49,6 +50,7 @@ Submitted Java must eventually run in the isolated runner, never in this JVM.
 
 ## Next scope
 
-Part 6b defines [lifecycle contracts](../contracts/run/README.md). Docker orchestration
-and submitted-source admission remain later work. See [next steps](../memory/next-steps.md) for the
+Part 6b defines [lifecycle contracts](../contracts/run/README.md), and Part 6c adds
+bounded control of a fixed idle container. Full orchestration and submitted-source
+admission remain later work. See [next steps](../memory/next-steps.md) for the
 full Part 6 roadmap and approval state.
