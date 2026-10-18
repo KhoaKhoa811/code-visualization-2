@@ -28,6 +28,19 @@
         </dependency>
     </dependencies>
     <build>
+        <resources>
+            <resource><directory>src/main/resources</directory></resource>
+            <resource>
+                <directory>../runner/fixtures</directory>
+                <targetPath>runner-fixtures</targetPath>
+                <includes>
+                    <include>Main.java</include>
+                    <include>TimeoutLoop.java</include>
+                    <include>OutputFlood.java</include>
+                    <include>CompileError.java</include>
+                </includes>
+            </resource>
+        </resources>
         <plugins>
             <plugin>
                 <groupId>org.springframework.boot</groupId>

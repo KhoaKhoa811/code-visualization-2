@@ -1,5 +1,9 @@
 # Docker control adapter (Part 6c)
 
+This records the completed 6c increment. Part 6d now extends the adapter with
+[fixed-fixture preparation and execution](FIXTURE_LIFECYCLE.md); the original
+idle-container checks remain available. Later-work statements below describe 6c.
+
 This is backend implementation for controlling a fixed idle runner container.
 It is not connected to an HTTP endpoint or Spring service yet. No submitted Java
 is staged, compiled, or executed. Existing PowerShell probes remain unchanged.
