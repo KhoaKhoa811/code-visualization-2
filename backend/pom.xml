@@ -22,6 +22,11 @@
             <artifactId>spring-boot-starter-webmvc</artifactId>
         </dependency>
         <dependency>
+            <groupId>com.codevisualization</groupId>
+            <artifactId>tracer</artifactId>
+            <version>0.0.1-SNAPSHOT</version>
+        </dependency>
+        <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
@@ -38,6 +43,15 @@
                     <include>TimeoutLoop.java</include>
                     <include>OutputFlood.java</include>
                     <include>CompileError.java</include>
+                </includes>
+            </resource>
+            <!-- Staged into runner containers for traced runs (Part 7c). Build from the
+                 root pom so runner/tracer is packaged first. -->
+            <resource>
+                <directory>../runner/tracer/target</directory>
+                <targetPath>runner-tracer</targetPath>
+                <includes>
+                    <include>tracer-runtime.jar</include>
                 </includes>
             </resource>
         </resources>

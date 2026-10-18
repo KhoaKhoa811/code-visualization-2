@@ -12,6 +12,9 @@ import java.util.concurrent.atomic.AtomicReference;
 /** One control worker, no queue, bounded retained output; not user-output transport. */
 public final class BoundedCommandRunner implements CommandRunner, AutoCloseable {
     static final int OUTPUT_LIMIT = 65_536;
+    // Bounded stdin for staging fixed files (tracer runtime jar, admitted source).
+    static final int INPUT_LIMIT = 4 * 1024 * 1024;
+    private final int outputLimit;
     private final AtomicBoolean closed = new AtomicBoolean();
     private final AtomicReference<Process> active = new AtomicReference<>();
     private final ThreadPoolExecutor worker = new ThreadPoolExecutor(1, 1, 0,
@@ -21,8 +24,23 @@ public final class BoundedCommandRunner implements CommandRunner, AutoCloseable 
                 return thread;
             });
 
+    public BoundedCommandRunner() { this(OUTPUT_LIMIT); }
+
+    /** A runner with a larger retained-output bound, for reading run files back. */
+    public BoundedCommandRunner(int outputLimit) {
+        if (outputLimit <= 0 || outputLimit > 64 * 1024 * 1024) throw new IllegalArgumentException("Invalid output limit");
+        this.outputLimit = outputLimit;
+    }
+
     @Override
     public String execute(List<String> command, Duration remaining) throws IOException {
+        return execute(command, remaining, null);
+    }
+
+    /** Like {@link #execute(List, Duration)}, writing {@code input} to stdin before closing it. */
+    @Override
+    public String execute(List<String> command, Duration remaining, byte[] input) throws IOException {
+        if (input != null && input.length > INPUT_LIMIT) throw new IOException("Control input exceeds its bound");
         if (remaining.isNegative() || remaining.isZero() || remaining.compareTo(Duration.ofSeconds(10)) > 0)
             throw new IOException("Invalid control deadline");
         if (closed.get()) throw new IOException("Control runner closed; reconciliation required");
@@ -34,7 +52,7 @@ public final class BoundedCommandRunner implements CommandRunner, AutoCloseable 
         long deadline = System.nanoTime() + remaining.toNanos();
         Future<String> task;
         try {
-            task = worker.submit(() -> invoke(arguments));
+            task = worker.submit(() -> invoke(arguments, input));
         } catch (RejectedExecutionException busy) {
             throw new IOException("Control worker unavailable; no queued calls", busy);
         }
@@ -55,19 +73,19 @@ public final class BoundedCommandRunner implements CommandRunner, AutoCloseable 
         }
     }
 
-    private String invoke(List<String> arguments) throws IOException, InterruptedException {
+    private String invoke(List<String> arguments, byte[] stdinBytes) throws IOException, InterruptedException {
         if (closed.get()) throw new IOException("Control runner closed");
         Process process = new ProcessBuilder(arguments).redirectErrorStream(true).start();
         active.set(process);
         try {
             if (closed.get()) throw new IOException("Control cancelled during launch");
-            process.getOutputStream().close();
+            try (var stdin = process.getOutputStream()) { if (stdinBytes != null) stdin.write(stdinBytes); }
             var output = new ByteArrayOutputStream();
             byte[] buffer = new byte[4096];
             try (var input = process.getInputStream()) {
                 int count;
                 while ((count = input.read(buffer)) != -1) {
-                    if (count > OUTPUT_LIMIT - output.size()) throw new IOException("Control output limit exceeded");
+                    if (count > outputLimit - output.size()) throw new IOException("Control output limit exceeded");
                     output.write(buffer, 0, count);
                 }
             }

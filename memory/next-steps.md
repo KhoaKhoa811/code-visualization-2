@@ -7,9 +7,9 @@ only. For the active task, [handoff.md](handoff.md) is authoritative. History:
 ## Approval boundaries
 
 - Merged: 6e (PR #82), 7a (PR #83). ADR 0004 accepted with the 7b approval.
-- Done, awaiting review: 7b host trace-v1 producer (branch
-  `feat/part-7b-trace-producer`).
-- Not approved yet: 7c and later. Propose with a checklist and wait for approval.
+- Done, awaiting review: 7b host trace-v1 producer and 7c container tracing (branches
+  `feat/part-7b-trace-producer`, `feat/part-7c-container-tracing`).
+- Not approved yet: 7d and later. Propose with a checklist and wait for approval.
 - Never merge pull requests; the user merges.
 
 ## Part 7 roadmap (trace engine and first visible slice)
@@ -18,7 +18,7 @@ only. For the active task, [handoff.md](handoff.md) is authoritative. History:
 2. 7b host trace-v1 producer, first increment in `main`: done, awaiting review.
 3. 7c run the tracer inside the 6d/6e container lifecycle: stage the recorder,
    compile + instrument in the compile phase, keep the site table outside the
-   program's reach, fetch raw records, build the trace. Proposed.
+   program's reach, fetch raw records, build the trace. Done, awaiting review.
 4. 7d minimal run API (slimmed 6f): run, poll, cancel, fetch trace. Proposed.
 5. 7e frontend slice: Vite/React/TypeScript, Monaco, playback reducer, array and
    variable renderers; bubble sort demo with browser check. Proposed.

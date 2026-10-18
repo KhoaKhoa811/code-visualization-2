@@ -40,7 +40,7 @@ class TracerTest {
         }
         String json = Tracer.trace(prepared, "test-" + name, result.raw(), result.exit());
         validate(name, json);
-        return new Run(MiniJson.object(json), result, prepared, json);
+        return new Run(JsonReader.object(json), result, prepared, json);
     }
 
     private Run main(String name, String body) throws Exception { return run(name, program(body)); }
@@ -432,7 +432,7 @@ class TracerTest {
         raw.set(read, raw.get(read).replace(" r2 1 1", " r2 1 7")); // forged value disagrees with the array
         String json = Tracer.trace(prepared, "test-tampered", raw, result.exit());
         validate("tampered", json);
-        Map<String, Object> trace = MiniJson.object(json);
+        Map<String, Object> trace = JsonReader.object(json);
         assertEquals("partial", status(trace, "capture"));
         assertEquals(List.of("ALLOCATE [4,1] @{4, 1}", "DECLARE a=#o2 @int[] a = {4, 1}"), steps(trace));
     }

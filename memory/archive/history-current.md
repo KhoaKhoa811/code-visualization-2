@@ -58,3 +58,14 @@ not verbatim transcripts, unless quoted.
   trace-v1 with derived scopes, short-circuit operands, exceptions, limits and
   tamper detection. 27 tests passed; all traces pass the shared checker and all
   traced programs match the original's behavior. Host-only, trusted programs.
+
+## 2026-10-18 — Part 7c container tracing (Claude Code)
+
+- User: "I approve" for 7c. Stacked on unmerged 7b.
+- 1a4387c Prepare CLI + plan file + stop causes; 99a83d2 shaded tracer-runtime.jar
+  and root reactor pom; d1682ad TracedRunLifecycle (stdin staging, plan read
+  before runtime, kill-then-read raw records, trace after confirmed
+  termination); 239a39a live tests. First live timeout run lost its prefix
+  (records still buffered at kill); recorder now flushes every 100 ms.
+- Root reactor clean verify with live Docker: 98 tests passed (tracer 33,
+  backend 65). Traces pass the shared checker; no containers left.

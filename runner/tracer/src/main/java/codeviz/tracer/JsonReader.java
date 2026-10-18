@@ -5,15 +5,15 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/** Test-only JSON reader: objects to maps, arrays to lists, numbers to Long. */
-final class MiniJson {
+/** Small strict JSON reader for trusted plan files and tests: objects to maps, arrays to lists, numbers to Long. */
+final class JsonReader {
     private final String s;
     private int i;
 
-    private MiniJson(String s) { this.s = s; }
+    private JsonReader(String s) { this.s = s; }
 
     static Object parse(String json) {
-        MiniJson p = new MiniJson(json);
+        JsonReader p = new JsonReader(json);
         Object v = p.value();
         p.space();
         if (p.i != json.length()) throw new IllegalArgumentException("trailing data at " + p.i);

@@ -26,6 +26,10 @@ public final class Recorder {
     static final long RAW_LIMIT = 16L * 1024 * 1024;
     static final int LIMIT_EXIT = 86;
 
+    /** Records may sit at most this long in the buffer, so a killed run keeps a recent prefix. */
+    static final long FLUSH_MILLIS = 100;
+
+    private static final Object LOCK = new Object();
     private static final BufferedWriter OUT = open();
     private static final Map<Object, Integer> IDS = new IdentityHashMap<>();
     private static long written;
@@ -38,8 +42,16 @@ public final class Recorder {
         try {
             BufferedWriter writer = Files.newBufferedWriter(Path.of(path), StandardCharsets.UTF_8);
             Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-                try { writer.flush(); } catch (IOException ignored) { }
+                synchronized (LOCK) { try { writer.flush(); } catch (IOException ignored) { } }
             }));
+            Thread flusher = new Thread(() -> {
+                while (true) {
+                    try { Thread.sleep(FLUSH_MILLIS); } catch (InterruptedException e) { return; }
+                    synchronized (LOCK) { try { writer.flush(); } catch (IOException ignored) { return; } }
+                }
+            }, "codeviz-recorder-flush");
+            flusher.setDaemon(true);
+            flusher.start();
             return writer;
         } catch (IOException e) {
             throw new UncheckedIOException(e);
@@ -47,6 +59,10 @@ public final class Recorder {
     }
 
     private static void line(String record) {
+        synchronized (LOCK) { write(record); }
+    }
+
+    private static void write(String record) {
         try {
             written += record.length() + 1;
             if (written > RAW_LIMIT) {

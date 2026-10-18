@@ -22,11 +22,25 @@ final class TraceBuilder {
     private static final String FRAME = "f0";
     static final String MAIN_METHOD = "Main.main(java.lang.String[]):void";
 
-    /** How the process ended, as observed by the caller (never by the user JVM). */
-    record Outcome(int exitCode) { }
-
     private static final class Inconsistent extends Exception {
         Inconsistent(String message) { super(message); }
+    }
+
+    /** Terminal status, reason and (for stop causes) the diagnostic code and phase. */
+    private record Execution(String status, String reason, String code, String phase) {
+        Diagnostic diagnostic() { return code == null ? null : new Diagnostic(phase, code, reason, null, null); }
+    }
+
+    private static Execution execution(Tracer.Outcome outcome, String outputPhase) {
+        return switch (outcome.cause()) {
+            case EXIT -> outcome.exitCode() == 0
+                    ? new Execution("completed", "Normal return from main.", null, null)
+                    : new Execution("failed", "Program exited with status " + outcome.exitCode() + ".", null, null);
+            case EXECUTION_TIMEOUT -> new Execution("limited", "Execution exceeded 5000 ms", "EXECUTION_TIMEOUT", "execution");
+            case COMPILATION_TIMEOUT -> new Execution("limited", "Compilation exceeded 10000 ms", "COMPILATION_TIMEOUT", "compile");
+            case OUTPUT_LIMIT -> new Execution("limited", "Program output exceeded 1048576 bytes", "OUTPUT_LIMIT", outputPhase);
+            case CANCELLED -> new Execution("cancelled", "Run cancelled by user", "RUN_CANCELLED", "execution");
+        };
     }
 
     private final Analysis analysis;
@@ -53,61 +67,80 @@ final class TraceBuilder {
                 "Source did not compile; nothing was executed.", analysis.compileErrors(), null, List.of(), List.of());
     }
 
+    /** Stopped before a plan existed (compile-phase timeout, output limit or cancellation). */
+    static String notRun(String source, String runId, Tracer.Outcome outcome) {
+        Execution e = execution(outcome, "compile");
+        List<Diagnostic> diagnostics = e.diagnostic() == null ? List.of() : List.of(e.diagnostic());
+        return envelope(source, runId, e.status(), e.reason(), "unavailable",
+                "The program did not run to a traceable point.", diagnostics, null, List.of(), List.of());
+    }
+
     /** Output-only run of the original program: execution status, no capture. */
-    static String outputOnly(Analysis analysis, String runId, Outcome outcome) {
-        return envelope(analysis.source(), runId, outcome.exitCode() == 0 ? "completed" : "failed",
-                outcome.exitCode() == 0 ? "Normal return from main." : "Program exited with status " + outcome.exitCode() + ".",
-                "unavailable", "Visualization does not cover this program yet; output only.",
-                analysis.unsupported(), null, List.of(), List.of());
+    static String outputOnly(Analysis analysis, String runId, Tracer.Outcome outcome) {
+        Execution e = execution(outcome, "execution");
+        List<Diagnostic> diagnostics = new ArrayList<>(analysis.unsupported());
+        if (e.diagnostic() != null) diagnostics.add(e.diagnostic());
+        return envelope(analysis.source(), runId, e.status(), e.reason(), "unavailable",
+                "Visualization does not cover this program yet; output only.", diagnostics, null, List.of(), List.of());
     }
 
     /** Traced run: rebuild trace-v1 from raw records. */
-    static String traced(Analysis analysis, String runId, List<String> raw, Outcome outcome) {
+    static String traced(Analysis analysis, String runId, List<String> raw, Tracer.Outcome outcome) {
         return new TraceBuilder(analysis, runId).build(raw, outcome);
     }
 
-    private String build(List<String> raw, Outcome outcome) {
+    private String build(List<String> raw, Tracer.Outcome outcome) {
         String terminal = null;
         String stopReason = null;
         List<Diagnostic> diagnostics = new ArrayList<>();
         Map<String, Object> failure = null;
         try {
-            if (raw.isEmpty() || !raw.get(0).startsWith("M ")) throw new Inconsistent("missing main entry record");
-            entry(raw.get(0));
-            for (int i = 1; i < raw.size() && terminal == null; i++) {
-                String line = raw.get(i);
-                if (line.equals("R")) terminal = "R";
-                else if (line.equals("L")) terminal = "L";
-                else if (line.startsWith("S")) stringSight(line);
-                else if (line.startsWith("x")) { failure = exception(line); terminal = "x"; }
-                else operation(line);
+            // No records at all (killed before the first flush) is absence, not inconsistency:
+            // initialState stays null and capture is unavailable.
+            if (!raw.isEmpty()) {
+                if (!raw.get(0).startsWith("M ")) throw new Inconsistent("missing main entry record");
+                entry(raw.get(0));
+                for (int i = 1; i < raw.size() && terminal == null; i++) {
+                    String line = raw.get(i);
+                    if (line.equals("R")) terminal = "R";
+                    else if (line.equals("L")) terminal = "L";
+                    else if (line.startsWith("S")) stringSight(line);
+                    else if (line.startsWith("x")) { failure = exception(line); terminal = "x"; }
+                    else operation(line);
+                }
             }
         } catch (Inconsistent | RuntimeException e) {
             stopReason = "Recording stopped being consistent with reconstructed state: " + e.getMessage();
             diagnostics.add(new Diagnostic("capture", "CAPTURE_INCONSISTENT", stopReason, null, null));
         }
+        Execution stop = execution(outcome, "execution");
+        if (stop.diagnostic() != null) diagnostics.add(0, stop.diagnostic());
         if (initialState == null) {
-            return envelope(analysis.source(), runId, status(outcome), reason(outcome), "unavailable",
+            return envelope(analysis.source(), runId, stop.status(), stop.reason(), "unavailable",
                     "No trustworthy initial state was recorded.", diagnostics, null, List.of(), List.of());
         }
 
+        boolean exited = outcome.cause() == Tracer.Cause.EXIT;
         String executionStatus, executionReason, captureStatus, captureReason;
-        if (stopReason == null && "R".equals(terminal) && outcome.exitCode() == 0) {
+        if (exited && stopReason == null && "R".equals(terminal) && outcome.exitCode() == 0) {
             addBookkeeping("FRAME_END", ordered("frameId", FRAME, "reason", "main_return"));
             executionStatus = "completed"; executionReason = "Normal return from main.";
             captureStatus = "complete"; captureReason = "All covered operations were recorded.";
-        } else if (stopReason == null && "x".equals(terminal) && outcome.exitCode() != 0) {
+        } else if (exited && stopReason == null && "x".equals(terminal) && outcome.exitCode() != 0) {
             addBookkeeping("FRAME_END", ordered("frameId", FRAME, "reason", "unwind"));
             executionStatus = "failed"; executionReason = "Uncaught " + failure.get("exceptionType") + ".";
             captureStatus = "complete"; captureReason = "All covered operations were recorded through the failure.";
-        } else if ("L".equals(terminal)) {
+        } else if (exited && "L".equals(terminal)) {
             executionStatus = "limited"; executionReason = "Raw trace data limit reached; execution was stopped.";
             captureStatus = "partial"; captureReason = "Capture stops at the last safe operation before the limit.";
             diagnostics.add(new Diagnostic("capture", "TRACE_LIMIT", "Raw trace data exceeded the recorder limit; execution was halted.", null, null));
         } else {
-            executionStatus = status(outcome); executionReason = reason(outcome);
+            // A latched stop cause always wins: never complete capture after a timeout, limit or cancellation.
+            executionStatus = stop.status(); executionReason = stop.reason();
             captureStatus = "partial";
-            captureReason = stopReason != null ? stopReason : "Recording ended without a terminal record.";
+            captureReason = stopReason != null ? stopReason
+                    : exited ? "Recording ended without a terminal record."
+                    : "Capture stops at the last safe operation recorded before the run was stopped.";
         }
 
         // Builder-side size limits (trace-data quota and per-record bound).
@@ -130,11 +163,6 @@ final class TraceBuilder {
         }
         return envelope(analysis.source(), runId, executionStatus, executionReason, captureStatus, captureReason,
                 diagnostics, initialState, events, stepEnds);
-    }
-
-    private static String status(Outcome outcome) { return outcome.exitCode() == 0 ? "completed" : "failed"; }
-    private static String reason(Outcome outcome) {
-        return outcome.exitCode() == 0 ? "Normal return from main." : "Program exited with status " + outcome.exitCode() + ".";
     }
 
     // ---- records ------------------------------------------------------------------
@@ -508,7 +536,7 @@ final class TraceBuilder {
                 "stepEnds", stepEnds));
     }
 
-    private static String sha256(String text) {
+    static String sha256(String text) {
         try {
             byte[] digest = MessageDigest.getInstance("SHA-256").digest(text.getBytes(StandardCharsets.UTF_8));
             StringBuilder b = new StringBuilder();
