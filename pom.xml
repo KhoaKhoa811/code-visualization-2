@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!-- Build order only: the tracer must be packaged (including tracer-runtime.jar)
+         before the backend, which depends on it and bundles the runtime jar.
+         Use a goal that reaches package, for example `verify`. -->
+    <groupId>com.codevisualization</groupId>
+    <artifactId>code-visualization</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+    <packaging>pom</packaging>
+
+    <modules>
+        <module>runner/tracer</module>
+        <module>backend</module>
+    </modules>
+</project>
