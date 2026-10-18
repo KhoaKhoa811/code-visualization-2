@@ -7,13 +7,22 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Part 7b entry point. {@link #prepare} compiles and plans (no execution) and
+ * Tracer entry points. {@link #prepare} compiles and plans (no execution) and
  * returns either instrumented classes, original classes for an output-only run,
- * or nothing on compile errors. {@link #trace} builds the trace-v1 JSON from the
- * raw records and exit code observed by the caller. Running the classes is the
- * caller's job; in production that is the isolated runner (Part 7c).
+ * or nothing on compile errors; in production it runs inside the isolated runner
+ * through {@link Prepare}. The backend reads the resulting plan with
+ * {@link #fromPlan} and builds trace-v1 with {@link #trace} or {@link #notRun}
+ * from what it observed. Running the classes is never this class's job.
  */
 public final class Tracer {
+    /** Why the run ended, as decided by the orchestrator (never by the user JVM). */
+    public enum Cause { EXIT, EXECUTION_TIMEOUT, OUTPUT_LIMIT, CANCELLED, COMPILATION_TIMEOUT }
+
+    /** Stop cause plus the process exit code (meaningful for {@link Cause#EXIT}). */
+    public record Outcome(Cause cause, int exitCode) {
+        public static Outcome exited(int exitCode) { return new Outcome(Cause.EXIT, exitCode); }
+    }
+
     /** Classes to run (binary name to bytes); {@code traced} says whether the recorder is needed. */
     public record Prepared(Analysis analysis, Map<String, byte[]> classes, boolean traced) {
         public boolean compiled() { return analysis.compileErrors().isEmpty(); }
@@ -39,11 +48,39 @@ public final class Tracer {
         }
     }
 
-    /** Trace-v1 JSON for a prepared program. {@code raw} is ignored unless it was traced. */
-    public static String trace(Prepared prepared, String runId, List<String> raw, int exitCode) {
+    /** The plan file content that lets {@link #fromPlan} rebuild this preparation without classes. */
+    public static String plan(Prepared prepared) {
+        return PlanCodec.write(prepared.analysis(), prepared.traced(), TraceBuilder.sha256(prepared.analysis().source()));
+    }
+
+    /** Rebuilds a preparation from a plan produced for exactly {@code source}; classes are not included. */
+    public static Prepared fromPlan(String source, String planJson) {
+        PlanCodec.Decoded decoded = PlanCodec.read(source, planJson);
+        return new Prepared(decoded.analysis(), Map.of(), decoded.traced());
+    }
+
+    /** Trace-v1 JSON after a run. {@code rawText} is ignored unless the program was traced. */
+    public static String trace(Prepared prepared, String runId, String rawText, Outcome outcome) {
         if (!prepared.compiled()) return TraceBuilder.compileError(prepared.analysis(), runId);
-        var outcome = new TraceBuilder.Outcome(exitCode);
         if (!prepared.traced()) return TraceBuilder.outputOnly(prepared.analysis(), runId, outcome);
-        return TraceBuilder.traced(prepared.analysis(), runId, raw, outcome);
+        return TraceBuilder.traced(prepared.analysis(), runId, completeLines(rawText), outcome);
+    }
+
+    /** Convenience for tests: raw records already split into lines, normal exit. */
+    public static String trace(Prepared prepared, String runId, List<String> raw, int exitCode) {
+        return trace(prepared, runId, raw.isEmpty() ? "" : String.join("\n", raw) + "\n", Outcome.exited(exitCode));
+    }
+
+    /** Trace-v1 JSON when the run stopped before a plan existed (compile-phase stop). */
+    public static String notRun(String source, String runId, Outcome outcome) {
+        return TraceBuilder.notRun(source, runId, outcome);
+    }
+
+    /** Only newline-terminated records are complete; a killed recorder may leave a torn last line. */
+    static List<String> completeLines(String text) {
+        if (text == null || text.isEmpty()) return List.of();
+        int end = text.lastIndexOf('\n');
+        if (end < 0) return List.of();
+        return List.of(text.substring(0, end).split("\n", -1));
     }
 }
