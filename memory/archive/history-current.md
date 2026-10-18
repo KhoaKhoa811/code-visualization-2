@@ -22,3 +22,16 @@ not verbatim transcripts, unless quoted.
   references in AGENTS.md; 53c5543 `.gitattributes` (index already all LF, no
   renormalization). Documentation checks only. Part 6e code remains paused and
   uncommitted, waiting for the user to resume it.
+
+## 2026-10-18 — Part 6e completed (Claude Code)
+
+- User: "complete the part 6e to this branch first, then I'll merged and we will
+  discuss this project".
+- Fixed Codex's failing live test (`docker top -eo comm` needs a PID column;
+  window raised to 15 s). Removed run-thread interrupt from cancellation because
+  it quarantined the container and could hold the only slot forever; spec updated.
+  Made runtime finality explicit, transports thread-safe, recovery runner
+  injectable with new wrong-owner/absent/unknown-create unit tests.
+- Commits 4649fa3 (6e.1 cancellation/lifecycle/recovery, builds alone, 33 unit
+  tests) and 94bb1ac (6e.2 supervisor). Full live clean verify: 49 tests passed,
+  0 owned containers left. Guide backend/CANCELLATION_RECOVERY.md.

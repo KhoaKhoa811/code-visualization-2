@@ -65,5 +65,6 @@ or compiler error in the future public API; attribution remains unfinished.
 
 There is no source admission, HTTP execution route, tracing, cancellation manager,
 global run capacity, or restart reconciliation. Fixtures are acceptance probes,
-not algorithm templates for future visualization. Part 6e proposes cancellation,
-slot ownership, and recovery. Full isolation and V1 remain incomplete.
+not algorithm templates for future visualization. Part 6e adds cancellation,
+slot ownership, and recovery; see [CANCELLATION_RECOVERY.md](CANCELLATION_RECOVERY.md).
+Full isolation and V1 remain incomplete.

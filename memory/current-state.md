@@ -21,7 +21,7 @@ or live input yet.
 | 6c | Bounded Docker control adapter, owned container identity ([guide](../backend/DOCKER_CONTROL.md)) | Merged |
 | 6d | Fixed-fixture compile/run lifecycle, deadlines, shared 1 MiB output quota ([guide](../backend/FIXTURE_LIFECYCLE.md)); 36 tests passed with live Docker | Merged (PR #80) |
 | 6e.0 | Handoff-efficiency docs for Codex/Claude cooperation | Done, pushed on the 6e branch |
-| 6e | Cancellation, one run slot + queue, explicit recovery | Implemented, not verified, uncommitted; see handoff |
+| 6e | Cancellation, one run slot + queue, explicit recovery ([guide](../backend/CANCELLATION_RECOVERY.md)); 49 tests passed with live Docker | Done, pushed, awaiting merge |
 
 ## Verified environment
 

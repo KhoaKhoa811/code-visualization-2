@@ -6,8 +6,8 @@ only. For the active task, [handoff.md](handoff.md) is authoritative. History:
 
 ## Approval boundaries
 
-- Done: 6e.0 handoff-efficiency docs. Approved and unfinished: Part 6e cancellation,
-  run slots and recovery. Details and approval wording are in handoff.md.
+- Done, awaiting merge: 6e.0 handoff-efficiency docs and Part 6e cancellation,
+  run slots and recovery. No approved task is unfinished.
 - Not approved: 6f, 6g and everything after. Propose with a checklist and wait
   for explicit user approval before starting.
 - Never merge pull requests; the user merges.
@@ -18,7 +18,7 @@ only. For the active task, [handoff.md](handoff.md) is authoritative. History:
 2. 6b lifecycle contracts: merged.
 3. 6c bounded Docker adapter and resource ownership: merged.
 4. 6d shared output quota and phase deadlines for fixed fixtures: merged.
-5. 6e cancellation, run slots and recovery: in progress.
+5. 6e cancellation, run slots and recovery: done, awaiting merge.
 6. 6f fixed-fixture API integration (HTTP, single supervisor wiring): proposed.
 7. 6g admission/isolation-gap review before tracing: proposed.
 
