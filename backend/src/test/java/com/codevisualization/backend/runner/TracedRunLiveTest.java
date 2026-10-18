@@ -75,12 +75,34 @@ class TracedRunLiveTest {
     }
 
     @Test void outputOnlyAndCompileErrorPaths() throws Exception {
-        var helper = run("output-only", "public class Main {\n    static int two() { return 2; }\n"
-                + "    public static void main(String[] args) { System.out.println(two()); }\n}\n");
-        assertEquals("2\n", stdout(helper));
-        assertTrue(helper.trace().contains("\"status\":\"unavailable\"") && helper.trace().contains("UNSUPPORTED_CONSTRUCT"));
+        // Threads keep a program output-only (Part 8a integrity guard).
+        var threads = run("output-only", program("System.out.println(Thread.currentThread() != null);"));
+        assertEquals("true\n", stdout(threads));
+        assertTrue(threads.trace().contains("\"status\":\"unavailable\"") && threads.trace().contains("TRACE_INTEGRITY"));
         var broken = run("compile-error", program("int x = ;"));
         assertTrue(broken.trace().contains("\"status\":\"compile_error\""));
+    }
+
+    @Test void helperClassesAndUncapturedStatementsRunInTheContainer() throws Exception {
+        var r = run("partial-coverage", """
+                public class Main {
+                    static class Box { int[] data; Box(int[] d) { data = d; } }
+                    static void bump(int[] a) { a[0] += 10; }
+                    public static void main(String[] args) {
+                        int[] a = {3, 1, 2};
+                        java.util.Arrays.sort(a);
+                        bump(a);
+                        Box box = new Box(a);
+                        int total = 0;
+                        for (int i = 0; i < a.length; i++) total += a[i];
+                        System.out.println(a[0] + " " + total + " " + box.data.length);
+                    }
+                }
+                """);
+        assertEquals("11 16 3\n", stdout(r));
+        assertTrue(r.trace().contains("\"status\":\"completed\"") && r.trace().contains("\"status\":\"complete\""));
+        assertTrue(r.trace().contains("\"kind\":\"UNCAPTURED\""));
+        assertTrue(r.trace().contains("{\"objectId\":\"o2\",\"elements\":[{\"kind\":\"int\",\"value\":\"1\"}"), "sorted contents re-read");
     }
 
     @Test void runtimeTimeoutKeepsTheSafePrefix() throws Exception {
