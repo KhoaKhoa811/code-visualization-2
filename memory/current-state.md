@@ -2,6 +2,16 @@
 
 Last updated: 2026-10-18 (Asia/Saigon).
 
+Sequential-agent workflow approved 2026-10-18: Codex and Claude Code alternate
+as sole active owner, usually at usage limits. This supersedes the suggested
+implementer/reviewer pairing. No simultaneous checkout work or specialized
+agents. Both follow AGENTS.md and memory/agent-handoff-protocol.md; Claude's
+CLAUDE.md points to those same files. Read memory/handoff.md on takeover and
+verify Git/evidence before continuing. Update handoff after meaningful steps,
+not only when a limit is near. Shared files transfer recorded project context;
+private chats and hidden reasoning do not transfer automatically. Existing
+approval follows unfinished work; later tasks still require approval.
+
 Specialized-agent decision (2026-10-17): keep one agent following AGENTS.md and
 specs for current small, sequential tasks. Do not create backend-agent,
 frontend-agent, or reviewer-agent configuration now. Revisit when frontend
@@ -10,6 +20,9 @@ Codex configuration before creating files. The user asked to save this decision
 and explicitly approved Part 6c. No sub-agents were created or delegated work.
 
 ## Recovery instructions
+
+Start with AGENTS.md and agent-handoff-protocol.md, then handoff.md and these
+shared memory files. Verify the recorded checkpoint against actual Git state.
 
 User preference confirmed and clarified 2026-10-14: at the start of every major
 part (4, 5, 6, etc.), list its full task roadmap and intended smaller parts. At
@@ -34,6 +47,17 @@ available in this session; it cannot reconstruct unavailable earlier chats.
 Long project instructions remain in their source files rather than being duplicated.
 
 ## Current scope
+
+- Latest approved task: document sequential Codex/Claude handoff before Part 6e.
+  Added shared AGENTS.md rule, CLAUDE.md entry point, agent-handoff-protocol.md,
+  and an actual handoff.md snapshot. First commit e0dacf8 records shared rules;
+  second records snapshot and memory. Branch docs/part-6d-agent-handoff starts
+  from published 6d f3c68da. Fetch still reports main d36e5c0; 6d is unmerged.
+  Documentation-only: consistency/paths/whitespace checked; application tests
+  not rerun. No application edits or outstanding processes introduced. Part 6e
+  remains proposed, not approved. Current handoff is memory/handoff.md; older
+  scope entries below are history. Automatic PR tooling unavailable; manual link:
+  https://github.com/KhoaKhoa811/code-visualization-2/compare/feat/part-6d-fixture-lifecycle...docs/part-6d-agent-handoff?expand=1
 
 - Part 6d approved by "ok, please implement part 6d", then explicitly resumed
   after the usage-limit stop. Recovered unfinished tracked/untracked files and
@@ -2438,6 +2462,25 @@ preserve user messages and label assistant summaries explicitly.
      separate from coordination: 3c5b2f8, e3aa793, 4677239, 512ef3b, and docs/memory.
      Published branch feat/part-6d-fixture-lifecycle; no automatic PR tool is
      available, so a manual PR link is supplied. Part 6e remains unapproved.
+118. User introduced Claude Code and requested collaboration strategies. Assistant
+     initially proposed implementer/reviewer roles and separate worktrees.
+119. User chose sequential ownership instead: Codex until usage limit, then Claude
+     until its limit, then Codex, with reliable shared context recovery. Assistant
+     proposed AGENTS.md, CLAUDE.md, current-state, next-steps, and handoff.md;
+     checkpoint continuously, verify Git on takeover, preserve incomplete work,
+     and use explicit draft publication if switching machines. No parallel work.
+120. User: "we will follow this trategy, make sure you save all the neccessary
+     instruction so that you and Claude Code can review and recover memory with
+     exactly the same context." Approved documentation workflow implementation.
+     Created docs/part-6d-agent-handoff from f3c68da; fetched main d36e5c0.
+     Added shared instructions/protocol, Claude entry point, and actual recovery
+     snapshot. Protocol records ownership, approval evidence, source hierarchy,
+     checkpoint frequency, exact commands/results, dirty files, process/container
+     ownership, abrupt-stop recovery, cross-machine drafts, and next actions.
+     Clarified that recorded context transfers, not private chat/hidden reasoning.
+     Rules commit e0dacf8; snapshot/memory follow. Checked documentation paths,
+     scope consistency and whitespace. No application tests or Claude session
+     execution claimed; no agents launched. Part 6e remains unapproved.
 ## Latest verification notes
 
 Part 3 added a contract schema, examples, and development validation tooling.

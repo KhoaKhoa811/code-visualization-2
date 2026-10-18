@@ -2,6 +2,16 @@
 
 Last updated: 2026-10-18 (Asia/Saigon).
 
+Sequential-agent workflow approved 2026-10-18: Codex and Claude Code alternate
+as sole active owner, usually at usage limits. This supersedes the suggested
+implementer/reviewer pairing. No simultaneous checkout work or specialized
+agents. Both follow AGENTS.md and memory/agent-handoff-protocol.md; Claude's
+CLAUDE.md points to those same files. Read memory/handoff.md on takeover and
+verify Git/evidence before continuing. Update handoff after meaningful steps,
+not only when a limit is near. Shared files transfer recorded project context;
+private chats and hidden reasoning do not transfer automatically. Existing
+approval follows unfinished work; later tasks still require approval.
+
 Specialized-agent decision (2026-10-17): keep one agent following AGENTS.md and
 specs for current small, sequential tasks. Do not create backend-agent,
 frontend-agent, or reviewer-agent configuration now. Revisit when frontend
@@ -15,6 +25,22 @@ part (5a, 5b, etc.) with its own implementation checklist. Maintain both levels
 and update the relevant list when plans change. Apply this to future major parts;
 roadmaps do not approve later implementation or expand scope. This preference is
 also recorded in AGENTS.md. Latest approved task is Part 6d; Part 6e and later tasks are not approved.
+
+## Sequential-agent handoff setup
+
+- Latest approved task: document sequential Codex/Claude handoff before Part 6e.
+  Added shared AGENTS.md rule, CLAUDE.md entry point, agent-handoff-protocol.md,
+  and an actual handoff.md snapshot. First commit e0dacf8 records shared rules;
+  second records snapshot and memory. Branch docs/part-6d-agent-handoff starts
+  from published 6d f3c68da. Fetch still reports main d36e5c0; 6d is unmerged.
+  Documentation-only: consistency/paths/whitespace checked; application tests
+  not rerun. No application edits or outstanding processes introduced. Part 6e
+  remains proposed, not approved. Current handoff is memory/handoff.md; older
+  scope entries below are history. Automatic PR tooling unavailable; manual link:
+  https://github.com/KhoaKhoa811/code-visualization-2/compare/feat/part-6d-fixture-lifecycle...docs/part-6d-agent-handoff?expand=1
+Next action: read handoff.md using the shared protocol, confirm prior owner has
+stopped, verify publication/Git state, then discuss Part 6e scope and approval.
+No unfinished approved implementation remains after this documentation delivery.
 
 ## Part 6 roadmap and latest handoff
 
