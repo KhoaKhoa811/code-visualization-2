@@ -8,7 +8,7 @@ import java.util.List;
 import java.util.concurrent.locks.ReentrantLock;
 
 /** One owned fixed-idle environment; failures retain identity for later reconciliation. */
-public final class DockerControlAdapter implements FixtureControl {
+public final class DockerControlAdapter implements FixtureControl, WorkspaceControl {
     private final Path executable;
     private final CommandRunner runner;
     private final ContainerProfile.Identity identity = ContainerProfile.Identity.fresh();
@@ -111,6 +111,57 @@ public final class DockerControlAdapter implements FixtureControl {
         create(Duration.ofNanos(Math.max(0, deadline - System.nanoTime())));
         startIdle(Duration.ofNanos(Math.max(0, deadline - System.nanoTime())));
         stage(fixture, Duration.ofNanos(Math.max(0, deadline - System.nanoTime())));
+    }
+
+    @Override
+    public void prepareWorkspace(java.util.Map<String, byte[]> files, Duration remaining) throws IOException {
+        long deadline = System.nanoTime() + remaining.toNanos();
+        create(Duration.ofNanos(Math.max(0, deadline - System.nanoTime())));
+        startIdle(Duration.ofNanos(Math.max(0, deadline - System.nanoTime())));
+        for (var file : files.entrySet()) stageFile(file.getKey(), file.getValue(), Duration.ofNanos(Math.max(0, deadline - System.nanoTime())));
+    }
+
+    void stageFile(String name, byte[] content, Duration remaining) throws IOException {
+        if (!name.matches("[A-Za-z][A-Za-z0-9._-]{0,63}")) throw new IOException("Staged file name outside the fixed vocabulary");
+        perform(remaining, deadline -> {
+            requireRunning(deadline);
+            var command = new ArrayList<>(List.of(executable.toString(), "--context", "desktop-linux", "exec", "-i", containerId,
+                    "/usr/bin/env", "-i", "PATH=/opt/java/openjdk/bin:/usr/bin:/bin", "HOME=/tmp",
+                    "/bin/sh", "-ec", "cat > /work/" + name));
+            long nanos = deadline - System.nanoTime();
+            if (nanos <= 0) throw new IOException("Control operation deadline exceeded");
+            runner.execute(command, Duration.ofNanos(nanos), content);
+        });
+    }
+
+    @Override
+    public List<String> workspaceCommand(List<String> fixedCommand) throws IOException {
+        if (!operation.tryLock()) throw new IOException("Container control busy");
+        try {
+            if (quarantined || !started || stopped || removed) throw new IOException("Phase launch fenced");
+            var command = new ArrayList<>(List.of(executable.toString(), "--context", "desktop-linux"));
+            command.addAll(execArguments(fixedCommand));
+            return List.copyOf(command);
+        } finally {
+            operation.unlock();
+        }
+    }
+
+    @Override
+    public String readFile(String path, int limit, Duration remaining, boolean killFirst) throws IOException {
+        if (!path.matches("/work/[A-Za-z0-9._/-]{1,64}") || path.contains("..")) throw new IOException("Read path outside the fixed vocabulary");
+        if (!operation.tryLock()) throw new IOException("Container control busy");
+        try {
+            if (quarantined || !started || stopped || removed) throw new IOException("Read fenced");
+            // A read-only exec: failure is reported but never quarantines ownership state.
+            var command = new ArrayList<>(List.of(executable.toString(), "--context", "desktop-linux"));
+            command.addAll(execArguments(List.of("/bin/sh", "-ec", (killFirst ? "kill -9 -1 2>/dev/null || true; " : "") + "cat " + path)));
+            try (var transfer = new BoundedCommandRunner(limit)) {
+                return transfer.execute(command, remaining);
+            }
+        } finally {
+            operation.unlock();
+        }
     }
 
     public void recover() throws IOException {
