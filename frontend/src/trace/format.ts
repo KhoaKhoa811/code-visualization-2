@@ -13,6 +13,7 @@ export function formatValue(value: Value, objects?: Map<string, TraceObject>): s
     case 'double': return fromBits(value.bits);
     case 'null': return 'null';
     case 'unassigned': return '(unassigned)';
+    case 'unknown': return '?';
     case 'ref': {
       const object = objects?.get(value.objectId);
       if (object?.kind === 'string') return JSON.stringify(stringText(object));
@@ -85,6 +86,14 @@ export function describe(event: ObservableEvent, state: State): string {
       return `Call ${event.data.frame.methodId}`;
     case 'RETURN':
       return event.data.result === null ? 'Return' : `Return ${formatValue(event.data.result, objects)}`;
+    case 'UNCAPTURED': {
+      const changed = [
+        ...event.data.unknownBindings.map(id => `${bindingName(id)} unknown`),
+        ...event.data.arrays.map(a => `${arrayName(a.objectId)} changed`),
+        ...event.data.unknownArrays.map(id => `${arrayName(id)} unknown`),
+      ];
+      return `Ran without visualization${changed.length ? ` (${changed.join(', ')})` : ''}`;
+    }
     case 'EXCEPTION':
       return `${event.data.exceptionType}${event.data.message ? `: ${event.data.message}` : ''}`;
   }

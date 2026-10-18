@@ -8,7 +8,7 @@ import type { SourceRange } from '../trace/types.ts';
 
 self.MonacoEnvironment = { getWorker: () => new EditorWorker() };
 
-export interface Marker { range: SourceRange | null; message: string }
+export interface Marker { range: SourceRange | null; message: string; warning?: boolean }
 
 interface Props {
   value: string;
@@ -61,7 +61,7 @@ export function JavaEditor({ value, onChange, readOnly, highlight, markers }: Pr
     monaco.editor.setModelMarkers(model, 'trace', markers.map(m => {
       const start = model.getPositionAt(m.range?.start ?? 0);
       const end = model.getPositionAt(m.range?.end ?? model.getValueLength());
-      return { severity: monaco.MarkerSeverity.Error, message: m.message,
+      return { severity: m.warning ? monaco.MarkerSeverity.Warning : monaco.MarkerSeverity.Error, message: m.message,
         startLineNumber: start.lineNumber, startColumn: start.column, endLineNumber: end.lineNumber, endColumn: end.column };
     }));
   }, [markers]);
