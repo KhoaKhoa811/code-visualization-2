@@ -1,6 +1,6 @@
 # Current state and conversation memory
 
-Last updated: 2026-10-16 (Asia/Saigon).
+Last updated: 2026-10-17 (Asia/Saigon).
 
 ## Recovery instructions
 
@@ -27,6 +27,33 @@ available in this session; it cannot reconstruct unavailable earlier chats.
 Long project instructions remain in their source files rather than being duplicated.
 
 ## Current scope
+
+- Part 6a backend setup implemented and verified on 2026-10-17. User requested
+  recovery and continuation after merging all branches. Pulled main to f3e7ffd;
+  branch chore/part-6a-backend-setup starts there. Part 5 is merged.
+  Commit 0acafc2 adds Java 21/Spring Boot 4.1.1, Maven 3.9.16 wrapper 3.3.4 with
+  SHA-256 pin, loopback binding, and one real HTTP startup test. Wrapper clean
+  verify passed: one test, zero failures/errors/skips; executable JAR packaged.
+  Verified local Oracle JDK 21.0.12.1. No execution endpoint or runner integration.
+  Part 6a.2 records setup and recovery notes. Push both commits for review.
+  Automatic PR creation unavailable (no gh or connected GitHub tool).
+  Manual PR: https://github.com/KhoaKhoa811/code-visualization-2/pull/new/chore/part-6a-backend-setup
+  Milestone 0 and V1 remain incomplete. Part 6b is proposed, not approved.
+  Older scope entries below are historical, including earlier approval/merge states.
+
+### Part 6 roadmap
+
+- 6a: Java 21/Spring Boot/Maven setup (implemented and verified).
+- 6b: lifecycle contracts (proposed).
+- 6c: bounded Docker adapter and resource ownership (proposed).
+- 6d: shared output quotas and deadlines (proposed).
+- 6e: cancellation, run slots, and recovery (proposed).
+- 6f: fixed-fixture API integration (proposed).
+- 6g: admission/isolation-gap review before tracing (proposed).
+
+Part 6a checklist: recover newest main; inspect/pin tools; create minimal backend;
+verify startup/build; document; commit/push. All implementation and checks complete;
+publication status follows the handoff. Later parts require their own confirmation.
 
 - Latest user: "ok", approving Part 5u final prototype review. Checklist: Git/
   roadmap recovery, probe/spec comparison, final gate, explicit gaps/next roadmap,
@@ -2271,6 +2298,22 @@ preserve user messages and label assistant summaries explicitly.
      and both memory files. Part 6 is unapproved. Automatic PR creation unavailable:
      https://github.com/KhoaKhoa811/code-visualization-2/pull/new/test/part-5u-final-gate
 
+109. User: "ok, continue" after Part 5u. Part 6a setup was the immediate approved
+     increment; work stopped during recovery. No later Part 6 task was approved.
+110. User requested reading memory/files, pulling merged main, and continuing
+     after the Part 6 proposal. Recovered main f3e7ffd and showed the full 6a-6g
+     roadmap plus 6a checklist. Added the minimal backend on a part-labelled
+     branch. Split review into 6a.1 build/test (0acafc2), then 6a.2 docs/memory.
+     Maven bootstrap archive SHA-512 matched; wrapper ZIP SHA-256 is pinned.
+     Initial wrapper generation failed because PowerShell split an unquoted
+     dotted Maven argument; regenerated successfully with quoted arguments.
+     Wrapper clean verify passed on Oracle Java 21.0.12.1: one real HTTP test,
+     zero failures/errors/skips, executable JAR packaged. Source/cache ignore and
+     whitespace checks passed. Packaged launch and Unix script not separately
+     tested. No Docker probes rerun for this backend-only increment. Full runner
+     integration, tracing, frontend, isolation gates, and V1 remain incomplete.
+     Setup notes in backend/README.md; Part 6b remains proposed. No gh/connected
+     GitHub tool available, so a manual PR link is supplied after branch push.
 ## Latest verification notes
 
 Part 3 added a contract schema, examples, and development validation tooling.
