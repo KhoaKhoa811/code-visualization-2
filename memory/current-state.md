@@ -2,6 +2,25 @@
 
 Last updated: 2026-10-18 (Asia/Saigon).
 
+Near-limit instruction approved 2026-10-18: if either agent sees a usage/context
+warning, visibly low remaining capacity, or a user warning of an imminent limit,
+prioritize saving handoff.md before more implementation or long tests. Include
+exact stopping point, unfinished files, test evidence, running resources and next
+action; then update both memory files and publish safe checkpoints when possible.
+If only one write is possible, handoff.md takes priority and must flag stale notes.
+No guaranteed limit detector is assumed; routine checkpoints still apply. The
+shared protocol contains the full procedure. Part 6e remains unapproved.
+
+Sequential-agent workflow approved 2026-10-18: Codex and Claude Code alternate
+as sole active owner, usually at usage limits. This supersedes the suggested
+implementer/reviewer pairing. No simultaneous checkout work or specialized
+agents. Both follow AGENTS.md and memory/agent-handoff-protocol.md; Claude's
+CLAUDE.md points to those same files. Read memory/handoff.md on takeover and
+verify Git/evidence before continuing. Update handoff after meaningful steps,
+not only when a limit is near. Shared files transfer recorded project context;
+private chats and hidden reasoning do not transfer automatically. Existing
+approval follows unfinished work; later tasks still require approval.
+
 Specialized-agent decision (2026-10-17): keep one agent following AGENTS.md and
 specs for current small, sequential tasks. Do not create backend-agent,
 frontend-agent, or reviewer-agent configuration now. Revisit when frontend
@@ -11,6 +30,9 @@ and explicitly approved Part 6c. No sub-agents were created or delegated work.
 
 ## Recovery instructions
 
+Start with AGENTS.md and agent-handoff-protocol.md, then handoff.md and these
+shared memory files. Verify the recorded checkpoint against actual Git state.
+
 User preference confirmed and clarified 2026-10-14: at the start of every major
 part (4, 5, 6, etc.), list its full task roadmap and intended smaller parts. At
 the start of every smaller part (5a, 5b, etc.), list its own implementation
@@ -18,8 +40,8 @@ checklist. Update either list when plans change. Apply both levels to future
 major parts. This is also recorded in AGENTS.md and does not authorize scope
 expansion or implementation of later tasks.
 
-Read this file when resuming this project, then read `../AGENTS.md`,
-`../requirements/PROJECT_REQUIREMENTS.md`, and `next-steps.md` before planning work.
+After the shared entry/protocol/handoff, read this file, `next-steps.md`, and
+`../requirements/PROJECT_REQUIREMENTS.md` before planning work.
 Requirements define intent; specifications define intended behavior; this file
 records conversation and verified local progress. Memory does not override either.
 
@@ -34,6 +56,26 @@ available in this session; it cannot reconstruct unavailable earlier chats.
 Long project instructions remain in their source files rather than being duplicated.
 
 ## Current scope
+
+Handoff second review (2026-10-18): fixed contradictory recovery read-order
+wording and clarified discovery of an unmerged handoff branch, session-local
+tools/credentials/permissions, and explicit ownership confirmation without
+repeated approval questions. Incoming agent must report branch/HEAD, approved
+scope, progress, evidence, unknowns and next action. These files are a shared
+record, not an automatic session bridge. Claude loading/takeover has not yet
+been exercised. Current protocol and copyable takeover message are in
+agent-handoff-protocol.md and handoff.md. Part 6e remains unapproved.
+
+- Latest approved task: document sequential Codex/Claude handoff before Part 6e.
+  Added shared AGENTS.md rule, CLAUDE.md entry point, agent-handoff-protocol.md,
+  and an actual handoff.md snapshot. First commit e0dacf8 records shared rules;
+  second records snapshot and memory. Branch docs/part-6d-agent-handoff starts
+  from published 6d f3c68da. Fetch still reports main d36e5c0; 6d is unmerged.
+  Documentation-only: consistency/paths/whitespace checked; application tests
+  not rerun. No application edits or outstanding processes introduced. Part 6e
+  remains proposed, not approved. Current handoff is memory/handoff.md; older
+  scope entries below are history. Automatic PR tooling unavailable; manual link:
+  https://github.com/KhoaKhoa811/code-visualization-2/compare/feat/part-6d-fixture-lifecycle...docs/part-6d-agent-handoff?expand=1
 
 - Part 6d approved by "ok, please implement part 6d", then explicitly resumed
   after the usage-limit stop. Recovered unfinished tracked/untracked files and
@@ -2438,6 +2480,43 @@ preserve user messages and label assistant summaries explicitly.
      separate from coordination: 3c5b2f8, e3aa793, 4677239, 512ef3b, and docs/memory.
      Published branch feat/part-6d-fixture-lifecycle; no automatic PR tool is
      available, so a manual PR link is supplied. Part 6e remains unapproved.
+118. User introduced Claude Code and requested collaboration strategies. Assistant
+     initially proposed implementer/reviewer roles and separate worktrees.
+119. User chose sequential ownership instead: Codex until usage limit, then Claude
+     until its limit, then Codex, with reliable shared context recovery. Assistant
+     proposed AGENTS.md, CLAUDE.md, current-state, next-steps, and handoff.md;
+     checkpoint continuously, verify Git on takeover, preserve incomplete work,
+     and use explicit draft publication if switching machines. No parallel work.
+120. User: "we will follow this trategy, make sure you save all the neccessary
+     instruction so that you and Claude Code can review and recover memory with
+     exactly the same context." Approved documentation workflow implementation.
+     Created docs/part-6d-agent-handoff from f3c68da; fetched main d36e5c0.
+     Added shared instructions/protocol, Claude entry point, and actual recovery
+     snapshot. Protocol records ownership, approval evidence, source hierarchy,
+     checkpoint frequency, exact commands/results, dirty files, process/container
+     ownership, abrupt-stop recovery, cross-machine drafts, and next actions.
+     Clarified that recorded context transfers, not private chat/hidden reasoning.
+     Rules commit e0dacf8; snapshot/memory follow. Checked documentation paths,
+     scope consistency and whitespace. No application tests or Claude session
+     execution claimed; no agents launched. Part 6e remains unapproved.
+121. User requested another review of whether the shared instructions are sufficient
+     for Codex/Claude cooperation and asked to clarify gaps. Reviewed actual entry
+     points, protocol, handoff, memory and Git state. Fixed conflicting read-order
+     wording; added unmerged-branch bootstrap, session-specific permission/tool
+     boundaries, non-redundant ownership confirmation, and a recovery acknowledgment.
+     Added a copyable takeover message and updated checkpoint hashes. No private
+     memory synchronization or successful Claude-session test is claimed. All local
+     document links and whitespace checked; no application code/tests changed.
+     Clarification continues docs/part-6d-agent-handoff; Part 6e remains unapproved.
+122. User asked how unfinished work is recovered after an abrupt usage-limit stop.
+     Assistant explained recovery from shared notes, Git changes, actual files,
+     running operations and relevant checks; private unrecorded reasoning cannot
+     transfer. User then explicitly requested instructions to save clearer memory
+     when an agent sees it is near a limit. Added a shared AGENTS.md rule and
+     near-limit protocol for both agents, including write priority, unfinished
+     files, evidence, active resources, safe checkpoints and readiness reporting.
+     Updated handoff and both memory files. Documentation-only checks; no usage
+     warning, application test, or successful Claude takeover is claimed.
 ## Latest verification notes
 
 Part 3 added a contract schema, examples, and development validation tooling.

@@ -2,6 +2,9 @@
 
 ## Context and source of truth
 
+- Codex and Claude Code work sequentially, with one active owner of this checkout. Both must follow this file and `memory/agent-handoff-protocol.md`. On a user-requested takeover, recover from `memory/handoff.md`, `memory/current-state.md`, `memory/next-steps.md`, the requirements, relevant specs, and actual Git state before continuing. Agent-private chat or memory is not shared project context.
+- When a usage/context limit warning appears, remaining capacity is visibly low, or the user warns of an imminent limit, prioritize the near-limit checkpoint in `memory/agent-handoff-protocol.md` before more implementation or long-running work. Save unfinished work, verification state, owned resources, and the exact next action. Do not assume usage-limit visibility; continuous checkpoints remain required.
+
 - Read `requirements/PROJECT_REQUIREMENTS.md` before changing project behavior. Its confirmed clarification decisions take precedence over its proposed choices.
 - Inspect existing implementation and applicable directory instructions before editing. Preserve unrelated user changes.
 - Read relevant files in `specs/` and concise notes in `memory/` when they exist. Load only the context needed for the task. Missing planned files are unfinished work, not a reason to invent their contents.
