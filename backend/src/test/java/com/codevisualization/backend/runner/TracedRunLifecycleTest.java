@@ -16,10 +16,13 @@ class TracedRunLifecycleTest {
         final ContainerProfile.Identity owner = ContainerProfile.Identity.fresh();
         final List<String> calls = new ArrayList<>();
         String plan, raw = "";
-        boolean failStop, failRawRead;
+        boolean failStop, failRawRead, failRecover;
         Map<String, byte[]> staged;
 
-        public void prepareWorkspace(Map<String, byte[]> files, Duration remaining) { staged = files; calls.add("prepare"); }
+        public void prepareWorkspace(Map<String, byte[]> files, Duration remaining) {
+            staged = files; calls.add("prepare");
+            if (plan == null) plan = Tracer.plan(Tracer.prepare(new String(files.get("Main.java"), java.nio.charset.StandardCharsets.UTF_8)));
+        }
         public List<String> workspaceCommand(List<String> fixed) { return fixed; }
         public String readFile(String path, int limit, Duration remaining, boolean killFirst) throws IOException {
             calls.add("read " + path + (killFirst ? " kill" : ""));
@@ -29,6 +32,7 @@ class TracedRunLifecycleTest {
         }
         public void stop() throws IOException { calls.add("stop"); if (failStop) throw new IOException("stop"); }
         public void remove() { calls.add("remove"); }
+        public void recover() throws IOException { calls.add("recover"); if (failRecover) throw new IOException("recover"); }
         public ContainerProfile.Identity identity() { return owner; }
         public String containerId() { return "a".repeat(64); }
     }
@@ -119,11 +123,47 @@ class TracedRunLifecycleTest {
         assertFalse(w.calls.contains("remove"));
     }
 
+    @Test void recoveryProvesTerminationThenBuildsTheWithheldTrace() throws Exception {
+        var w = workspace(SOURCE);
+        w.raw = "M r1 0\n1 5\nR\n";
+        w.failStop = true;
+        w.failRecover = true;
+        var lifecycle = new TracedRunLifecycle(w, phases(new ArrayList<>(), exit(0), exit(0)), new byte[]{1});
+        var held = lifecycle.runReserved(SOURCE, "run-7d", System.nanoTime() + Duration.ofSeconds(10).toNanos());
+        assertNull(held.trace());
+        assertSame(held, lifecycle.recover()); // failed recovery keeps the held result
+        w.failRecover = false;
+        var recovered = lifecycle.recover();
+        assertTrue(recovered.terminationConfirmed() && recovered.cleanupVerified());
+        assertEquals(List.of(TracedRunLifecycle.Failure.TERMINATION_UNCONFIRMED), recovered.infrastructureFailures());
+        assertTrue(recovered.trace().contains("\"runId\":\"run-7d\"") && recovered.trace().contains("\"status\":\"completed\""));
+        assertSame(recovered, lifecycle.recover());
+    }
+
+    @Test void planForOtherSourceIsAWorkerFailureAndNothingRuns() throws Exception {
+        var w = workspace(SOURCE.replace("5", "6"));
+        var launched = new ArrayList<List<String>>();
+        var result = new TracedRunLifecycle(w, phases(launched, exit(0)), new byte[]{1}).run(SOURCE);
+        assertEquals(1, launched.size());
+        assertEquals(List.of(TracedRunLifecycle.Failure.WORKER_FAILED), result.infrastructureFailures());
+        assertNull(result.trace());
+        assertTrue(result.terminationConfirmed() && result.cleanupVerified());
+    }
+
+    @Test void expiredPreparationDeadlineIsASetupFailureWithoutContainerWork() throws Exception {
+        var w = workspace(SOURCE);
+        var result = new TracedRunLifecycle(w, phases(new ArrayList<>()), new byte[]{1})
+                .runReserved(SOURCE, "run-late", System.nanoTime() - 1);
+        assertEquals(List.of(TracedRunLifecycle.Failure.SETUP_FAILED), result.infrastructureFailures());
+        assertTrue(w.calls.isEmpty());
+        assertTrue(result.terminationConfirmed() && result.cleanupVerified());
+    }
+
     @Test void unreadableRecordsLeaveCaptureUnavailable() throws Exception {
         var w = workspace(SOURCE);
         w.failRawRead = true;
         var result = new TracedRunLifecycle(w, phases(new ArrayList<>(), exit(0), exit(0)), new byte[]{1}).run(SOURCE);
-        assertEquals(List.of(TracedRunLifecycle.Failure.TRACE_TRANSFER_FAILED), result.infrastructureFailures());
+        assertEquals(List.of(TracedRunLifecycle.Failure.TRANSPORT_FAILED), result.infrastructureFailures());
         assertTrue(result.trace().contains("\"status\":\"unavailable\""));
     }
 
