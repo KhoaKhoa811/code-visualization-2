@@ -73,6 +73,7 @@ class TracerTest {
         return switch ((String) v.get("kind")) {
             case "ref" -> "#" + v.get("objectId");
             case "null" -> "null";
+            case "unknown" -> "?";
             default -> String.valueOf(v.get("value"));
         };
     }
@@ -104,6 +105,10 @@ class TracerTest {
                         .map(o -> map(o).containsKey("skipped") ? "_" : value(map(o).get("value")))
                         .reduce((a, b) -> a + " " + b).orElse("") + " = " + value(d.get("result"));
                 case "EXCEPTION" -> "EXCEPTION " + d.get("exceptionType");
+                case "UNCAPTURED" -> "UNCAPTURED" + ((List<Object>) d.get("unknownBindings")).stream().map(id -> " " + names.get(id) + "=?")
+                        .reduce("", String::concat) + ((List<Object>) d.get("arrays")).stream().map(a -> " #" + map(a).get("objectId") + "="
+                        + ((List<Object>) map(a).get("elements")).stream().map(TracerTest::value).toList().toString().replace(" ", ""))
+                        .reduce("", String::concat) + ((List<Object>) d.get("unknownArrays")).stream().map(id -> " #" + id + "=?").reduce("", String::concat);
                 default -> e.get("kind").toString();
             };
             Map<String, Object> range = map(e.get("source"));
@@ -366,24 +371,101 @@ class TracerTest {
 
     // ---- outside coverage -------------------------------------------------------
 
-    @Test void unsupportedProgramsRunOutputOnly() throws Exception {
+    // ---- Part 8a: uncaptured statements inside traced programs -----------------------
+
+    @Test void unsupportedStatementsRunUncapturedWhileTheRestIsTraced() throws Exception {
         String helper = "public class Main {\n    static int twice(int v) { return v * 2; }\n"
-                + "    public static void main(String[] args) {\n        System.out.println(twice(4));\n    }\n}\n";
+                + "    public static void main(String[] args) {\n        int n = 4;\n        System.out.println(twice(n));\n    }\n}\n";
+        Run h = run("uncaptured-helper", helper);
+        assertComplete(h, "completed");
+        assertEquals("8\n", h.result().stdout());
+        assertEquals(List.of("DECLARE n=4 @int n = 4", "UNCAPTURED @System.out.println(twice(n));"), steps(h.trace()));
+        @SuppressWarnings("unchecked")
+        var diagnostics = (List<Map<String, Object>>) h.trace().get("diagnostics");
+        assertEquals("UNSUPPORTED_CONSTRUCT", diagnostics.get(0).get("code"));
+        assertTrue(diagnostics.get(0).containsKey("source"), "diagnostic names the construct's range");
+        assertTrue(((String) map(h.trace().get("capture")).get("reason")).contains("without capture"));
+
+        Run c = main("uncaptured-concat", "int n = 1;\nSystem.out.println(\"a\" + n);");
+        assertEquals(List.of("DECLARE n=1 @int n = 1", "UNCAPTURED @System.out.println(\"a\" + n);"), steps(c.trace()));
+        assertFalse(c.result().raw().stream().anyMatch(l -> l.startsWith("A")), "printing never re-reads arrays");
+
+        // A declaration without code is silent; uses of its variable are uncaptured.
+        Run u = main("uncaptured-uninitialized", "int x;\nx = 1;\nSystem.out.println(x);");
+        assertEquals(List.of("UNCAPTURED @x = 1;", "UNCAPTURED @System.out.println(x);"), steps(u.trace()));
+        assertEquals("1\n", u.result().stdout());
+    }
+
+    @Test void assignedBindingsBecomeUnknownUntilTheNextCoveredStore() throws Exception {
+        Run r = main("uncaptured-unknown", "int x = 1;\nx += 4;\nx = x + 1;\nint i = 0;\ni += 2;\ni++;");
+        assertComplete(r, "completed");
+        assertEquals(List.of("DECLARE x=1 @int x = 1", "UNCAPTURED x=? @x += 4;", "EXPR + 5 1 = 6 @x + 1", "ASSIGN x ?->6 @x = x + 1",
+                "DECLARE i=0 @int i = 0", "UNCAPTURED i=? @i += 2;", "UPDATE i ?->3 =2 @i++"), steps(r.trace()));
+    }
+
+    @Test void arraysChangedByUncapturedCodeAreReRead() throws Exception {
+        Run lib = main("uncaptured-library", "int[] a = {2, 1};\njava.util.Arrays.sort(a);\nSystem.out.println(a[0]);");
+        assertComplete(lib, "completed");
+        assertEquals("1\n", lib.result().stdout());
+        assertInOrder(steps(lib.trace()), "ALLOCATE [2,1] @{2, 1}", "UNCAPTURED #o2=[1,2] @java.util.Arrays.sort(a);", "READ [0]=1 @a[0]");
+
+        String helper = "public class Main {\n    static void bump(int[] a) { a[0]++; }\n"
+                + "    public static void main(String[] args) {\n        int[] a = {1, 2};\n        bump(a);\n        bump(a);\n"
+                + "        int[] b = {7};\n        bump(b);\n        int x = a[0] + b[0];\n    }\n}\n";
+        Run h = run("uncaptured-mutating-helper", helper);
+        assertComplete(h, "completed");
+        assertInOrder(steps(h.trace()), "UNCAPTURED #o2=[2,2] @bump(a);", "UNCAPTURED #o2=[3,2] @bump(a);",
+                "UNCAPTURED #o3=[8] @bump(b);", "READ [0]=3 @a[0]", "READ [0]=8 @b[0]", "DECLARE x=11 @int x = a[0] + b[0]");
+    }
+
+    @Test void arraysCreatedByUncapturedCodeAreCapturedOnFirstUse() throws Exception {
+        Run r = main("uncaptured-new-array", "int[] a = {1};\na = java.util.Arrays.copyOf(a, 3);\na[2] = 9;\nint s = a[2] + a[0];");
+        assertComplete(r, "completed");
+        List<String> kinds = kinds(r.trace());
+        assertTrue(kinds.indexOf("OBJECT_CAPTURE") > kinds.indexOf("UNCAPTURED"));
+        assertInOrder(steps(r.trace()), "UNCAPTURED a=? @a = java.util.Arrays.copyOf(a, 3);", "WRITE [2] 0->9 @a[2] = 9",
+                "READ [2]=9 @a[2]", "READ [0]=1 @a[0]", "DECLARE s=10 @int s = a[2] + a[0]");
+    }
+
+    @Test void uncapturedStatementsInsideLoopsAndBranches() throws Exception {
+        Run r = main("uncaptured-loop", "int s = 0;\nfor (int i = 0; i < 5; i++) {\n    if (i == 3) break;\n    s += i;\n}\n"
+                + "for (int j = 0; j < 4; j += 2) System.out.println(j);\nSystem.out.println(s);");
+        assertComplete(r, "completed");
+        assertEquals("0\n2\n3\n", r.result().stdout());
+        List<String> steps = steps(r.trace());
+        assertEquals(3, steps.stream().filter(s -> s.equals("UNCAPTURED s=? @s += i;")).count());
+        // An unsupported for-update degrades the whole loop into one uncaptured step.
+        assertEquals(1, steps.stream().filter(s -> s.startsWith("UNCAPTURED @for (int j")).count());
+    }
+
+    @Test void tabIndentedSourceMapsStatementRanges() throws Exception {
+        Run r = run("uncaptured-tabs", "public class Main {\n\tpublic static void main(String[] args) {\n\t\tint x = 1;\n"
+                + "\t\tx += 2;\n\t\tSystem.out.println(x);\n\t}\n}\n");
+        assertComplete(r, "completed");
+        assertEquals(List.of("DECLARE x=1 @int x = 1", "UNCAPTURED x=? @x += 2;"), steps(r.trace())); // println(x) is covered
+    }
+
+    @Test void failureInsideAnUncapturedStatementEndsAtThatStep() throws Exception {
+        Run r = main("uncaptured-failure", "int[] a = {1};\nint x = 0;\nx += a[5];");
+        assertTrue(r.prepared().traced());
+        assertEquals("failed", status(r.trace(), "execution"));
+        assertEquals("partial", status(r.trace(), "capture"));
+        List<String> steps = steps(r.trace());
+        assertEquals("UNCAPTURED x=? @x += a[5];", steps.get(steps.size() - 1));
+    }
+
+    @Test void programWideLimitsStillRunOutputOnly() throws Exception {
         for (var c : List.of(
-                List.of("helper", helper, "8\n"),
-                List.of("concat", program("int n = 1;\nSystem.out.println(\"a\" + n);"), "a1\n"),
-                List.of("uninitialized", program("int x;\nx = 1;\nSystem.out.println(x);"), "1\n"),
-                List.of("library", program("int[] a = {2, 1};\njava.util.Arrays.sort(a);\nSystem.out.println(a[0]);"), "1\n"))) {
-            Run r = run("unsupported-" + c.get(0), c.get(1));
-            assertFalse(r.prepared().traced());
-            assertEquals(c.get(2), r.result().stdout());
-            assertEquals("completed", status(r.trace(), "execution"));
-            assertEquals("unavailable", status(r.trace(), "capture"));
-            @SuppressWarnings("unchecked")
-            var diagnostics = (List<Map<String, Object>>) r.trace().get("diagnostics");
-            assertEquals("UNSUPPORTED_CONSTRUCT", diagnostics.get(0).get("code"));
-            assertTrue(diagnostics.get(0).containsKey("source"), "diagnostic names the construct's range");
+                List.of("thread", program("Thread t = new Thread(() -> { });\nt.start();"), "TRACE_INTEGRITY"),
+                List.of("reflection", program("System.out.println(String.class.getMethods().length > 0);"), "TRACE_INTEGRITY"),
+                List.of("no-main", "public class Main {\n    static void run() { }\n}\n", "UNSUPPORTED_CONSTRUCT"))) {
+            Tracer.Prepared prepared = Tracer.prepare(c.get(1));
+            assertFalse(prepared.traced(), c.get(0));
+            assertEquals(c.get(2), prepared.analysis().unsupported().get(0).code());
         }
+        Run r = main("integrity-output-only", "System.out.println(Thread.currentThread() != null);");
+        assertEquals("unavailable", status(r.trace(), "capture"));
+        assertEquals("true\n", r.result().stdout());
     }
 
     @Test void constantConcatenationIsFoldedNotTraced() throws Exception {

@@ -133,13 +133,14 @@ class PrepareTest {
     }
 
     @Test void outputOnlyRunReportsItsStopCause() throws Exception {
-        String source = "public class Main {\n    static void spin() { while (true) { } }\n"
-                + "    public static void main(String[] args) { spin(); }\n}\n";
+        // Threads keep a program output-only (Part 8a integrity guard).
+        String source = "public class Main {\n    public static void main(String[] args) throws Exception {\n"
+                + "        Thread.sleep(100000);\n    }\n}\n";
         Tracer.Prepared prepared = Tracer.prepare(source);
         assertFalse(prepared.traced());
         String json = check("output-only-timeout", Tracer.trace(prepared, "o", "", new Tracer.Outcome(Tracer.Cause.EXECUTION_TIMEOUT, 137)));
         assertEquals("limited", field(json, "execution", "status"));
         assertEquals("unavailable", field(json, "capture", "status"));
-        assertTrue(json.contains("UNSUPPORTED_CONSTRUCT") && json.contains("EXECUTION_TIMEOUT"));
+        assertTrue(json.contains("TRACE_INTEGRITY") && json.contains("EXECUTION_TIMEOUT"));
     }
 }

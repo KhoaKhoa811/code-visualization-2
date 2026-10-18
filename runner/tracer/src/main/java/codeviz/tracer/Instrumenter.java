@@ -4,10 +4,15 @@ import codeviz.tracer.Plan.Expect;
 import codeviz.tracer.Plan.Item;
 import codeviz.tracer.Plan.Site;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import org.objectweb.asm.Attribute;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
+import org.objectweb.asm.Label;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.*;
 
@@ -26,14 +31,16 @@ final class Instrumenter {
 
     private Instrumenter() { }
 
-    static byte[] instrument(byte[] classFile, List<Item> plan, Map<Integer, Site> sites) throws MappingException {
+    static byte[] instrument(byte[] classFile, List<Item> plan, Map<Integer, Site> sites, Map<String, byte[]> program)
+            throws MappingException {
         ClassNode cn = new ClassNode();
-        new ClassReader(classFile).accept(cn, ClassReader.SKIP_FRAMES);
+        new CrtReader(classFile).accept(cn, new Attribute[]{new Crt()}, ClassReader.SKIP_FRAMES);
         rejectRecorderReferences(cn);
         MethodNode main = cn.methods.stream()
                 .filter(m -> m.name.equals("main") && m.desc.equals("([Ljava/lang/String;)V")).findFirst()
                 .orElseThrow(() -> new MappingException("main not found"));
-        List<Match> matches = match(main, plan);
+        Map<Site, Region> regions = regions(main, plan);
+        List<Match> matches = match(main, plan, regions);
         for (Match m : matches) rewrite(main, m);
         InsnList entry = new InsnList();
         entry.add(new VarInsnNode(Opcodes.ALOAD, 0));
@@ -41,15 +48,109 @@ final class Instrumenter {
         main.instructions.insert(entry);
         for (AbstractInsnNode insn : main.instructions.toArray())
             if (insn.getOpcode() == Opcodes.RETURN) main.instructions.insertBefore(insn, call("exit", "()V"));
+        // The range table only served mapping; it is not written back.
+        for (MethodNode m : cn.methods) if (m.attrs != null) m.attrs.removeIf(Crt.class::isInstance);
+        Hierarchy hierarchy = new Hierarchy(program);
         ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_FRAMES) {
-            @Override protected String getCommonSuperClass(String a, String b) {
-                // Only JDK types (String, int[]) meet in main's frames in this increment.
-                try { return super.getCommonSuperClass(a, b); }
-                catch (RuntimeException unknown) { return "java/lang/Object"; }
-            }
+            @Override protected String getCommonSuperClass(String a, String b) { return hierarchy.common(a, b); }
         };
         cn.accept(writer);
         return writer.toByteArray();
+    }
+
+    // ---- statement ranges (javac -Xjcov CharacterRangeTable) ------------------------
+
+    /** Exposes label creation so the range table can mark statement boundaries. */
+    private static final class CrtReader extends ClassReader {
+        CrtReader(byte[] bytes) { super(bytes); }
+        Label label(int offset, Label[] labels) { return readLabel(offset, labels); }
+    }
+
+    /** CharacterRangeTable: statement bytecode ranges with their source line/column ranges. */
+    static final class Crt extends Attribute {
+        record Entry(Label start, Label end, int charStart, int charEnd, int flags) { }
+        static final int STATEMENT = 0x0001;
+        final List<Entry> entries = new ArrayList<>();
+
+        Crt() { super("CharacterRangeTable"); }
+
+        @Override public boolean isCodeAttribute() { return true; }
+
+        @Override protected Attribute read(ClassReader reader, int offset, int length, char[] buffer, int codeOffset, Label[] labels) {
+            Crt crt = new Crt();
+            if (labels == null || !(reader instanceof CrtReader r)) return crt;
+            int count = reader.readUnsignedShort(offset);
+            for (int i = 0, p = offset + 2; i < count; i++, p += 14) {
+                int startPc = reader.readUnsignedShort(p), endPc = reader.readUnsignedShort(p + 2);
+                if (endPc + 1 >= labels.length) continue;
+                crt.entries.add(new Entry(r.label(startPc, labels), r.label(endPc + 1, labels),
+                        reader.readInt(p + 4), reader.readInt(p + 8), reader.readUnsignedShort(p + 12)));
+            }
+            return crt;
+        }
+    }
+
+    private record Region(LabelNode start, LabelNode end) { }
+
+    /** Bytecode range of each uncaptured statement: the table entry with exactly its source range. */
+    private static Map<Site, Region> regions(MethodNode main, List<Item> plan) throws MappingException {
+        Crt crt = main.attrs == null ? null
+                : main.attrs.stream().filter(Crt.class::isInstance).map(Crt.class::cast).findFirst().orElse(null);
+        Map<Site, Region> out = new HashMap<>();
+        for (Item item : plan) {
+            if (item.expect() != Expect.REGION) continue;
+            Site s = item.site();
+            if (crt == null || s.crtStart < 0 || s.crtEnd < 0) throw new MappingException("no statement range table");
+            List<Crt.Entry> found = crt.entries.stream()
+                    .filter(e -> (e.flags() & Crt.STATEMENT) != 0 && e.charStart() == s.crtStart && e.charEnd() == s.crtEnd).toList();
+            if (found.isEmpty()) throw new MappingException("no bytecode range for an uncaptured statement");
+            Crt.Entry first = found.get(0);
+            for (Crt.Entry e : found)
+                if (e.start() != first.start() || e.end() != first.end()) throw new MappingException("ambiguous statement range");
+            if (!(first.start().info instanceof LabelNode start) || !(first.end().info instanceof LabelNode end))
+                throw new MappingException("statement range labels missing");
+            out.put(s, new Region(start, end));
+        }
+        return out;
+    }
+
+    /**
+     * Common superclass for frame computation. User classes come from the compiled
+     * program (they are not loadable here); JDK classes from the platform loader.
+     */
+    private static final class Hierarchy {
+        private final Map<String, String> supers = new HashMap<>();
+        private final Set<String> interfaces = new HashSet<>();
+
+        Hierarchy(Map<String, byte[]> program) {
+            for (byte[] bytes : program.values()) {
+                ClassReader r = new ClassReader(bytes);
+                supers.put(r.getClassName(), r.getSuperName());
+                if ((r.getAccess() & Opcodes.ACC_INTERFACE) != 0) interfaces.add(r.getClassName());
+            }
+        }
+
+        String common(String a, String b) {
+            try {
+                if (interfaces.contains(a) || interfaces.contains(b)) return "java/lang/Object";
+                List<String> left = ancestors(a);
+                for (String candidate : ancestors(b)) if (left.contains(candidate)) return candidate;
+            } catch (ClassNotFoundException | RuntimeException unknown) {
+                // fall through
+            }
+            return "java/lang/Object";
+        }
+
+        private List<String> ancestors(String type) throws ClassNotFoundException {
+            List<String> out = new ArrayList<>();
+            String current = type;
+            while (current != null && supers.containsKey(current)) { out.add(current); current = supers.get(current); }
+            if (current == null) return out;
+            Class<?> c = Class.forName(current.replace('/', '.'), false, ClassLoader.getPlatformClassLoader());
+            if (c.isInterface()) { out.add("java/lang/Object"); return out; }
+            for (; c != null; c = c.getSuperclass()) out.add(c.getName().replace('.', '/'));
+            return out;
+        }
     }
 
     private static void rejectRecorderReferences(ClassNode cn) throws MappingException {
@@ -68,13 +169,28 @@ final class Instrumenter {
 
     private record Match(Item item, AbstractInsnNode insn, AbstractInsnNode anchor) { }
 
-    private static List<Match> match(MethodNode main, List<Item> plan) throws MappingException {
+    private static List<Match> match(MethodNode main, List<Item> plan, Map<Site, Region> regions) throws MappingException {
         List<Match> matches = new ArrayList<>();
+        Map<LabelNode, Site> regionStarts = new HashMap<>();
+        for (var r : regions.entrySet()) regionStarts.put(r.getValue().start(), r.getKey());
         int p = 0;
         AbstractInsnNode literalStart = null;
         int literalRemaining = 0;
         Item literal = null;
+        LabelNode skipUntil = null; // end of the uncaptured statement being skipped
         for (AbstractInsnNode insn : main.instructions.toArray()) {
+            if (skipUntil != null) {
+                if (insn != skipUntil) continue;
+                skipUntil = null; // the end label may start the next region
+            }
+            if (insn instanceof LabelNode label && regionStarts.containsKey(label)) {
+                Site site = regionStarts.get(label);
+                if (literalRemaining > 0 || p >= plan.size() || plan.get(p).site() != site)
+                    throw new MappingException("uncaptured statement out of plan order");
+                matches.add(new Match(plan.get(p++), label, label));
+                if (regions.get(site).end() != label) skipUntil = regions.get(site).end();
+                continue;
+            }
             Expect found = classify(insn);
             if (found == null) continue;
             if (literalRemaining > 0) {
@@ -94,7 +210,7 @@ final class Instrumenter {
             check(item, insn, main);
             if (item.site() != null) matches.add(new Match(item, insn, insn));
         }
-        if (literalRemaining > 0 || p != plan.size()) throw new MappingException("plan not fully matched");
+        if (skipUntil != null || literalRemaining > 0 || p != plan.size()) throw new MappingException("plan not fully matched");
         return matches;
     }
 
@@ -258,6 +374,16 @@ final class Instrumenter {
                 replace(list, insn, site, name, "(III)I");
             }
             case INEG -> replace(list, insn, site, "ineg", "(II)I");
+            case REGION -> {
+                // After the label (and its line/frame nodes) so every entry, including jumps, is recorded once.
+                AbstractInsnNode at = insn.getNext();
+                while (at != null && at.getOpcode() < 0) at = at.getNext();
+                InsnList marker = new InsnList();
+                marker.add(siteConstant(site));
+                marker.add(new InsnNode(site.mayWriteArrays ? Opcodes.ICONST_1 : Opcodes.ICONST_0));
+                marker.add(call("region", "(IZ)V"));
+                if (at == null) list.add(marker); else list.insertBefore(at, marker);
+            }
             case JUMP -> {
                 int op = insn.getOpcode();
                 String name, desc;

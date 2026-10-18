@@ -15,7 +15,7 @@ import java.util.*;
  * source's SHA-256 so the reader can reject a plan for different text.
  */
 final class PlanCodec {
-    static final int VERSION = 1;
+    static final int VERSION = 2; // 2: uncaptured regions (Part 8a)
 
     private PlanCodec() { }
 
@@ -29,6 +29,10 @@ final class PlanCodec {
             put(m, "operator", s.operator); put(m, "position", s.position);
             put(m, "declarationId", s.declarationId); put(m, "name", s.name); put(m, "javaType", s.javaType);
             put(m, "operandType", s.operandType);
+            if (s.kind == Kind.REGION) {
+                m.put("unknownDeclarations", new ArrayList<Object>(s.unknownDeclarations));
+                m.put("mayWriteArrays", s.mayWriteArrays);
+            }
             if (s.leaf != null) {
                 m.put("leaf", condIds.get(s.leaf));
                 m.put("jumpOpcode", s.jumpOpcode);
@@ -53,6 +57,7 @@ final class PlanCodec {
                 "rootScope", a.rootScope(),
                 "compileErrors", diagnostics(a.compileErrors()),
                 "unsupported", diagnostics(a.unsupported()),
+                "uncaptured", diagnostics(a.uncaptured()),
                 "sites", sites,
                 "conds", conds));
     }
@@ -78,6 +83,10 @@ final class PlanCodec {
                 s.jumpOpcode = integer(m, "jumpOpcode");
                 s.jumpMeansTrue = (Boolean) m.get("jumpMeansTrue");
             }
+            if (m.containsKey("unknownDeclarations")) {
+                s.unknownDeclarations = ((List<Object>) m.get("unknownDeclarations")).stream().map(String.class::cast).toList();
+                s.mayWriteArrays = (Boolean) m.get("mayWriteArrays");
+            }
             sites.put(s.id, s);
             rawSites.put(s.id, m);
         }
@@ -101,7 +110,7 @@ final class PlanCodec {
             if (entry.getValue().containsKey("leaf")) sites.get(entry.getKey()).leaf = require(conds, integer(entry.getValue(), "leaf"));
         }
         Analysis analysis = new Analysis(source, readDiagnostics(root.get("compileErrors")), readDiagnostics(root.get("unsupported")),
-                Map.of(), List.of(), Map.copyOf(sites), (String) root.get("rootScope"));
+                readDiagnostics(root.get("uncaptured")), Map.of(), List.of(), Map.copyOf(sites), (String) root.get("rootScope"));
         return new Decoded(analysis, (Boolean) root.get("traced"));
     }
 

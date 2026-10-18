@@ -50,6 +50,13 @@ final class TraceBuilder {
     private final Map<String, List<Map<String, Object>>> arrays = new HashMap<>();
     private final Set<String> knownObjects = new HashSet<>();
     private final Map<String, String> pendingStrings = new HashMap<>();
+    // Part 8a: int[] contents seen first in uncaptured code, int[] identities, and the open
+    // uncaptured step whose array re-reads are still arriving.
+    private final Map<String, List<Map<String, Object>>> pendingArrays = new HashMap<>();
+    private final Set<String> intArrays = new HashSet<>();
+    private Map<String, Object> openRegion;
+    private final Set<String> stale = new LinkedHashSet<>();
+    private boolean sawRegion;
     // Scope instances (static id -> instance id), outer to inner, and live bindings.
     private final List<String[]> scopes = new ArrayList<>();
     private final Map<String, Map<String, Object>> liveBindings = new HashMap<>(); // declarationId -> binding
@@ -79,6 +86,7 @@ final class TraceBuilder {
     static String outputOnly(Analysis analysis, String runId, Tracer.Outcome outcome) {
         Execution e = execution(outcome, "execution");
         List<Diagnostic> diagnostics = new ArrayList<>(analysis.unsupported());
+        diagnostics.addAll(analysis.uncaptured());
         if (e.diagnostic() != null) diagnostics.add(e.diagnostic());
         return envelope(analysis.source(), runId, e.status(), e.reason(), "unavailable",
                 "Visualization does not cover this program yet; output only.", diagnostics, null, List.of(), List.of());
@@ -102,10 +110,13 @@ final class TraceBuilder {
                 entry(raw.get(0));
                 for (int i = 1; i < raw.size() && terminal == null; i++) {
                     String line = raw.get(i);
+                    if (line.startsWith("A")) { arrayContents(line); continue; }
+                    closeRegion();
                     if (line.equals("R")) terminal = "R";
                     else if (line.equals("L")) terminal = "L";
                     else if (line.startsWith("S")) stringSight(line);
                     else if (line.startsWith("x")) { failure = exception(line); terminal = "x"; }
+                    else if (line.startsWith("u")) region(line);
                     else operation(line);
                 }
             }
@@ -113,6 +124,8 @@ final class TraceBuilder {
             stopReason = "Recording stopped being consistent with reconstructed state: " + e.getMessage();
             diagnostics.add(new Diagnostic("capture", "CAPTURE_INCONSISTENT", stopReason, null, null));
         }
+        closeRegion(); // a statement still running when recording ended: unread arrays become unknown
+        diagnostics.addAll(0, analysis.uncaptured());
         Execution stop = execution(outcome, "execution");
         if (stop.diagnostic() != null) diagnostics.add(0, stop.diagnostic());
         if (initialState == null) {
@@ -125,7 +138,9 @@ final class TraceBuilder {
         if (exited && stopReason == null && "R".equals(terminal) && outcome.exitCode() == 0) {
             addBookkeeping("FRAME_END", ordered("frameId", FRAME, "reason", "main_return"));
             executionStatus = "completed"; executionReason = "Normal return from main.";
-            captureStatus = "complete"; captureReason = "All covered operations were recorded.";
+            captureStatus = "complete";
+            captureReason = sawRegion ? "All covered operations were recorded; some statements ran without capture."
+                    : "All covered operations were recorded.";
         } else if (exited && stopReason == null && "x".equals(terminal) && outcome.exitCode() != 0) {
             addBookkeeping("FRAME_END", ordered("frameId", FRAME, "reason", "unwind"));
             executionStatus = "failed"; executionReason = "Uncaught " + failure.get("exceptionType") + ".";
@@ -189,6 +204,61 @@ final class TraceBuilder {
         pendingStrings.put("o" + t[0].substring(1), t[1]);
     }
 
+    // ---- uncaptured statements (Part 8a) ---------------------------------------------
+
+    /** {@code u<site>}: the statement runs without capture; assigned covered locals become unknown. */
+    private void region(String line) throws Inconsistent {
+        Site site = site(line.substring(1));
+        if (site.kind != Plan.Kind.REGION) throw new Inconsistent("region record for another site");
+        syncScopes(site);
+        List<Object> unknownBindings = new ArrayList<>();
+        for (String declarationId : site.unknownDeclarations) {
+            Map<String, Object> binding = liveBindings.get(declarationId);
+            if (binding == null) continue; // not declared yet on this path
+            binding.put("value", unknown());
+            unknownBindings.add(binding.get("bindingId"));
+        }
+        Map<String, Object> data = ordered("unknownBindings", unknownBindings, "arrays", new ArrayList<>(), "unknownArrays", new ArrayList<>());
+        addObservable(site, "UNCAPTURED", data);
+        sawRegion = true;
+        if (site.mayWriteArrays) { openRegion = data; stale.addAll(intArrays); }
+    }
+
+    /** {@code A<id> <len> <values>}: a re-read after the open statement, or a first sight. */
+    @SuppressWarnings("unchecked")
+    private void arrayContents(String line) throws Inconsistent {
+        String[] t = line.split(" ");
+        if (t.length < 2) throw new Inconsistent("array contents record");
+        String id = "o" + Integer.parseInt(t[0].substring(1));
+        int length = Integer.parseInt(t[1]);
+        if (length < 0 || t.length != 2 + length) throw new Inconsistent("array contents length");
+        List<Map<String, Object>> elements = new ArrayList<>(length);
+        for (int i = 0; i < length; i++) elements.add(intTyped(Integer.parseInt(t[2 + i])));
+        if (!knownObjects.contains(id)) { pendingArrays.put(id, elements); return; }
+        if (openRegion == null || !stale.remove(id)) throw new Inconsistent("unexpected array re-read");
+        List<Map<String, Object>> state = arrays.get(id);
+        if (state.size() != length) throw new Inconsistent("array length changed");
+        if (!state.equals(elements)) {
+            for (int i = 0; i < length; i++) state.set(i, elements.get(i));
+            ((List<Object>) openRegion.get("arrays")).add(ordered("objectId", id, "elements", new ArrayList<>(elements)));
+        }
+    }
+
+    /** Ends the open statement; arrays it may have changed but that were not re-read become unknown. */
+    @SuppressWarnings("unchecked")
+    private void closeRegion() {
+        if (openRegion == null) return;
+        for (String id : stale) {
+            List<Map<String, Object>> state = arrays.get(id);
+            for (int i = 0; i < state.size(); i++) state.set(i, unknown());
+            ((List<Object>) openRegion.get("unknownArrays")).add(id);
+        }
+        stale.clear();
+        openRegion = null;
+    }
+
+    private static Map<String, Object> unknown() { return ordered("kind", "unknown"); }
+
     private Map<String, Object> exception(String line) throws Inconsistent {
         String[] t = line.split(" ");
         if (t.length != 3) throw new Inconsistent("malformed failure record");
@@ -223,12 +293,15 @@ final class TraceBuilder {
             case UPDATE -> {
                 expect(t, 2);
                 Map<String, Object> binding = live(site);
-                int previous = intValue(binding.get("value"));
                 int value = Integer.parseInt(t[1]);
-                if (value != previous + (site.operator.equals("++") ? 1 : -1)) throw new Inconsistent("update value");
+                int delta = site.operator.equals("++") ? 1 : -1;
+                Object stored = binding.get("value");
+                boolean known = !"unknown".equals(((Map<?, ?>) stored).get("kind"));
+                if (known && value != intValue(stored) + delta) throw new Inconsistent("update value");
                 binding.put("value", intTyped(value));
-                addObservable(site, "UPDATE", ordered("bindingId", binding.get("bindingId"), "previous", intTyped(previous),
-                        "value", intTyped(value), "result", intTyped(site.position.equals("prefix") ? value : previous),
+                // After uncaptured code the old value is unknown, but iinc makes the postfix result exact.
+                addObservable(site, "UPDATE", ordered("bindingId", binding.get("bindingId"), "previous", known ? intTyped(value - delta) : unknown(),
+                        "value", intTyped(value), "result", intTyped(site.position.equals("prefix") ? value : value - delta),
                         "operator", site.operator, "position", site.position));
             }
             case ALLOCATE -> {
@@ -241,6 +314,8 @@ final class TraceBuilder {
                 else if (t.length == 3 + length) for (int i = 0; i < length; i++) elements.add(intTyped(Integer.parseInt(t[3 + i])));
                 else throw new Inconsistent("allocation contents");
                 knownObjects.add(id);
+                intArrays.add(id);
+                pendingArrays.remove(id);
                 arrays.put(id, elements);
                 addObservable(site, "ALLOCATE", ordered("object",
                         ordered("objectId", id, "kind", "array", "elementType", "int", "elements", new ArrayList<>(elements))));
@@ -412,6 +487,7 @@ final class TraceBuilder {
     private Map<String, Object> reference(String token) throws Inconsistent {
         if (token.equals("n")) return ordered("kind", "null");
         String id = object(token);
+        if (!knownObjects.contains(id) && pendingArrays.containsKey(id)) captureArray(id);
         if (!knownObjects.contains(id)) {
             String pending = pendingStrings.remove(id);
             if (pending == null) throw new Inconsistent("reference to an unrecorded object");
@@ -429,8 +505,20 @@ final class TraceBuilder {
         return "o" + Integer.parseInt(token.substring(1));
     }
 
+    /** An int[] created by uncaptured code, seen for the first time by covered code. */
+    private void captureArray(String id) {
+        List<Map<String, Object>> elements = pendingArrays.remove(id);
+        knownObjects.add(id);
+        intArrays.add(id);
+        arrays.put(id, elements);
+        addBookkeeping("OBJECT_CAPTURE", Map.of("object",
+                ordered("objectId", id, "kind", "array", "elementType", "int", "elements", new ArrayList<>(elements))));
+    }
+
     private List<Map<String, Object>> array(String token) throws Inconsistent {
-        List<Map<String, Object>> array = arrays.get(object(token));
+        String id = object(token);
+        if (!knownObjects.contains(id) && pendingArrays.containsKey(id)) captureArray(id);
+        List<Map<String, Object>> array = arrays.get(id);
         if (array == null) throw new Inconsistent("unknown array");
         return array;
     }
@@ -525,7 +613,7 @@ final class TraceBuilder {
             diagnosticJson.add(map);
         }
         return Json.write(ordered(
-                "schemaVersion", "1.0.0",
+                "schemaVersion", "1.1.0",
                 "runId", runId,
                 "source", ordered("file", Analyzer.FILE, "text", source, "sha256", sha256(source)),
                 "execution", ordered("status", executionStatus, "reason", executionReason),
