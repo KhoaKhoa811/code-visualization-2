@@ -1,0 +1,89 @@
+/* Dark-only V1 layout: visualization left, editor upper right, console lower right. */
+:root {
+  --bg: #15171c;
+  --panel: #1d2027;
+  --panel-2: #252933;
+  --border: #323744;
+  --text: #e3e6ed;
+  --muted: #8b92a3;
+  --accent: #4f8cff;
+  --read: #2f7d5b;
+  --write: #b5602a;
+  --error: #ff6b6b;
+  --warning: #f5c04a;
+  color-scheme: dark;
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-size: 14px;
+}
+
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; margin: 0; }
+body { background: var(--bg); color: var(--text); }
+h1 { font-size: 16px; margin: 0 8px 0 0; }
+h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 8px; }
+
+.app { display: flex; flex-direction: column; height: 100%; }
+.toolbar { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--border); }
+.toolbar .status { color: var(--muted); }
+
+button, select {
+  background: var(--panel-2); color: var(--text); border: 1px solid var(--border);
+  border-radius: 6px; padding: 5px 12px; font: inherit; cursor: pointer;
+}
+button:disabled { opacity: .45; cursor: default; }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+.layout {
+  flex: 1; min-height: 0; display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 2fr) minmax(0, 1fr);
+  grid-template-areas: 'visual editor' 'visual console';
+}
+.visual { grid-area: visual; overflow: auto; padding: 12px; border-right: 1px solid var(--border); }
+.editor { grid-area: editor; min-height: 0; }
+.editor-host { width: 100%; height: 100%; }
+.console { grid-area: console; overflow: auto; padding: 10px 12px; border-top: 1px solid var(--border); background: var(--panel); }
+.console pre { margin: 0; font-family: Consolas, 'Cascadia Mono', monospace; white-space: pre-wrap; }
+.stderr { color: var(--error); }
+
+.controls { display: flex; align-items: center; gap: 6px; margin-bottom: 10px; }
+.controls input[type='range'] { flex: 1; }
+.step-count { color: var(--muted); min-width: 110px; text-align: right; }
+
+.summary { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; margin-bottom: 10px; display: grid; gap: 4px; }
+.pill { display: inline-block; border-radius: 10px; padding: 0 8px; margin-right: 6px; background: var(--panel-2); font-size: 12px; }
+.pill.completed, .pill.capture-complete { background: #1f5a3e; }
+.pill.failed, .pill.compile_error, .pill.rejected { background: #6b2a2a; }
+.pill.cancelled, .pill.limited, .pill.capture-partial { background: #6b5320; }
+.diagnostic { color: var(--muted); }
+.error { color: var(--error); }
+.warning { color: var(--warning); }
+.muted { color: var(--muted); }
+.hint { margin-top: 40px; text-align: center; }
+
+.step-detail { padding: 8px 10px; border-left: 3px solid var(--accent); background: var(--panel); margin-bottom: 10px; font-family: Consolas, monospace; }
+
+.state { display: grid; gap: 10px; }
+.panel { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 10px; }
+.frame-name { font-family: Consolas, monospace; color: var(--muted); margin-bottom: 4px; }
+.bindings { border-collapse: collapse; font-family: Consolas, monospace; }
+.bindings td { padding: 2px 10px 2px 0; }
+.bindings .type { color: var(--muted); }
+.bindings tr.changed td { color: var(--warning); }
+
+.array { margin-bottom: 12px; }
+.array.allocated .cells { outline: 2px solid var(--accent); outline-offset: 2px; }
+.array-label { font-family: Consolas, monospace; margin-bottom: 4px; }
+.badge { margin-left: 6px; font-size: 11px; background: var(--accent); border-radius: 8px; padding: 0 6px; }
+.cells { display: flex; flex-wrap: wrap; gap: 4px; }
+.cell { min-width: 44px; border: 1px solid var(--border); border-radius: 6px; background: var(--panel-2); text-align: center; transition: background .15s; }
+.cell-value { padding: 6px 8px; font-family: Consolas, monospace; font-size: 15px; }
+.cell-index { font-size: 11px; color: var(--muted); border-top: 1px solid var(--border); }
+.cell.read { background: var(--read); }
+.cell.write { background: var(--write); }
+.string-row { font-family: Consolas, monospace; }
+.string-row .name { color: var(--muted); }
+
+/* Monaco decoration classes for the current Step. */
+.step-highlight { background: rgba(79, 140, 255, .18); }
+.step-highlight-text { background: rgba(79, 140, 255, .35); border-radius: 2px; }
