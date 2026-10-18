@@ -143,3 +143,27 @@ test('arrays created by uncaptured code appear on first covered use; a failure i
   assert.equal(failure.trace.capture.status, 'partial');
   assert.equal(failure.at(failure.steps).event?.kind, 'UNCAPTURED');
 });
+
+test('primitive types, casts, bitwise operators and unassigned declarations play back (1.2.0)', () => {
+  const types = new Playback(fixture('primitive-types'));
+  const end = types.at(types.steps).beforeEnd!;
+  const show = (name: string) => formatValue(end.bindings.find(b => b.name === name)!.value);
+  assert.deepEqual(['big', 'b', 's', 'c', 'f', 'd', 'i', 'letter'].map(show),
+    ['6000000001L', '-128', '-3', "'c'", '1.5f', '0.25', '25', "'d'"]);
+  const cast = Array.from({ length: types.steps }, (_, k) => types.at(k + 1)).find(v => v.event?.kind === 'EXPRESSION'
+    && v.event.data.operator === '(int)')!;
+  assert.equal(describeStep(cast.event!, cast.state), '(int)25.0 = 25');
+
+  const bits = new Playback(fixture('bitwise'));
+  const ops = Array.from({ length: bits.steps }, (_, k) => bits.at(k + 1)).filter(v => v.event?.kind === 'EXPRESSION')
+    .map(v => describeStep(v.event!, v.state));
+  assert.ok(ops.includes('~11 = -12') && ops.includes('6 & 3 = 2') && ops.includes('(byte)344 = 88'), ops.join('\n'));
+
+  const nan = new Playback(fixture('float-compare'));
+  const compare = Array.from({ length: nan.steps }, (_, k) => nan.at(k + 1)).find(v => v.event?.kind === 'EXPRESSION')!;
+  assert.equal(describeStep(compare.event!, compare.state), '0.0 / 0.0 = NaN');
+
+  const unassigned = new Playback(fixture('uninitialized'));
+  const first = unassigned.at(1);
+  assert.equal(describeStep(first.event!, first.state), 'Declare int total = (unassigned)');
+});

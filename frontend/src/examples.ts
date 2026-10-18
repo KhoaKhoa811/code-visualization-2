@@ -16,6 +16,21 @@ export const EXAMPLES: Record<string, string> = {
     }
 }
 `,
+  'Number types': `public class Main {
+    public static void main(String[] args) {
+        long factorial = 1;
+        for (int n = 1; n <= 15; n++) {
+            factorial *= n;
+        }
+        double average = factorial / 15.0;
+        char grade = average > 1e10 ? 'A' : 'B';
+        int low = (int) (factorial & 0xFF);
+        System.out.println(factorial);
+        System.out.println(grade);
+        System.out.println(low);
+    }
+}
+`,
   'Helper and library calls': `public class Main {
     static int square(int v) {
         return v * v;
