@@ -47,3 +47,14 @@ not verbatim transcripts, unless quoted.
   behavior for 9 programs; AC-01..05, AC-07, AC-10, recursion facts correct;
   naive source rewrite changes behavior. Recommendation: bytecode for facts,
   javac tree API for source ranges. Waiting for ADR acceptance and 7b approval.
+
+## 2026-10-18 — Part 7b host trace-v1 producer (Claude Code)
+
+- User merged 6e (PR #82) and 7a (PR #83): "please continue implement part 7b".
+  Treated as accepting ADR 0004; split 7b host / 7c container / 7d API / 7e UI.
+- 7de00b5 spec + ADR acceptance; 27722f4 shared contracts/trace/check.cjs;
+  42bc5f6 runner/tracer module. Design: javac plan in code-layout order matched
+  one-to-one to bytecode; recorder writes site + values; trusted builder emits
+  trace-v1 with derived scopes, short-circuit operands, exceptions, limits and
+  tamper detection. 27 tests passed; all traces pass the shared checker and all
+  traced programs match the original's behavior. Host-only, trusted programs.
