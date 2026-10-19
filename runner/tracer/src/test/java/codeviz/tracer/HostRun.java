@@ -17,6 +17,11 @@ final class HostRun {
     record Result(int exit, String stdout, String stderrFirstLine, List<String> raw) { }
 
     static Result run(Map<String, byte[]> classes, boolean traced, Path dir) throws Exception {
+        return run(classes, traced, dir, null);
+    }
+
+    /** {@code input}: standard input bytes followed by end of input (Part 8g); null reads nothing. */
+    static Result run(Map<String, byte[]> classes, boolean traced, Path dir, byte[] input) throws Exception {
         Path out = Files.createTempDirectory(dir, "classes");
         for (var entry : classes.entrySet()) Files.write(out.resolve(entry.getKey() + ".class"), entry.getValue());
         Path raw = out.resolve("raw.trace");
@@ -28,7 +33,7 @@ final class HostRun {
             classpath += File.pathSeparator + Path.of("target/classes").toAbsolutePath();
         }
         command.addAll(List.of("-cp", classpath, "Main"));
-        Process process = new ProcessBuilder(command).redirectInput(ProcessBuilder.Redirect.from(nullFile())).start();
+        Process process = new ProcessBuilder(command).redirectInput(ProcessBuilder.Redirect.from(input == null ? nullFile() : stdin(out, input))).start();
         var stdout = process.getInputStream();
         var stderr = process.getErrorStream();
         byte[][] streams = new byte[2][];
@@ -42,6 +47,12 @@ final class HostRun {
         List<String> lines = traced && Files.exists(raw) ? Files.readAllLines(raw) : List.of();
         return new Result(process.exitValue(), new String(streams[0], StandardCharsets.UTF_8).replace("\r", ""),
                 err.lines().findFirst().orElse(""), lines);
+    }
+
+    private static File stdin(Path dir, byte[] input) throws java.io.IOException {
+        Path file = dir.resolve("stdin.txt");
+        Files.write(file, input);
+        return file.toFile();
     }
 
     private static File nullFile() {

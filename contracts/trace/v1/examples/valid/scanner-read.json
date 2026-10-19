@@ -1,0 +1,158 @@
+{
+  "schemaVersion": "1.6.0",
+  "runId": "example-scanner",
+  "source": {
+    "file": "Main.java",
+    "text": "import java.util.Scanner;\npublic class Main { public static void main(String[] args) { Scanner in = new Scanner(System.in); int n = in.nextInt(); } }\n",
+    "sha256": "c7e96906d0bf1ade7e6f075291275ef082b87605ee79153e34e104dde3a4c323"
+  },
+  "execution": {
+    "status": "completed",
+    "reason": "Normal return from main."
+  },
+  "capture": {
+    "status": "complete",
+    "reason": "Illustrative complete recording, not executed Java.",
+    "safeEventCount": 5
+  },
+  "diagnostics": [],
+  "initialState": {
+    "objects": [
+      {
+        "objectId": "args0",
+        "kind": "array",
+        "elementType": "java.lang.String",
+        "elements": []
+      }
+    ],
+    "frames": [
+      {
+        "frameId": "f0",
+        "methodId": "Main.main(java.lang.String[]):void",
+        "callerFrameId": null
+      }
+    ],
+    "scopes": [
+      {
+        "scopeId": "s0",
+        "frameId": "f0",
+        "parentScopeId": null
+      }
+    ],
+    "bindings": [
+      {
+        "bindingId": "args",
+        "declarationId": "Main:args",
+        "frameId": "f0",
+        "scopeId": "s0",
+        "name": "args",
+        "javaType": "java.lang.String[]",
+        "value": {
+          "kind": "ref",
+          "objectId": "args0"
+        }
+      }
+    ]
+  },
+  "events": [
+    {
+      "seq": 1,
+      "step": 1,
+      "source": {
+        "start": 100,
+        "end": 122
+      },
+      "frameId": "f0",
+      "kind": "ALLOCATE",
+      "data": {
+        "object": {
+          "objectId": "in1",
+          "kind": "input",
+          "className": "java.util.Scanner"
+        }
+      }
+    },
+    {
+      "seq": 2,
+      "step": 2,
+      "source": {
+        "start": 87,
+        "end": 122
+      },
+      "frameId": "f0",
+      "kind": "DECLARE",
+      "data": {
+        "binding": {
+          "bindingId": "bi",
+          "declarationId": "Main.main:in",
+          "frameId": "f0",
+          "scopeId": "s0",
+          "name": "in",
+          "javaType": "java.util.Scanner",
+          "value": {
+            "kind": "ref",
+            "objectId": "in1"
+          }
+        }
+      }
+    },
+    {
+      "seq": 3,
+      "step": 3,
+      "source": {
+        "start": 132,
+        "end": 144
+      },
+      "frameId": "f0",
+      "kind": "LIBRARY",
+      "data": {
+        "objectId": "in1",
+        "method": "java.util.Scanner.nextInt()",
+        "arguments": [],
+        "result": {
+          "kind": "int",
+          "value": "21"
+        },
+        "after": null
+      }
+    },
+    {
+      "seq": 4,
+      "step": 4,
+      "source": {
+        "start": 124,
+        "end": 144
+      },
+      "frameId": "f0",
+      "kind": "DECLARE",
+      "data": {
+        "binding": {
+          "bindingId": "bn",
+          "declarationId": "Main.main:n",
+          "frameId": "f0",
+          "scopeId": "s0",
+          "name": "n",
+          "javaType": "int",
+          "value": {
+            "kind": "int",
+            "value": "21"
+          }
+        }
+      }
+    },
+    {
+      "seq": 5,
+      "kind": "FRAME_END",
+      "data": {
+        "frameId": "f0",
+        "reason": "main_return"
+      }
+    }
+  ],
+  "stepEnds": [
+    1,
+    2,
+    3,
+    5
+  ]
+}

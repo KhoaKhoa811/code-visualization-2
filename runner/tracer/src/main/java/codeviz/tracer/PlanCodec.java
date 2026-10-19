@@ -15,7 +15,7 @@ import java.util.*;
  * source's SHA-256 so the reader can reject a plan for different text.
  */
 final class PlanCodec {
-    static final int VERSION = 6; // 2: regions (8a); 3: primitives (8b); 4: switch, arrays (8c); 5: methods (8d); 6: objects (8e)
+    static final int VERSION = 7; // 2: regions (8a); 3: primitives (8b); 4: switch, arrays (8c); 5: methods (8d); 6: objects (8e); 7: interactive (8g)
 
     private PlanCodec() { }
 
@@ -71,6 +71,7 @@ final class PlanCodec {
                 "sourceSha256", sourceSha256,
                 "traced", traced,
                 "rootScope", a.rootScope(),
+                "interactive", a.interactive(),
                 "compileErrors", diagnostics(a.compileErrors()),
                 "unsupported", diagnostics(a.unsupported()),
                 "uncaptured", diagnostics(a.uncaptured()),
@@ -162,7 +163,7 @@ final class PlanCodec {
             }
         }
         Analysis analysis = new Analysis(source, readDiagnostics(root.get("compileErrors")), readDiagnostics(root.get("unsupported")),
-                readDiagnostics(root.get("uncaptured")), Map.of(), Map.of(), Map.copyOf(sites), (String) root.get("rootScope"));
+                readDiagnostics(root.get("uncaptured")), Map.of(), Map.of(), Map.copyOf(sites), (String) root.get("rootScope"), Boolean.TRUE.equals(root.get("interactive")));
         return new Decoded(analysis, (Boolean) root.get("traced"));
     }
 

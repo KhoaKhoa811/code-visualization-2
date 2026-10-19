@@ -50,6 +50,11 @@
     "reason": "A library list: allocation, a mutating LIBRARY call with its new contents, and a read-only call (1.5.0)."
   },
   {
+    "file": "valid/scanner-read.json",
+    "schemaValid": true,
+    "reason": "A Scanner over standard input and one read as a LIBRARY step (1.6.0)."
+  },
+  {
     "file": "valid/recursion.json",
     "schemaValid": true,
     "reason": "Distinct recursive frames with returned values 0, 1, 3; illustrative future coverage."

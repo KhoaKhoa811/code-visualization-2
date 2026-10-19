@@ -16,7 +16,7 @@ import java.util.Map;
  */
 public final class Tracer {
     /** Why the run ended, as decided by the orchestrator (never by the user JVM). */
-    public enum Cause { EXIT, EXECUTION_TIMEOUT, OUTPUT_LIMIT, CANCELLED, COMPILATION_TIMEOUT }
+    public enum Cause { EXIT, EXECUTION_TIMEOUT, OUTPUT_LIMIT, CANCELLED, COMPILATION_TIMEOUT, INPUT_DISCONNECTED }
 
     /** Stop cause plus the process exit code (meaningful for {@link Cause#EXIT}). */
     public record Outcome(Cause cause, int exitCode) {
@@ -48,7 +48,7 @@ public final class Tracer {
                     "The compiled code did not match the visualization plan (" + e.getMessage()
                             + "); the program can still run with output only.", null, null));
             Analysis outputOnly = new Analysis(analysis.source(), analysis.compileErrors(), List.copyOf(unsupported),
-                    analysis.uncaptured(), analysis.classes(), analysis.plans(), analysis.sites(), analysis.rootScope());
+                    analysis.uncaptured(), analysis.classes(), analysis.plans(), analysis.sites(), analysis.rootScope(), analysis.interactive());
             return new Prepared(outputOnly, analysis.classes(), false);
         }
     }
@@ -66,14 +66,23 @@ public final class Tracer {
 
     /** Trace-v1 JSON after a run. {@code rawText} is ignored unless the program was traced. */
     public static String trace(Prepared prepared, String runId, String rawText, Outcome outcome) {
+        return trace(prepared, runId, rawText, outcome, new byte[0]);
+    }
+
+    /** Part 8g: {@code input} is every byte delivered to the program's standard input, in order. */
+    public static String trace(Prepared prepared, String runId, String rawText, Outcome outcome, byte[] input) {
         if (!prepared.compiled()) return TraceBuilder.compileError(prepared.analysis(), runId);
         if (!prepared.traced()) return TraceBuilder.outputOnly(prepared.analysis(), runId, outcome);
-        return TraceBuilder.traced(prepared.analysis(), runId, completeLines(rawText), outcome);
+        return TraceBuilder.traced(prepared.analysis(), runId, completeLines(rawText), outcome, input);
     }
 
     /** Convenience for tests: raw records already split into lines, normal exit. */
     public static String trace(Prepared prepared, String runId, List<String> raw, int exitCode) {
-        return trace(prepared, runId, raw.isEmpty() ? "" : String.join("\n", raw) + "\n", Outcome.exited(exitCode));
+        return trace(prepared, runId, raw, exitCode, new byte[0]);
+    }
+
+    public static String trace(Prepared prepared, String runId, List<String> raw, int exitCode, byte[] input) {
+        return trace(prepared, runId, raw.isEmpty() ? "" : String.join("\n", raw) + "\n", Outcome.exited(exitCode), input);
     }
 
     /** Trace-v1 JSON when the run stopped before a plan existed (compile-phase stop). */

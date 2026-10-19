@@ -37,7 +37,9 @@ final class Analyzer {
      * {@code uncaptured} lists statements that run without capture inside a traced program (Part 8a).
      */
     record Analysis(String source, List<Diagnostic> compileErrors, List<Diagnostic> unsupported, List<Diagnostic> uncaptured,
-                    Map<String, byte[]> classes, Map<String, List<Item>> plans, Map<Integer, Site> sites, String rootScope) {
+                    Map<String, byte[]> classes, Map<String, List<Item>> plans, Map<Integer, Site> sites, String rootScope,
+                    boolean interactive) {
+        /** Part 8g: the source refers to System.in, so the run gets standard input and the interactive deadline. */
         boolean traceable() { return compileErrors.isEmpty() && unsupported.isEmpty(); }
     }
 
@@ -101,9 +103,9 @@ final class Analyzer {
             try { memory.close(); } catch (IOException ignored) { }
         }
         if (walker == null || !errors.isEmpty())
-            return new Analysis(source, errors, unsupported, List.of(), Map.of(), Map.of(), Map.of(), null);
+            return new Analysis(source, errors, unsupported, List.of(), Map.of(), Map.of(), Map.of(), null, false);
         return new Analysis(source, errors, unsupported, List.copyOf(walker.uncaptured), Map.copyOf(classes), Map.copyOf(walker.plans),
-                Map.copyOf(walker.sites), walker.rootScope);
+                Map.copyOf(walker.sites), walker.rootScope, walker.interactive);
     }
 
     private static List<Diagnostic> compileErrors(DiagnosticCollector<JavaFileObject> collector) {
@@ -149,6 +151,7 @@ final class Analyzer {
         // being planned is a whole initializer or assigned value (javac's operand stack is empty).
         private final Deque<String> yieldTypes = new ArrayDeque<>();
         private boolean topValue;
+        boolean interactive; // Part 8g: System.in appears in the source
         String rootScope;
 
         Walker(CompilationUnitTree unit, Trees trees, Elements elements, javax.lang.model.util.Types types, List<Diagnostic> unsupported) {
@@ -190,7 +193,12 @@ final class Analyzer {
                         }
                     }
                 }
-                @Override public Void visitMemberSelect(MemberSelectTree m, Void p) { check(m); return super.visitMemberSelect(m, p); }
+                @Override public Void visitMemberSelect(MemberSelectTree m, Void p) {
+                    check(m);
+                    if (element(m) instanceof VariableElement v && v.getSimpleName().contentEquals("in")
+                            && v.getEnclosingElement() instanceof TypeElement t && t.getQualifiedName().contentEquals("java.lang.System")) interactive = true;
+                    return super.visitMemberSelect(m, p);
+                }
                 @Override public Void visitIdentifier(IdentifierTree i, Void p) { check(i); return super.visitIdentifier(i, p); }
                 @Override public Void visitNewClass(NewClassTree n, Void p) { check(n.getIdentifier()); return super.visitNewClass(n, p); }
             }.scan(unit, null);
@@ -840,12 +848,12 @@ final class Analyzer {
         private static final Set<String> DEQUES = Set.of("java.util.Deque", "java.util.Queue", "java.util.ArrayDeque", "java.util.Stack");
         private static final Set<String> MAPS = Set.of("java.util.Map", "java.util.HashMap", "java.util.TreeMap", "java.util.LinkedHashMap");
         private static final Set<String> SETS = Set.of("java.util.Set", "java.util.HashSet", "java.util.TreeSet", "java.util.LinkedHashSet");
-        private static final String PQ = "java.util.PriorityQueue", BUILDER = "java.lang.StringBuilder";
+        private static final String PQ = "java.util.PriorityQueue", BUILDER = "java.lang.StringBuilder", SCANNER = "java.util.Scanner";
 
         /** A covered library type with covered type arguments (Part 8f). */
         private boolean libraryType(String t) {
             String raw = erasure(t);
-            if (raw.equals(BUILDER)) return t.equals(raw);
+            if (raw.equals(BUILDER) || raw.equals(SCANNER)) return t.equals(raw);
             List<String> args = typeArguments(t);
             if (MAPS.contains(raw)) return args.size() == 2 && keyType(args.get(0)) && elementType(args.get(1));
             if (SETS.contains(raw) || raw.equals(PQ)) return args.size() == 1 && keyType(args.get(0));
@@ -858,19 +866,21 @@ final class Analyzer {
 
         private boolean elementType(String t) { return keyType(t) || plainClasses.contains(t) || array(t) || libraryType(t); }
 
-        private static final Map<String, Set<String>> FAMILY_METHODS = Map.of(
-                "string", Set.of("length", "charAt", "substring", "indexOf", "lastIndexOf", "equals", "compareTo", "contains",
-                        "startsWith", "endsWith", "isEmpty", "toUpperCase", "toLowerCase", "trim"),
-                "builder", Set.of("append", "insert", "reverse", "toString", "length", "charAt", "setCharAt", "deleteCharAt", "setLength"),
-                "list", Set.of("add", "get", "set", "remove", "size", "isEmpty", "contains", "indexOf", "clear"),
-                "deque", Set.of("push", "pop", "peek", "offer", "poll", "add", "remove", "addFirst", "addLast", "offerFirst", "offerLast",
-                        "pollFirst", "pollLast", "peekFirst", "peekLast", "removeFirst", "removeLast", "size", "isEmpty", "empty", "clear"),
-                "map", Set.of("put", "get", "getOrDefault", "containsKey", "remove", "size", "isEmpty", "clear"),
-                "set", Set.of("add", "contains", "remove", "size", "isEmpty", "clear"),
-                "pq", Set.of("add", "offer", "poll", "peek", "remove", "size", "isEmpty", "clear"),
-                "java.lang.Math", Set.of("max", "min", "abs", "sqrt"),
-                "java.lang.Integer", Set.of("parseInt"),
-                "java.lang.Character", Set.of("isDigit", "isLetter", "isUpperCase", "isLowerCase", "toUpperCase", "toLowerCase"));
+        private static final Map<String, Set<String>> FAMILY_METHODS = Map.ofEntries(
+                Map.entry("string", Set.of("length", "charAt", "substring", "indexOf", "lastIndexOf", "equals", "compareTo", "contains",
+                        "startsWith", "endsWith", "isEmpty", "toUpperCase", "toLowerCase", "trim")),
+                Map.entry("builder", Set.of("append", "insert", "reverse", "toString", "length", "charAt", "setCharAt", "deleteCharAt", "setLength")),
+                Map.entry("list", Set.of("add", "get", "set", "remove", "size", "isEmpty", "contains", "indexOf", "clear")),
+                Map.entry("deque", Set.of("push", "pop", "peek", "offer", "poll", "add", "remove", "addFirst", "addLast", "offerFirst", "offerLast",
+                        "pollFirst", "pollLast", "peekFirst", "peekLast", "removeFirst", "removeLast", "size", "isEmpty", "empty", "clear")),
+                Map.entry("map", Set.of("put", "get", "getOrDefault", "containsKey", "remove", "size", "isEmpty", "clear")),
+                Map.entry("set", Set.of("add", "contains", "remove", "size", "isEmpty", "clear")),
+                Map.entry("pq", Set.of("add", "offer", "poll", "peek", "remove", "size", "isEmpty", "clear")),
+                Map.entry("scanner", Set.of("nextInt", "nextLong", "nextDouble", "nextBoolean", "next", "nextLine", "hasNext", "hasNextInt",
+                        "hasNextLine", "close")),
+                Map.entry("java.lang.Math", Set.of("max", "min", "abs", "sqrt")),
+                Map.entry("java.lang.Integer", Set.of("parseInt")),
+                Map.entry("java.lang.Character", Set.of("isDigit", "isLetter", "isUpperCase", "isLowerCase", "toUpperCase", "toLowerCase")));
 
         /** The library call a method invocation denotes, or null when it is not covered. */
         private ExecutableElement library(MethodInvocationTree call) {
@@ -886,7 +896,8 @@ final class Analyzer {
                 String receiver = javaType(select.getExpression());
                 String raw = erasure(receiver);
                 if (!raw.equals("java.lang.String") && !libraryType(receiver)) return null;
-                String family = raw.equals("java.lang.String") ? "string" : raw.equals(BUILDER) ? "builder" : LISTS.contains(raw) ? "list"
+                String family = raw.equals("java.lang.String") ? "string" : raw.equals(BUILDER) ? "builder" : raw.equals(SCANNER) ? "scanner"
+                        : LISTS.contains(raw) ? "list"
                         : DEQUES.contains(raw) ? "deque" : MAPS.contains(raw) ? "map" : SETS.contains(raw) ? "set" : "pq";
                 names = new HashSet<>(FAMILY_METHODS.get(family));
                 if (raw.equals("java.util.LinkedList")) names.addAll(FAMILY_METHODS.get("deque"));
@@ -934,7 +945,7 @@ final class Analyzer {
 
         private static final Set<String> CONSTRUCTIBLE = Set.of("java.util.ArrayList", "java.util.LinkedList", "java.util.ArrayDeque",
                 "java.util.Stack", "java.util.HashMap", "java.util.TreeMap", "java.util.LinkedHashMap", "java.util.HashSet",
-                "java.util.TreeSet", "java.util.LinkedHashSet", "java.util.PriorityQueue", BUILDER);
+                "java.util.TreeSet", "java.util.LinkedHashSet", "java.util.PriorityQueue", BUILDER, SCANNER);
 
         /** {@code new ArrayList<>()} and friends: an ALLOCATE step after the library constructor runs (Part 8f). */
         private boolean libraryNew(NewClassTree n) {
@@ -942,6 +953,17 @@ final class Analyzer {
             if (!CONSTRUCTIBLE.contains(raw) || !libraryType(type) || n.getClassBody() != null
                     || !(element(n) instanceof ExecutableElement constructor)) return false;
             List<String> params = constructor.getParameters().stream().map(p -> types.erasure(p.asType()).toString()).toList();
+            if (raw.equals(SCANNER)) { // Part 8g: only new Scanner(System.in)
+                if (!params.equals(List.of("java.io.InputStream")) || !(strip(n.getArguments().get(0)) instanceof MemberSelectTree in)
+                        || !in.getIdentifier().contentEquals("in") || !(element(in) instanceof VariableElement v)
+                        || !(v.getEnclosingElement() instanceof TypeElement system) || !system.getQualifiedName().contentEquals("java.lang.System")) return false;
+                plan.add(new Item(Expect.NEW, null, 0, "java/util/Scanner"));
+                plan.add(new Item(Expect.GETSTATIC, null, 0, "in"));
+                Site site = site(Kind.ALLOCATE, n);
+                site.javaType = type;
+                plan.add(new Item(Expect.LIBNEW, site, 0, "java/util/Scanner#<init>(Ljava/io/InputStream;)V"));
+                return true;
+            }
             if (!params.isEmpty() && !params.equals(List.of("int")) && !(raw.equals(BUILDER) && params.equals(List.of("java.lang.String")))) return false;
             plan.add(new Item(Expect.NEW, null, 0, Instrumenter.internal(raw)));
             for (ExpressionTree a : n.getArguments()) value(a, params.get(0));

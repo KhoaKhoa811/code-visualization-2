@@ -41,6 +41,7 @@ final class TraceBuilder {
             case COMPILATION_TIMEOUT -> new Execution("limited", "Compilation exceeded 10000 ms", "COMPILATION_TIMEOUT", "compile");
             case OUTPUT_LIMIT -> new Execution("limited", "Program output exceeded 1048576 bytes", "OUTPUT_LIMIT", outputPhase);
             case CANCELLED -> new Execution("cancelled", "Run cancelled by user", "RUN_CANCELLED", "execution");
+            case INPUT_DISCONNECTED -> new Execution("cancelled", "Input controller disconnected", "INPUT_DISCONNECTED", "execution");
         };
     }
 
@@ -101,8 +102,11 @@ final class TraceBuilder {
         frameId = frame.id(); scopes = frame.scopes(); liveBindings = frame.bindings(); conditionValues = frame.conditions();
     }
 
-    private TraceBuilder(Analysis analysis, String runId) {
-        this.analysis = analysis; this.runId = runId;
+    private final byte[] input; // Part 8g: bytes delivered to standard input, replayed by a Scanner mirror
+    private boolean scannerCreated;
+
+    private TraceBuilder(Analysis analysis, String runId, byte[] input) {
+        this.analysis = analysis; this.runId = runId; this.input = input.clone();
         for (Site s : analysis.sites().values()) if (s.kind == Plan.Kind.CLASS) classes.put(s.javaType, s);
     }
 
@@ -133,8 +137,8 @@ final class TraceBuilder {
     }
 
     /** Traced run: rebuild trace-v1 from raw records. */
-    static String traced(Analysis analysis, String runId, List<String> raw, Tracer.Outcome outcome) {
-        return new TraceBuilder(analysis, runId).build(raw, outcome);
+    static String traced(Analysis analysis, String runId, List<String> raw, Tracer.Outcome outcome, byte[] input) {
+        return new TraceBuilder(analysis, runId, input).build(raw, outcome);
     }
 
     private String build(List<String> raw, Tracer.Outcome outcome) {
@@ -972,6 +976,15 @@ final class TraceBuilder {
     /** Builds (or rebuilds) a mirror from recorded contents. Registered first: elements may refer back. */
     private void buildMirror(String id, String className, List<String> body) throws Inconsistent {
         Object mirror;
+        if (className.equals("java.util.Scanner")) { // Part 8g: replays reads over the delivered input
+            if (scannerCreated || !body.equals(List.of("0"))) throw new Inconsistent("a second Scanner");
+            scannerCreated = true;
+            mirror = new java.util.Scanner(new java.io.ByteArrayInputStream(input), java.nio.charset.StandardCharsets.UTF_8);
+            mirrors.put(id, mirror);
+            mirrorIds.put(mirror, id);
+            knownObjects.add(id);
+            return;
+        }
         try { mirror = Library.create(className); } catch (ReflectiveOperationException | RuntimeException e) { throw new Inconsistent("library class " + className); }
         Object old = mirrors.put(id, mirror);
         if (old != null) mirrorIds.remove(old);
@@ -1058,6 +1071,7 @@ final class TraceBuilder {
     private Map<String, Object> libraryValue(String id) throws Inconsistent {
         Object mirror = mirrors.get(id);
         String className = mirror.getClass().getName();
+        if (mirror instanceof java.util.Scanner) return ordered("objectId", id, "kind", "input", "className", className);
         if (mirror instanceof StringBuilder sb) {
             List<Integer> units = new ArrayList<>();
             for (int i = 0; i < sb.length(); i++) units.add((int) sb.charAt(i));
@@ -1231,7 +1245,7 @@ final class TraceBuilder {
             diagnosticJson.add(map);
         }
         return Json.write(ordered(
-                "schemaVersion", "1.5.0",
+                "schemaVersion", "1.6.0",
                 "runId", runId,
                 "source", ordered("file", Analyzer.FILE, "text", source, "sha256", sha256(source)),
                 "execution", ordered("status", executionStatus, "reason", executionReason),
