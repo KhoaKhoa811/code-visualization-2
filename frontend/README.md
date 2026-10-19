@@ -20,6 +20,7 @@ from algorithm or example recognition ([coverage roadmap](../specs/coverage-road
 | 8c | Trace 1.3.0: `SWITCH` steps, arrays of every type, arrays of arrays drawn as rows with shared rows marked, element paths such as `grid[1]`; grid-and-switch example ([statements and arrays](../specs/statements.md)) | 13 reducer tests, 5 browser tests |
 | 8d | Call stack (innermost first, running frame marked), call and return descriptions; recursion example ([methods](../specs/methods.md)) | 15 reducer tests, 6 browser tests |
 | 8e | Trace 1.4.0: Objects panel (boxes, reference arrows, cycles), field steps, field paths such as `head.next`; linked list and tree example ([objects](../specs/objects.md)) | 17 reducer tests, 7 browser tests |
+| 8f | Trace 1.5.0: Collections panel (list, stack, deque, set, priority queue in poll order, map, StringBuilder), library calls as steps, one-step concatenation; strings and collections example ([library](../specs/library.md)) | 19 reducer tests, 8 browser tests |
 
 ## Stack and pins
 

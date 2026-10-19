@@ -70,4 +70,23 @@ statement are recorded with their contents.
 
 ## Results
 
-Pending.
+Tracer host tests: 67 passed on 2026-10-19, including 4 new 8f cases:
+
+- concatenation (one step per flattened concatenation, `s += x` included),
+  `String` methods, pure statics and boxing;
+- `StringBuilder` and every collection family, with each result verified by
+  replay;
+- nested collections, lists of user objects, and a list created by uncaptured
+  code captured on first use;
+- failures inside library calls, and collections changed by uncaptured
+  statements re-read.
+
+Older tests that used `Math.max`, `Math.abs`, concatenation or `String.valueOf` as
+uncaptured examples now use still-uncovered calls (`Integer.max`, `StrictMath.abs`,
+`Integer.toBinaryString`, `Integer.toString`). The tests found one gap: a receiver first
+seen when its call was recorded had already changed. Receivers are now recorded
+before the call.
+
+Root reactor `clean verify` with live Docker: 152 Java tests (tracer 67, backend
+86). Contract: 60 tests. Frontend: 19 reducer tests, build, and 8 Playwright tests
+against the real backend and Docker.

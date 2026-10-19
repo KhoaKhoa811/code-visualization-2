@@ -72,6 +72,9 @@ the uninstrumented original.
 - Since 8e ([objects](../../specs/objects.md)) plain classes of the file are traced: objects, fields,
   constructors and instance methods, objects from uncaptured code (cycles included), a 1,024-identity
   limit (trace 1.4.0). **63 tests, 0 failures** on 2026-10-19.
+- Since 8f ([library](../../specs/library.md)) string concatenation, String/StringBuilder methods, lists,
+  deques, stacks, queues, maps, sets and priority queues are recorded calls replayed on trusted mirrors
+  (trace 1.5.0). **67 tests, 0 failures** on 2026-10-19.
 - Scope entry/exit is derived from recorded operations and static block structure
   (see the spec); blocks with no recorded operation leave no trace.
 - On the host, a builder-side trace limit marks the run `limited` even though the
