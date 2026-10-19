@@ -124,3 +124,15 @@ uncaptured code shares the recorder's JVM.
 All primitive locals, declarations without initializer, bitwise and shift
 operators, casts, long/float/double comparisons, compound assignment and the
 conditional operator are traced; see [primitive-types.md](primitive-types.md).
+
+## Statements and arrays (Part 8c)
+
+`do`, labeled statements and jumps, `switch` statements and top-level switch
+expressions on int-like selectors (one `SWITCH` step per selection), enhanced
+`for` over arrays (javac's hidden copy, length and index are matched but not
+shown), and arrays of every primitive type, `String` and arrays of those are
+traced; see [statements.md](statements.md). Recorder helpers perform each array
+allocation, load and store exactly once per element type; reference loads are
+followed by a `checkcast` to the static element type. An uncaptured for-each
+loop is found through javac's range-table entry, which javac places at the
+iterated expression.

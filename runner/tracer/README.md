@@ -61,6 +61,11 @@ the uninstrumented original.
   shift operators, compound assignment, ++/-- on all numeric locals and int[] elements,
   the conditional operator and declarations without initializer are traced.
   **46 tests, 0 failures** on 2026-10-18.
+- Since 8c ([statements and arrays](../../specs/statements.md)) `do`, labeled jumps,
+  switch statements and top-level switch expressions on int-like selectors,
+  for-each over arrays, and arrays of every primitive type, String and arrays of
+  those are traced (trace 1.3.0). Every test also checks a plan round trip and
+  that references resolve. **55 tests, 0 failures** on 2026-10-19.
 - Scope entry/exit is derived from recorded operations and static block structure
   (see the spec); blocks with no recorded operation leave no trace.
 - On the host, a builder-side trace limit marks the run `limited` even though the

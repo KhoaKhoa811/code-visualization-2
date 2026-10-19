@@ -86,6 +86,33 @@ recorded first, so every reference resolves to an earlier capture.
 - Initializers: the allocation, then per element its value and its `Xastore`;
   the ALLOCATE record is written after the last store.
 
-## Results
+## Known limits
 
-Pending.
+- When a covered array access throws `NullPointerException`, the JVM's helpful
+  message describes the recorder helper's parameter, not the user's expression.
+  Stack traces of exceptions thrown inside recorder helpers also include a
+  `codeviz.rt.Recorder` frame. Both already applied to `int[]` since Part 7b.
+  Visualization is unaffected, but the stderr text differs from the original.
+
+## Results (2026-10-19)
+
+- Tracer host tests: 55 passed. They include 9 new 8c cases:
+  - loops, labels and for-each;
+  - switch statements and expressions;
+  - every element type;
+  - nested arrays with shared rows;
+  - rows and strings revealed by uncaptured statements;
+  - uncovered switch and for-each forms;
+  - jumps and uncaptured statements inside switches;
+  - array failures;
+  - a declaration without initializer before a switch.
+- Every traced program matched the original's stdout, exit status and first
+  stderr line. Every trace passed the shared checker, a plan round trip, and a
+  check that every reference resolves to an earlier capture.
+- The browser check found one mapping gap: a declaration without initializer that
+  is followed by a switch. Waiting declarations now attach to the first recorded
+  site after their own plan position.
+- Root reactor `clean verify` with live Docker: 141 Java tests (tracer 55,
+  backend 86).
+- Contract: 56 tests. Frontend: 13 reducer tests, build, and 5 Playwright tests
+  against the real backend and Docker.

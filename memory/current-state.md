@@ -1,6 +1,6 @@
 # Current state
 
-Last updated: 2026-10-18 (Asia/Saigon). Short summary only; keep it under about
+Last updated: 2026-10-19 (Asia/Saigon). Short summary only; keep it under about
 120 lines. For the active task, [handoff.md](handoff.md) is authoritative.
 History: [archive/](archive/README.md).
 
@@ -25,10 +25,11 @@ first frontend slice exist; there is no live input yet.
 | 7a | Trace-engine spike: ASM bytecode tracer, 20 tests, report and ADR 0004 ([report](../runner/tracer-spike/SPIKE_REPORT.md)) | Merged (PR #83) |
 | 7b | Host trace-v1 producer for the first increment in main ([guide](../runner/tracer/README.md)); 27 tests | Merged (PR #84) |
 | 7c | Tracer inside the container lifecycle ([guide](../backend/TRACED_RUNS.md)); root reactor verify 98 tests with live Docker | Merged (PR #85) |
-| 7d | Minimal run API: submit, poll, cancel, recover, output through one `RunSupervisor` ([guide](../backend/RUN_API.md)); 118 tests with live Docker | Done, pushed, awaiting review |
-| 7e | Coverage roadmap ([roadmap](../specs/coverage-roadmap.md)); frontend slice: Monaco, run flow, playback reducer, variable/array views ([guide](../frontend/README.md)); 7 unit + 2 browser tests with live Docker | Done, pushed, awaiting review |
-| 8a | Graceful partial coverage: unsupported statements run uncaptured, trace contract 1.1.0 ([spec](../specs/partial-coverage.md)); 126 Java tests with live Docker, 3 browser tests | Done, pushed, awaiting review |
-| 8b | All primitive types, casts, bitwise/shift operators, compound assignment, conditional operator, uninitialized declarations; trace contract 1.2.0 ([spec](../specs/primitive-types.md)); 132 Java tests with live Docker, 4 browser tests | Done, pushed, awaiting review |
+| 7d | Minimal run API: submit, poll, cancel, recover, output through one `RunSupervisor` ([guide](../backend/RUN_API.md)); 118 tests with live Docker | Merged (PR #86) |
+| 7e | Coverage roadmap ([roadmap](../specs/coverage-roadmap.md)); frontend slice: Monaco, run flow, playback reducer, variable/array views ([guide](../frontend/README.md)); 7 unit + 2 browser tests with live Docker | Merged (PR #87) |
+| 8a | Graceful partial coverage: unsupported statements run uncaptured, trace contract 1.1.0 ([spec](../specs/partial-coverage.md)); 126 Java tests with live Docker, 3 browser tests | Merged (PR #88) |
+| 8b | All primitive types, casts, bitwise/shift operators, compound assignment, conditional operator, uninitialized declarations; trace contract 1.2.0 ([spec](../specs/primitive-types.md)); 132 Java tests with live Docker, 4 browser tests | Merged (PR #89) |
+| 8c | do/while, labeled jumps, switch statements and expressions, for-each over arrays, arrays of every type and arrays of arrays; trace contract 1.3.0 ([spec](../specs/statements.md)); 141 Java tests with live Docker, 5 browser tests | Done, pushed, awaiting review |
 
 ## Verified environment
 
