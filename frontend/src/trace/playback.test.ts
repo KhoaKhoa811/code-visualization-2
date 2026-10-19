@@ -288,3 +288,40 @@ test('objects from uncaptured code, cycles included, are captured within one ste
   const bump = Array.from({ length: p.steps }, (_, k) => p.at(k + 1)).find(v => v.event?.kind === 'UNCAPTURED' && v.event.data.objects.length > 0)!;
   assert.match(describeStep(bump.event!, bump.state), /changed/);
 });
+
+test('library calls replace collection contents and read as calls (8f)', () => {
+  const p = new Playback(fixture('library'));
+  const views = Array.from({ length: p.steps }, (_, k) => p.at(k + 1));
+  const calls = views.filter(v => v.event?.kind === 'LIBRARY').map(v => describeStep(v.event!, v.state));
+  assert.ok(calls.includes('xs.add(5) → true'), calls.join('\n'));
+  assert.ok(calls.includes('stack.pop() → 2'), calls.join('\n'));
+  assert.ok(calls.includes('sb.toString() → "xZ3ba"'), calls.join('\n'));
+  const pop = views.find(v => v.event?.kind === 'LIBRARY' && describeStep(v.event, v.state) === 'stack.pop() → 2')!;
+  const stackId = pop.focus.objectId!;
+  const before = p.at(pop.cursor - 1).state.objects.get(stackId);
+  const after = pop.state.objects.get(stackId);
+  assert.ok(before?.kind === 'collection' && after?.kind === 'collection');
+  assert.deepEqual(before.elements.map(v => formatValue(v)), ['2', '1']);
+  assert.deepEqual(after.elements.map(v => formatValue(v)), ['1']); // backward restores the popped element
+  const end = p.at(p.steps).beforeEnd!;
+  const pq = [...end.objects.values()].find(o => o.kind === 'collection' && o.className === 'java.util.PriorityQueue');
+  assert.ok(pq?.kind === 'collection');
+  assert.deepEqual(pq.elements.map(v => formatValue(v)), ['3', '5']); // poll order, never the heap layout
+  const counts = [...end.objects.values()].find(o => o.kind === 'map');
+  assert.ok(counts?.kind === 'map');
+  assert.deepEqual(counts.entries.map(e => `${formatValue(e.key, end.objects)}=${formatValue(e.value)}`), ['"a"=2', '"b"=1', '"c"=1']);
+});
+
+test('concatenation is one step and uncaptured changes to collections are re-read (8f)', () => {
+  const s = new Playback(fixture('strings'));
+  const first = Array.from({ length: s.steps }, (_, k) => s.at(k + 1)).find(v => v.event?.kind === 'EXPRESSION' && v.event.data.operands.length > 2)!;
+  assert.equal(describeStep(first.event!, first.state), `"Hi " + "Ada" + ", " + 36 + '!' = "Hi Ada, 36!"`);
+  assert.equal(formatValue(first.event!.kind === 'EXPRESSION' ? first.event.data.result : { kind: 'null' }, first.state.objects), '"Hi Ada, 36!"');
+  const r = new Playback(fixture('library-region'));
+  const regions = Array.from({ length: r.steps }, (_, k) => r.at(k + 1)).filter(v => v.event?.kind === 'UNCAPTURED');
+  assert.equal(regions.length, 2);
+  const list = [...regions[1].state.objects.values()].find(o => o.kind === 'collection');
+  assert.ok(list?.kind === 'collection');
+  assert.deepEqual(list.elements.map(v => formatValue(v)), ['1', '2', '3']);
+  assert.match(describeStep(regions[1].event!, regions[1].state), /xs changed/);
+});

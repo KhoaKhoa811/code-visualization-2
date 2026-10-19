@@ -122,3 +122,15 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 .field.unknown .field-value { color: var(--muted); font-style: italic; }
 .field-name { color: var(--muted); }
 .ref-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); align-self: center; }
+
+/* Part 8f: library collections. */
+.library { margin-bottom: 12px; border-radius: 6px; }
+.library.changed .cells, .library.changed .stack-cells, .library.changed .map-table { outline: 2px solid var(--write); outline-offset: 2px; }
+.library.read .cells, .library.read .stack-cells, .library.read .map-table { outline: 2px solid var(--read); outline-offset: 2px; }
+.stack-cells { display: inline-flex; flex-direction: column; gap: 4px; }
+.cell.top { border-color: var(--accent); }
+.set-cells .cell { border-radius: 14px; }
+.map-table { border-collapse: collapse; font-family: Consolas, monospace; }
+.map-table td { padding: 2px 8px; border-bottom: 1px solid var(--border); }
+.map-key { color: var(--accent); }
+.map-table .unknown { color: var(--muted); font-style: italic; }

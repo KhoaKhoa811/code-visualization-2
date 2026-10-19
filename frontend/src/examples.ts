@@ -31,6 +31,40 @@ export const EXAMPLES: Record<string, string> = {
     }
 }
 `,
+  'Strings and collections': `import java.util.*;
+
+public class Main {
+    public static void main(String[] args) {
+        String text = "the cat and the hat";
+        Map<String, Integer> counts = new TreeMap<>();
+        StringBuilder word = new StringBuilder();
+        for (int i = 0; i <= text.length(); i++) {
+            if (i == text.length() || text.charAt(i) == ' ') {
+                String w = word.toString();
+                counts.put(w, counts.getOrDefault(w, 0) + 1);
+                word.setLength(0);
+            } else {
+                word.append(text.charAt(i));
+            }
+        }
+        Deque<Integer> stack = new ArrayDeque<>();
+        stack.push(1);
+        stack.push(2);
+        stack.push(3);
+        int top = stack.pop();
+        Queue<String> queue = new LinkedList<>();
+        queue.offer("first");
+        queue.offer("second");
+        String front = queue.poll();
+        PriorityQueue<Integer> pq = new PriorityQueue<>();
+        pq.add(5);
+        pq.add(1);
+        pq.add(3);
+        System.out.println("the appears " + counts.get("the") + " times");
+        System.out.println(top + " " + front + " " + pq.peek());
+    }
+}
+`,
   'Linked list and tree': `public class Main {
     static class Node {
         int value;
