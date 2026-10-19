@@ -51,7 +51,7 @@ all compositions preserve semantics.
 | Local bindings | Explicitly typed declarations, optional initializer, assignment, final locals, nested block lifetimes | var and additional declaration forms require verified type-resolution contexts |
 | Integer expressions | Unary +/-, binary +, -, *, /, %, comparisons; parentheses | Implemented in Part 8b: bitwise, shifts, casts, mixed numeric promotion, conditional operator |
 | Boolean expressions | !, &&, \|\|, ==, !=; supported comparisons as operands | Eager Boolean operators and conditional expressions need separate coverage |
-| References | Assignment, null, == and != for covered references | Custom objects/fields, casts and richer reference contexts follow object capture |
+| References | Assignment, null, == and != for covered references | Implemented in Part 8e: objects of traced classes (no inheritance), fields, constructors, instance methods, object graphs with cycles ([objects](objects.md)); inheritance, interfaces and library objects remain |
 | Updates | Prefix/postfix ++/-- on int locals, including nested covered expressions | Implemented in Part 8b: ++/-- on all numeric locals and int[] elements; compound assignment decomposed into read, operation and write steps |
 | Control flow | Blocks, if/else, while, basic for, unlabeled break/continue, return from main | Implemented in Part 8c: do/while, enhanced for over arrays, switch statements and switch expressions on int-like selectors, labeled statements and jumps; switch on String or enums and enhanced for over collections remain uncaptured |
 | Output | Actual System.out/System.err print/println calls with covered scalar/String arguments | Exact overload inventory and console transport contract before implementation |

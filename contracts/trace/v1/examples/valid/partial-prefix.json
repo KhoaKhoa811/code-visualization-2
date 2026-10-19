@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "1.3.0",
+  "schemaVersion": "1.4.0",
   "runId": "example-partial",
   "source": {
     "file": "Main.java",

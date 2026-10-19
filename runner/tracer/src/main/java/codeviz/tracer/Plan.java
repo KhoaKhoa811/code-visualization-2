@@ -13,11 +13,11 @@ final class Plan {
 
     /** Relevant bytecode instruction families, in javac code-layout order. */
     enum Expect { STORE, IINC, ALOAD, ASTORE, ARRAYLENGTH, NEWARRAY, NEWARRAY_LITERAL, LITERAL_STORE, ARITH, NEG, CONVERT, CMP, JUMP,
-        CALL, RETURN,
+        CALL, RETURN, NEW, SUPER, CTOR, FIELD_GET, FIELD_PUT,
         SWITCH, GETSTATIC, INVOKE, REGION }
 
     enum Kind { DECLARE, ASSIGN, UPDATE, ALLOCATE, ARRAY_READ, ARRAY_LENGTH, ARRAY_WRITE, ARITHMETIC, CAST, LEAF, SWITCH, REGION,
-        METHOD, PARAM, CALL, RETURN }
+        METHOD, PARAM, CALL, RETURN, CLASS, FIELD, FIELD_READ, FIELD_WRITE }
 
     /** One instrumented operation site. Fields not relevant to a kind stay null. */
     static final class Site {
@@ -53,6 +53,12 @@ final class Plan {
         List<Site> params = List.of();
         Site callee, returnSite;
         boolean implicit;
+        // Part 8e. METHOD: owner (declaring class javaType), instance (params[0] is this), constructor.
+        // CLASS: javaType, fields (FIELD sites in declaration order). FIELD/FIELD_READ/FIELD_WRITE: name is
+        // the field, javaType its type, owner the declaring class.
+        String owner;
+        boolean instance, constructor;
+        List<Site> fields = List.of();
 
         Site(int id, Kind kind, int start, int end, List<String> scopes) {
             this.id = id; this.kind = kind; this.start = start; this.end = end;

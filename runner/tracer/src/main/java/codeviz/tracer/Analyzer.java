@@ -127,6 +127,10 @@ final class Analyzer {
         private List<Item> plan = new ArrayList<>();
         private final Map<Element, Site> helpers = new HashMap<>(); // traced static methods of Main -> METHOD site
         private Site currentMethod; // null while planning main
+        // Part 8e: traced classes (javaType -> CLASS site, null while being decided), their trees, field sites.
+        private final Map<String, Site> classes = new LinkedHashMap<>();
+        private final Map<String, ClassTree> classTrees = new HashMap<>();
+        private final Map<Element, Site> fieldSites = new HashMap<>();
         final Map<Integer, Site> sites = new LinkedHashMap<>();
         private final Deque<String> scopes = new ArrayDeque<>();
         private final Map<Element, Site> declarations = new HashMap<>();
@@ -190,54 +194,126 @@ final class Analyzer {
         void unit() {
             integrity();
             if (unit.getPackageName() != null) unsupported(unit.getPackageName(), "package declarations");
-            boolean sawMainClass = false;
+            ClassTree mainClass = null;
             for (Tree type : unit.getTypeDecls()) {
-                // Other types, helper methods and fields run untraced (Part 8a); calls to them
-                // from main become uncaptured statements.
-                if (!(type instanceof ClassTree c) || !c.getSimpleName().contentEquals("Main")) continue;
-                sawMainClass = true;
-                if (c.getKind() != Tree.Kind.CLASS || c.getExtendsClause() != null
-                        || !c.getImplementsClause().isEmpty() || !c.getTypeParameters().isEmpty()) {
-                    unsupported(type, "a Main that is not a plain class");
-                    continue;
-                }
-                MethodTree main = null;
-                for (Tree member : c.getMembers()) if (main == null && member instanceof MethodTree m && isMain(m)) main = m;
-                if (main == null) { unsupported(c, "a class without public static void main(String[])"); continue; }
-                // Part 8d: traced helpers are known before any body is planned (calls may come first).
-                List<MethodTree> traced = new ArrayList<>();
-                for (Tree member : c.getMembers()) {
-                    if (member instanceof MethodTree m && m != main && helper(m)) traced.add(m);
-                }
-                method(main, null);
-                for (MethodTree m : traced) method(m, helpers.get(element(m)));
+                if (type instanceof ClassTree c && c.getSimpleName().contentEquals("Main")) mainClass = c;
             }
-            if (!sawMainClass) unsupported(unit, "a program without class Main");
+            if (mainClass == null) { unsupported(unit, "a program without class Main"); return; }
+            if (mainClass.getKind() != Tree.Kind.CLASS || mainClass.getExtendsClause() != null
+                    || !mainClass.getImplementsClause().isEmpty() || !mainClass.getTypeParameters().isEmpty()) {
+                unsupported(mainClass, "a Main that is not a plain class");
+                return;
+            }
+            MethodTree main = null;
+            for (Tree member : mainClass.getMembers()) if (main == null && member instanceof MethodTree m && isMain(m)) main = m;
+            if (main == null) { unsupported(mainClass, "a class without public static void main(String[])"); return; }
+            // Part 8e: traced classes first (their names are traced types), then every traced method
+            // (calls may come before declarations), then the bodies. Everything else runs untraced.
+            List<ClassTree> traced = tracedClasses(mainClass);
+            List<MethodTree> methods = new ArrayList<>();
+            for (Tree member : mainClass.getMembers()) {
+                if (member instanceof MethodTree m && m != main && helper(m, mainClass, false)) methods.add(m);
+            }
+            for (ClassTree c : traced) {
+                for (Tree member : c.getMembers()) if (member instanceof MethodTree m && helper(m, c, true)) methods.add(m);
+            }
+            method(main, null);
+            for (MethodTree m : methods) method(m, helpers.get(element(m)));
         }
 
         /**
-         * A traced helper (Part 8d): a static, non-generic, fixed-arity method of Main with traced
-         * parameter and result types. Records its METHOD and PARAM sites; others run untraced.
+         * Traced classes (Part 8e): plain top-level classes and static member classes of Main without
+         * supertypes, subclasses or type parameters, whose instance fields all have traced types.
          */
-        private boolean helper(MethodTree m) {
+        private List<ClassTree> tracedClasses(ClassTree mainClass) {
+            List<ClassTree> candidates = new ArrayList<>();
+            for (Tree type : unit.getTypeDecls()) if (type instanceof ClassTree c && c != mainClass) candidates.add(c);
+            for (Tree member : mainClass.getMembers()) {
+                if (member instanceof ClassTree c && c.getModifiers().getFlags().contains(Modifier.STATIC)) candidates.add(c);
+            }
+            Set<Element> extended = new HashSet<>();
+            new TreeScanner<Void, Void>() {
+                @Override public Void visitClass(ClassTree c, Void p) {
+                    if (c.getExtendsClause() != null) extended.add(element(c.getExtendsClause()));
+                    return super.visitClass(c, p);
+                }
+            }.scan(unit, null);
+            candidates.removeIf(c -> c.getKind() != Tree.Kind.CLASS || c.getExtendsClause() != null || !c.getImplementsClause().isEmpty()
+                    || !c.getTypeParameters().isEmpty() || c.getModifiers().getFlags().contains(Modifier.ABSTRACT)
+                    || extended.contains(element(c)));
+            for (ClassTree c : candidates) classes.put(javaType(c), null); // names first: fields may refer to each other
+            boolean changed = true;
+            while (changed) { // a class with a field of an untraced type is untraced, which may untrace others
+                changed = false;
+                for (Iterator<ClassTree> it = candidates.iterator(); it.hasNext(); ) {
+                    ClassTree c = it.next();
+                    boolean ok = true;
+                    for (Tree member : c.getMembers()) {
+                        if (member instanceof VariableTree v && !v.getModifiers().getFlags().contains(Modifier.STATIC) && !localType(javaType(v))) ok = false;
+                    }
+                    if (!ok) { classes.remove(javaType(c)); it.remove(); changed = true; }
+                }
+            }
+            for (ClassTree c : candidates) {
+                Site site = site(Kind.CLASS, c);
+                site.javaType = javaType(c);
+                List<Site> fields = new ArrayList<>();
+                for (Tree member : c.getMembers()) {
+                    if (!(member instanceof VariableTree v) || v.getModifiers().getFlags().contains(Modifier.STATIC)) continue;
+                    Site field = site(Kind.FIELD, v);
+                    field.name = v.getName().toString();
+                    field.javaType = javaType(v);
+                    field.owner = site.javaType;
+                    fieldSites.put(element(v), field);
+                    fields.add(field);
+                }
+                site.fields = List.copyOf(fields);
+                classes.put(site.javaType, site);
+                classTrees.put(site.javaType, c);
+            }
+            return candidates;
+        }
+
+        /**
+         * A traced method (Parts 8d, 8e): in Main a static method; in a traced class any non-generic,
+         * fixed-arity method or constructor. Parameter and result types must be traced. A constructor
+         * must not start with this(...), and its class must have only simple field initializers.
+         * Records its METHOD and PARAM sites (instance methods and constructors bind this first).
+         */
+        private boolean helper(MethodTree m, ClassTree owner, boolean tracedClass) {
             if (!(element(m) instanceof ExecutableElement e) || m.getBody() == null) return false;
             Set<Modifier> modifiers = e.getModifiers();
-            if (!modifiers.contains(Modifier.STATIC) || modifiers.contains(Modifier.NATIVE) || modifiers.contains(Modifier.ABSTRACT)
-                    || e.isVarArgs() || !e.getTypeParameters().isEmpty() || e.getSimpleName().contentEquals("<clinit>")) return false;
+            boolean constructor = e.getKind() == ElementKind.CONSTRUCTOR;
+            boolean instance = !modifiers.contains(Modifier.STATIC);
+            if (!tracedClass && instance || modifiers.contains(Modifier.NATIVE) || modifiers.contains(Modifier.ABSTRACT)
+                    || e.isVarArgs() || !e.getTypeParameters().isEmpty() || e.getKind() == ElementKind.STATIC_INIT) return false;
+            if (constructor && !simpleConstructor(m, owner)) return false;
             String result = e.getReturnType().toString();
             if (!result.equals("void") && !localType(result)) return false;
             for (VariableElement p : e.getParameters()) if (!localType(p.asType().toString())) return false;
-            String root = "b" + start(m.getBody());
+            String ownerType = javaType(owner);
+            int bodyStart = start(m.getBody());
+            String root = bodyStart >= 0 ? "b" + bodyStart : "c" + start(owner); // a default constructor has no body text
             scopes.push(root);
             Site site = site(Kind.METHOD, m);
             site.javaType = result;
             site.name = e.getSimpleName().toString();
-            site.methodId = "Main." + site.name + "(" + String.join(",", e.getParameters().stream().map(p -> p.asType().toString()).toList())
+            site.owner = ownerType;
+            site.instance = instance;
+            site.constructor = constructor;
+            site.methodId = ownerType + "." + site.name + "(" + String.join(",", e.getParameters().stream().map(p -> p.asType().toString()).toList())
                     + "):" + result;
             List<Site> params = new ArrayList<>();
+            if (instance) {
+                Site self = site(Kind.PARAM, m);
+                self.declarationId = ownerType + "." + site.name + ":this@" + start(m);
+                self.name = "this";
+                self.javaType = ownerType;
+                params.add(self);
+            }
             for (VariableTree p : m.getParameters()) {
                 Site param = site(Kind.PARAM, p);
-                param.declarationId = "Main." + site.name + ":" + p.getName() + "@" + start(p);
+                param.declarationId = ownerType + "." + site.name + ":" + p.getName() + "@" + start(p);
                 param.name = p.getName().toString();
                 param.javaType = javaType(p);
                 declarations.put(element(p), param);
@@ -249,15 +325,30 @@ final class Analyzer {
             return true;
         }
 
-        /** Plan key: method name plus JVM descriptor, as the instrumenter finds the method. */
-        private static String key(String name, List<String> parameters, String result) {
-            StringBuilder b = new StringBuilder(name).append('(');
-            for (String p : parameters) b.append(Instrumenter.descriptorOf(p));
-            return b.append(')').append(result.equals("void") ? "V" : Instrumenter.descriptorOf(result)).toString();
+        /** No this(...) call, no instance initializer blocks, and only constant, null or constant-array field initializers. */
+        private boolean simpleConstructor(MethodTree m, ClassTree owner) {
+            List<? extends StatementTree> body = m.getBody().getStatements();
+            if (!body.isEmpty() && body.get(0) instanceof ExpressionStatementTree s && s.getExpression() instanceof MethodInvocationTree call
+                    && call.getMethodSelect() instanceof IdentifierTree id && id.getName().contentEquals("this")) return false;
+            for (Tree member : owner.getMembers()) {
+                if (member instanceof BlockTree b && !b.isStatic()) return false;
+                if (!(member instanceof VariableTree v) || v.getModifiers().getFlags().contains(Modifier.STATIC) || v.getInitializer() == null) continue;
+                if (!simpleInitializer(v.getInitializer())) return false;
+            }
+            return true;
         }
 
+        private boolean simpleInitializer(ExpressionTree e) {
+            e = strip(e);
+            if (isConstant(e) || e.getKind() == Tree.Kind.NULL_LITERAL) return true;
+            if (!(e instanceof NewArrayTree n) || !array(javaType(n))) return false;
+            if (n.getInitializers() != null) return n.getInitializers().stream().allMatch(this::simpleInitializer);
+            return n.getDimensions().size() <= 3 && n.getDimensions().stream().allMatch(this::isConstant);
+        }
+
+        /** Plan key: declaring class (JVM internal name), method name and JVM descriptor (this excluded). */
         private static String key(Site method) {
-            return key(method.name, method.params.stream().map(p -> p.javaType).toList(), method.javaType);
+            return Instrumenter.key(method);
         }
 
         private boolean isMain(MethodTree m) {
@@ -271,21 +362,40 @@ final class Analyzer {
         private void method(MethodTree m, Site site) {
             currentMethod = site;
             plan = new ArrayList<>();
-            String root = "b" + start(m.getBody());
             if (site == null) {
-                rootScope = root;
-                plans.put("main([Ljava/lang/String;)V", plan);
+                rootScope = "b" + start(m.getBody());
+                plans.put(Instrumenter.MAIN, plan);
             } else {
                 plans.put(key(site), plan);
             }
+            String root = site == null ? rootScope : site.scopes.get(0);
             scopes.push(root);
             pending.push(new ArrayList<>());
-            for (StatementTree s : m.getBody().getStatements()) statement(s);
+            List<? extends StatementTree> body = m.getBody().getStatements();
+            if (site != null && site.constructor) {
+                // javac: aload_0; invokespecial Object.<init>; the field initializers; the rest of the body.
+                plan.add(new Item(Expect.SUPER, site, 0, "java/lang/Object.<init>()V"));
+                body = body.subList(1, body.size());
+                for (Tree member : classTrees.get(site.owner).getMembers()) {
+                    if (!(member instanceof VariableTree v) || v.getModifiers().getFlags().contains(Modifier.STATIC) || v.getInitializer() == null) continue;
+                    Site field = fieldSites.get(element(v));
+                    value(v.getInitializer(), field.javaType);
+                    plan.add(Item.of(Expect.FIELD_PUT, fieldSite(Kind.FIELD_WRITE, v, field)));
+                }
+            }
+            for (StatementTree s : body) statement(s);
             pending.pop();
             if (site != null && site.javaType.equals("void")) {
-                // javac's implicit return at the closing brace, when the end is reachable.
-                int end = end(m.getBody());
-                Site implicit = new Site(sites.size() + 1, Kind.RETURN, end - 1, end, reversedScopes());
+                // javac's implicit return at the closing brace (the class name for a default constructor).
+                int end = end(m.getBody()), start = end - 1;
+                if (end < 0) { // the class name
+                    ClassTree owner = classTrees.get(site.owner);
+                    String name = owner.getSimpleName().toString();
+                    start = start(owner);
+                    while (!sourceAt(start, name) && start < end(owner)) start++;
+                    end = start + name.length();
+                }
+                Site implicit = new Site(sites.size() + 1, Kind.RETURN, start, end, reversedScopes());
                 sites.put(implicit.id, implicit);
                 implicit.javaType = "void";
                 implicit.implicit = true;
@@ -293,6 +403,14 @@ final class Analyzer {
             }
             scopes.pop();
             currentMethod = null;
+        }
+
+        private Site fieldSite(Kind kind, Tree tree, Site field) {
+            Site site = site(kind, tree);
+            site.name = field.name;
+            site.javaType = field.javaType;
+            site.owner = field.owner;
+            return site;
         }
 
         // ---- statements --------------------------------------------------------
@@ -384,7 +502,9 @@ final class Analyzer {
 
             private void target(ExpressionTree t) {
                 t = strip(t);
-                if (t instanceof IdentifierTree) {
+                if (fieldSites.containsKey(element(t)) || t instanceof MemberSelectTree) {
+                    writes = true; // a field of a traced object (Part 8e), or another class's field
+                } else if (t instanceof IdentifierTree) {
                     Site d = declarations.get(element(t));
                     if (d != null) assigned.add(d.declarationId);
                 } else if (t instanceof ArrayAccessTree) {
@@ -673,12 +793,12 @@ final class Analyzer {
         private static final Set<String> SCALARS = Set.of("byte", "short", "char", "int", "long", "float", "double", "boolean");
 
         /** Traced local types: primitives, String, and arrays of those at any depth (Part 8c). */
-        private static boolean localType(String t) { return SCALARS.contains(t) || t.equals("java.lang.String") || array(t); }
+        private boolean localType(String t) { return SCALARS.contains(t) || t.equals("java.lang.String") || classes.containsKey(t) || array(t); }
 
-        private static boolean array(String t) {
+        private boolean array(String t) {
             if (!t.endsWith("[]")) return false;
             String base = t.substring(0, t.indexOf('['));
-            return SCALARS.contains(base) || base.equals("java.lang.String");
+            return SCALARS.contains(base) || base.equals("java.lang.String") || classes.containsKey(base);
         }
 
         private static boolean numeric(String t) { return SCALARS.contains(t) && !t.equals("boolean"); }
@@ -754,7 +874,12 @@ final class Analyzer {
                 case ASSIGNMENT -> {
                     AssignmentTree a = (AssignmentTree) e;
                     ExpressionTree target = strip(a.getVariable());
-                    if (target instanceof IdentifierTree id) {
+                    Site field = field(target);
+                    if (field != null) { // Part 8e: p.f = e, f = e, this.f = e
+                        receiver(target);
+                        value(a.getExpression(), field.javaType);
+                        plan.add(Item.of(Expect.FIELD_PUT, fieldSite(Kind.FIELD_WRITE, a, field)));
+                    } else if (target instanceof IdentifierTree id) {
                         Site declared = declarations.get(element(id));
                         if (declared == null) { unsupported(target, "assignment to this variable"); return; }
                         Site site = assignment(a, declared);
@@ -781,6 +906,7 @@ final class Analyzer {
                     if (helpers.containsKey(element(call))) call(call); // an ignored result is popped: no binding
                     else output(call);
                 }
+                case NEW_CLASS -> value(e, null); // an ignored new object is popped
                 default -> unsupported(e, "this expression statement (" + e.getKind() + ")");
             }
         }
@@ -807,7 +933,7 @@ final class Analyzer {
             ExpressionTree rhs = c.getExpression();
             String rhsType = javaType(rhs);
             String type, arrayType = null;
-            Site declared = null;
+            Site declared = null, fieldTarget = null;
             if (target instanceof IdentifierTree id && (declared = declarations.get(element(id))) != null && SCALARS.contains(declared.javaType)) {
                 type = declared.javaType;
                 Object constant = fold(rhs);
@@ -826,6 +952,11 @@ final class Analyzer {
                     plan.add(Item.of(Expect.STORE, assign));
                     return;
                 }
+            } else if (field(target) != null && SCALARS.contains(field(target).javaType)) { // Part 8e: dup, getfield
+                fieldTarget = field(target);
+                type = fieldTarget.javaType;
+                receiver(target);
+                plan.add(Item.of(Expect.FIELD_GET, fieldSite(Kind.FIELD_READ, target, fieldTarget)));
             } else if (target instanceof ArrayAccessTree access && array(javaType(access.getExpression()))
                     && SCALARS.contains(component(javaType(access.getExpression())))) {
                 arrayType = javaType(access.getExpression());
@@ -846,6 +977,7 @@ final class Analyzer {
             plan.add(Item.of(Expect.ARITH, arith));
             coerce(opType, type);
             if (declared != null) plan.add(Item.of(Expect.STORE, assignment(c, declared)));
+            else if (fieldTarget != null) plan.add(Item.of(Expect.FIELD_PUT, fieldSite(Kind.FIELD_WRITE, c, fieldTarget)));
             else plan.add(Item.of(Expect.ASTORE, arraySite(Kind.ARRAY_WRITE, c, arrayType)));
         }
 
@@ -858,13 +990,53 @@ final class Analyzer {
         /** A call to a traced helper: the arguments in order, then one invokestatic (Part 8d). */
         private void call(MethodInvocationTree call) {
             Site callee = helpers.get(element(call));
-            if (callee == null) { unsupported(call, "calls to this method (only static methods of Main with traced types are traced)"); return; }
+            if (callee == null) { unsupported(call, "calls to this method (only methods of Main and of traced classes with traced types are traced)"); return; }
+            // An instance call evaluates its receiver first (an implicit this is a plain aload_0).
+            if (callee.instance && call.getMethodSelect() instanceof MemberSelectTree select) value(select.getExpression(), null);
             List<? extends ExpressionTree> arguments = call.getArguments();
-            for (int i = 0; i < arguments.size(); i++) value(arguments.get(i), callee.params.get(i).javaType);
+            int first = callee.instance ? 1 : 0;
+            for (int i = 0; i < arguments.size(); i++) value(arguments.get(i), callee.params.get(first + i).javaType);
             Site site = site(Kind.CALL, call);
             site.callee = callee;
             site.javaType = callee.javaType;
             plan.add(new Item(Expect.CALL, site, 0, key(callee)));
+        }
+
+        /**
+         * {@code new C(args)} of a traced class (Part 8e): new, dup, the arguments, invokespecial. A traced
+         * constructor is a CALL whose entry also records the allocation; another runs silently and the
+         * object is captured on first use.
+         */
+        private void newObject(NewClassTree n) {
+            String type = javaType(n);
+            if (!classes.containsKey(type) || n.getClassBody() != null || n.getEnclosingExpression() != null
+                    || !(element(n) instanceof ExecutableElement constructor)) { unsupported(n, "creating objects of " + type); return; }
+            plan.add(new Item(Expect.NEW, null, 0, Instrumenter.internal(type)));
+            List<? extends ExpressionTree> arguments = n.getArguments();
+            for (int i = 0; i < arguments.size(); i++) value(arguments.get(i), constructor.getParameters().get(i).asType().toString());
+            Site callee = helpers.get(constructor);
+            if (callee == null) {
+                StringBuilder desc = new StringBuilder("(");
+                for (VariableElement p : constructor.getParameters()) desc.append(Instrumenter.descriptorOf(p.asType().toString()));
+                plan.add(new Item(Expect.CTOR, null, 0, Instrumenter.internal(type) + "#<init>" + desc + ")V"));
+                return;
+            }
+            Site site = site(Kind.CALL, n);
+            site.callee = callee;
+            site.javaType = type;
+            plan.add(new Item(Expect.CALL, site, 0, key(callee)));
+        }
+
+        /** The traced field a name or member select denotes, or null (locals, static fields, other classes). */
+        private Site field(ExpressionTree e) {
+            e = strip(e);
+            if (!(e instanceof IdentifierTree) && !(e instanceof MemberSelectTree)) return null;
+            return fieldSites.get(element(e));
+        }
+
+        /** Plans the receiver of a field access: an explicit expression, or nothing for an implicit this. */
+        private void receiver(ExpressionTree e) {
+            if (strip(e) instanceof MemberSelectTree m) value(m.getExpression(), null);
         }
 
         private void output(MethodInvocationTree call) {
@@ -914,8 +1086,13 @@ final class Analyzer {
             switch (e.getKind()) {
                 case NULL_LITERAL -> { }
                 case IDENTIFIER -> {
-                    if (!declarations.containsKey(element(e))) unsupported(e, "this variable (only locals declared in main are traced)");
+                    Site field = field(e);
+                    if (field != null) plan.add(Item.of(Expect.FIELD_GET, fieldSite(Kind.FIELD_READ, e, field))); // this.f
+                    else if (((IdentifierTree) e).getName().contentEquals("this")) {
+                        if (currentMethod == null || !currentMethod.instance) unsupported(e, "this here");
+                    } else if (!declarations.containsKey(element(e))) unsupported(e, "this variable (only locals and parameters of traced methods are traced)");
                 }
+                case NEW_CLASS -> newObject((NewClassTree) e);
                 case PLUS, MINUS, MULTIPLY, DIVIDE, REMAINDER, AND, OR, XOR, LEFT_SHIFT, RIGHT_SHIFT, UNSIGNED_RIGHT_SHIFT ->
                         binary((BinaryTree) e, type);
                 case UNARY_MINUS, UNARY_PLUS, BITWISE_COMPLEMENT -> {
@@ -944,6 +1121,12 @@ final class Analyzer {
                 }
                 case MEMBER_SELECT -> {
                     MemberSelectTree m = (MemberSelectTree) e;
+                    Site field = field(m);
+                    if (field != null) {
+                        value(m.getExpression(), null);
+                        plan.add(Item.of(Expect.FIELD_GET, fieldSite(Kind.FIELD_READ, m, field)));
+                        break;
+                    }
                     if (!m.getIdentifier().contentEquals("length") || !array(javaType(m.getExpression()))) {
                         unsupported(m, "this member access");
                         return;
@@ -1035,6 +1218,15 @@ final class Analyzer {
                 plan.add(Item.of(Expect.ASTORE, arraySite(Kind.ARRAY_WRITE, u, arrayType)));
                 return;
             }
+            Site field = field(target);
+            if (field != null && numeric(field.javaType)) { // Part 8e: dup, getfield, add, narrow, putfield
+                receiver(target);
+                plan.add(Item.of(Expect.FIELD_GET, fieldSite(Kind.FIELD_READ, target, field)));
+                plan.add(Item.of(Expect.ARITH, arithmetic(u, operator.equals("++") ? "+" : "-", promote(field.javaType))));
+                coerce(promote(field.javaType), field.javaType);
+                plan.add(Item.of(Expect.FIELD_PUT, fieldSite(Kind.FIELD_WRITE, u, field)));
+                return;
+            }
             Site declared = target instanceof IdentifierTree ? declarations.get(element(target)) : null;
             if (declared == null || !numeric(declared.javaType)) { unsupported(u, "++/-- on this target"); return; }
             Site site = site(Kind.UPDATE, u);
@@ -1088,13 +1280,13 @@ final class Analyzer {
                     leaf.sourceOp = symbol(b.getKind());
                     return leaf(leaf, b, operandType);
                 }
-                case IDENTIFIER, ARRAY_ACCESS, METHOD_INVOCATION -> { // a boolean variable, boolean[] element or call, tested against zero
+                case IDENTIFIER, ARRAY_ACCESS, METHOD_INVOCATION, MEMBER_SELECT -> { // a boolean variable, field, element or call, tested against zero
                     if (!"boolean".equals(javaType(e))
-                            || e.getKind() == Tree.Kind.IDENTIFIER && !declarations.containsKey(element(e))) {
+                            || e.getKind() == Tree.Kind.IDENTIFIER && !declarations.containsKey(element(e)) && field(e) == null) {
                         unsupported(e, "this condition");
                         return null;
                     }
-                    if (e.getKind() != Tree.Kind.IDENTIFIER) value(e, null);
+                    if (e.getKind() != Tree.Kind.IDENTIFIER || field(e) != null) value(e, null);
                     return leaf(new Cond(Cond.Op.LEAF, start(e), end(e)), e, "boolean");
                 }
                 default -> { unsupported(e, "this condition (" + e.getKind() + ")"); return null; }
@@ -1117,8 +1309,8 @@ final class Analyzer {
             parent.children.add(child);
         }
 
-        private static boolean isReference(String type) {
-            return type.equals("java.lang.String") || array(type) || type.equals("<nulltype>") || type.equals("<null>");
+        private boolean isReference(String type) {
+            return type.equals("java.lang.String") || array(type) || classes.containsKey(type) || type.equals("<nulltype>") || type.equals("<null>");
         }
 
         // ---- helpers -------------------------------------------------------------
@@ -1262,7 +1454,7 @@ final class Analyzer {
 
         private Site site(Kind kind, Tree tree) {
             int start = start(tree), end = end(tree);
-            if (kind == Kind.DECLARE && end > start && unit.getSourceFile() != null) {
+            if ((kind == Kind.DECLARE || kind == Kind.FIELD_WRITE && tree instanceof VariableTree) && end > start && unit.getSourceFile() != null) {
                 // javac's declaration range includes the terminating semicolon; highlight without it.
                 try {
                     CharSequence text = unit.getSourceFile().getCharContent(true);

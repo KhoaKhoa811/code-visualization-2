@@ -40,6 +40,11 @@
     "reason": "A row-shared int[][] created with two lengths (rows captured as bookkeeping in the same step), a SWITCH step on the chosen case label, and a write through a row read (1.3.0)."
   },
   {
+    "file": "valid/object-cycle.json",
+    "schemaValid": true,
+    "reason": "An object of a traced class whose field refers to itself; field writes and reads, and a read through a reference chain (1.4.0)."
+  },
+  {
     "file": "valid/recursion.json",
     "schemaValid": true,
     "reason": "Distinct recursive frames with returned values 0, 1, 3; illustrative future coverage."
@@ -83,6 +88,13 @@
     "keyword": "enum",
     "instancePath": "/events/5/data/value/kind",
     "reason": "A switch selector is byte, short, int or char; long selectors do not exist in Java."
+  },
+  {
+    "file": "invalid/field-write-missing-previous.json",
+    "schemaValid": false,
+    "keyword": "oneOf",
+    "instancePath": "/events/2",
+    "reason": "A field write must state the previous value."
   },
   {
     "file": "invalid/missing-write-value.json",

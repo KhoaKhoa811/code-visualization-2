@@ -147,3 +147,14 @@ Every return instruction records its value, including returns inside uncaptured
 statements and javac's implicit `return`. A catch-all handler ends silent
 invocations that unwind. At most 64 traced frames may be active; see
 [methods.md](methods.md).
+
+## Objects and fields (Part 8e)
+
+Plain classes declared in the file (top level or static members of `Main`, no
+inheritance) are traced classes: their constructors, instance and static methods
+are instrumented like helpers, and `getfield`/`putfield` on them are recorded
+after a recorder null check (the original instruction still runs in user code).
+A traced constructor is entered after its `super()` call, when `this` exists, and
+its first record allocates the object. Objects first seen by traced code are
+captured breadth-first with everything newly reachable, cycles included; see
+[objects.md](objects.md).
