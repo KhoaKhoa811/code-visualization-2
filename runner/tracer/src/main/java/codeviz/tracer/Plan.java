@@ -12,9 +12,9 @@ final class Plan {
     private Plan() { }
 
     /** Relevant bytecode instruction families, in javac code-layout order. */
-    enum Expect { STORE, IINC, IALOAD, IASTORE, ARRAYLENGTH, NEWARRAY, NEWARRAY_LITERAL, ARITH, INEG, JUMP, GETSTATIC, INVOKE }
+    enum Expect { STORE, IINC, IALOAD, IASTORE, ARRAYLENGTH, NEWARRAY, NEWARRAY_LITERAL, ARITH, INEG, JUMP, GETSTATIC, INVOKE, REGION }
 
-    enum Kind { DECLARE, ASSIGN, UPDATE, ALLOCATE, ARRAY_READ, ARRAY_LENGTH, ARRAY_WRITE, ARITHMETIC, LEAF }
+    enum Kind { DECLARE, ASSIGN, UPDATE, ALLOCATE, ARRAY_READ, ARRAY_LENGTH, ARRAY_WRITE, ARITHMETIC, LEAF, REGION }
 
     /** One instrumented operation site. Fields not relevant to a kind stay null. */
     static final class Site {
@@ -29,6 +29,10 @@ final class Plan {
         String operandType;                 // int / boolean / ref, for leaves
         int jumpOpcode = -1;                // set when matched
         boolean jumpMeansTrue;              // set when matched
+        // REGION (Part 8a): a statement that runs without capture, and what it may change.
+        List<String> unknownDeclarations = List.of(); // covered locals the statement may assign
+        boolean mayWriteArrays;
+        int crtStart = -1, crtEnd = -1;     // javac CharacterRangeTable positions (line << 10 | column)
 
         Site(int id, Kind kind, int start, int end, List<String> scopes) {
             this.id = id; this.kind = kind; this.start = start; this.end = end;

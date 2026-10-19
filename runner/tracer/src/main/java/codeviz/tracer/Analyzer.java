@@ -10,6 +10,7 @@ import com.sun.source.tree.*;
 import com.sun.source.util.JavacTask;
 import com.sun.source.util.SourcePositions;
 import com.sun.source.util.TreePath;
+import com.sun.source.util.TreeScanner;
 import com.sun.source.util.Trees;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -31,7 +32,11 @@ import javax.tools.*;
  * than producing a partial plan.
  */
 final class Analyzer {
-    record Analysis(String source, List<Diagnostic> compileErrors, List<Diagnostic> unsupported,
+    /**
+     * {@code unsupported} blocks tracing of the whole program (output only);
+     * {@code uncaptured} lists statements that run without capture inside a traced program (Part 8a).
+     */
+    record Analysis(String source, List<Diagnostic> compileErrors, List<Diagnostic> unsupported, List<Diagnostic> uncaptured,
                     Map<String, byte[]> classes, List<Item> plan, Map<Integer, Site> sites, String rootScope) {
         boolean traceable() { return compileErrors.isEmpty() && unsupported.isEmpty(); }
     }
@@ -65,7 +70,7 @@ final class Analyzer {
             }
         };
         JavacTask task = (JavacTask) compiler.getTask(null, memory, collector,
-                List.of("-g", "--release", "21", "-proc:none", "-implicit:none"), null, List.of(file));
+                List.of("-g", "-Xjcov", "--release", "21", "-proc:none", "-implicit:none"), null, List.of(file));
         List<Diagnostic> errors = new ArrayList<>();
         List<Diagnostic> unsupported = new ArrayList<>();
         Walker walker = null;
@@ -87,8 +92,8 @@ final class Analyzer {
             try { memory.close(); } catch (IOException ignored) { }
         }
         if (walker == null || !errors.isEmpty())
-            return new Analysis(source, errors, unsupported, Map.of(), List.of(), Map.of(), null);
-        return new Analysis(source, errors, unsupported, Map.copyOf(classes), List.copyOf(walker.plan),
+            return new Analysis(source, errors, unsupported, List.of(), Map.of(), List.of(), Map.of(), null);
+        return new Analysis(source, errors, unsupported, List.copyOf(walker.uncaptured), Map.copyOf(classes), List.copyOf(walker.plan),
                 Map.copyOf(walker.sites), walker.rootScope);
     }
 
@@ -110,10 +115,14 @@ final class Analyzer {
         private final Elements elements;
         private final SourcePositions positions;
         private final List<Diagnostic> unsupported;
+        final List<Diagnostic> uncaptured = new ArrayList<>();
         final List<Item> plan = new ArrayList<>();
         final Map<Integer, Site> sites = new LinkedHashMap<>();
         private final Deque<String> scopes = new ArrayDeque<>();
         private final Map<Element, Site> declarations = new HashMap<>();
+        private final List<Element> declared = new ArrayList<>(); // insertion order, for rollback
+        // Findings for the statement being planned; null outside main's statements (they block tracing).
+        private List<Diagnostic> current;
         String rootScope;
 
         Walker(CompilationUnitTree unit, Trees trees, Elements elements, List<Diagnostic> unsupported) {
@@ -123,28 +132,64 @@ final class Analyzer {
 
         // ---- structure ---------------------------------------------------------
 
-        void unit() {
-            if (unit.getPackageName() != null) unsupported(unit.getPackageName(), "package declarations");
-            for (Tree type : unit.getTypeDecls()) {
-                if (!(type instanceof ClassTree c) || c.getKind() != Tree.Kind.CLASS
-                        || !c.getSimpleName().contentEquals("Main") || c.getExtendsClause() != null
-                        || !c.getImplementsClause().isEmpty() || !c.getTypeParameters().isEmpty()) {
-                    unsupported(type, "declarations other than a plain class Main");
-                    continue;
+        /**
+         * Uncaptured code runs in the same JVM as the recorder (Part 8a). APIs that could
+         * reach the recorder or its record file, or run code concurrently with main, keep the
+         * whole program output-only. A guard against accidental interference, not a sandbox.
+         */
+        private static final List<String> INTEGRITY = List.of("java.lang.reflect.", "java.lang.invoke.",
+                "java.lang.Class", "java.lang.ClassLoader", "java.lang.Module", "java.lang.Runtime", "java.lang.Process", "java.lang.ProcessBuilder",
+                "java.lang.Thread", "java.lang.ThreadGroup", "java.lang.StackWalker", "java.util.concurrent.", "java.util.Timer",
+                "java.util.ServiceLoader", "java.io.File", "java.io.RandomAccessFile", "java.nio.file.", "java.nio.channels.",
+                "java.lang.instrument.", "java.lang.management.", "java.net.", "sun.", "jdk.", "com.sun.");
+
+        private void integrity() {
+            Set<String> reported = new HashSet<>();
+            new TreeScanner<Void, Void>() {
+                private void check(Tree t) {
+                    Element e = element(t);
+                    if (e == null) return;
+                    Element type = e instanceof TypeElement ? e : e.getEnclosingElement();
+                    if (!(type instanceof TypeElement owner)) return;
+                    String name = owner.getQualifiedName().toString();
+                    for (String denied : INTEGRITY) {
+                        boolean match = denied.endsWith(".") ? name.startsWith(denied)
+                                : name.equals(denied) || name.startsWith(denied + ".") || name.startsWith(denied + "$");
+                        if (match) {
+                            if (!reported.add(name)) return;
+                            unsupported.add(new Diagnostic("capture", "TRACE_INTEGRITY", "Visualization is not offered for programs "
+                                    + "that use " + name + " (it could interfere with recording); the program can still run with output only.",
+                                    start(t), end(t)));
+                            return;
+                        }
+                    }
                 }
-                boolean sawMain = false;
-                for (Tree member : c.getMembers()) {
-                    if (member instanceof MethodTree m && isMandatedConstructor(m)) continue;
-                    if (member instanceof MethodTree m && isMain(m) && !sawMain) { sawMain = true; method(m); continue; }
-                    unsupported(member, "members other than main (helper methods and fields are planned)");
-                }
-                if (!sawMain) unsupported(c, "a class without public static void main(String[])");
-            }
+                @Override public Void visitMemberSelect(MemberSelectTree m, Void p) { check(m); return super.visitMemberSelect(m, p); }
+                @Override public Void visitIdentifier(IdentifierTree i, Void p) { check(i); return super.visitIdentifier(i, p); }
+                @Override public Void visitNewClass(NewClassTree n, Void p) { check(n.getIdentifier()); return super.visitNewClass(n, p); }
+            }.scan(unit, null);
         }
 
-        private boolean isMandatedConstructor(MethodTree m) {
-            Element e = element(m);
-            return e != null && e.getKind() == ElementKind.CONSTRUCTOR && elements.getOrigin(e) == Elements.Origin.MANDATED;
+        void unit() {
+            integrity();
+            if (unit.getPackageName() != null) unsupported(unit.getPackageName(), "package declarations");
+            boolean sawMainClass = false;
+            for (Tree type : unit.getTypeDecls()) {
+                // Other types, helper methods and fields run untraced (Part 8a); calls to them
+                // from main become uncaptured statements.
+                if (!(type instanceof ClassTree c) || !c.getSimpleName().contentEquals("Main")) continue;
+                sawMainClass = true;
+                if (c.getKind() != Tree.Kind.CLASS || c.getExtendsClause() != null
+                        || !c.getImplementsClause().isEmpty() || !c.getTypeParameters().isEmpty()) {
+                    unsupported(type, "a Main that is not a plain class");
+                    continue;
+                }
+                MethodTree main = null;
+                for (Tree member : c.getMembers()) if (main == null && member instanceof MethodTree m && isMain(m)) main = m;
+                if (main == null) unsupported(c, "a class without public static void main(String[])");
+                else method(main);
+            }
+            if (!sawMainClass) unsupported(unit, "a program without class Main");
         }
 
         private boolean isMain(MethodTree m) {
@@ -163,15 +208,160 @@ final class Analyzer {
 
         // ---- statements --------------------------------------------------------
 
+        /**
+         * Plans one statement in main. If anything at its own level is unsupported, its
+         * partial plan is rolled back and it becomes one uncaptured region (Part 8a).
+         * Nested statements (branches, loop bodies, block members) degrade on their own.
+         */
         private void statement(StatementTree s) {
+            if (s.getKind() == Tree.Kind.BLOCK) { // blocks never degrade as a whole
+                scopes.push("b" + start(s));
+                for (StatementTree inner : ((BlockTree) s).getStatements()) statement(inner);
+                scopes.pop();
+                return;
+            }
+            int planMark = plan.size(), siteMark = sites.size(), uncapturedMark = uncaptured.size(), declaredMark = declared.size();
+            List<Diagnostic> outer = current;
+            current = new ArrayList<>();
+            plain(s);
+            List<Diagnostic> found = current;
+            current = outer;
+            if (found.isEmpty()) return;
+            plan.subList(planMark, plan.size()).clear();
+            sites.keySet().removeIf(id -> id > siteMark);
+            uncaptured.subList(uncapturedMark, uncaptured.size()).clear();
+            while (declared.size() > declaredMark) declarations.remove(declared.remove(declared.size() - 1));
+            region(s, found);
+        }
+
+        private void region(StatementTree s, List<Diagnostic> found) {
+            uncaptured.addAll(found);
+            // Statements that generate no code (a declaration without initializer, a local
+            // class) leave no step; later uses of what they declare are uncaptured too.
+            if (s instanceof VariableTree v && v.getInitializer() == null || s instanceof ClassTree) return;
+            Site site = site(Kind.REGION, s);
+            Effects effects = new Effects();
+            effects.scan(s, null);
+            site.unknownDeclarations = List.copyOf(effects.assigned);
+            site.mayWriteArrays = effects.writes;
+            site.crtStart = crt(start(s));
+            site.crtEnd = crt(end(s));
+            plan.add(Item.of(Expect.REGION, site));
+        }
+
+        /** javac CharacterRangeTable position: line << 10 | column, or -1 when not encodable. */
+        private int crt(int position) {
+            LineMap lines = unit.getLineMap();
+            long line = lines.getLineNumber(position), column = lines.getColumnNumber(position);
+            return column > 1023 || line >= (1 << 21) ? -1 : (int) (line << 10 | column);
+        }
+
+        /** What an uncaptured statement may change, from its source; conservative. */
+        private final class Effects extends TreeScanner<Void, Void> {
+            final Set<String> assigned = new LinkedHashSet<>();
+            boolean writes;
+
+            private void target(ExpressionTree t) {
+                t = strip(t);
+                if (t instanceof IdentifierTree) {
+                    Site d = declarations.get(element(t));
+                    if (d != null) assigned.add(d.declarationId);
+                } else if (t instanceof ArrayAccessTree) {
+                    writes = true;
+                }
+            }
+
+            @Override public Void visitAssignment(AssignmentTree a, Void p) { target(a.getVariable()); return super.visitAssignment(a, p); }
+
+            @Override public Void visitCompoundAssignment(CompoundAssignmentTree a, Void p) {
+                target(a.getVariable());
+                if (a.getKind() == Tree.Kind.PLUS_ASSIGNMENT && !simple(javaType(a.getExpression()))) writes = true; // toString()
+                return super.visitCompoundAssignment(a, p);
+            }
+
+            @Override public Void visitUnary(UnaryTree u, Void p) {
+                switch (u.getKind()) {
+                    case PREFIX_INCREMENT, PREFIX_DECREMENT, POSTFIX_INCREMENT, POSTFIX_DECREMENT -> target(u.getExpression());
+                    default -> { }
+                }
+                return super.visitUnary(u, p);
+            }
+
+            @Override public Void visitMethodInvocation(MethodInvocationTree call, Void p) {
+                if (!harmless(call)) writes = true;
+                return super.visitMethodInvocation(call, p);
+            }
+
+            @Override public Void visitNewClass(NewClassTree n, Void p) { writes = true; return super.visitNewClass(n, p); }
+
+            @Override public Void visitBinary(BinaryTree b, Void p) {
+                if (b.getKind() == Tree.Kind.PLUS && "java.lang.String".equals(javaType(b))
+                        && !(simple(javaType(b.getLeftOperand())) && simple(javaType(b.getRightOperand())))) writes = true;
+                return super.visitBinary(b, p);
+            }
+
+            @Override public Void visitEnhancedForLoop(EnhancedForLoopTree f, Void p) {
+                if (!javaType(f.getExpression()).endsWith("[]")) writes = true; // iterator() runs code
+                return super.visitEnhancedForLoop(f, p);
+            }
+
+            @Override public Void visitTry(TryTree t, Void p) {
+                if (!t.getResources().isEmpty()) writes = true; // close() runs code
+                return super.visitTry(t, p);
+            }
+
+            @Override public Void visitDeconstructionPattern(DeconstructionPatternTree d, Void p) {
+                writes = true; // record accessors run code
+                return super.visitDeconstructionPattern(d, p);
+            }
+
+            @Override public Void visitMemberSelect(MemberSelectTree m, Void p) {
+                // First use of another class's static field may run its static initializer.
+                if (element(m) instanceof VariableElement v && v.getKind() == ElementKind.FIELD && v.getConstantValue() == null
+                        && v.getEnclosingElement() instanceof TypeElement owner && !owner.getQualifiedName().toString().startsWith("java."))
+                    writes = true;
+                return super.visitMemberSelect(m, p);
+            }
+        }
+
+        private static final Set<String> PURE_OWNERS = Set.of("java.lang.Math", "java.lang.StrictMath", "java.lang.String",
+                "java.lang.Integer", "java.lang.Long", "java.lang.Double", "java.lang.Float", "java.lang.Short",
+                "java.lang.Byte", "java.lang.Character", "java.lang.Boolean");
+
+        /** Calls that cannot change any array: System.out/err printing and pure java.lang helpers. */
+        private boolean harmless(MethodInvocationTree call) {
+            if (!(element(call) instanceof ExecutableElement method) || !(method.getEnclosingElement() instanceof TypeElement owner))
+                return false;
+            if (!method.getParameters().stream().allMatch(p -> simple(p.asType().toString()))) return false;
+            String name = owner.getQualifiedName().toString();
+            if (name.equals("java.io.PrintStream")) {
+                return (method.getSimpleName().contentEquals("print") || method.getSimpleName().contentEquals("println"))
+                        && systemStream(call);
+            }
+            return PURE_OWNERS.contains(name) && (method.getModifiers().contains(Modifier.STATIC) || name.equals("java.lang.String"));
+        }
+
+        private boolean systemStream(MethodInvocationTree call) {
+            return call.getMethodSelect() instanceof MemberSelectTree select
+                    && element(select.getExpression()) instanceof VariableElement stream
+                    && stream.getEnclosingElement() instanceof TypeElement system
+                    && system.getQualifiedName().contentEquals("java.lang.System")
+                    && (stream.getSimpleName().contentEquals("out") || stream.getSimpleName().contentEquals("err"));
+        }
+
+        private static boolean simple(String type) {
+            return switch (type) {
+                case "byte", "short", "int", "long", "char", "float", "double", "boolean", "java.lang.String" -> true;
+                default -> false;
+            };
+        }
+
+        /** Plans a statement's own parts; findings go to the enclosing statement's frame. */
+        private void plain(StatementTree s) {
             switch (s.getKind()) {
                 case VARIABLE -> declaration((VariableTree) s);
                 case EXPRESSION_STATEMENT -> expressionStatement(((ExpressionStatementTree) s).getExpression());
-                case BLOCK -> {
-                    scopes.push("b" + start(s));
-                    for (StatementTree inner : ((BlockTree) s).getStatements()) statement(inner);
-                    scopes.pop();
-                }
+                case BLOCK -> statement(s);
                 case IF -> {
                     IfTree i = (IfTree) s;
                     if (isConstant(i.getCondition())) { unsupported(i.getCondition(), "constant if conditions"); return; }
@@ -187,7 +377,7 @@ final class Analyzer {
                 case FOR_LOOP -> {
                     ForLoopTree f = (ForLoopTree) s;
                     scopes.push("f" + start(f));
-                    for (StatementTree init : f.getInitializer()) statement(init);
+                    for (StatementTree init : f.getInitializer()) plain(init); // an unsupported init degrades the whole loop
                     if (f.getCondition() != null) loopCondition(f.getCondition());
                     statement(f.getStatement());
                     for (ExpressionStatementTree update : f.getUpdate()) expressionStatement(update.getExpression());
@@ -221,6 +411,7 @@ final class Analyzer {
             site.name = v.getName().toString();
             site.javaType = type;
             declarations.put(element(v), site);
+            declared.add(element(v));
             value(v.getInitializer());
             plan.add(Item.of(Expect.STORE, site));
         }
@@ -517,6 +708,11 @@ final class Analyzer {
         }
 
         private void unsupported(Tree t, String what) {
+            if (current != null) { // inside main: only this statement runs without capture
+                current.add(new Diagnostic("capture", "UNSUPPORTED_CONSTRUCT",
+                        "Visualization does not yet cover " + what + "; this statement runs without capture.", start(t), end(t)));
+                return;
+            }
             unsupported.add(new Diagnostic("capture", "UNSUPPORTED_CONSTRUCT",
                     "Visualization does not yet cover " + what + "; the program can still run with output only.",
                     start(t), end(t)));

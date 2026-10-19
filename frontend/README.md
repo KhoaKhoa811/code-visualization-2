@@ -15,6 +15,7 @@ from algorithm or example recognition ([coverage roadmap](../specs/coverage-road
 | 7e.2 | Run flow (Axios, TanStack Query polling with revision rule), Monaco editor, playback controls, variable/array/string views, console, statuses | Type check and production build |
 | 7e.3 | Playwright browser check against the real backend and Docker | 2 browser tests |
 | 7e.4 | This guide and memory | Paths checked |
+| 8a | Trace 1.1.0: uncaptured steps, unknown values (`?`), re-read arrays, warning markers, helper-and-library example ([partial coverage](../specs/partial-coverage.md)) | 9 reducer tests, 3 browser tests |
 
 ## Stack and pins
 

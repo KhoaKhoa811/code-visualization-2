@@ -114,3 +114,32 @@ test('values format without converting longs or doubles through guesses', () => 
   assert.equal(formatValue({ kind: 'char', value: 65 }), "'A'");
   assert.equal(formatValue({ kind: 'unassigned' }), '(unassigned)');
 });
+
+test('uncaptured statements make bindings unknown and apply re-read arrays (1.1.0)', () => {
+  const unknown = new Playback(fixture('uncaptured-unknown'));
+  const views = Array.from({ length: unknown.steps + 1 }, (_, k) => unknown.at(k));
+  const region = views.find(v => v.event?.kind === 'UNCAPTURED')!;
+  assert.equal(formatValue(region.state.bindings.find(b => b.name === 'x')!.value), '?');
+  assert.equal(describeStep(region.event!, region.state), 'Ran without visualization (x unknown)');
+  assert.ok(region.focus.touched?.length === 1);
+  const assigned = views.find(v => v.event?.kind === 'ASSIGN')!;
+  assert.equal(formatValue(assigned.state.bindings.find(b => b.name === 'x')!.value), '6');
+
+  const helper = new Playback(fixture('uncaptured-mutating-helper'));
+  const bumps = Array.from({ length: helper.steps }, (_, k) => helper.at(k + 1)).filter(v => v.event?.kind === 'UNCAPTURED');
+  assert.deepEqual(bumps.map(v => array(v.state, 'a')), [['2', '2'], ['3', '2'], ['3', '2']]);
+  assert.match(describeStep(bumps[0].event!, bumps[0].state), /a changed/);
+});
+
+test('arrays created by uncaptured code appear on first covered use; a failure inside a region stays partial', () => {
+  const created = new Playback(fixture('uncaptured-new-array'));
+  const write = Array.from({ length: created.steps }, (_, k) => created.at(k + 1)).find(v => v.event?.kind === 'ARRAY_WRITE')!;
+  const objectId = write.focus.objectId!;
+  const object = write.state.objects.get(objectId);
+  assert.ok(object?.kind === 'array');
+  assert.deepEqual(object.elements.map(v => formatValue(v)), ['1', '0', '9']);
+
+  const failure = new Playback(fixture('uncaptured-failure'));
+  assert.equal(failure.trace.capture.status, 'partial');
+  assert.equal(failure.at(failure.steps).event?.kind, 'UNCAPTURED');
+});

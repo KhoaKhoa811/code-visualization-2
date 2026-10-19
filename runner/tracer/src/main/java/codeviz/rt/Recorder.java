@@ -19,6 +19,8 @@ import java.util.Map;
  * Raw record lines (space separated; strings and messages as hex UTF-16 units):
  * {@code M <ref> <len>} main entry; {@code R} normal main exit; {@code L} raw limit;
  * {@code S<id> <hex>} first sight of a string; {@code x<site> <class> <hex>} failure;
+ * {@code u<site>} an uncaptured statement starts (Part 8a); {@code A<id> <len> <values...>} the
+ * contents of an int[] seen for the first time, or re-read after a statement that may write arrays;
  * {@code <site> <values...>} a completed operation. A ref is {@code r<id>} or {@code n}.
  */
 public final class Recorder {
@@ -33,6 +35,8 @@ public final class Recorder {
     private static final BufferedWriter OUT = open();
     private static final Map<Object, Integer> IDS = new IdentityHashMap<>();
     private static long written;
+    // Set by an uncaptured statement that may write arrays; the next record re-reads them first.
+    private static boolean dirty;
 
     private Recorder() { }
 
@@ -59,7 +63,23 @@ public final class Recorder {
     }
 
     private static void line(String record) {
-        synchronized (LOCK) { write(record); }
+        synchronized (LOCK) {
+            if (dirty) { dirty = false; resync(); }
+            write(record);
+        }
+    }
+
+    /** Contents of every known int[], after an uncaptured statement that may have changed them. */
+    private static void resync() {
+        Object[] byId = new Object[IDS.size() + 1];
+        for (var entry : IDS.entrySet()) byId[entry.getValue()] = entry.getKey();
+        for (int id = 1; id < byId.length; id++) if (byId[id] instanceof int[] a) write(contents(id, a));
+    }
+
+    private static String contents(int id, int[] a) {
+        StringBuilder b = new StringBuilder().append('A').append(id).append(' ').append(a.length);
+        for (int v : a) b.append(' ').append(v);
+        return b.toString();
     }
 
     private static void write(String record) {
@@ -90,8 +110,10 @@ public final class Recorder {
         Integer id = IDS.get(o);
         if (id == null) {
             id = IDS.size() + 1;
-            IDS.put(o, id);
+            // Write before registering, so a pending re-read does not include this object twice.
             if (o instanceof String s) line("S" + id + " " + hex(s));
+            else if (o instanceof int[] a) line(contents(id, a)); // created by uncaptured code
+            IDS.put(o, id);
         }
         return "r" + id;
     }
@@ -105,6 +127,23 @@ public final class Recorder {
     // ---- frame ------------------------------------------------------------------
 
     public static void enter(String[] args) { line("M " + ref(args) + " " + args.length); }
+
+    // ---- uncaptured statements (Part 8a) -------------------------------------------
+
+    public static void region(int site, boolean mayWriteArrays) {
+        synchronized (LOCK) {
+            line("u" + site);
+            if (mayWriteArrays) dirty = true;
+        }
+    }
+
+    /** Registers an array allocated by covered code; its ALLOCATE record carries the contents. */
+    private static String fresh(Object o) {
+        synchronized (LOCK) { if (dirty) { dirty = false; resync(); } } // the re-read must not include the new array
+        Integer id = IDS.size() + 1;
+        IDS.put(o, id);
+        return "r" + id;
+    }
 
     public static void exit() {
         line("R");
@@ -126,8 +165,9 @@ public final class Recorder {
     }
 
     public static void iastore(int[] a, int i, int v, int site) {
+        String r = ref(a); // before the store: a first-sight snapshot must show the previous contents
         try { a[i] = v; } catch (RuntimeException e) { fail(site, e); throw e; }
-        line(site + " " + ref(a) + " " + i + " " + v);
+        line(site + " " + r + " " + i + " " + v);
     }
 
     public static int arraylength(int[] a, int site) {
@@ -140,13 +180,13 @@ public final class Recorder {
     public static int[] newIntArray(int n, int site) {
         int[] a;
         try { a = new int[n]; } catch (RuntimeException e) { fail(site, e); throw e; }
-        line(site + " " + ref(a) + " " + n);
+        line(site + " " + fresh(a) + " " + n);
         return a;
     }
 
     /** Called once a constant-element literal is fully initialized. */
     public static void literal(int[] a, int site) {
-        StringBuilder b = new StringBuilder().append(site).append(' ').append(ref(a)).append(' ').append(a.length);
+        StringBuilder b = new StringBuilder().append(site).append(' ').append(fresh(a)).append(' ').append(a.length);
         for (int v : a) b.append(' ').append(v);
         line(b.toString());
     }

@@ -21,6 +21,8 @@ export interface Focus {
   objectId?: string;
   index?: number;
   access?: 'read' | 'write' | 'length' | 'allocate';
+  /** Bindings and arrays an uncaptured statement changed or made unknown. */
+  touched?: string[];
 }
 
 export interface View {
@@ -45,7 +47,7 @@ export class Playback {
 
   constructor(trace: Trace, checkpointEvery = 256) {
     this.every = checkpointEvery;
-    if (trace.schemaVersion !== '1.0.0') throw new TraceError(`Unsupported trace version ${String(trace.schemaVersion)}`);
+    if (trace.schemaVersion !== '1.1.0') throw new TraceError(`Unsupported trace version ${String(trace.schemaVersion)}`);
     this.trace = trace;
     this.steps = trace.stepEnds.length;
     if (trace.initialState === null) {
@@ -160,6 +162,20 @@ function apply(state: State, event: TraceEvent, seen?: Set<string>): void {
     case 'EXPRESSION':
     case 'EXCEPTION':
       return;
+    case 'UNCAPTURED': {
+      activeFrame(state, event.frameId);
+      for (const bindingId of event.data.unknownBindings) findBinding(state, bindingId).value = { kind: 'unknown' };
+      for (const { objectId, elements } of event.data.arrays) {
+        const array = findArray(state, objectId);
+        if (array.elements.length !== elements.length) throw new TraceError('Re-read array changed length');
+        array.elements = [...elements];
+      }
+      for (const objectId of event.data.unknownArrays) {
+        const array = findArray(state, objectId);
+        array.elements = array.elements.map(() => ({ kind: 'unknown' }));
+      }
+      return;
+    }
     case 'CALL':
       fresh(event.data.frame.frameId, seen);
       fresh(event.data.scope.scopeId, seen);
@@ -259,6 +275,7 @@ function focusOf(event: ObservableEvent | null): Focus {
     case 'ARRAY_READ': return { objectId: event.data.objectId, index: event.data.index, access: 'read' };
     case 'ARRAY_WRITE': return { objectId: event.data.objectId, index: event.data.index, access: 'write' };
     case 'ARRAY_LENGTH': return { objectId: event.data.objectId, access: 'length' };
+    case 'UNCAPTURED': return { touched: [...event.data.unknownBindings, ...event.data.arrays.map(a => a.objectId), ...event.data.unknownArrays] };
     default: return {};
   }
 }

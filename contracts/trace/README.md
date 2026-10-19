@@ -12,7 +12,9 @@ Read [the specification](../../specs/trace-format.md) and
 | 3b | afe8bf6 | Closed structural schema for current operation/frame model | Complete; JSON/local-reference checks and strict Ajv compilation passed |
 | 3c | See Git history: `test: validate trace examples and numeric encodings` | Valid/invalid examples and reproducible checks | Complete; 46 checks passed |
 
-Schema path: `v1/trace.schema.json`. Exact schemaVersion: `1.0.0`.
+Schema path: `v1/trace.schema.json`. Exact schemaVersion: `1.1.0` (Part 8a added the `unknown`
+state value, the `UNCAPTURED` step and array `OBJECT_CAPTURE`; `1.0.0` is retired, see
+[partial coverage](../../specs/partial-coverage.md)). `npm test` passed 54 checks on 2026-10-18.
 Unknown properties, event kinds, and versions are rejected. Shapes for additional
 numeric types describe representation only, not implemented tracing support.
 

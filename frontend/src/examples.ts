@@ -16,6 +16,22 @@ export const EXAMPLES: Record<string, string> = {
     }
 }
 `,
+  'Helper and library calls': `public class Main {
+    static int square(int v) {
+        return v * v;
+    }
+
+    public static void main(String[] args) {
+        int[] a = {4, 2, 3, 1};
+        java.util.Arrays.sort(a);
+        int total = 0;
+        for (int i = 0; i < a.length; i++) {
+            total += square(a[i]);
+        }
+        System.out.println("total = " + total);
+    }
+}
+`,
   'Running total': `public class Main {
     public static void main(String[] args) {
         int[] values = new int[4];

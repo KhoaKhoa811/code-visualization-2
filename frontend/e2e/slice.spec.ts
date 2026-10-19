@@ -53,6 +53,31 @@ test('bubble sort runs in Docker and plays back step by step', async ({ page }) 
   await expect(page.getByTestId('step-detail')).toHaveCount(0);
 });
 
+test('statements outside coverage run without visualization while the rest is traced (8a)', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.monaco-editor')).toBeVisible();
+  await page.getByLabel('Example').selectOption('Helper and library calls');
+  await run(page);
+  const summary = page.getByTestId('run-summary');
+  await expect(summary).toContainText('capture complete');
+  await expect(summary).toContainText('some statements ran without capture');
+  await expect(page.getByTestId('console-output')).toHaveText('total = 30\n');
+
+  const forward = page.getByRole('button', { name: 'Step forward' });
+  for (let i = 0; i < 10; i++) {
+    if ((await page.getByTestId('step-detail').textContent())?.includes('Ran without visualization')) break;
+    await forward.click();
+  }
+  await expect(page.getByTestId('step-detail')).toContainText('Ran without visualization (a changed)');
+  await expect(page.locator('.step-detail.uncaptured')).toBeVisible();
+  await expect(cells(page, 'a')).toHaveText(['1', '2', '3', '4']); // re-read after Arrays.sort
+  await page.screenshot({ path: 'test-results/partial-coverage.png' });
+
+  await page.getByTitle('End').click();
+  await expect(page.getByTestId('var-total')).toContainText('?'); // only uncaptured code changed it
+  await expect(page.getByTestId('var-total')).not.toContainText('30');
+});
+
 test('another program and a compile error', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('.monaco-editor')).toBeVisible();

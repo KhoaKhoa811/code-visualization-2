@@ -47,7 +47,7 @@ export function App() {
   }, [playing, cursor, usable]);
 
   const markers: Marker[] = useMemo(() => !trace || stale ? [] : trace.diagnostics
-    .filter(d => d.source).map(d => ({ range: d.source!, message: `${d.code}: ${d.message}` })), [trace, stale]);
+    .filter(d => d.source).map(d => ({ range: d.source!, message: `${d.code}: ${d.message}`, warning: d.phase === 'capture' })), [trace, stale]);
 
   const go = (next: number) => { setPlaying(false); setCursor(Math.max(0, Math.min(steps, next))); };
 
@@ -70,7 +70,7 @@ export function App() {
           <Controls cursor={view?.cursor ?? 0} steps={steps} playing={playing} onCursor={go} onPlaying={setPlaying} />
           <RunSummary snapshot={finished ? snap : undefined} playback={playback} stale={stale} />
           {view && (
-            <div className="step-detail" data-testid="step-detail">
+            <div className={`step-detail${view.event?.kind === 'UNCAPTURED' ? ' uncaptured' : ''}`} data-testid="step-detail">
               {view.event ? <><b>Step {view.cursor}:</b> {describe(view.event, view.beforeEnd ?? view.state)}</> : 'Initial state (before the first operation).'}
               {view.terminal && view.cursor > 0 && <span className="muted"> (end of recording)</span>}
             </div>

@@ -87,3 +87,7 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 /* Monaco decoration classes for the current Step. */
 .step-highlight { background: rgba(79, 140, 255, .18); }
 .step-highlight-text { background: rgba(79, 140, 255, .35); border-radius: 2px; }
+
+/* Part 8a: statements that ran without visualization and values nothing has observed since. */
+.step-detail.uncaptured { border-left-color: var(--warning); color: var(--warning); }
+.cell.unknown .cell-value { color: var(--muted); font-style: italic; }

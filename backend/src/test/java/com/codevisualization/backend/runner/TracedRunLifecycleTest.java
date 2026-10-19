@@ -90,13 +90,14 @@ class TracedRunLifecycleTest {
     }
 
     @Test void outputOnlyProgramsRunPlainWithoutReadingRecords() throws Exception {
-        String helper = "public class Main {\n    static int two() { return 2; }\n    public static void main(String[] args) { two(); }\n}\n";
-        var w = workspace(helper);
+        // Threads keep a program output-only (Part 8a integrity guard).
+        String threads = "public class Main {\n    public static void main(String[] args) { Thread.yield(); }\n}\n";
+        var w = workspace(threads);
         var launched = new ArrayList<List<String>>();
-        var result = new TracedRunLifecycle(w, phases(launched, exit(0), exit(0)), new byte[]{1}).run(helper);
+        var result = new TracedRunLifecycle(w, phases(launched, exit(0), exit(0)), new byte[]{1}).run(threads);
         assertEquals(TracedRunLifecycle.RUN_PLAIN, launched.get(1));
         assertFalse(w.calls.stream().anyMatch(c -> c.contains("raw.trace")));
-        assertTrue(result.trace().contains("UNSUPPORTED_CONSTRUCT"));
+        assertTrue(result.trace().contains("TRACE_INTEGRITY"));
     }
 
     @Test void cancellationBetweenPhasesPreventsTheRuntime() throws Exception {

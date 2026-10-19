@@ -86,7 +86,7 @@ public final class RunSupervisor implements AutoCloseable {
         try (var control = new BoundedCommandRunner()) {
             String inventory = control.execute(List.of(docker.toString(), "--context", "desktop-linux", "ps",
                     "--all", "--no-trunc", "--filter", "label=" + ContainerProfile.LABEL,
-                    "--format", "{{.ID}}"), Duration.ofSeconds(5));
+                    "--format", "{{.ID}}"), Duration.ofSeconds(10)); // control-call maximum; idle Docker Desktop can be slow
             if (!inventory.isBlank()) throw new IOException("Existing runner ownership requires reconciliation before admission");
         }
         byte[] runtime = TracedRunLifecycle.bundledRuntime();

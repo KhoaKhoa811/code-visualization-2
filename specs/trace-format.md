@@ -208,7 +208,7 @@ values; section 12 defines additional semantic checks. See the official
 
 | Top-level field | Meaning |
 | --- | --- |
-| schemaVersion | Exactly `1.0.0`; reject unrecognized versions rather than silently skipping facts |
+| schemaVersion | Exactly `1.1.0` (Part 8a; `1.0.0` retired); reject unrecognized versions rather than silently skipping facts |
 | runId | Nonempty identity for this run; identities below are local to it |
 | source | Exact source text, file `Main.java`, and lowercase SHA-256 of its UTF-8 bytes |
 | execution | Terminal status and human-readable reason; describes execution, not capture completeness |
@@ -241,6 +241,7 @@ or loop iterations, but bindingId identifies each separate lifetime.
 | ref | `objectId` identifies a captured object in this run |
 | null | Only `kind: null`; distinct from missing capture and unassigned bindings |
 | unassigned | Only valid as a local binding value before initialization, never an operand, parameter, return result or array element |
+| unknown | 1.1.0: state that uncaptured code may have changed and no covered operation has observed since; valid as a binding value, array element and ASSIGN/UPDATE/ARRAY_WRITE previous, never an operand, result or read value ([partial coverage](partial-coverage.md)) |
 
 Examples: `{"kind":"long","value":"9223372036854775807"}` and
 `{"kind":"double","bits":"8000000000000000"}`. The latter preserves negative
@@ -286,6 +287,7 @@ ranges follow sections 2–3 and the Java-support specification.
 | CALL | frame, scope, parameters; push new frame and its root scope and parameter bindings |
 | RETURN | result, implicit; pop this frame and remove its scopes/bindings; result is JSON null for void, otherwise a typed value |
 | EXCEPTION | exceptionType, message; no successful mutation or result for the failing operation |
+| UNCAPTURED | 1.1.0: unknownBindings, arrays, unknownArrays; a statement ran without capture: listed bindings become unknown, listed array contents replace state, unknownArrays elements become unknown |
 
 EXPRESSION operators are `+`, `-`, `*`, `/`, `%`, `!`, comparisons, `&&`, `||`,
 and `condition`. Each operand is either `{value: <typed value>}` or
@@ -309,7 +311,7 @@ Bookkeeping has seq, kind, data, but no step/source/frameId envelope fields:
 | SCOPE_ENTER | scope; add scope under its recorded parent in the active frame |
 | SCOPE_EXIT | scopeId; remove that innermost scope and its bindings |
 | FRAME_END | frameId, reason (main_return / unwind); pop the active frame and all remaining scopes/bindings |
-| OBJECT_CAPTURE | object; register a newly observed string identity and contents without claiming a Java allocation at that expression |
+| OBJECT_CAPTURE | object; register a newly observed string identity and contents, or (1.1.0) an int array created by uncaptured code, without claiming a Java allocation at that expression |
 
 Helper normal return uses RETURN, never FRAME_END. Main normal termination uses
 FRAME_END; unwinding uses FRAME_END for each frame actually departed. Binding

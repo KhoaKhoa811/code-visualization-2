@@ -10,49 +10,50 @@
 - Updated: 2026-10-18 (Asia/Saigon)
 - Owner: Claude Code
 - Status: ready for review. No approved task is unfinished.
-- Milestone: first visible slice done (Part 7); Milestone 0, full isolation and V1 incomplete
+- Milestone: Part 8 (coverage); Milestone 0, full isolation and V1 incomplete
 
-## Last approved task: coverage roadmap + Part 7e frontend slice (complete)
+## Last approved task: Part 8a graceful partial coverage (complete)
 
-User (2026-10-18), after asking whether the path still fits "visualize all the
-code as many as possible": "ok, please write this up and then starting 7e".
-Roadmap: [specs/coverage-roadmap.md](../specs/coverage-roadmap.md). Guide:
-[frontend/README.md](../frontend/README.md).
+User (2026-10-18): "ok, continue part 8a". Spec:
+[specs/partial-coverage.md](../specs/partial-coverage.md).
 
-- [x] 0. Coverage roadmap, requirements clarification, next steps — 6874f7a
-- [x] 1. Pinned scaffold, trace types, playback reducer, 7 tests — ab1a22b
-- [x] 2. Run flow, Monaco, controls, views, console, statuses — bea73ed
-- [x] 3. Playwright browser check with real backend and Docker — 9626c7d
-- [x] 4. Guide and memory (this commit)
+- [x] 1. Trace contract 1.1.0 (unknown, UNCAPTURED, array OBJECT_CAPTURE), spec — 0470f06
+- [x] 2. Analyzer regions, -Xjcov mapping, recorder re-reads, builder, integrity guard — 433c3b1
+- [x] 3. Frontend 1.1.0 playback and display — ec73605
+- [x] 4. Live container + browser tests; 10 s startup inventory — af58047
+- [x] 5. Guides and memory (this commit)
 
 ## Git
 
-- Branch `feat/part-7e-frontend-slice`, stacked on unmerged `feat/part-7d-run-api`
-  (bcbedd1; main 3d8fd53). Pushed with this commit.
-- PRs (manual, `gh` unavailable): open 7d first, then 7e against the 7d branch:
-  https://github.com/KhoaKhoa811/code-visualization-2/compare/feat/part-7d-run-api...feat/part-7e-frontend-slice?expand=1
+- Branch `feat/part-8a-partial-coverage`, stacked on unmerged `feat/part-7e-frontend-slice`
+  (0d87a90), which is stacked on unmerged `feat/part-7d-run-api` (bcbedd1); main 3d8fd53.
+- PRs (manual, `gh` unavailable), in order 7d, 7e, 8a:
+  https://github.com/KhoaKhoa811/code-visualization-2/compare/feat/part-7e-frontend-slice...feat/part-8a-partial-coverage?expand=1
 
 ## Verification (2026-10-18, Claude)
 
-- `npm test` (frontend): 7 passed. `npm run build`: type check and build passed.
-- `npx playwright test`: 2 passed, installed Edge, real backend jar and Docker.
-- Backend unchanged since the 7d verify (118 tests).
+- Root reactor `clean verify`, live Docker: **126 tests, 0 failures/skips**
+  (tracer 40, backend 86). Log `.tools/part-8a-verify.log`. No owned container left.
+- Contracts `npm test`: 54. Frontend: 9 reducer tests, `npm run build`, 3 Playwright tests.
 
 ## Decisions in this task
 
-- Installed exact pins, each at least two weeks old (list in frontend/README.md).
-  TypeScript 6.0.3, not 7.x. Vitest dropped (npm 10.9.8 arborist crash on its
-  optional Playwright peer); Node's test runner runs the reducer tests.
-- Dev server proxies `/api` to 127.0.0.1:8080; backend needs no CORS.
-- At the final cursor of a complete run, show the recorded pre-cleanup state,
-  labelled; never invent values.
-- Edited source hides the old playback (no remapping).
+- Contract bumped to exact 1.1.0; 1.0.0 retired (no stored traces).
+- Statement-level degradation in main only; unsupported conditions/for-parts degrade the
+  whole compound statement. Bytecode ranges from javac `-Xjcov` CharacterRangeTable
+  (JDK-internal option; mapping failure falls back to output-only).
+- Locals assigned by uncaptured code become unknown; arrays re-read after statements that
+  may write them (calls other than pure java.lang/print, `new`, element writes, object concat).
+- Integrity guard: reflection, Class/ClassLoader, files, processes, net, threads,
+  concurrency, sun/jdk/com.sun keep a program output-only (`TRACE_INTEGRITY`).
+- Traced runs now ship all compiled classes (helpers), with only Main instrumented.
+- 7d fix inside this branch: startup inventory timeout 5 s to 10 s (control maximum).
 
 ## Resources
 
-- No commands running; no containers. `frontend/node_modules` is local and ignored.
+- No commands running; no containers.
 
 ## Next action
 
-Wait for review/merge of 7d and 7e. Propose 8a (graceful partial coverage) with a
-checklist and its safe-boundary rule for approval.
+Wait for review/merge of 7d, 7e and 8a. Propose 8b (primitive types and operators:
+long/double/char/..., casts, compound assignment, uninitialized declarations) for approval.

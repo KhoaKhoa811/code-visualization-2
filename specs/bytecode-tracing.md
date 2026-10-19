@@ -108,3 +108,13 @@ is the container stopped and removed. The recorder flushes at least every
 backend builds trace-v1 only after termination is confirmed. A latched stop cause
 (timeout, output limit, cancellation) always yields partial capture with its
 execution status and diagnostic; a compile-phase stop yields unavailable capture.
+
+## Partial coverage (Part 8a)
+
+Since Part 8a an unsupported statement in `main` no longer makes the whole program
+output-only: it runs uncaptured as one `UNCAPTURED` step and the rest is traced.
+Helper methods and other classes run untraced. Rules, bytecode mapping (javac
+`-Xjcov` statement ranges) and contract 1.1.0 are in
+[partial-coverage.md](partial-coverage.md). Programs using reflection, files,
+processes, networking or threads stay output-only (`TRACE_INTEGRITY`), because
+uncaptured code shares the recorder's JVM.

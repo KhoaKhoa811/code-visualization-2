@@ -21,7 +21,7 @@ export function StatePanel({ view }: { view: View }) {
             <table className="bindings">
               <tbody>
                 {state.bindings.filter(b => b.frameId === frame.frameId).map(b => (
-                  <tr key={b.bindingId} className={focus.bindingId === b.bindingId ? 'changed' : undefined} data-testid={`var-${b.name}`}>
+                  <tr key={b.bindingId} className={focus.bindingId === b.bindingId || focus.touched?.includes(b.bindingId) ? 'changed' : undefined} data-testid={`var-${b.name}`}>
                     <td className="type">{b.javaType}</td>
                     <td className="name">{b.name}</td>
                     <td className="value">{formatValue(b.value, state.objects)}</td>
@@ -39,7 +39,7 @@ export function StatePanel({ view }: { view: View }) {
           const names = namesOf(state, array.objectId);
           const active = focus.objectId === array.objectId;
           return (
-            <div className={`array${active && focus.access === 'allocate' ? ' allocated' : ''}`} key={array.objectId}
+            <div className={`array${active && focus.access === 'allocate' || focus.touched?.includes(array.objectId) ? ' allocated' : ''}`} key={array.objectId}
                  data-testid={`array-${names[0] ?? array.objectId}`}>
               <div className="array-label">
                 {names.length ? names.join(' = ') : '(temporary)'} <span className="muted">{array.elementType}[{array.elements.length}]</span>
@@ -50,7 +50,7 @@ export function StatePanel({ view }: { view: View }) {
                 {array.elements.map((element, index) => {
                   const hit = active && focus.index === index ? ` ${focus.access}` : '';
                   return (
-                    <div className={`cell${hit}`} key={index} data-testid="cell">
+                    <div className={`cell${hit}${element.kind === 'unknown' ? ' unknown' : ''}`} key={index} data-testid="cell">
                       <div className="cell-value">{formatValue(element, state.objects)}</div>
                       <div className="cell-index">{index}</div>
                     </div>
