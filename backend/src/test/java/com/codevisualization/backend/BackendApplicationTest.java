@@ -11,21 +11,35 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+/** Real loopback HTTP checks of the run API that need no Docker. */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class BackendApplicationTest {
     @LocalServerPort
     private int port;
 
-    @Test
-    void serverStartsWithoutExposingAnExecutionEndpoint() throws Exception {
+    private HttpResponse<String> send(HttpRequest.Builder builder) throws Exception {
         try (var client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build()) {
-            var request = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + "/api/runs"))
-                    .timeout(Duration.ofSeconds(5))
-                    .POST(HttpRequest.BodyPublishers.ofString("{}"))
-                    .header("Content-Type", "application/json")
-                    .build();
-            var response = client.send(request, HttpResponse.BodyHandlers.discarding());
-            assertEquals(404, response.statusCode());
+            return client.send(builder.timeout(Duration.ofSeconds(5)).build(), HttpResponse.BodyHandlers.ofString());
         }
+    }
+
+    private URI uri(String path) { return URI.create("http://127.0.0.1:" + port + path); }
+
+    @Test
+    void invalidSubmissionsAreRejectedBeforeTheRunnerOpens() throws Exception {
+        var invalid = send(HttpRequest.newBuilder(uri("/api/runs"))
+                .POST(HttpRequest.BodyPublishers.ofString("{}")).header("Content-Type", "application/json"));
+        assertEquals(400, invalid.statusCode());
+        assertEquals("{\"error\":\"REQUEST_INVALID\"}", invalid.body());
+        var tooLarge = send(HttpRequest.newBuilder(uri("/api/runs"))
+                .POST(HttpRequest.BodyPublishers.ofString(" ".repeat(2 * 1024 * 1024 + 1))).header("Content-Type", "application/json"));
+        assertEquals(413, tooLarge.statusCode());
+    }
+
+    @Test
+    void unknownRunsAreNotFound() throws Exception {
+        var unknown = send(HttpRequest.newBuilder(uri("/api/runs/run-00000000-0000-0000-0000-000000000000")).GET());
+        assertEquals(404, unknown.statusCode());
+        assertEquals("{\"error\":\"RUN_NOT_FOUND\"}", unknown.body());
     }
 }

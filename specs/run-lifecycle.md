@@ -72,3 +72,30 @@ history, source/trace identity equality, exactly-once release, or monotonic cloc
 Those must be enforced and race-tested by later orchestration. Existing limits
 and ordering in [execution isolation](execution-isolation.md) remain authoritative;
 no new budgets or trace-v1 statuses are introduced.
+
+## HTTP API (Part 7d)
+
+The backend exposes this contract over loopback HTTP; usage is in
+[backend/RUN_API.md](../backend/RUN_API.md). One `RunSupervisor` is the only
+admission path: it opens after the owner-label inventory, assigns `run-<uuid>`
+IDs, and runs each request through the traced container lifecycle.
+
+- `POST /api/runs` accepts request v1 and returns `202` with the first snapshot.
+  Malformed, oversized, wrong-hash, busy and unavailable outcomes are fixed error
+  codes outside the snapshot, as above. Nothing rejected is queued or launched.
+- `GET /api/runs/{id}` returns the current snapshot. The revision increases
+  whenever phase, proof flags, slot ownership, trace presence or failures change.
+  A queue-expired run returns `410 QUEUE_EXPIRED` and has no snapshot.
+- `POST /api/runs/{id}/cancel`: a queued run finishes without a slot or
+  container, with a trace-v1 `cancelled` envelope and unavailable capture (no Java
+  ran). An active run latches cancellation under Part 6e precedence.
+- `POST /api/runs/{id}/recover` is explicit recovery of a held run; it never
+  changes the original stop cause and keeps earlier failures.
+- `GET /api/runs/{id}/output` returns stdout and stderr only after termination is
+  confirmed. Console data stays outside trace-v1.
+
+Infrastructure codes map from the lifecycle: preparation failures are
+`SETUP_FAILED`; a failing trusted `Prepare` tool or an invalid plan is
+`WORKER_FAILED`; phase transport failures and unreadable plan or record files
+are `TRANSPORT_FAILED`. Finished and expired runs are retained in memory, at most
+four, each for at most 10 minutes.

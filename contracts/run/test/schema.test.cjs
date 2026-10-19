@@ -63,3 +63,11 @@ test('infrastructure-only completion does not invent Java status; nested trace r
     assert.equal(result(snapshot('finished', change)), false);
   }
 });
+
+test('shared snapshot checker adds trace checks and run/source identity', () => {
+  const { problems } = require('../check.cjs');
+  assert.deepEqual(problems(snapshot('finished', { trace })), []);
+  assert.deepEqual(problems(snapshot('finished', { trace, runId: 'run-other' })), ['run-id']);
+  assert.deepEqual(problems(snapshot('finished', { trace, sourceSha256: '0'.repeat(64) })), ['source-identity']);
+  assert.match(problems(snapshot('finished', { slotHeld: true }))[0], /^schema:/);
+});

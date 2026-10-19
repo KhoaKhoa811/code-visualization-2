@@ -3,7 +3,8 @@
 Minimal Spring Boot application, bound to `127.0.0.1:8080`. Part 6c adds a
 [Docker control adapter](DOCKER_CONTROL.md); Part 6d adds a
 [fixed-fixture lifecycle](FIXTURE_LIFECYCLE.md) for isolated compilation/execution.
-These are not yet wired into an HTTP execution API. No tracing or frontend exists.
+Part 7c adds [traced runs](TRACED_RUNS.md) and Part 7d the [run API](RUN_API.md)
+through a single run supervisor. No frontend exists yet.
 
 ## Pinned tools
 
@@ -41,7 +42,8 @@ arguments in PowerShell. Build output stays in ignored `backend/target/`.
 Verification on 2026-10-17: `clean verify` passed with one test, no failures,
 errors, or skipped tests. The test starts a real HTTP server on a random loopback
 port and checks that `POST /api/runs` returns 404. This is a startup smoke check,
-not an implemented API contract. Maven also packaged the executable JAR.
+not an implemented API contract. Maven also packaged the executable JAR. Since
+Part 7d that test expects `400 REQUEST_INVALID`; current results are in RUN_API.md.
 
 To start the packaged application manually:
 
@@ -49,13 +51,12 @@ To start the packaged application manually:
 & "$env:JAVA_HOME\bin\java.exe" -jar target/backend-0.0.1-SNAPSHOT.jar
 ```
 
-Stop with Ctrl+C. Routes currently return 404 because there are no controllers.
+Stop with Ctrl+C. Only the [run API](RUN_API.md) routes exist; pass
+`-Dcodeviz.docker.executable=<path>` or keep Docker on `PATH`.
 The packaged launch command and Unix wrapper have not been separately smoke-tested.
-Submitted Java must eventually run in the isolated runner, never in this JVM.
+Submitted Java runs only in the isolated runner, never in this JVM.
 
 ## Next scope
 
-Parts 6b-6d define contracts and implement bounded control and fixed-fixture phases.
-Part 6e proposes cancellation, run-slot ownership and recovery. Submitted-source
-admission remains later work. See [next steps](../memory/next-steps.md) for the
-full Part 6 roadmap and approval state.
+Parts 6b-6e and 7c-7d are implemented. See [next steps](../memory/next-steps.md) for the
+roadmap and approval state.

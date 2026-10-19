@@ -26,6 +26,9 @@ interface WorkspaceControl {
 
     void stop() throws IOException;
     void remove() throws IOException;
+
+    /** Exact-ID force removal with verified absence; never permits another launch. */
+    void recover() throws IOException;
     ContainerProfile.Identity identity();
     String containerId();
 }

@@ -69,3 +69,14 @@ not verbatim transcripts, unless quoted.
   (records still buffered at kill); recorder now flushes every 100 ms.
 - Root reactor clean verify with live Docker: 98 tests passed (tracer 33,
   backend 65). Traces pass the shared checker; no containers left.
+
+## 2026-10-18 — Part 7d minimal run API (Claude Code)
+
+- User merged 7b (PR #84) and 7c (PR #85): "please review and continue implement" 7d.
+- c0e2988 lifecycle uses run-v1 failure codes, reserved preparation deadline and
+  explicit recovery; 0dc80a1 RunSupervisor (1 slot, 2 FIFO queued, 30 s expiry,
+  revisions, retention 4 runs / 10 min); 8cd5e4a HTTP routes with a strict
+  Jackson streaming parser and fixed error codes; 593c6ce contracts/run/check.cjs
+  and live API tests (bubble sort, busy, queued and active cancellation, FIFO).
+- Root reactor clean verify with live Docker: 118 tests passed (tracer 33,
+  backend 85); contracts 52 passed; no containers left. All passed first run.

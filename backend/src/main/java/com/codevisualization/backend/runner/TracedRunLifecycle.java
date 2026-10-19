@@ -12,9 +12,9 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Supplier;
 
 /**
  * One traced run of a Java source inside the owned restricted container (Part 7c).
@@ -24,7 +24,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * runtime phase, for any cause, the run user's processes are killed and the raw
  * records read while the container still exists; then the whole container is
  * stopped and removed. Trace-v1 is built here, outside the container, and only
- * once termination is confirmed. No HTTP route or supervisor wiring yet (Part 7d).
+ * once termination is confirmed. {@link RunSupervisor} owns the slot (Part 7d).
  */
 public final class TracedRunLifecycle {
     public static final int SOURCE_LIMIT = 262_144;
@@ -37,7 +37,8 @@ public final class TracedRunLifecycle {
             "-Dcodeviz.trace=/work/raw.trace", "-cp", "/work/out:/work/" + RUNTIME_JAR, "Main");
     static final List<String> RUN_PLAIN = List.of("java", "-Xmx128m", "-Djava.io.tmpdir=/tmp", "-cp", "/work/out", "Main");
 
-    public enum Failure { SETUP_OR_TRANSPORT_FAILED, TRACE_TRANSFER_FAILED, TERMINATION_UNCONFIRMED, CLEANUP_UNCONFIRMED }
+    /** Supervisor infrastructure codes of the run-v1 contract; never Java execution statuses. */
+    public enum Failure { SETUP_FAILED, WORKER_FAILED, TRANSPORT_FAILED, TERMINATION_UNCONFIRMED, CLEANUP_UNCONFIRMED }
 
     /** Rejected before any container work (execution-isolation Part 4h). */
     public static final class AdmissionException extends Exception {
@@ -67,11 +68,19 @@ public final class TracedRunLifecycle {
     private final List<PhaseProcess> transports = new CopyOnWriteArrayList<>();
     private volatile boolean runtimePhase;
     private volatile String phase = "not_started";
+    private volatile Result latest;
+    // Built once termination is confirmed, possibly later by explicit recovery.
+    private Supplier<String> pendingTrace;
 
     record Progress(String containerId, String phase, int outputBytes) { }
     Progress progress() { return new Progress(control.containerId(), phase, output.size()); }
 
     public TracedRunLifecycle(Path dockerExecutable) {
+        this(dockerExecutable, bundledRuntime());
+    }
+
+    /** Shares one loaded runtime jar across runs. */
+    TracedRunLifecycle(Path dockerExecutable, byte[] runtimeJar) {
         var runner = new BoundedCommandRunner();
         control = new DockerControlAdapter(dockerExecutable, runner);
         phases = (command, out, budget) -> {
@@ -80,7 +89,7 @@ public final class TracedRunLifecycle {
             return transport.execute(command, out, budget, cancellation, runtimePhase);
         };
         closeControl = runner::close;
-        runtimeJar = bundledRuntime();
+        this.runtimeJar = runtimeJar;
     }
 
     TracedRunLifecycle(WorkspaceControl control, FixedFixtureLifecycle.PhaseExecutor phases, byte[] runtimeJar) {
@@ -97,6 +106,8 @@ public final class TracedRunLifecycle {
     }
 
     public boolean cancel() { return cancellation.request(); }
+
+    boolean cancellationRequested() { return cancellation.requested(); }
 
     /** Exact-text admission: well-formed Unicode and at most 256 KiB of UTF-8. */
     public static byte[] admit(String source) throws AdmissionException {
@@ -116,22 +127,28 @@ public final class TracedRunLifecycle {
     }
 
     public Result run(String source) throws AdmissionException {
+        return runReserved(source, "run-" + control.identity().owner(), System.nanoTime() + Duration.ofSeconds(10).toNanos());
+    }
+
+    /** Runs with a run ID and a preparation deadline that started when the slot was reserved. */
+    Result runReserved(String source, String runId, long preparationDeadline) throws AdmissionException {
         byte[] sourceBytes = admit(source);
         if (!used.compareAndSet(false, true)) throw new IllegalStateException("Lifecycle is one-shot");
-        String runId = "run-" + control.identity().owner();
         List<Failure> failures = new ArrayList<>();
-        java.util.function.Supplier<String> trace = null; // built only after termination is confirmed
+        Supplier<String> trace = null; // built only after termination is confirmed
         boolean prepared = false, terminated = false, cleaned = false;
         try {
             if (cancellation.requested()) {
                 trace = stopped(source, runId, Tracer.Cause.CANCELLED);
             } else {
+                long remaining = preparationDeadline - System.nanoTime();
+                if (remaining <= 0) throw new IOException("Preparation deadline expired before launch");
                 phase = "preparing";
                 prepared = true;
                 var files = new LinkedHashMap<String, byte[]>();
                 files.put(RUNTIME_JAR, runtimeJar);
                 files.put("Main.java", sourceBytes);
-                control.prepareWorkspace(files, Duration.ofSeconds(10));
+                control.prepareWorkspace(files, Duration.ofNanos(remaining));
                 if (cancellation.requested()) {
                     trace = stopped(source, runId, Tracer.Cause.CANCELLED);
                 } else {
@@ -139,14 +156,15 @@ public final class TracedRunLifecycle {
                     var compile = phases.execute(control.workspaceCommand(PREPARE), output, Duration.ofSeconds(10));
                     if (compile.cause() != PhaseGate.Cause.EXIT) {
                         Tracer.Cause cause = compileStop(compile.cause());
-                        if (cause == null) failures.add(Failure.SETUP_OR_TRANSPORT_FAILED);
+                        if (cause == null) failures.add(Failure.TRANSPORT_FAILED);
                         else trace = stopped(source, runId, cause);
                     } else if (!Integer.valueOf(0).equals(compile.exitCode())) {
-                        failures.add(Failure.SETUP_OR_TRANSPORT_FAILED); // the trusted tool itself failed
+                        failures.add(Failure.WORKER_FAILED); // the trusted tool itself failed
                     } else {
-                        Tracer.Prepared plan = Tracer.fromPlan(source,
-                                control.readFile("/work/out/plan.json", PLAN_LIMIT, Duration.ofSeconds(5), false));
-                        if (!plan.compiled()) {
+                        Tracer.Prepared plan = readPlan(source, failures);
+                        if (plan == null) {
+                            // Failure recorded; no submitted code runs without a trusted plan.
+                        } else if (!plan.compiled()) {
                             trace = () -> Tracer.trace(plan, runId, "", Tracer.Outcome.exited(1));
                         } else if (cancellation.requested()) {
                             trace = stopped(source, runId, Tracer.Cause.CANCELLED);
@@ -157,14 +175,14 @@ public final class TracedRunLifecycle {
                                     output, Duration.ofSeconds(5));
                             Tracer.Outcome outcome = runtimeOutcome(runtime);
                             if (outcome == null) {
-                                failures.add(Failure.SETUP_OR_TRANSPORT_FAILED);
+                                failures.add(Failure.TRANSPORT_FAILED);
                             } else {
                                 String raw = "";
                                 if (plan.traced()) {
                                     try {
                                         raw = control.readFile("/work/raw.trace", RAW_LIMIT, Duration.ofSeconds(5), true);
                                     } catch (IOException | RuntimeException unreadable) {
-                                        failures.add(Failure.TRACE_TRANSFER_FAILED); // capture becomes unavailable
+                                        failures.add(Failure.TRANSPORT_FAILED); // capture becomes unavailable
                                     }
                                 }
                                 String records = raw;
@@ -175,7 +193,7 @@ public final class TracedRunLifecycle {
                 }
             }
         } catch (IOException | RuntimeException failure) {
-            failures.add(Failure.SETUP_OR_TRANSPORT_FAILED);
+            failures.add("preparing".equals(phase) || "not_started".equals(phase) ? Failure.SETUP_FAILED : Failure.TRANSPORT_FAILED);
             trace = null;
         } finally {
             cancellation.finish();
@@ -197,12 +215,54 @@ public final class TracedRunLifecycle {
                 if (interrupted) Thread.currentThread().interrupt();
             }
         }
-        String json = terminated && trace != null ? trace.get() : null;
-        if (terminated && cleaned) phase = "finished";
-        return new Result(runId, json, output.stdout(), output.stderr(), terminated, cleaned, failures);
+        synchronized (this) {
+            pendingTrace = trace;
+            String json = terminated && trace != null ? trace.get() : null;
+            latest = new Result(runId, json, output.stdout(), output.stderr(), terminated, cleaned, failures);
+            if (terminated && cleaned) phase = "finished";
+            return latest;
+        }
     }
 
-    private static java.util.function.Supplier<String> stopped(String source, String runId, Tracer.Cause cause) {
+    /**
+     * Explicit recovery of an unconfirmed stop or removal: force-removes the exact
+     * container ID and verifies absence. Keeps the original stop cause, output and
+     * failures; builds the withheld trace once termination is proven.
+     */
+    public synchronized Result recover() {
+        Result previous = latest;
+        if (previous == null) throw new IllegalStateException("Run has not settled");
+        if (previous.terminationConfirmed() && previous.cleanupVerified()) return previous;
+        try {
+            if (!transports.stream().allMatch(PhaseProcess::settled)) throw new IOException("Phase worker unsettled");
+            control.recover();
+        } catch (IOException | RuntimeException failure) {
+            return previous; // still held; failures already record why
+        }
+        String json = previous.trace() != null ? previous.trace() : pendingTrace != null ? pendingTrace.get() : null;
+        latest = new Result(previous.runId(), json, previous.stdout(), previous.stderr(), true, true,
+                previous.infrastructureFailures());
+        phase = "finished";
+        return latest;
+    }
+
+    private Tracer.Prepared readPlan(String source, List<Failure> failures) {
+        String json;
+        try {
+            json = control.readFile("/work/out/plan.json", PLAN_LIMIT, Duration.ofSeconds(5), false);
+        } catch (IOException | RuntimeException unreadable) {
+            failures.add(Failure.TRANSPORT_FAILED);
+            return null;
+        }
+        try {
+            return Tracer.fromPlan(source, json);
+        } catch (RuntimeException invalid) {
+            failures.add(Failure.WORKER_FAILED); // malformed plan or a plan for other source
+            return null;
+        }
+    }
+
+    private static Supplier<String> stopped(String source, String runId, Tracer.Cause cause) {
         return () -> Tracer.notRun(source, runId, new Tracer.Outcome(cause, 0));
     }
 
