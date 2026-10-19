@@ -64,7 +64,7 @@ export interface Diagnostic {
 }
 
 export interface Trace {
-  schemaVersion: '1.1.0';
+  schemaVersion: '1.2.0';
   runId: string;
   source: { file: 'Main.java'; text: string; sha256: string };
   execution: { status: ExecutionStatus; reason: string };

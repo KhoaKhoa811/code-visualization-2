@@ -78,6 +78,20 @@ test('statements outside coverage run without visualization while the rest is tr
   await expect(page.getByTestId('var-total')).not.toContainText('30');
 });
 
+test('long, double and char values are traced exactly (8b)', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.monaco-editor')).toBeVisible();
+  await page.getByLabel('Example').selectOption('Number types');
+  await run(page);
+  await expect(page.getByTestId('run-summary')).toContainText('capture complete');
+  await expect(page.getByTestId('console-output')).toHaveText('1307674368000\nA\n0\n');
+  await page.getByTitle('End').click();
+  await expect(page.getByTestId('var-factorial')).toContainText('1307674368000L');
+  await expect(page.getByTestId('var-average')).toContainText('87178291200');
+  await expect(page.getByTestId('var-grade')).toContainText("'A'");
+  await expect(page.getByTestId('var-low')).toContainText('0');
+});
+
 test('another program and a compile error', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('.monaco-editor')).toBeVisible();

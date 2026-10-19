@@ -208,7 +208,7 @@ values; section 12 defines additional semantic checks. See the official
 
 | Top-level field | Meaning |
 | --- | --- |
-| schemaVersion | Exactly `1.1.0` (Part 8a; `1.0.0` retired); reject unrecognized versions rather than silently skipping facts |
+| schemaVersion | Exactly `1.2.0` (Part 8b; earlier versions retired); reject unrecognized versions rather than silently skipping facts |
 | runId | Nonempty identity for this run; identities below are local to it |
 | source | Exact source text, file `Main.java`, and lowercase SHA-256 of its UTF-8 bytes |
 | execution | Terminal status and human-readable reason; describes execution, not capture completeness |
@@ -290,7 +290,8 @@ ranges follow sections 2–3 and the Java-support specification.
 | UNCAPTURED | 1.1.0: unknownBindings, arrays, unknownArrays; a statement ran without capture: listed bindings become unknown, listed array contents replace state, unknownArrays elements become unknown |
 
 EXPRESSION operators are `+`, `-`, `*`, `/`, `%`, `!`, comparisons, `&&`, `||`,
-and `condition`. Each operand is either `{value: <typed value>}` or
+`condition`, and since 1.2.0 `&`, `|`, `^`, `~`, `<<`, `>>`, `>>>` and the primitive casts
+`(byte)` ... `(double)` ([primitive types](primitive-types.md)). Each operand is either `{value: <typed value>}` or
 `{skipped: true}`. Position determines operand role; unary has one operand,
 binary two. Only the second operand of &&/|| may be skipped, and only when its
 first result warrants skipping. Earlier nested operations have their own events.

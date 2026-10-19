@@ -43,6 +43,9 @@ final class Analyzer {
 
     static final String FILE = "Main.java";
 
+    /** JVM stack type: byte, short, char and boolean values are ints. */
+    static String stack(String t) { return switch (t) { case "byte", "short", "char", "boolean" -> "int"; default -> t; }; }
+
     static Analysis analyze(String source) {
         JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
         var collector = new DiagnosticCollector<JavaFileObject>();
@@ -121,6 +124,8 @@ final class Analyzer {
         private final Deque<String> scopes = new ArrayDeque<>();
         private final Map<Element, Site> declarations = new HashMap<>();
         private final List<Element> declared = new ArrayList<>(); // insertion order, for rollback
+        // Per block: declarations without initializer not yet attached to a following operation (Part 8b).
+        private final Deque<List<Site>> pending = new ArrayDeque<>();
         // Findings for the statement being planned; null outside main's statements (they block tracing).
         private List<Diagnostic> current;
         String rootScope;
@@ -202,7 +207,9 @@ final class Analyzer {
         private void method(MethodTree m) {
             rootScope = "b" + start(m.getBody());
             scopes.push(rootScope);
+            pending.push(new ArrayList<>());
             for (StatementTree s : m.getBody().getStatements()) statement(s);
+            pending.pop();
             scopes.pop();
         }
 
@@ -216,7 +223,9 @@ final class Analyzer {
         private void statement(StatementTree s) {
             if (s.getKind() == Tree.Kind.BLOCK) { // blocks never degrade as a whole
                 scopes.push("b" + start(s));
+                pending.push(new ArrayList<>());
                 for (StatementTree inner : ((BlockTree) s).getStatements()) statement(inner);
+                pending.pop(); // declarations never followed by an operation are never observable
                 scopes.pop();
                 return;
             }
@@ -226,12 +235,29 @@ final class Analyzer {
             plain(s);
             List<Diagnostic> found = current;
             current = outer;
-            if (found.isEmpty()) return;
-            plan.subList(planMark, plan.size()).clear();
-            sites.keySet().removeIf(id -> id > siteMark);
-            uncaptured.subList(uncapturedMark, uncaptured.size()).clear();
-            while (declared.size() > declaredMark) declarations.remove(declared.remove(declared.size() - 1));
-            region(s, found);
+            if (!found.isEmpty()) {
+                plan.subList(planMark, plan.size()).clear();
+                sites.keySet().removeIf(id -> id > siteMark);
+                uncaptured.subList(uncapturedMark, uncaptured.size()).clear();
+                while (declared.size() > declaredMark) declarations.remove(declared.remove(declared.size() - 1));
+                for (List<Site> waiting : pending) waiting.removeIf(d -> d.id > siteMark);
+                region(s, found);
+            }
+            attachPending(planMark);
+        }
+
+        /** Waiting declarations run just before the first recorded operation of this statement. */
+        private void attachPending(int planMark) {
+            Site first = null;
+            for (int i = planMark; i < plan.size() && first == null; i++) first = plan.get(i).site();
+            if (first == null) return;
+            List<Site> waiting = new ArrayList<>();
+            for (Iterator<List<Site>> outerFirst = pending.descendingIterator(); outerFirst.hasNext(); ) {
+                List<Site> block = outerFirst.next();
+                waiting.addAll(block);
+                block.clear();
+            }
+            first.declareBefore.addAll(0, waiting);
         }
 
         private void region(StatementTree s, List<Diagnostic> found) {
@@ -399,20 +425,71 @@ final class Analyzer {
             condition(c);
         }
 
+        // ---- primitive types (Part 8b) ------------------------------------------------
+
+        private static final Set<String> SCALARS = Set.of("byte", "short", "char", "int", "long", "float", "double", "boolean");
+        private static final Set<String> LOCAL_TYPES = Set.of("byte", "short", "char", "int", "long", "float", "double", "boolean",
+                "java.lang.String", "int[]");
+
+        private static boolean numeric(String t) { return SCALARS.contains(t) && !t.equals("boolean"); }
+
+        /** Unary numeric promotion. */
+        private static String promote(String t) { return switch (t) { case "byte", "short", "char" -> "int"; default -> t; }; }
+
+        /** Binary numeric promotion. */
+        private static String promote(String a, String b) {
+            if (a.equals("double") || b.equals("double")) return "double";
+            if (a.equals("float") || b.equals("float")) return "float";
+            if (a.equals("long") || b.equals("long")) return "long";
+            return "int";
+        }
+
+
+        /** Instructions javac's Items.coerce emits between two primitive types (at most two). */
+        static List<String> conversions(String from, String to) {
+            if (from.equals(to) || !SCALARS.contains(from) || !SCALARS.contains(to)) return List.of();
+            List<String> out = new ArrayList<>();
+            String f = stack(from), t = stack(to);
+            if (!f.equals(t)) out.add(letter(f) + "2" + letter(t));
+            if (!t.equals(to)) out.add("I2" + letter(to));
+            return out;
+        }
+
+        private static String letter(String t) {
+            return switch (t) {
+                case "int" -> "I"; case "long" -> "L"; case "float" -> "F"; case "double" -> "D";
+                case "byte" -> "B"; case "char" -> "C"; case "short" -> "S";
+                default -> throw new IllegalArgumentException(t);
+            };
+        }
+
+        /** An implicit conversion: matched against the bytecode, never a step. */
+        private void coerce(String from, String to) {
+            for (String c : conversions(from, to)) plan.add(new Item(Expect.CONVERT, null, 0, c));
+        }
+
+        private Site arithmetic(Tree tree, String operator, String type) {
+            Site site = site(Kind.ARITHMETIC, tree);
+            site.operator = operator; site.javaType = type;
+            return site;
+        }
+
         private void declaration(VariableTree v) {
             String type = javaType(v);
-            if (!List.of("int", "boolean", "java.lang.String", "int[]").contains(type)) {
+            if (!LOCAL_TYPES.contains(type)) {
                 unsupported(v, "local variables of type " + type);
                 return;
             }
-            if (v.getInitializer() == null) { unsupported(v, "declarations without an initializer"); return; }
             Site site = site(Kind.DECLARE, v);
             site.declarationId = "Main.main:" + v.getName() + "@" + start(v);
             site.name = v.getName().toString();
             site.javaType = type;
             declarations.put(element(v), site);
             declared.add(element(v));
-            value(v.getInitializer());
+            // No code runs for a declaration without initializer: it is recorded just before
+            // the next operation that runs after it in the same block.
+            if (v.getInitializer() == null) { pending.peek().add(site); return; }
+            value(v.getInitializer(), type);
             plan.add(Item.of(Expect.STORE, site));
         }
 
@@ -424,24 +501,88 @@ final class Analyzer {
                     if (target instanceof IdentifierTree id) {
                         Site declared = declarations.get(element(id));
                         if (declared == null) { unsupported(target, "assignment to this variable"); return; }
-                        Site site = site(Kind.ASSIGN, a);
-                        site.declarationId = declared.declarationId; site.name = declared.name; site.javaType = declared.javaType;
-                        value(a.getExpression());
+                        Site site = assignment(a, declared);
+                        value(a.getExpression(), declared.javaType);
                         plan.add(Item.of(Expect.STORE, site));
                     } else if (target instanceof ArrayAccessTree access && "int[]".equals(javaType(access.getExpression()))) {
                         Site site = site(Kind.ARRAY_WRITE, a);
-                        value(access.getExpression());
-                        value(access.getIndex());
-                        value(a.getExpression());
+                        value(access.getExpression(), null);
+                        value(access.getIndex(), "int");
+                        value(a.getExpression(), "int");
                         plan.add(Item.of(Expect.IASTORE, site));
                     } else {
                         unsupported(target, "assignment to this target");
                     }
                 }
+                case PLUS_ASSIGNMENT, MINUS_ASSIGNMENT, MULTIPLY_ASSIGNMENT, DIVIDE_ASSIGNMENT, REMAINDER_ASSIGNMENT,
+                     AND_ASSIGNMENT, OR_ASSIGNMENT, XOR_ASSIGNMENT, LEFT_SHIFT_ASSIGNMENT, RIGHT_SHIFT_ASSIGNMENT,
+                     UNSIGNED_RIGHT_SHIFT_ASSIGNMENT -> compound((CompoundAssignmentTree) e);
                 case PREFIX_INCREMENT, PREFIX_DECREMENT, POSTFIX_INCREMENT, POSTFIX_DECREMENT -> update((UnaryTree) e);
                 case METHOD_INVOCATION -> output((MethodInvocationTree) e);
                 default -> unsupported(e, "this expression statement (" + e.getKind() + ")");
             }
+        }
+
+        private Site assignment(Tree tree, Site declared) {
+            Site site = site(Kind.ASSIGN, tree);
+            site.declarationId = declared.declarationId; site.name = declared.name; site.javaType = declared.javaType;
+            return site;
+        }
+
+        /**
+         * {@code x op= e} in javac's layout: an int local with a small constant +/- becomes
+         * one {@code iinc}; otherwise load, operation (a step), narrowing, store (a step).
+         * For an int[] element: read (a step), operation (a step), write (a step).
+         */
+        private void compound(CompoundAssignmentTree c) {
+            String op = switch (c.getKind()) {
+                case PLUS_ASSIGNMENT -> "+"; case MINUS_ASSIGNMENT -> "-"; case MULTIPLY_ASSIGNMENT -> "*";
+                case DIVIDE_ASSIGNMENT -> "/"; case REMAINDER_ASSIGNMENT -> "%"; case AND_ASSIGNMENT -> "&";
+                case OR_ASSIGNMENT -> "|"; case XOR_ASSIGNMENT -> "^"; case LEFT_SHIFT_ASSIGNMENT -> "<<";
+                case RIGHT_SHIFT_ASSIGNMENT -> ">>"; default -> ">>>";
+            };
+            ExpressionTree target = strip(c.getVariable());
+            ExpressionTree rhs = c.getExpression();
+            String rhsType = javaType(rhs);
+            String type;
+            Site declared = null;
+            if (target instanceof IdentifierTree id && (declared = declarations.get(element(id))) != null && SCALARS.contains(declared.javaType)) {
+                type = declared.javaType;
+                Object constant = fold(rhs);
+                if ((op.equals("+") || op.equals("-")) && stack(type).equals("int") && !type.equals("boolean")
+                        && List.of("int", "short", "byte", "char").contains(rhsType) && constant != null) {
+                    int value = constant instanceof Character ch ? ch : ((Number) constant).intValue();
+                    int delta = op.equals("+") ? value : -value; // javac LocalItem.incr
+                    Site assign = assignment(c, declared);
+                    if (type.equals("int") && delta >= Short.MIN_VALUE && delta <= Short.MAX_VALUE) {
+                        assign.operator = op; assign.operand = Integer.toString(value); assign.delta = delta;
+                        plan.add(Item.of(Expect.IINC, assign));
+                        return;
+                    }
+                    plan.add(Item.of(Expect.ARITH, arithmetic(c, delta >= 0 ? "+" : "-", "int")));
+                    coerce("int", type);
+                    plan.add(Item.of(Expect.STORE, assign));
+                    return;
+                }
+            } else if (target instanceof ArrayAccessTree access && "int[]".equals(javaType(access.getExpression()))) {
+                type = "int";
+                value(access.getExpression(), null);
+                value(access.getIndex(), "int");
+                plan.add(Item.of(Expect.IALOAD, site(Kind.ARRAY_READ, access))); // after dup2: the element is read
+            } else {
+                unsupported(c, "this compound assignment");
+                return;
+            }
+            if (rhsType.equals("java.lang.String") || !SCALARS.contains(rhsType)) { unsupported(c, "this compound assignment"); return; }
+            boolean shift = op.startsWith("<") || op.startsWith(">");
+            String opType = type.equals("boolean") ? "boolean" : shift ? promote(type) : promote(type, rhsType);
+            if (declared != null) coerce(type, opType); // the loaded variable
+            value(rhs, shift ? "int" : opType); // javac ishll/lshll: a shift distance is coerced to int
+            Site arith = arithmetic(c, op, opType);
+            plan.add(Item.of(Expect.ARITH, arith));
+            coerce(opType, type);
+            if (declared != null) plan.add(Item.of(Expect.STORE, assignment(c, declared)));
+            else plan.add(Item.of(Expect.IASTORE, site(Kind.ARRAY_WRITE, c)));
         }
 
         private void output(MethodInvocationTree call) {
@@ -458,54 +599,62 @@ final class Analyzer {
                 return;
             }
             List<String> parameters = method.getParameters().stream().map(p -> p.asType().toString()).toList();
-            if (!(parameters.isEmpty() || List.of(List.of("int"), List.of("boolean"), List.of("java.lang.String")).contains(parameters))) {
+            if (!(parameters.isEmpty() || parameters.size() == 1 && (SCALARS.contains(parameters.get(0))
+                    || parameters.get(0).equals("java.lang.String")))) {
                 unsupported(call, "print/println(" + String.join(",", parameters) + ")");
                 return;
             }
             plan.add(new Item(Expect.GETSTATIC, null, 0, stream.getSimpleName().toString()));
-            for (ExpressionTree argument : call.getArguments()) value(argument);
+            for (ExpressionTree argument : call.getArguments()) value(argument, parameters.get(0));
             plan.add(new Item(Expect.INVOKE, null, 0,
                     method.getSimpleName() + (parameters.isEmpty() ? "()V" : "(" + descriptor(parameters.get(0)) + ")V")));
         }
 
         private static String descriptor(String type) {
-            return switch (type) { case "int" -> "I"; case "boolean" -> "Z"; default -> "Ljava/lang/String;"; };
+            return switch (type) {
+                case "int" -> "I"; case "boolean" -> "Z"; case "long" -> "J"; case "double" -> "D"; case "float" -> "F";
+                case "char" -> "C"; case "byte" -> "B"; case "short" -> "S"; default -> "Ljava/lang/String;";
+            };
         }
 
         // ---- expressions in value context --------------------------------------
 
-        private void value(ExpressionTree e) {
+        /**
+         * Plans the operations of {@code e}, then javac's implicit conversion to {@code target}
+         * (null: none). Constant expressions are folded by javac, already in the target type.
+         */
+        private void value(ExpressionTree e, String target) {
             e = strip(e);
             if (isConstant(e)) return; // javac folds compile-time constants: nothing executes.
+            String type = javaType(e);
             switch (e.getKind()) {
-                case NULL_LITERAL, STRING_LITERAL, INT_LITERAL, BOOLEAN_LITERAL -> { }
+                case NULL_LITERAL -> { }
                 case IDENTIFIER -> {
                     if (!declarations.containsKey(element(e))) unsupported(e, "this variable (only locals declared in main are traced)");
                 }
-                case PLUS, MINUS, MULTIPLY, DIVIDE, REMAINDER -> {
-                    BinaryTree b = (BinaryTree) e;
-                    if (!"int".equals(javaType(b))) { unsupported(b, "non-int arithmetic or string concatenation"); return; }
-                    value(b.getLeftOperand());
-                    value(b.getRightOperand());
-                    Site site = site(Kind.ARITHMETIC, b);
-                    site.operator = symbol(b.getKind());
-                    plan.add(Item.of(Expect.ARITH, site));
-                }
-                case UNARY_MINUS -> {
+                case PLUS, MINUS, MULTIPLY, DIVIDE, REMAINDER, AND, OR, XOR, LEFT_SHIFT, RIGHT_SHIFT, UNSIGNED_RIGHT_SHIFT ->
+                        binary((BinaryTree) e, type);
+                case UNARY_MINUS, UNARY_PLUS, BITWISE_COMPLEMENT -> {
                     UnaryTree u = (UnaryTree) e;
-                    if (!"int".equals(javaType(u))) { unsupported(u, "non-int negation"); return; }
-                    value(u.getExpression());
-                    Site site = site(Kind.ARITHMETIC, u);
-                    site.operator = "-";
-                    plan.add(Item.of(Expect.INEG, site));
+                    if (!numeric(type)) { unsupported(u, "this operator on " + type); return; }
+                    value(u.getExpression(), type);
+                    if (e.getKind() == Tree.Kind.UNARY_MINUS) plan.add(Item.of(Expect.NEG, arithmetic(u, "-", type)));
+                    if (e.getKind() == Tree.Kind.BITWISE_COMPLEMENT) plan.add(Item.of(Expect.ARITH, arithmetic(u, "~", type))); // x ^ -1
+                }
+                case TYPE_CAST -> cast((TypeCastTree) e);
+                case CONDITIONAL_EXPRESSION -> {
+                    ConditionalExpressionTree c = (ConditionalExpressionTree) e;
+                    condition(c.getCondition());
+                    value(c.getTrueExpression(), type);
+                    value(c.getFalseExpression(), type);
                 }
                 case LESS_THAN, LESS_THAN_EQUAL, GREATER_THAN, GREATER_THAN_EQUAL, EQUAL_TO, NOT_EQUAL_TO,
                      CONDITIONAL_AND, CONDITIONAL_OR, LOGICAL_COMPLEMENT -> condition(e);
                 case ARRAY_ACCESS -> {
                     ArrayAccessTree a = (ArrayAccessTree) e;
                     if (!"int[]".equals(javaType(a.getExpression()))) { unsupported(a, "reads from non-int arrays"); return; }
-                    value(a.getExpression());
-                    value(a.getIndex());
+                    value(a.getExpression(), null);
+                    value(a.getIndex(), "int");
                     plan.add(Item.of(Expect.IALOAD, site(Kind.ARRAY_READ, a)));
                 }
                 case MEMBER_SELECT -> {
@@ -514,13 +663,41 @@ final class Analyzer {
                         unsupported(m, "this member access");
                         return;
                     }
-                    value(m.getExpression());
+                    value(m.getExpression(), null);
                     plan.add(Item.of(Expect.ARRAYLENGTH, site(Kind.ARRAY_LENGTH, m)));
                 }
                 case PREFIX_INCREMENT, PREFIX_DECREMENT, POSTFIX_INCREMENT, POSTFIX_DECREMENT -> update((UnaryTree) e);
                 case NEW_ARRAY -> newArray((NewArrayTree) e);
                 default -> unsupported(e, "this expression (" + e.getKind() + ")");
             }
+            if (target != null) coerce(type, target);
+        }
+
+        private void binary(BinaryTree b, String type) {
+            if (!SCALARS.contains(type)) { unsupported(b, "string concatenation"); return; }
+            String op = symbol(b.getKind());
+            boolean shift = op.startsWith("<") || op.startsWith(">");
+            value(b.getLeftOperand(), type);
+            if (shift) {
+                value(b.getRightOperand(), "int"); // javac ishll/lshll: the distance is coerced to int
+            } else {
+                value(b.getRightOperand(), type);
+            }
+            plan.add(Item.of(Expect.ARITH, arithmetic(b, op, type)));
+        }
+
+        /** An explicit primitive cast is one step when javac emits a conversion for it. */
+        private void cast(TypeCastTree c) {
+            String to = javaType(c), from = javaType(c.getExpression());
+            if (from.equals(to)) { value(c.getExpression(), null); return; } // no instruction
+            if (!numeric(to) || !numeric(from)) { unsupported(c, "this cast"); return; }
+            value(c.getExpression(), null);
+            List<String> ops = conversions(from, to);
+            if (ops.isEmpty()) return;
+            Site site = site(Kind.CAST, c);
+            site.fromType = from; site.javaType = to; site.operator = "(" + to + ")";
+            plan.add(new Item(Expect.CONVERT, site, ops.size(), ops.get(0)));
+            if (ops.size() == 2) plan.add(new Item(Expect.CONVERT, null, -1, ops.get(1))); // folded into the step
         }
 
         private void newArray(NewArrayTree n) {
@@ -532,22 +709,40 @@ final class Analyzer {
                 }
                 plan.add(new Item(Expect.NEWARRAY_LITERAL, site, n.getInitializers().size(), null));
             } else if (n.getDimensions().size() == 1) {
-                value(n.getDimensions().get(0));
+                value(n.getDimensions().get(0), "int");
                 plan.add(Item.of(Expect.NEWARRAY, site));
             } else {
                 unsupported(n, "multi-dimensional arrays");
             }
         }
 
+        /**
+         * ++/--: an int local is one {@code iinc}; another numeric local is load, add or
+         * subtract one, narrowing and store, recorded as one UPDATE step. On an int[]
+         * element it is a read, an addition and a write (three steps).
+         */
         private void update(UnaryTree u) {
             ExpressionTree target = strip(u.getExpression());
+            String operator = switch (u.getKind()) { case PREFIX_INCREMENT, POSTFIX_INCREMENT -> "++"; default -> "--"; };
+            if (target instanceof ArrayAccessTree access && "int[]".equals(javaType(access.getExpression()))) {
+                value(access.getExpression(), null);
+                value(access.getIndex(), "int");
+                plan.add(Item.of(Expect.IALOAD, site(Kind.ARRAY_READ, access)));
+                plan.add(Item.of(Expect.ARITH, arithmetic(u, operator.equals("++") ? "+" : "-", "int")));
+                plan.add(Item.of(Expect.IASTORE, site(Kind.ARRAY_WRITE, u)));
+                return;
+            }
             Site declared = target instanceof IdentifierTree ? declarations.get(element(target)) : null;
-            if (declared == null || !declared.javaType.equals("int")) { unsupported(u, "++/-- on anything but an int local"); return; }
+            if (declared == null || !numeric(declared.javaType)) { unsupported(u, "++/-- on this target"); return; }
             Site site = site(Kind.UPDATE, u);
-            site.declarationId = declared.declarationId; site.name = declared.name; site.javaType = "int";
-            site.operator = switch (u.getKind()) { case PREFIX_INCREMENT, POSTFIX_INCREMENT -> "++"; default -> "--"; };
+            site.declarationId = declared.declarationId; site.name = declared.name; site.javaType = declared.javaType;
+            site.operator = operator;
             site.position = switch (u.getKind()) { case PREFIX_INCREMENT, PREFIX_DECREMENT -> "prefix"; default -> "postfix"; };
-            plan.add(Item.of(Expect.IINC, site));
+            if (declared.javaType.equals("int")) { plan.add(Item.of(Expect.IINC, site)); return; }
+            site.viaArith = true; // javac: load, one, add/sub, narrowing, store
+            plan.add(Item.of(Expect.ARITH, site));
+            coerce(promote(declared.javaType), declared.javaType);
+            plan.add(Item.of(Expect.STORE, site));
         }
 
         // ---- conditions (javac genCond) ------------------------------------------
@@ -578,14 +773,14 @@ final class Analyzer {
                     BinaryTree b = (BinaryTree) e;
                     String left = javaType(b.getLeftOperand()), right = javaType(b.getRightOperand());
                     String operandType;
-                    if (left.equals("int") && right.equals("int")) operandType = "int";
+                    if (numeric(left) && numeric(right)) operandType = promote(left, right);
                     else if (left.equals("boolean") && right.equals("boolean")) operandType = "boolean";
                     else if (isReference(left) && isReference(right) && (e.getKind() == Tree.Kind.EQUAL_TO || e.getKind() == Tree.Kind.NOT_EQUAL_TO))
                         operandType = "ref";
                     else { unsupported(b, "comparing " + left + " with " + right); return null; }
-                    if (isConstant(b.getLeftOperand())) { unsupported(b, "a constant left comparison operand"); return null; }
-                    value(b.getLeftOperand());
-                    value(b.getRightOperand());
+                    String target = operandType.equals("ref") ? null : operandType;
+                    value(b.getLeftOperand(), target);
+                    value(b.getRightOperand(), target);
                     Cond leaf = new Cond(Cond.Op.LEAF, start(b), end(b));
                     leaf.sourceOp = symbol(b.getKind());
                     return leaf(leaf, b, operandType);
@@ -605,6 +800,8 @@ final class Analyzer {
             Site site = site(Kind.LEAF, tree);
             site.leaf = leaf; site.operandType = operandType; site.operator = leaf.sourceOp;
             leaf.site = site;
+            // long/float/double comparisons: lcmp/fcmpl/fcmpg/dcmpl/dcmpg, then a jump on the result.
+            if (List.of("long", "float", "double").contains(operandType)) plan.add(Item.of(Expect.CMP, site));
             plan.add(Item.of(Expect.JUMP, site));
             return leaf;
         }
@@ -621,52 +818,132 @@ final class Analyzer {
 
         // ---- helpers -------------------------------------------------------------
 
-        private boolean isConstant(ExpressionTree e) { return constantValue(e) != null; }
+        private boolean isConstant(ExpressionTree e) { return fold(e) != null; }
 
-        /** JLS 15.29 constant value as computed by javac, or null. */
-        private Object constantValue(ExpressionTree e) {
+        private Object constantValue(ExpressionTree e) { return fold(e); }
+
+        /**
+         * JLS 15.29 constant value with Java semantics (boxed; char as Character), or null
+         * when javac would not fold it (including integer division by zero). Which
+         * instructions javac emits depends on this, so it must be exact.
+         */
+        private Object fold(ExpressionTree e) {
             e = strip(e);
-            if (e instanceof LiteralTree l) return l.getKind() == Tree.Kind.NULL_LITERAL ? null : l.getValue();
-            if (e instanceof IdentifierTree && element(e) instanceof VariableElement v) return v.getConstantValue();
-            if (e instanceof UnaryTree u && e.getKind() != Tree.Kind.PREFIX_INCREMENT && e.getKind() != Tree.Kind.PREFIX_DECREMENT
-                    && e.getKind() != Tree.Kind.POSTFIX_INCREMENT && e.getKind() != Tree.Kind.POSTFIX_DECREMENT) {
-                Object operand = constantValue(u.getExpression());
-                if (operand == null) return null;
-                return switch (e.getKind()) {
-                    case UNARY_MINUS -> operand instanceof Integer i ? -i : null;
-                    case UNARY_PLUS -> operand;
-                    case LOGICAL_COMPLEMENT -> operand instanceof Boolean b ? !b : null;
-                    case BITWISE_COMPLEMENT -> operand instanceof Integer i ? ~i : null;
-                    default -> null;
+            String type = javaType(e);
+            switch (e) {
+                case LiteralTree l -> { return l.getKind() == Tree.Kind.NULL_LITERAL ? null : l.getValue(); }
+                case IdentifierTree i -> { return element(i) instanceof VariableElement v ? v.getConstantValue() : null; }
+                case MemberSelectTree m -> { return element(m) instanceof VariableElement v ? v.getConstantValue() : null; }
+                case TypeCastTree c -> {
+                    Object v = fold(c.getExpression());
+                    return v == null || !(SCALARS.contains(type) || type.equals("java.lang.String")) ? null : convert(v, type);
+                }
+                case ConditionalExpressionTree c -> {
+                    Object test = fold(c.getCondition()), yes = fold(c.getTrueExpression()), no = fold(c.getFalseExpression());
+                    if (!(test instanceof Boolean t) || yes == null || no == null) return null;
+                    return convert(t ? yes : no, type);
+                }
+                case UnaryTree u -> {
+                    Object v = switch (e.getKind()) {
+                        case UNARY_PLUS, UNARY_MINUS, BITWISE_COMPLEMENT, LOGICAL_COMPLEMENT -> fold(u.getExpression());
+                        default -> null;
+                    };
+                    if (v == null) return null;
+                    if (e.getKind() == Tree.Kind.LOGICAL_COMPLEMENT) return !(Boolean) v;
+                    v = convert(v, type);
+                    if (e.getKind() == Tree.Kind.UNARY_PLUS) return v;
+                    boolean minus = e.getKind() == Tree.Kind.UNARY_MINUS;
+                    return switch (v) {
+                        case Integer x -> minus ? -x : ~x;
+                        case Long x -> minus ? -x : ~x;
+                        case Float x -> minus ? -x : null;
+                        case Double x -> minus ? -x : null;
+                        default -> null;
+                    };
+                }
+                case BinaryTree b -> { return foldBinary(b, type); }
+                default -> { return null; }
+            }
+        }
+
+        private Object foldBinary(BinaryTree b, String type) {
+            Object l = fold(b.getLeftOperand()), r = fold(b.getRightOperand());
+            if (l == null || r == null) return null;
+            Tree.Kind k = b.getKind();
+            if (type.equals("java.lang.String")) return String.valueOf(l) + r;
+            if (l instanceof Boolean x && r instanceof Boolean y) {
+                return switch (k) {
+                    case CONDITIONAL_AND, AND -> x && y; case CONDITIONAL_OR, OR -> x || y; case XOR -> x ^ y;
+                    case EQUAL_TO -> x.equals(y); case NOT_EQUAL_TO -> !x.equals(y); default -> null;
                 };
             }
-            if (e instanceof BinaryTree b) {
-                Object l = constantValue(b.getLeftOperand()), r = constantValue(b.getRightOperand());
-                if (l == null || r == null) return null;
-                // Constant-ness is what matters; exact folding of every operator is not needed.
-                if (l instanceof Integer x && r instanceof Integer y) {
-                    return switch (b.getKind()) {
-                        case PLUS -> x + y; case MINUS -> x - y; case MULTIPLY -> x * y;
-                        case DIVIDE -> y == 0 ? null : x / y; case REMAINDER -> y == 0 ? null : x % y;
-                        case LESS_THAN -> x < y; case LESS_THAN_EQUAL -> x <= y; case GREATER_THAN -> x > y;
-                        case GREATER_THAN_EQUAL -> x >= y; case EQUAL_TO -> x.equals(y); case NOT_EQUAL_TO -> !x.equals(y);
-                        default -> Boolean.FALSE; // other constant int operators: still constant
-                    };
+            String lt = javaType(b.getLeftOperand()), rt = javaType(b.getRightOperand());
+            if (!numeric(lt) || !numeric(rt)) return null;
+            boolean shift = k == Tree.Kind.LEFT_SHIFT || k == Tree.Kind.RIGHT_SHIFT || k == Tree.Kind.UNSIGNED_RIGHT_SHIFT;
+            if (shift) {
+                long distance = ((Number) convert(r, "long")).longValue();
+                Object v = convert(l, promote(lt));
+                if (v instanceof Integer x) {
+                    int d = (int) distance;
+                    return k == Tree.Kind.LEFT_SHIFT ? x << d : k == Tree.Kind.RIGHT_SHIFT ? x >> d : x >>> d;
                 }
-                if (l instanceof Boolean x && r instanceof Boolean y) {
-                    return switch (b.getKind()) {
-                        case CONDITIONAL_AND, AND -> x && y; case CONDITIONAL_OR, OR -> x || y;
-                        case EQUAL_TO -> x == y; case NOT_EQUAL_TO -> x != y; case XOR -> x ^ y; default -> null;
-                    };
-                }
-                return b.getKind() == Tree.Kind.PLUS ? String.valueOf(l) + r : null;
+                long x = (Long) v;
+                return k == Tree.Kind.LEFT_SHIFT ? x << distance : k == Tree.Kind.RIGHT_SHIFT ? x >> distance : x >>> distance;
             }
-            return null;
+            String p = promote(lt, rt);
+            Object a = convert(l, p), c = convert(r, p);
+            return switch (p) {
+                case "int" -> { int x = (Integer) a, y = (Integer) c; yield switch (k) {
+                    case PLUS -> x + y; case MINUS -> x - y; case MULTIPLY -> x * y;
+                    case DIVIDE -> y == 0 ? null : x / y; case REMAINDER -> y == 0 ? null : x % y;
+                    case AND -> x & y; case OR -> x | y; case XOR -> x ^ y;
+                    case LESS_THAN -> x < y; case LESS_THAN_EQUAL -> x <= y; case GREATER_THAN -> x > y;
+                    case GREATER_THAN_EQUAL -> x >= y; case EQUAL_TO -> x == y; case NOT_EQUAL_TO -> x != y;
+                    default -> null; }; }
+                case "long" -> { long x = (Long) a, y = (Long) c; yield switch (k) {
+                    case PLUS -> x + y; case MINUS -> x - y; case MULTIPLY -> x * y;
+                    case DIVIDE -> y == 0 ? null : x / y; case REMAINDER -> y == 0 ? null : x % y;
+                    case AND -> x & y; case OR -> x | y; case XOR -> x ^ y;
+                    case LESS_THAN -> x < y; case LESS_THAN_EQUAL -> x <= y; case GREATER_THAN -> x > y;
+                    case GREATER_THAN_EQUAL -> x >= y; case EQUAL_TO -> x == y; case NOT_EQUAL_TO -> x != y;
+                    default -> null; }; }
+                case "float" -> { float x = (Float) a, y = (Float) c; yield switch (k) {
+                    case PLUS -> x + y; case MINUS -> x - y; case MULTIPLY -> x * y; case DIVIDE -> x / y; case REMAINDER -> x % y;
+                    case LESS_THAN -> x < y; case LESS_THAN_EQUAL -> x <= y; case GREATER_THAN -> x > y;
+                    case GREATER_THAN_EQUAL -> x >= y; case EQUAL_TO -> x == y; case NOT_EQUAL_TO -> x != y;
+                    default -> null; }; }
+                default -> { double x = (Double) a, y = (Double) c; yield switch (k) {
+                    case PLUS -> x + y; case MINUS -> x - y; case MULTIPLY -> x * y; case DIVIDE -> x / y; case REMAINDER -> x % y;
+                    case LESS_THAN -> x < y; case LESS_THAN_EQUAL -> x <= y; case GREATER_THAN -> x > y;
+                    case GREATER_THAN_EQUAL -> x >= y; case EQUAL_TO -> x == y; case NOT_EQUAL_TO -> x != y;
+                    default -> null; }; }
+            };
+        }
+
+        /** Java primitive conversion of a folded constant (casts and promotions). */
+        private static Object convert(Object v, String to) {
+            if (to.equals("java.lang.String") || to.equals("boolean")) return v;
+            if (v instanceof Boolean || v instanceof String) return null;
+            Number n = v instanceof Character ch ? Integer.valueOf(ch) : (Number) v;
+            boolean integral = n instanceof Integer || n instanceof Long || n instanceof Short || n instanceof Byte;
+            long asLong = integral ? n.longValue() : n instanceof Float f ? (long) f.floatValue() : (long) n.doubleValue();
+            int asInt = integral ? (int) n.longValue() : n instanceof Float f ? (int) f.floatValue() : (int) n.doubleValue();
+            return switch (to) {
+                case "int" -> asInt;
+                case "long" -> asLong;
+                case "byte" -> (byte) asInt;
+                case "short" -> (short) asInt;
+                case "char" -> (char) asInt;
+                case "float" -> integral ? (float) n.longValue() : n.floatValue();
+                default -> integral ? (double) n.longValue() : n.doubleValue();
+            };
         }
 
         private static String symbol(Tree.Kind kind) {
             return switch (kind) {
                 case PLUS -> "+"; case MINUS -> "-"; case MULTIPLY -> "*"; case DIVIDE -> "/"; case REMAINDER -> "%";
+                case AND -> "&"; case OR -> "|"; case XOR -> "^";
+                case LEFT_SHIFT -> "<<"; case RIGHT_SHIFT -> ">>"; case UNSIGNED_RIGHT_SHIFT -> ">>>";
                 case LESS_THAN -> "<"; case LESS_THAN_EQUAL -> "<="; case GREATER_THAN -> ">";
                 case GREATER_THAN_EQUAL -> ">="; case EQUAL_TO -> "=="; case NOT_EQUAL_TO -> "!=";
                 default -> throw new IllegalArgumentException(kind.toString());

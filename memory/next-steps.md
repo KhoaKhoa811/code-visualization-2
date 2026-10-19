@@ -11,7 +11,8 @@ only. For the active task, [handoff.md](handoff.md) is authoritative. History:
 - Approved 2026-10-18: revised [coverage roadmap](../specs/coverage-roadmap.md).
 - Done, awaiting review: 7e frontend slice (`feat/part-7e-frontend-slice`, stacked on 7d).
 - Done, awaiting review: 8a graceful partial coverage (`feat/part-8a-partial-coverage`, stacked on 7e).
-- Not approved yet: 8b and later. Propose each with a checklist and wait for approval.
+- Done, awaiting review: 8b primitive types (`feat/part-8b-primitive-types`, stacked on 8a).
+- Not approved yet: 8c and later. Propose each with a checklist and wait for approval.
 - Never merge pull requests; the user merges.
 
 ## Part 7 roadmap (trace engine and first visible slice)
@@ -25,7 +26,7 @@ only. For the active task, [handoff.md](handoff.md) is authoritative. History:
    Done, awaiting review.
 5. 7e frontend slice: Vite/React/TypeScript, Monaco, playback reducer, array and
    variable renderers; bubble sort demo with browser check. Done, awaiting review.
-6. Part 8 (replaces the old 7f+): 8a graceful partial coverage (done, awaiting review), 8b primitive
+6. Part 8 (replaces the old 7f+): 8a graceful partial coverage (done, awaiting review), 8b primitive (done, awaiting review)
    types and operators, 8c statements, 8d methods/recursion, 8e objects and
    fields with the object-graph view (moved into Core V1), 8f strings and
    collections, 8g live Scanner console, 8h exceptions. See the coverage roadmap.

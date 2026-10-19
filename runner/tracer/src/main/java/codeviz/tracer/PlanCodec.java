@@ -15,7 +15,7 @@ import java.util.*;
  * source's SHA-256 so the reader can reject a plan for different text.
  */
 final class PlanCodec {
-    static final int VERSION = 2; // 2: uncaptured regions (Part 8a)
+    static final int VERSION = 3; // 2: uncaptured regions (Part 8a); 3: primitive types (Part 8b)
 
     private PlanCodec() { }
 
@@ -29,6 +29,10 @@ final class PlanCodec {
             put(m, "operator", s.operator); put(m, "position", s.position);
             put(m, "declarationId", s.declarationId); put(m, "name", s.name); put(m, "javaType", s.javaType);
             put(m, "operandType", s.operandType);
+            put(m, "fromType", s.fromType); put(m, "operand", s.operand);
+            if (s.operand != null) m.put("delta", s.delta);
+            if (s.viaArith) m.put("viaArith", true);
+            if (!s.declareBefore.isEmpty()) m.put("declareBefore", s.declareBefore.stream().map(d -> (Object) d.id).toList());
             if (s.kind == Kind.REGION) {
                 m.put("unknownDeclarations", new ArrayList<Object>(s.unknownDeclarations));
                 m.put("mayWriteArrays", s.mayWriteArrays);
@@ -83,6 +87,9 @@ final class PlanCodec {
                 s.jumpOpcode = integer(m, "jumpOpcode");
                 s.jumpMeansTrue = (Boolean) m.get("jumpMeansTrue");
             }
+            s.fromType = (String) m.get("fromType"); s.operand = (String) m.get("operand");
+            if (m.containsKey("delta")) s.delta = integer(m, "delta");
+            s.viaArith = Boolean.TRUE.equals(m.get("viaArith"));
             if (m.containsKey("unknownDeclarations")) {
                 s.unknownDeclarations = ((List<Object>) m.get("unknownDeclarations")).stream().map(String.class::cast).toList();
                 s.mayWriteArrays = (Boolean) m.get("mayWriteArrays");
@@ -108,6 +115,10 @@ final class PlanCodec {
         }
         for (var entry : rawSites.entrySet()) {
             if (entry.getValue().containsKey("leaf")) sites.get(entry.getKey()).leaf = require(conds, integer(entry.getValue(), "leaf"));
+            if (entry.getValue().containsKey("declareBefore")) {
+                for (Object id : (List<Object>) entry.getValue().get("declareBefore"))
+                    sites.get(entry.getKey()).declareBefore.add(require(sites, ((Long) id).intValue()));
+            }
         }
         Analysis analysis = new Analysis(source, readDiagnostics(root.get("compileErrors")), readDiagnostics(root.get("unsupported")),
                 readDiagnostics(root.get("uncaptured")), Map.of(), List.of(), Map.copyOf(sites), (String) root.get("rootScope"));
