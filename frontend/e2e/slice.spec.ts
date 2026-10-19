@@ -74,8 +74,42 @@ test('statements outside coverage run without visualization while the rest is tr
   await page.screenshot({ path: 'test-results/partial-coverage.png' });
 
   await page.getByTitle('End').click();
-  await expect(page.getByTestId('var-total')).toContainText('?'); // only uncaptured code changed it
-  await expect(page.getByTestId('var-total')).not.toContainText('30');
+  // Since 8d the helper square(...) is traced, so total is known; only the printing ran uncaptured.
+  await expect(page.getByTestId('var-total')).toContainText('30');
+});
+
+test('recursive calls get their own frames and returns restore the caller (8d)', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.monaco-editor')).toBeVisible();
+  await page.getByLabel('Example').selectOption('Recursion and helpers');
+  await run(page);
+  await expect(page.getByTestId('run-summary')).toContainText('capture complete');
+  await expect(page.getByTestId('console-output')).toHaveText('24\n2\n');
+
+  const forward = page.getByRole('button', { name: 'Step forward' });
+  await forward.click();
+  await expect(page.getByTestId('step-detail')).toContainText('Call factorial(n = 4)');
+  await expect(page.getByTestId('frame')).toHaveCount(2);
+  for (let i = 0; i < 60; i++) {
+    if ((await page.getByTestId('frame').count()) === 5) break;
+    await forward.click();
+  }
+  await expect(page.getByTestId('frame')).toHaveCount(5); // main + factorial(4..1)
+  await expect(page.getByTestId('frame').first()).toContainText('running');
+  await expect(page.getByTestId('frame').first().getByTestId('var-n')).toContainText('1');
+  await expect(page.getByTestId('frame').nth(3).getByTestId('var-n')).toContainText('4');
+  await page.screenshot({ path: 'test-results/recursion.png' });
+
+  await forward.click();
+  await forward.click();
+  await expect(page.getByTestId('step-detail')).toContainText('Return 1');
+  await expect(page.getByTestId('frame')).toHaveCount(4);
+  await page.getByRole('button', { name: 'Step back' }).click();
+  await expect(page.getByTestId('frame')).toHaveCount(5); // backward restores the returned frame
+
+  await page.getByTitle('End').click();
+  await expect(page.getByTestId('var-f')).toContainText('24');
+  await expect(cells(page, 'a')).toHaveText(['2', '1', '3']);
 });
 
 test('long, double and char values are traced exactly (8b)', async ({ page }) => {
