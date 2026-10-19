@@ -103,6 +103,9 @@ class TracedRunLiveTest {
         assertTrue(r.trace().contains("\"status\":\"completed\"") && r.trace().contains("\"status\":\"complete\""));
         assertTrue(r.trace().contains("\"kind\":\"UNCAPTURED\""));
         assertTrue(r.trace().contains("{\"objectId\":\"o2\",\"elements\":[{\"kind\":\"int\",\"value\":\"1\"}"), "sorted contents re-read");
+        // Part 8d: bump is a traced static helper of Main; its call and implicit return are steps.
+        assertTrue(r.trace().contains("\"methodId\":\"Main.bump(int[]):void\""), "traced helper call");
+        assertTrue(r.trace().contains("\"kind\":\"RETURN\""), "traced helper return");
     }
 
     @Test void runtimeTimeoutKeepsTheSafePrefix() throws Exception {

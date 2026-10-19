@@ -136,3 +136,14 @@ allocation, load and store exactly once per element type; reference loads are
 followed by a `checkcast` to the static element type. An uncaptured for-each
 loop is found through javac's range-table entry, which javac places at the
 iterated expression.
+
+## Static methods and recursion (Part 8d)
+
+Every static method of `Main` with traced types is planned and instrumented like
+`main`. A traced call site announces itself just before `invokestatic`; the
+callee's entry records the call and its parameters, or stays silent when no call
+site announced it (uncaptured code, static initializers, library callbacks).
+Every return instruction records its value, including returns inside uncaptured
+statements and javac's implicit `return`. A catch-all handler ends silent
+invocations that unwind. At most 64 traced frames may be active; see
+[methods.md](methods.md).

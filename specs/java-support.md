@@ -55,7 +55,7 @@ all compositions preserve semantics.
 | Updates | Prefix/postfix ++/-- on int locals, including nested covered expressions | Implemented in Part 8b: ++/-- on all numeric locals and int[] elements; compound assignment decomposed into read, operation and write steps |
 | Control flow | Blocks, if/else, while, basic for, unlabeled break/continue, return from main | Implemented in Part 8c: do/while, enhanced for over arrays, switch statements and switch expressions on int-like selectors, labeled statements and jumps; switch on String or enums and enhanced for over collections remain uncaptured |
 | Output | Actual System.out/System.err print/println calls with covered scalar/String arguments | Exact overload inventory and console transport contract before implementation |
-| User methods | Main frame represented; helper calls are outside the first increment | Static fixed-arity helpers and recursion described in section 5; implement before tree/heap sorting |
+| User methods | Main frame represented; helper calls are outside the first increment | Implemented in Part 8d: static fixed-arity methods of Main with traced types, recursion with distinct frames, implicit returns, unwinding, call-depth limit 64 ([methods](methods.md)); instance methods and constructors follow objects (8e) |
 | Exceptions | Capture failures of covered operations, preserve earlier effects, report uncaught failure | Explicit throw, handlers, finally and resource cleanup need full tracing coverage before partial playback through them |
 | Libraries/input | No inferred internals or arbitrary callback evaluation | Scanner, strings, collections and separate test inputs remain required V1 features with exact operation contracts pending |
 

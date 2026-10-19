@@ -37,7 +37,7 @@ final class Analyzer {
      * {@code uncaptured} lists statements that run without capture inside a traced program (Part 8a).
      */
     record Analysis(String source, List<Diagnostic> compileErrors, List<Diagnostic> unsupported, List<Diagnostic> uncaptured,
-                    Map<String, byte[]> classes, List<Item> plan, Map<Integer, Site> sites, String rootScope) {
+                    Map<String, byte[]> classes, Map<String, List<Item>> plans, Map<Integer, Site> sites, String rootScope) {
         boolean traceable() { return compileErrors.isEmpty() && unsupported.isEmpty(); }
     }
 
@@ -98,8 +98,8 @@ final class Analyzer {
             try { memory.close(); } catch (IOException ignored) { }
         }
         if (walker == null || !errors.isEmpty())
-            return new Analysis(source, errors, unsupported, List.of(), Map.of(), List.of(), Map.of(), null);
-        return new Analysis(source, errors, unsupported, List.copyOf(walker.uncaptured), Map.copyOf(classes), List.copyOf(walker.plan),
+            return new Analysis(source, errors, unsupported, List.of(), Map.of(), Map.of(), Map.of(), null);
+        return new Analysis(source, errors, unsupported, List.copyOf(walker.uncaptured), Map.copyOf(classes), Map.copyOf(walker.plans),
                 Map.copyOf(walker.sites), walker.rootScope);
     }
 
@@ -122,7 +122,11 @@ final class Analyzer {
         private final SourcePositions positions;
         private final List<Diagnostic> unsupported;
         final List<Diagnostic> uncaptured = new ArrayList<>();
-        final List<Item> plan = new ArrayList<>();
+        // One plan per instrumented method, keyed by name + descriptor ("main([Ljava/lang/String;)V"); Part 8d.
+        final Map<String, List<Item>> plans = new LinkedHashMap<>();
+        private List<Item> plan = new ArrayList<>();
+        private final Map<Element, Site> helpers = new HashMap<>(); // traced static methods of Main -> METHOD site
+        private Site currentMethod; // null while planning main
         final Map<Integer, Site> sites = new LinkedHashMap<>();
         private final Deque<String> scopes = new ArrayDeque<>();
         private final Map<Element, Site> declarations = new HashMap<>();
@@ -199,10 +203,61 @@ final class Analyzer {
                 }
                 MethodTree main = null;
                 for (Tree member : c.getMembers()) if (main == null && member instanceof MethodTree m && isMain(m)) main = m;
-                if (main == null) unsupported(c, "a class without public static void main(String[])");
-                else method(main);
+                if (main == null) { unsupported(c, "a class without public static void main(String[])"); continue; }
+                // Part 8d: traced helpers are known before any body is planned (calls may come first).
+                List<MethodTree> traced = new ArrayList<>();
+                for (Tree member : c.getMembers()) {
+                    if (member instanceof MethodTree m && m != main && helper(m)) traced.add(m);
+                }
+                method(main, null);
+                for (MethodTree m : traced) method(m, helpers.get(element(m)));
             }
             if (!sawMainClass) unsupported(unit, "a program without class Main");
+        }
+
+        /**
+         * A traced helper (Part 8d): a static, non-generic, fixed-arity method of Main with traced
+         * parameter and result types. Records its METHOD and PARAM sites; others run untraced.
+         */
+        private boolean helper(MethodTree m) {
+            if (!(element(m) instanceof ExecutableElement e) || m.getBody() == null) return false;
+            Set<Modifier> modifiers = e.getModifiers();
+            if (!modifiers.contains(Modifier.STATIC) || modifiers.contains(Modifier.NATIVE) || modifiers.contains(Modifier.ABSTRACT)
+                    || e.isVarArgs() || !e.getTypeParameters().isEmpty() || e.getSimpleName().contentEquals("<clinit>")) return false;
+            String result = e.getReturnType().toString();
+            if (!result.equals("void") && !localType(result)) return false;
+            for (VariableElement p : e.getParameters()) if (!localType(p.asType().toString())) return false;
+            String root = "b" + start(m.getBody());
+            scopes.push(root);
+            Site site = site(Kind.METHOD, m);
+            site.javaType = result;
+            site.name = e.getSimpleName().toString();
+            site.methodId = "Main." + site.name + "(" + String.join(",", e.getParameters().stream().map(p -> p.asType().toString()).toList())
+                    + "):" + result;
+            List<Site> params = new ArrayList<>();
+            for (VariableTree p : m.getParameters()) {
+                Site param = site(Kind.PARAM, p);
+                param.declarationId = "Main." + site.name + ":" + p.getName() + "@" + start(p);
+                param.name = p.getName().toString();
+                param.javaType = javaType(p);
+                declarations.put(element(p), param);
+                params.add(param);
+            }
+            site.params = List.copyOf(params);
+            scopes.pop();
+            helpers.put(e, site);
+            return true;
+        }
+
+        /** Plan key: method name plus JVM descriptor, as the instrumenter finds the method. */
+        private static String key(String name, List<String> parameters, String result) {
+            StringBuilder b = new StringBuilder(name).append('(');
+            for (String p : parameters) b.append(Instrumenter.descriptorOf(p));
+            return b.append(')').append(result.equals("void") ? "V" : Instrumenter.descriptorOf(result)).toString();
+        }
+
+        private static String key(Site method) {
+            return key(method.name, method.params.stream().map(p -> p.javaType).toList(), method.javaType);
         }
 
         private boolean isMain(MethodTree m) {
@@ -212,13 +267,32 @@ final class Analyzer {
                     && e.getParameters().size() == 1 && e.getParameters().get(0).asType().toString().equals("java.lang.String[]");
         }
 
-        private void method(MethodTree m) {
-            rootScope = "b" + start(m.getBody());
-            scopes.push(rootScope);
+        /** Plans one method body; {@code site} is null for main. */
+        private void method(MethodTree m, Site site) {
+            currentMethod = site;
+            plan = new ArrayList<>();
+            String root = "b" + start(m.getBody());
+            if (site == null) {
+                rootScope = root;
+                plans.put("main([Ljava/lang/String;)V", plan);
+            } else {
+                plans.put(key(site), plan);
+            }
+            scopes.push(root);
             pending.push(new ArrayList<>());
             for (StatementTree s : m.getBody().getStatements()) statement(s);
             pending.pop();
+            if (site != null && site.javaType.equals("void")) {
+                // javac's implicit return at the closing brace, when the end is reachable.
+                int end = end(m.getBody());
+                Site implicit = new Site(sites.size() + 1, Kind.RETURN, end - 1, end, reversedScopes());
+                sites.put(implicit.id, implicit);
+                implicit.javaType = "void";
+                implicit.implicit = true;
+                site.returnSite = implicit;
+            }
             scopes.pop();
+            currentMethod = null;
         }
 
         // ---- statements --------------------------------------------------------
@@ -289,6 +363,10 @@ final class Analyzer {
             Tree ranged = s instanceof EnhancedForLoopTree f ? f.getExpression() : s;
             site.crtStart = crt(start(ranged));
             site.crtEnd = crt(end(ranged));
+            if (currentMethod != null) { // a return inside it is recorded at this statement (Part 8d)
+                site.returnSite = site(Kind.RETURN, s);
+                site.returnSite.javaType = currentMethod.javaType;
+            }
             plan.add(Item.of(Expect.REGION, site));
         }
 
@@ -442,7 +520,14 @@ final class Analyzer {
                 }
                 case LABELED_STATEMENT -> plain(((LabeledStatementTree) s).getStatement()); // labels emit no code
                 case BREAK, CONTINUE, EMPTY_STATEMENT -> { } // jumps only, labeled or not
-                case RETURN -> { if (((ReturnTree) s).getExpression() != null) unsupported(s, "return values"); }
+                case RETURN -> {
+                    ExpressionTree result = ((ReturnTree) s).getExpression();
+                    if (currentMethod == null) { if (result != null) unsupported(s, "return values"); return; } // main: only "return;"
+                    if (result != null) value(result, currentMethod.javaType);
+                    Site site = site(Kind.RETURN, s);
+                    site.javaType = currentMethod.javaType;
+                    plan.add(Item.of(Expect.RETURN, site));
+                }
                 default -> unsupported(s, "this statement kind (" + s.getKind() + ")");
             }
         }
@@ -691,7 +776,11 @@ final class Analyzer {
                      AND_ASSIGNMENT, OR_ASSIGNMENT, XOR_ASSIGNMENT, LEFT_SHIFT_ASSIGNMENT, RIGHT_SHIFT_ASSIGNMENT,
                      UNSIGNED_RIGHT_SHIFT_ASSIGNMENT -> compound((CompoundAssignmentTree) e);
                 case PREFIX_INCREMENT, PREFIX_DECREMENT, POSTFIX_INCREMENT, POSTFIX_DECREMENT -> update((UnaryTree) e);
-                case METHOD_INVOCATION -> output((MethodInvocationTree) e);
+                case METHOD_INVOCATION -> {
+                    MethodInvocationTree call = (MethodInvocationTree) e;
+                    if (helpers.containsKey(element(call))) call(call); // an ignored result is popped: no binding
+                    else output(call);
+                }
                 default -> unsupported(e, "this expression statement (" + e.getKind() + ")");
             }
         }
@@ -764,6 +853,18 @@ final class Analyzer {
             Site site = site(kind, tree);
             site.javaType = arrayType;
             return site;
+        }
+
+        /** A call to a traced helper: the arguments in order, then one invokestatic (Part 8d). */
+        private void call(MethodInvocationTree call) {
+            Site callee = helpers.get(element(call));
+            if (callee == null) { unsupported(call, "calls to this method (only static methods of Main with traced types are traced)"); return; }
+            List<? extends ExpressionTree> arguments = call.getArguments();
+            for (int i = 0; i < arguments.size(); i++) value(arguments.get(i), callee.params.get(i).javaType);
+            Site site = site(Kind.CALL, call);
+            site.callee = callee;
+            site.javaType = callee.javaType;
+            plan.add(new Item(Expect.CALL, site, 0, key(callee)));
         }
 
         private void output(MethodInvocationTree call) {
@@ -858,6 +959,7 @@ final class Analyzer {
                     SwitchExpressionTree w = (SwitchExpressionTree) e;
                     switchBlock(w, w.getExpression(), w.getCases(), type);
                 }
+                case METHOD_INVOCATION -> call((MethodInvocationTree) e);
                 default -> unsupported(e, "this expression (" + e.getKind() + ")");
             }
             if (target != null) coerce(type, target);
@@ -986,13 +1088,13 @@ final class Analyzer {
                     leaf.sourceOp = symbol(b.getKind());
                     return leaf(leaf, b, operandType);
                 }
-                case IDENTIFIER, ARRAY_ACCESS -> { // a boolean variable or boolean[] element, tested against zero
+                case IDENTIFIER, ARRAY_ACCESS, METHOD_INVOCATION -> { // a boolean variable, boolean[] element or call, tested against zero
                     if (!"boolean".equals(javaType(e))
                             || e.getKind() == Tree.Kind.IDENTIFIER && !declarations.containsKey(element(e))) {
                         unsupported(e, "this condition");
                         return null;
                     }
-                    if (e.getKind() == Tree.Kind.ARRAY_ACCESS) value(e, null);
+                    if (e.getKind() != Tree.Kind.IDENTIFIER) value(e, null);
                     return leaf(new Cond(Cond.Op.LEAF, start(e), end(e)), e, "boolean");
                 }
                 default -> { unsupported(e, "this condition (" + e.getKind() + ")"); return null; }

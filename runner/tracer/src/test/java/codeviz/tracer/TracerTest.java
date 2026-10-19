@@ -31,8 +31,8 @@ class TracerTest {
         Tracer.Prepared prepared = Tracer.prepare(source);
         HostRun.Result result = prepared.compiled() ? HostRun.run(prepared.classes(), prepared.traced(), temp)
                 : new HostRun.Result(-1, "", "", List.of());
-        // A run halted at the raw limit legitimately differs from the original.
-        if (prepared.traced() && !result.raw().contains("L")) {
+        // A run halted at the raw or call-depth limit legitimately differs from the original.
+        if (prepared.traced() && !result.raw().contains("L") && !result.raw().contains("D")) {
             HostRun.Result original = HostRun.run(prepared.analysis().classes(), false, temp);
             assertEquals(original.stdout(), result.stdout(), "stdout must match the original program");
             assertEquals(original.exit(), result.exit(), "exit status must match the original program");
@@ -140,6 +140,14 @@ class TracerTest {
                         .reduce((a, b) -> a + " " + b).orElse("") + " = " + value(d.get("result"));
                 case "EXCEPTION" -> "EXCEPTION " + d.get("exceptionType");
                 case "SWITCH" -> "SWITCH " + value(d.get("value")) + " " + d.get("matched");
+                case "CALL" -> {
+                    List<Object> parameters = (List<Object>) d.get("parameters");
+                    for (Object p : parameters) names.put(map(p).get("bindingId"), (String) map(p).get("name"));
+                    yield "CALL " + map(d.get("frame")).get("methodId") + parameters.stream()
+                            .map(p -> " " + map(p).get("name") + "=" + value(map(p).get("value"))).reduce("", String::concat);
+                }
+                case "RETURN" -> "RETURN " + (d.get("result") == null ? "void" : value(d.get("result")))
+                        + (Boolean.TRUE.equals(d.get("implicit")) ? " implicit" : "");
                 case "UNCAPTURED" -> "UNCAPTURED" + ((List<Object>) d.get("unknownBindings")).stream().map(id -> " " + names.get(id) + "=?")
                         .reduce("", String::concat) + ((List<Object>) d.get("arrays")).stream().map(a -> " #" + map(a).get("objectId") + "="
                         + ((List<Object>) map(a).get("elements")).stream().map(TracerTest::value).toList().toString().replace(" ", ""))
@@ -651,17 +659,149 @@ class TracerTest {
                 "READ [0]=1 @a", "ASSIGN n ?->6 @n += v");
     }
 
+    // ---- Part 8d: static methods and recursion --------------------------------------------
+
+    private static final String METHODS = """
+            public class Main {
+                static int factorial(int n) {
+                    if (n <= 1) return 1;
+                    return n * factorial(n - 1);
+                }
+                static void swap(int[] a, int i, int j) {
+                    int t = a[i];
+                    a[i] = a[j];
+                    a[j] = t;
+                }
+                static boolean even(int n) { return n % 2 == 0; }
+                static double half(long x) { return x / 2.0; }
+                static int len(int[] a) { return a.length; }
+                static int len(String[] s) { return s.length; }
+                static void noop() { }
+                public static void main(String[] args) {
+                    int f = factorial(3);
+                    int[] a = {3, 1, 2};
+                    swap(a, 0, 2);
+                    if (even(f)) f++;
+                    factorial(1);
+                    double h = half(5L);
+                    noop();
+                    int n = len(a) + len(new String[]{"x"});
+                    System.out.println(f);
+                    System.out.println(a[0]);
+                    System.out.println(h);
+                    System.out.println(n);
+                }
+            }
+            """;
+
+    @Test void callsAndRecursionHaveTheirOwnFrames() throws Exception {
+        Run r = run("methods-recursion", METHODS);
+        assertComplete(r, "completed");
+        assertEquals("7\n2\n2.5\n4\n", r.result().stdout());
+        List<String> steps = steps(r.trace());
+        assertInOrder(steps, "CALL Main.factorial(int):int n=3 @factorial(3)", "EXPR <= 3 1 = false @n <= 1", "EXPR - 3 1 = 2 @n - 1",
+                "CALL Main.factorial(int):int n=2 @factorial(n - 1)", "CALL Main.factorial(int):int n=1 @factorial(n - 1)",
+                "EXPR <= 1 1 = true @n <= 1", "RETURN 1 @return 1;", "EXPR * 2 1 = 2 @n * factorial(n - 1)",
+                "RETURN 2 @return n * factorial(n - 1);", "EXPR * 3 2 = 6 @n * factorial(n - 1)", "RETURN 6 @return n * factorial(n - 1);",
+                "DECLARE f=6 @int f = factorial(3)",
+                "CALL Main.swap(int[],int,int):void a=#o2 i=0 j=2 @swap(a, 0, 2)", "READ [0]=3 @a[i]", "DECLARE t=3 @int t = a[i]",
+                "WRITE [2] 2->3 @a[j] = t", "RETURN void implicit @}",
+                "CALL Main.even(int):boolean n=6 @even(f)", "EXPR % 6 2 = 0 @n % 2", "EXPR == 0 0 = true @n % 2 == 0", "RETURN true @return n % 2 == 0;",
+                "EXPR condition true = true @even(f)", "UPDATE f 6->7 =6 @f++",
+                "CALL Main.factorial(int):int n=1 @factorial(1)", "RETURN 1 @return 1;",
+                "CALL Main.half(long):double x=5 @half(5L)", "EXPR / 5.0 2.0 = 2.5 @x / 2.0", "RETURN 2.5 @return x / 2.0;",
+                "DECLARE h=2.5 @double h = half(5L)", "CALL Main.noop():void @noop()", "RETURN void implicit @}",
+                "CALL Main.len(int[]):int a=#o2 @len(a)");
+        assertTrue(steps.stream().anyMatch(s -> s.matches("CALL Main\\.len\\(java\\.lang\\.String\\[]\\):int s=#o\\d+ @len\\(new String\\[]\\{\"x\"}\\)")),
+                "overloads are distinct methods");
+        // Each invocation is a distinct frame whose caller is the frame that called it.
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> calls = events(r.trace()).stream().filter(e -> "CALL".equals(e.get("kind")))
+                .map(e -> map(map(e.get("data")).get("frame"))).toList();
+        assertEquals(calls.size(), calls.stream().map(f -> f.get("frameId")).distinct().count());
+        assertEquals("f1", calls.get(1).get("callerFrameId"));
+        assertEquals("f2", calls.get(2).get("callerFrameId"));
+    }
+
+    @Test void helpersCalledFromUncapturedCodeRunSilently() throws Exception {
+        Run r = run("methods-silent", """
+                public class Main {
+                    static int square(int v) { return v * v; }
+                    static int counter;
+                    static void tick() { counter++; }
+                    public static void main(String[] args) {
+                        int[] a = {1, 2, 3};
+                        int total = 0;
+                        for (int i = 0; i < a.length; i++) total += square(a[i]);
+                        System.out.println("total = " + square(total));
+                        int big = Math.max(square(2), 1);
+                        tick();
+                        System.out.println(total + big);
+                    }
+                }
+                """);
+        assertComplete(r, "completed");
+        assertEquals("total = 196\n18\n", r.result().stdout());
+        List<String> steps = steps(r.trace());
+        assertEquals(3, steps.stream().filter(s -> s.startsWith("CALL Main.square")).count(), String.join("\n", steps));
+        assertInOrder(steps, "ASSIGN total 5->14 @total += square(a[i])", "UNCAPTURED @System.out.println(\"total = \" + square(total));",
+                "UNCAPTURED @int big = Math.max(square(2), 1);", "CALL Main.tick():void @tick()", "UNCAPTURED @counter++;",
+                "RETURN void implicit @}");
+    }
+
+    @Test void returnsInsideUncapturedStatementsAndFailuresInCallees() throws Exception {
+        Run r = run("methods-returns", """
+                public class Main {
+                    static int pick(int[] a, int k) {
+                        for (int v : a) if (v > k) return v;
+                        return Math.max(k, 0);
+                    }
+                    static int boom(int x) { return 10 / x; }
+                    public static void main(String[] args) {
+                        int[] a = {1, 5};
+                        int p = pick(a, 2);
+                        int q = pick(a, 9);
+                        System.out.println(p + q);
+                        int z = boom(0);
+                    }
+                }
+                """);
+        assertComplete(r, "failed");
+        assertEquals("14\n", r.result().stdout());
+        assertInOrder(steps(r.trace()), "EXPR > 5 2 = true @v > k", "RETURN 5 @return v;", "DECLARE p=5 @int p = pick(a, 2)",
+                "UNCAPTURED @return Math.max(k, 0);", "RETURN 9 @return Math.max(k, 0);", "DECLARE q=9 @int q = pick(a, 9)",
+                "CALL Main.boom(int):int x=0 @boom(0)", "EXCEPTION java.lang.ArithmeticException @10 / x");
+        List<Map<String, Object>> events = events(r.trace());
+        List<Object> ends = events.stream().filter(e -> "FRAME_END".equals(e.get("kind"))).map(e -> map(e.get("data")).get("frameId")).toList();
+        assertEquals(2, ends.size(), "the failing helper and main both unwind");
+        assertEquals("f0", ends.get(1));
+    }
+
+    @Test void callDepthLimitStopsAtSixtyFourFrames() throws Exception {
+        String program = "public class Main {\n    static int down(int n) { return n == 0 ? 0 : down(n - 1); }\n"
+                + "    public static void main(String[] args) {\n        int d = down(%d);\n        System.out.println(d);\n    }\n}\n";
+        Run fits = run("methods-depth-fits", program.formatted(62)); // main plus 63 helper frames
+        assertComplete(fits, "completed");
+        Run over = run("methods-depth-over", program.formatted(63));
+        assertEquals(86, over.result().exit());
+        assertEquals("limited", status(over.trace(), "execution"));
+        assertEquals("partial", status(over.trace(), "capture"));
+        assertTrue(over.json().contains("CALL_DEPTH_LIMIT"));
+        assertEquals(63, steps(over.trace()).stream().filter(s -> s.startsWith("CALL")).count());
+    }
+
     // ---- outside coverage -------------------------------------------------------
 
     // ---- Part 8a: uncaptured statements inside traced programs -----------------------
 
     @Test void unsupportedStatementsRunUncapturedWhileTheRestIsTraced() throws Exception {
-        String helper = "public class Main {\n    static int twice(int v) { return v * 2; }\n"
-                + "    public static void main(String[] args) {\n        int n = 4;\n        System.out.println(twice(n));\n    }\n}\n";
+        // Methods of other classes stay uncaptured (Part 8d traces only static methods of Main).
+        String helper = "class Util {\n    static int twice(int v) { return v * 2; }\n}\npublic class Main {\n"
+                + "    public static void main(String[] args) {\n        int n = 4;\n        System.out.println(Util.twice(n));\n    }\n}\n";
         Run h = run("uncaptured-helper", helper);
         assertComplete(h, "completed");
         assertEquals("8\n", h.result().stdout());
-        assertEquals(List.of("DECLARE n=4 @int n = 4", "UNCAPTURED @System.out.println(twice(n));"), steps(h.trace()));
+        assertEquals(List.of("DECLARE n=4 @int n = 4", "UNCAPTURED @System.out.println(Util.twice(n));"), steps(h.trace()));
         @SuppressWarnings("unchecked")
         var diagnostics = (List<Map<String, Object>>) h.trace().get("diagnostics");
         assertEquals("UNSUPPORTED_CONSTRUCT", diagnostics.get(0).get("code"));
@@ -691,13 +831,13 @@ class TracerTest {
         assertEquals("1\n", lib.result().stdout());
         assertInOrder(steps(lib.trace()), "ALLOCATE [2,1] @{2, 1}", "UNCAPTURED #o2=[1,2] @java.util.Arrays.sort(a);", "READ [0]=1 @a[0]");
 
-        String helper = "public class Main {\n    static void bump(int[] a) { a[0]++; }\n"
-                + "    public static void main(String[] args) {\n        int[] a = {1, 2};\n        bump(a);\n        bump(a);\n"
-                + "        int[] b = {7};\n        bump(b);\n        int x = a[0] + b[0];\n    }\n}\n";
+        String helper = "class Util {\n    static void bump(int[] a) { a[0]++; }\n}\npublic class Main {\n"
+                + "    public static void main(String[] args) {\n        int[] a = {1, 2};\n        Util.bump(a);\n        Util.bump(a);\n"
+                + "        int[] b = {7};\n        Util.bump(b);\n        int x = a[0] + b[0];\n    }\n}\n";
         Run h = run("uncaptured-mutating-helper", helper);
         assertComplete(h, "completed");
-        assertInOrder(steps(h.trace()), "UNCAPTURED #o2=[2,2] @bump(a);", "UNCAPTURED #o2=[3,2] @bump(a);",
-                "UNCAPTURED #o3=[8] @bump(b);", "READ [0]=3 @a[0]", "READ [0]=8 @b[0]", "DECLARE x=11 @int x = a[0] + b[0]");
+        assertInOrder(steps(h.trace()), "UNCAPTURED #o2=[2,2] @Util.bump(a);", "UNCAPTURED #o2=[3,2] @Util.bump(a);",
+                "UNCAPTURED #o3=[8] @Util.bump(b);", "READ [0]=3 @a[0]", "READ [0]=8 @b[0]", "DECLARE x=11 @int x = a[0] + b[0]");
     }
 
     @Test void arraysCreatedByUncapturedCodeAreCapturedOnFirstUse() throws Exception {

@@ -35,7 +35,7 @@ public final class Tracer {
         if (!analysis.compileErrors().isEmpty()) return new Prepared(analysis, Map.of(), false);
         if (!analysis.unsupported().isEmpty()) return new Prepared(analysis, analysis.classes(), false);
         try {
-            byte[] main = Instrumenter.instrument(analysis.classes().get("Main"), analysis.plan(), analysis.sites(), analysis.classes());
+            byte[] main = Instrumenter.instrument(analysis.classes().get("Main"), analysis.plans(), analysis.sites(), analysis.classes());
             Map<String, byte[]> classes = new java.util.HashMap<>(analysis.classes()); // helper classes run untraced (Part 8a)
             classes.put("Main", main);
             return new Prepared(analysis, Map.copyOf(classes), true);
@@ -45,7 +45,7 @@ public final class Tracer {
                     "The compiled code did not match the visualization plan (" + e.getMessage()
                             + "); the program can still run with output only.", null, null));
             Analysis outputOnly = new Analysis(analysis.source(), analysis.compileErrors(), List.copyOf(unsupported),
-                    analysis.uncaptured(), analysis.classes(), analysis.plan(), analysis.sites(), analysis.rootScope());
+                    analysis.uncaptured(), analysis.classes(), analysis.plans(), analysis.sites(), analysis.rootScope());
             return new Prepared(outputOnly, analysis.classes(), false);
         }
     }
