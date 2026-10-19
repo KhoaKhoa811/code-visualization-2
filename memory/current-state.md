@@ -31,6 +31,7 @@ first frontend slice exist; there is no live input yet.
 | 8b | All primitive types, casts, bitwise/shift operators, compound assignment, conditional operator, uninitialized declarations; trace contract 1.2.0 ([spec](../specs/primitive-types.md)); 132 Java tests with live Docker, 4 browser tests | Merged (PR #89) |
 | 8c | do/while, labeled jumps, switch statements and expressions, for-each over arrays, arrays of every type and arrays of arrays; trace contract 1.3.0 ([spec](../specs/statements.md)); 141 Java tests with live Docker, 5 browser tests | Done, pushed, awaiting review |
 | 8d | Static methods of Main and recursion: CALL/RETURN steps, distinct frames, silent helpers under uncaptured code, unwinding, 64-frame limit ([spec](../specs/methods.md)); 145 Java tests with live Docker, 6 browser tests | Done, pushed, awaiting review |
+| 8e | Objects of user classes: fields, constructors, instance methods, cycles, object graph view; trace contract 1.4.0 ([spec](../specs/objects.md)); 149 Java tests with live Docker, 7 browser tests | Done, pushed, awaiting review |
 
 ## Verified environment
 

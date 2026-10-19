@@ -75,4 +75,16 @@ re-read), `T` the identity limit; field steps use `<site> r<id> <value>`.
 
 ## Results
 
-Pending.
+Tracer host tests: 63 passed on 2026-10-19, including 4 new 8e cases:
+
+- a linked list and a binary search tree (constructors, instance methods, field
+  reads and writes, reference chains);
+- fields of every kind, field initializers, compound and `++` on fields;
+- silent `this(...)` constructors, and objects created by uncaptured code with a
+  cycle, captured within one step, plus object re-reads after an uncaptured call;
+- a `null` receiver failure and the 1,024-identity limit.
+
+Two 8a tests now use a generic `Util<T>` class, because a plain helper class is
+now traced. Root reactor `clean verify` with live Docker: 149 Java tests (tracer
+63, backend 86). Contract: 58 tests. Frontend: 17 reducer tests, build, and 7
+Playwright tests against the real backend and Docker.
