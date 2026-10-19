@@ -286,7 +286,7 @@ final class Instrumenter {
         return switch (expect) {
             case NEWARRAY_LITERAL -> Expect.NEWARRAY;
             case LITERAL_STORE -> Expect.ASTORE;
-            case CALL, SUPER, CTOR -> Expect.INVOKE;
+            case CALL, SUPER, CTOR, LIB, LIBNEW, APPEND, TOSTRING, BOX, UNBOX -> Expect.INVOKE;
             default -> expect;
         };
     }
@@ -310,6 +310,7 @@ final class Instrumenter {
             case Opcodes.NEWARRAY, Opcodes.ANEWARRAY, Opcodes.MULTIANEWARRAY -> Expect.NEWARRAY;
             case Opcodes.TABLESWITCH, Opcodes.LOOKUPSWITCH -> Expect.SWITCH;
             case Opcodes.NEW -> Expect.NEW;
+            case Opcodes.CHECKCAST -> null; // javac's casts of erased generic results (Part 8f); never planned
             case Opcodes.GETFIELD -> Expect.FIELD_GET;
             case Opcodes.PUTFIELD -> Expect.FIELD_PUT;
             case Opcodes.INEG, Opcodes.LNEG, Opcodes.FNEG, Opcodes.DNEG -> Expect.NEG;
@@ -338,7 +339,7 @@ final class Instrumenter {
 
     private static void check(Item item, AbstractInsnNode insn, MethodNode main) throws MappingException {
         Site site = item.site();
-        if (site == null && !List.of(Expect.GETSTATIC, Expect.INVOKE, Expect.NEW, Expect.CTOR).contains(item.expect())) {
+        if (site == null && !List.of(Expect.GETSTATIC, Expect.INVOKE, Expect.NEW, Expect.CTOR, Expect.BOX, Expect.UNBOX).contains(item.expect())) {
             // A hidden for-each step (copy, length, index) or a folded conversion: its family is enough.
             if (item.expect() == Expect.CONVERT) checkConversion(item, insn);
             return;
@@ -371,6 +372,16 @@ final class Instrumenter {
             case SUPER -> {
                 if (!(insn instanceof MethodInsnNode m) || insn.getOpcode() != Opcodes.INVOKESPECIAL
                         || !(m.owner + "." + m.name + m.desc).equals(item.member())) throw new MappingException("expected super()");
+            }
+            case LIB, LIBNEW, APPEND, TOSTRING, BOX, UNBOX -> {
+                int opcode = switch (item.expect()) {
+                    case LIB -> switch (site.operator) { case "static" -> Opcodes.INVOKESTATIC; case "interface" -> Opcodes.INVOKEINTERFACE; default -> Opcodes.INVOKEVIRTUAL; };
+                    case LIBNEW -> Opcodes.INVOKESPECIAL;
+                    case BOX -> Opcodes.INVOKESTATIC;
+                    default -> Opcodes.INVOKEVIRTUAL;
+                };
+                if (!(insn instanceof MethodInsnNode m) || insn.getOpcode() != opcode
+                        || !(m.owner + "#" + m.name + m.desc).equals(item.member())) throw new MappingException("unexpected library call");
             }
             case CTOR -> {
                 if (!(insn instanceof MethodInsnNode m) || insn.getOpcode() != Opcodes.INVOKESPECIAL
@@ -472,6 +483,7 @@ final class Instrumenter {
 
     /** JVM descriptor of a traced Java type. */
     static String descriptorOf(String type) {
+        type = Analyzer.erasure(type);
         if (type.endsWith("[]")) return "[" + descriptorOf(Analyzer.component(type));
         return switch (type) {
             case "int" -> "I"; case "long" -> "J"; case "float" -> "F"; case "double" -> "D"; case "boolean" -> "Z";
@@ -486,6 +498,7 @@ final class Instrumenter {
 
     /** JVM internal name of a class type: java/lang/String, Node, or Main$Node for a member class of Main (Part 8e). */
     static String internal(String type) {
+        type = Analyzer.erasure(type); // Part 8f: generic arguments do not reach the JVM
         if (type.equals("java.lang.String")) return "java/lang/String";
         if (type.startsWith("Main.")) return "Main$" + type.substring(5);
         return type.replace('.', '/');
@@ -673,6 +686,77 @@ final class Instrumenter {
                 }
                 list.insertBefore(insn, before);
             }
+            case LIB -> {
+                // Spill receiver and arguments, run the original call (a failure is recorded and rethrown),
+                // then record receiver, arguments and result (Part 8f).
+                MethodInsnNode call = (MethodInsnNode) insn;
+                Type[] args = Type.getArgumentTypes(call.desc);
+                Type result = Type.getReturnType(call.desc);
+                boolean instance = call.getOpcode() != Opcodes.INVOKESTATIC;
+                int base = m.maxLocals + 2; // after the field-write spare (Part 8e)
+                int[] slots = new int[args.length];
+                for (int i = 0, next = base + 1; i < args.length; next += args[i].getSize(), i++) slots[i] = next;
+                InsnList before = new InsnList();
+                for (int i = args.length - 1; i >= 0; i--) before.add(new VarInsnNode(args[i].getOpcode(Opcodes.ISTORE), slots[i]));
+                if (instance) {
+                    before.add(new VarInsnNode(Opcodes.ASTORE, base));
+                    // A receiver seen for the first time is recorded before the call changes it.
+                    before.add(new VarInsnNode(Opcodes.ALOAD, base));
+                    before.add(call("libSee", "(Ljava/lang/Object;)V"));
+                    before.add(new VarInsnNode(Opcodes.ALOAD, base));
+                }
+                for (int i = 0; i < args.length; i++) before.add(new VarInsnNode(args[i].getOpcode(Opcodes.ILOAD), slots[i]));
+                LabelNode start = new LabelNode(), end = new LabelNode(), handler = new LabelNode();
+                before.add(start);
+                list.insertBefore(insn, before);
+                InsnList after = new InsnList();
+                after.add(end);
+                boolean isVoid = result.getSort() == Type.VOID;
+                if (!isVoid) { after.add(new InsnNode(result.getSize() == 2 ? Opcodes.DUP2 : Opcodes.DUP)); box(after, result); }
+                after.add(siteConstant(site));
+                after.add(instance ? new VarInsnNode(Opcodes.ALOAD, base) : new InsnNode(Opcodes.ACONST_NULL));
+                after.add(new LdcInsnNode(args.length));
+                after.add(new TypeInsnNode(Opcodes.ANEWARRAY, "java/lang/Object"));
+                for (int i = 0; i < args.length; i++) {
+                    after.add(new InsnNode(Opcodes.DUP));
+                    after.add(new LdcInsnNode(i));
+                    after.add(new VarInsnNode(args[i].getOpcode(Opcodes.ILOAD), slots[i]));
+                    box(after, args[i]);
+                    after.add(new InsnNode(Opcodes.AASTORE));
+                }
+                after.add(isVoid ? call("libV", "(ILjava/lang/Object;[Ljava/lang/Object;)V")
+                        : call("lib", "(Ljava/lang/Object;ILjava/lang/Object;[Ljava/lang/Object;)V"));
+                list.insert(insn, after);
+                list.add(handler);
+                list.add(new InsnNode(Opcodes.DUP));
+                list.add(siteConstant(site));
+                list.add(call("libFail", "(Ljava/lang/Throwable;I)V"));
+                list.add(new InsnNode(Opcodes.ATHROW));
+                m.tryCatchBlocks.add(new TryCatchBlockNode(start, end, handler, null));
+            }
+            case LIBNEW -> {
+                InsnList after = new InsnList();
+                after.add(new InsnNode(Opcodes.DUP));
+                after.add(siteConstant(site));
+                after.add(call("libNew", "(Ljava/lang/Object;I)V"));
+                list.insert(insn, after);
+            }
+            case APPEND -> { // the operand of a concatenation, recorded as it is appended
+                char t = Type.getArgumentTypes(((MethodInsnNode) insn).desc)[0].getDescriptor().charAt(0);
+                InsnList before = new InsnList();
+                before.add(new InsnNode(t == 'J' || t == 'D' ? Opcodes.DUP2 : Opcodes.DUP));
+                before.add(siteConstant(site));
+                String type = t == 'L' ? "Ljava/lang/Object;" : String.valueOf(t);
+                before.add(call("cat" + (t == 'L' ? 'A' : t), "(" + type + "I)V"));
+                list.insertBefore(insn, before);
+            }
+            case TOSTRING -> {
+                InsnList after = new InsnList();
+                after.add(new InsnNode(Opcodes.DUP));
+                after.add(siteConstant(site));
+                after.add(call("catEnd", "(Ljava/lang/String;I)V"));
+                list.insert(insn, after);
+            }
             case FIELD_GET -> {
                 // dup; null check (records the failure); dup; getfield; record the read and return the value.
                 char t = fieldKind(site.javaType);
@@ -774,6 +858,16 @@ final class Instrumenter {
             }
             default -> { }
         }
+    }
+
+    /** Boxes a primitive on the stack (a reference stays as it is). */
+    private static void box(InsnList list, Type type) {
+        String owner = switch (type.getSort()) {
+            case Type.INT -> "java/lang/Integer"; case Type.LONG -> "java/lang/Long"; case Type.DOUBLE -> "java/lang/Double";
+            case Type.FLOAT -> "java/lang/Float"; case Type.CHAR -> "java/lang/Character"; case Type.BOOLEAN -> "java/lang/Boolean";
+            case Type.SHORT -> "java/lang/Short"; case Type.BYTE -> "java/lang/Byte"; default -> null;
+        };
+        if (owner != null) list.add(new MethodInsnNode(Opcodes.INVOKESTATIC, owner, "valueOf", "(" + type.getDescriptor() + ")L" + owner + ";", false));
     }
 
     /** Recorder helper suffix for a field type: I (int-sized), J, F, D or A (reference). */

@@ -62,6 +62,15 @@ final class TraceBuilder {
     private final Map<String, String> objectClasses = new HashMap<>();
     private final Map<String, PendingObject> pendingObjects = new HashMap<>();
     private final Map<String, Site> classes = new HashMap<>(); // javaType -> CLASS site
+    // Part 8f: mirrors of library objects (id -> mirror and back), string texts, first sights.
+    private final Map<String, Object> mirrors = new HashMap<>();
+    private final Map<Object, String> mirrorIds = new IdentityHashMap<>();
+    private final Map<String, String> stringTexts = new HashMap<>();
+    private record PendingLibrary(String className, List<String> tokens) { }
+    private final Map<String, PendingLibrary> pendingLibrary = new HashMap<>();
+    private static final Map<String, String> BOXES = Map.of("java.lang.Integer", "int", "java.lang.Long", "long",
+            "java.lang.Double", "double", "java.lang.Float", "float", "java.lang.Short", "short", "java.lang.Byte", "byte",
+            "java.lang.Character", "char", "java.lang.Boolean", "boolean");
     private Map<String, Object> openRegion, openRegionEvent;
     private final Set<String> stale = new LinkedHashSet<>();
     private boolean sawRegion;
@@ -70,9 +79,11 @@ final class TraceBuilder {
     // condition results, so recursive invocations never share them. The fields below always
     // refer to the innermost frame.
     private record Frame(String id, String methodId, List<String[]> scopes, Map<String, Map<String, Object>> bindings,
-                         Map<Cond, Boolean> conditions) {
-        Frame(String id, String methodId) { this(id, methodId, new ArrayList<>(), new HashMap<>(), new HashMap<>()); }
+                         Map<Cond, Boolean> conditions, Deque<Concat> concats) {
+        Frame(String id, String methodId) { this(id, methodId, new ArrayList<>(), new HashMap<>(), new HashMap<>(), new ArrayDeque<>()); }
     }
+    /** A string concatenation whose operands are being appended (Part 8f). */
+    private record Concat(Site site, List<String> tokens) { }
     private final Deque<Frame> frames = new ArrayDeque<>();
     private String frameId;
     private List<String[]> scopes;
@@ -143,6 +154,7 @@ final class TraceBuilder {
                     if (line.startsWith("A")) { arrayContents(line); continue; }
                     if (line.startsWith("S")) { stringSight(line); continue; }
                     if (line.startsWith("O")) { objectContents(line); continue; }
+                    if (line.startsWith("C") || line.startsWith("M") || line.startsWith("B")) { libraryContents(line); continue; }
                     closeRegion();
                     if (line.equals("R")) {
                         if (frames.size() != 1 || pendingCall != null) throw new Inconsistent("main returned inside a call");
@@ -269,7 +281,7 @@ final class TraceBuilder {
             unknownBindings.add(binding.get("bindingId"));
         }
         Map<String, Object> data = ordered("unknownBindings", unknownBindings, "arrays", new ArrayList<>(), "unknownArrays", new ArrayList<>(),
-                "objects", new ArrayList<>(), "unknownObjects", new ArrayList<>());
+                "objects", new ArrayList<>(), "unknownObjects", new ArrayList<>(), "collections", new ArrayList<>(), "unknownCollections", new ArrayList<>());
         addObservable(site, "UNCAPTURED", data);
         sawRegion = true;
         if (site.mayWriteArrays) {
@@ -277,6 +289,7 @@ final class TraceBuilder {
             openRegionEvent = events.get(events.size() - 1);
             stale.addAll(arrays.keySet());
             stale.addAll(objects.keySet());
+            stale.addAll(mirrors.keySet());
         }
     }
 
@@ -405,6 +418,10 @@ final class TraceBuilder {
     private void closeRegion() {
         if (openRegion == null) return;
         for (String id : stale) {
+            if (mirrors.containsKey(id)) { // a library object no longer known: no further calls on it are expected
+                ((List<Object>) openRegion.get("unknownCollections")).add(id);
+                continue;
+            }
             if (objects.containsKey(id)) {
                 objects.get(id).replaceAll((name, value) -> unknown());
                 ((List<Object>) openRegion.get("unknownObjects")).add(id);
@@ -545,6 +562,14 @@ final class TraceBuilder {
                         "operator", site.operator, "position", site.position));
             }
             case ALLOCATE -> {
+                if (Library.CLASSES.contains(Analyzer.erasure(site.javaType)) || site.javaType.startsWith("java.util.")) { // Part 8f
+                    if (t.length < 3) throw new Inconsistent("library allocation record");
+                    String id = object(t[1]);
+                    if (knownObjects.contains(id)) throw new Inconsistent("reused object identity");
+                    buildMirror(id, t[2], List.of(t).subList(3, t.length));
+                    addObservable(site, "ALLOCATE", ordered("object", libraryValue(id)));
+                    return;
+                }
                 if (t.length < 3) throw new Inconsistent("allocation record");
                 String id = object(t[1]);
                 if (knownObjects.contains(id) || pendingArrays.containsKey(id)) throw new Inconsistent("reused object identity");
@@ -577,6 +602,29 @@ final class TraceBuilder {
                 Map<String, Object> previous = array.set(index, value);
                 addObservable(site, "ARRAY_WRITE", ordered("objectId", object(t[1]), "index", index,
                         "previous", previous, "value", value));
+            }
+            case LIBRARY -> libraryCall(site, t);
+            case CONCAT_ARG -> {
+                expect(t, 2);
+                Deque<Concat> concats = frames.peek().concats();
+                if (concats.isEmpty() || concats.peek().site() != site.callee) concats.push(new Concat(site.callee, new ArrayList<>()));
+                concats.peek().tokens().add(t[1]);
+            }
+            case CONCAT -> {
+                expect(t, 2);
+                Deque<Concat> concats = frames.peek().concats();
+                if (concats.isEmpty() || concats.peek().site() != site) throw new Inconsistent("concatenation without operands");
+                List<String> tokens = concats.pop().tokens();
+                StringBuilder expected = new StringBuilder();
+                List<Object> operands = new ArrayList<>();
+                for (String token : tokens) {
+                    Map<String, Object> value = libraryValueOf(token);
+                    operands.add(operand(value));
+                    expected.append(text(token, value));
+                }
+                Map<String, Object> result = reference(t[1]);
+                if (!expected.toString().equals(stringTexts.get((String) result.get("objectId")))) throw new Inconsistent("concatenation result");
+                addObservable(site, "EXPRESSION", ordered("operator", "+", "operands", operands, "result", result));
             }
             case FIELD_READ -> {
                 expect(t, 3);
@@ -793,11 +841,18 @@ final class TraceBuilder {
     private Map<String, Object> element(String type, String token) throws Inconsistent {
         switch (type) {
             case "byte", "short", "char", "int", "long", "float", "double", "boolean" -> { return scalar(type, token); }
+            case "java.lang.Integer", "java.lang.Long", "java.lang.Double", "java.lang.Float", "java.lang.Short", "java.lang.Byte",
+                 "java.lang.Character", "java.lang.Boolean" -> { // Part 8f: a boxed value, or null
+                Map<String, Object> value = libraryValueOf(token);
+                if (!"null".equals(value.get("kind")) && !BOXES.get(type).equals(value.get("kind"))) throw new Inconsistent("boxed value of another type");
+                return value;
+            }
             default -> {
                 Map<String, Object> value = reference(token);
                 if (value.get("objectId") instanceof String id) {
                     boolean fits = type.endsWith("[]") ? Analyzer.component(type).equals(elementTypes.get(id))
-                            : type.equals("java.lang.String") ? !arrays.containsKey(id) && !objectClasses.containsKey(id)
+                            : type.equals("java.lang.String") ? stringTexts.containsKey(id)
+                            : mirrors.containsKey(id) ? libraryFits(type, mirrors.get(id))
                             : type.equals(objectClasses.get(id));
                     if (!fits) throw new Inconsistent("reference of another type");
                 }
@@ -831,6 +886,7 @@ final class TraceBuilder {
         String id = object(token);
         if (!knownObjects.contains(id) && pendingArrays.containsKey(id)) captureArray(id);
         if (!knownObjects.contains(id) && pendingObjects.containsKey(id)) captureObject(id, null);
+        if (!knownObjects.contains(id) && pendingLibrary.containsKey(id)) captureLibrary(id);
         if (!knownObjects.contains(id)) {
             String pending = pendingStrings.remove(id);
             if (pending == null) throw new Inconsistent("reference to an unrecorded object");
@@ -838,6 +894,7 @@ final class TraceBuilder {
             List<Integer> units = new ArrayList<>();
             String hex = pending.substring(1);
             for (int i = 0; i < hex.length(); i += 4) units.add(Integer.parseInt(hex.substring(i, i + 4), 16));
+            stringTexts.put(id, unhex(pending));
             addBookkeeping("OBJECT_CAPTURE", Map.of("object", ordered("objectId", id, "kind", "string", "utf16", units)));
         }
         return ref(id);
@@ -884,6 +941,199 @@ final class TraceBuilder {
         if (state == null || !site.owner.equals(objectClasses.get(id))) throw new Inconsistent("field of an unknown object");
         if (!state.containsKey(site.name)) throw new Inconsistent("unknown field " + site.name);
         return state;
+    }
+
+    // ---- library objects (Part 8f) ---------------------------------------------------------
+
+    /** {@code C|M|B<id> <class> <body>}: a library object's contents, first seen or re-read. */
+    @SuppressWarnings("unchecked")
+    private void libraryContents(String line) throws Inconsistent {
+        String[] t = line.split(" ");
+        if (t.length < 3) throw new Inconsistent("library record");
+        String id = "o" + Integer.parseInt(t[0].substring(1));
+        List<String> body = List.of(t).subList(2, t.length);
+        if (!knownObjects.contains(id)) {
+            if (pendingLibrary.putIfAbsent(id, new PendingLibrary(t[1], body)) != null) throw new Inconsistent("library object seen twice");
+            return;
+        }
+        if (openRegion == null || !stale.remove(id) || !mirrors.containsKey(id)) throw new Inconsistent("unexpected library re-read");
+        Map<String, Object> before = libraryValue(id);
+        Map<String, Object> after = beforeOpenRegion(() -> { buildMirror(id, t[1], body); return libraryValue(id); });
+        if (!before.equals(after)) ((List<Object>) openRegion.get("collections")).add(after);
+    }
+
+    /** A library object first seen by traced code (created by uncaptured code or held by another). */
+    private void captureLibrary(String id) throws Inconsistent {
+        PendingLibrary pending = pendingLibrary.remove(id);
+        buildMirror(id, pending.className(), pending.tokens());
+        addBookkeeping("OBJECT_CAPTURE", Map.of("object", libraryValue(id)));
+    }
+
+    /** Builds (or rebuilds) a mirror from recorded contents. Registered first: elements may refer back. */
+    private void buildMirror(String id, String className, List<String> body) throws Inconsistent {
+        Object mirror;
+        try { mirror = Library.create(className); } catch (ReflectiveOperationException | RuntimeException e) { throw new Inconsistent("library class " + className); }
+        Object old = mirrors.put(id, mirror);
+        if (old != null) mirrorIds.remove(old);
+        mirrorIds.put(mirror, id);
+        knownObjects.add(id);
+        if (mirror instanceof StringBuilder sb) {
+            if (body.size() != 1) throw new Inconsistent("builder contents");
+            sb.append(unhex(body.get(0)));
+            return;
+        }
+        int n = Integer.parseInt(body.get(0));
+        if (mirror instanceof Map) {
+            if (body.size() != 1 + 2 * n) throw new Inconsistent("map contents");
+            @SuppressWarnings("unchecked") Map<Object, Object> map = (Map<Object, Object>) mirror;
+            for (int i = 0; i < n; i++) map.put(mirror(body.get(1 + 2 * i)), mirror(body.get(2 + 2 * i)));
+        } else {
+            if (body.size() != 1 + n) throw new Inconsistent("collection contents");
+            @SuppressWarnings("unchecked") java.util.Collection<Object> c = (java.util.Collection<Object>) mirror;
+            for (int i = 0; i < n; i++) c.add(mirror(body.get(1 + i)));
+        }
+    }
+
+    /** The mirror value of a token: a box, a Str, a nested mirror, a Ref or null. */
+    private Object mirror(String token) throws Inconsistent {
+        if (token.equals("n")) return null;
+        if (!token.startsWith("r")) return box(token);
+        String id = (String) reference(token).get("objectId");
+        if (stringTexts.containsKey(id)) return new Library.Str(stringTexts.get(id), id);
+        if (mirrors.containsKey(id)) return mirrors.get(id);
+        return new Library.Ref(id);
+    }
+
+    /** A boxed value token (I5, J5, D<bits>, F<bits>, C65, Z1, S5, B5) as its Java box. */
+    private static Object box(String token) throws Inconsistent {
+        try {
+            String v = token.substring(1);
+            return switch (token.charAt(0)) {
+                case 'I' -> Integer.parseInt(v); case 'J' -> Long.parseLong(v); case 'D' -> Values.d(v); case 'F' -> Values.f(v);
+                case 'C' -> (char) Integer.parseInt(v); case 'Z' -> v.equals("1"); case 'S' -> Short.parseShort(v); case 'B' -> Byte.parseByte(v);
+                default -> throw new Inconsistent("value token " + token);
+            };
+        } catch (RuntimeException e) { throw new Inconsistent("value token " + token); }
+    }
+
+    /** The trace value of a self-describing token (boxes are shown as values). */
+    private Map<String, Object> libraryValueOf(String token) throws Inconsistent {
+        if (token.equals("n")) return ordered("kind", "null");
+        if (token.startsWith("r")) return reference(token);
+        return traceValue(box(token));
+    }
+
+    /** The trace value of a mirror element. */
+    private Map<String, Object> traceValue(Object v) throws Inconsistent {
+        if (v == null) return ordered("kind", "null");
+        if (v instanceof Library.Str str) return ref(str.id());
+        if (v instanceof Library.Ref r) return ref(r.id());
+        if (mirrorIds.containsKey(v)) return ref(mirrorIds.get(v));
+        String token = switch (v) {
+            case Integer i -> Integer.toString(i); case Long l -> Long.toString(l); case Short x -> Short.toString(x);
+            case Byte x -> Byte.toString(x); case Character c -> Integer.toString(c); case Boolean b -> b ? "1" : "0";
+            case Float f -> Values.f(f); case Double d -> Values.d(d);
+            default -> throw new Inconsistent("library value " + v.getClass().getName());
+        };
+        String kind = switch (v) {
+            case Integer i -> "int"; case Long l -> "long"; case Short x -> "short"; case Byte x -> "byte"; case Character c -> "char";
+            case Boolean b -> "boolean"; case Float f -> "float"; default -> "double";
+        };
+        return scalar(kind, token);
+    }
+
+    /** String.valueOf of a concatenation operand, from its token and trace value. */
+    private String text(String token, Map<String, Object> value) throws Inconsistent {
+        if (token.equals("n")) return "null";
+        if (token.startsWith("r")) {
+            String text = stringTexts.get((String) value.get("objectId"));
+            if (text == null) throw new Inconsistent("concatenated a non-string object");
+            return text;
+        }
+        return String.valueOf(box(token));
+    }
+
+    /** The trace object of a library mirror. HashSet/HashMap ascend; PriorityQueue in poll order (never its layout). */
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> libraryValue(String id) throws Inconsistent {
+        Object mirror = mirrors.get(id);
+        String className = mirror.getClass().getName();
+        if (mirror instanceof StringBuilder sb) {
+            List<Integer> units = new ArrayList<>();
+            for (int i = 0; i < sb.length(); i++) units.add((int) sb.charAt(i));
+            return ordered("objectId", id, "kind", "builder", "className", className, "utf16", units);
+        }
+        if (mirror instanceof Map<?, ?> map) {
+            List<Map.Entry<Object, Object>> entries = new ArrayList<>(((Map<Object, Object>) map).entrySet());
+            if (mirror instanceof java.util.HashMap && !(mirror instanceof java.util.LinkedHashMap))
+                entries.sort((a, b) -> ((Comparable<Object>) a.getKey()).compareTo(b.getKey()));
+            List<Object> out = new ArrayList<>();
+            for (var e : entries) out.add(ordered("key", traceValue(e.getKey()), "value", traceValue(e.getValue())));
+            return ordered("objectId", id, "kind", "map", "className", className, "entries", out);
+        }
+        List<Object> elements = new ArrayList<>((java.util.Collection<Object>) mirror);
+        if (mirror instanceof java.util.PriorityQueue
+                || mirror instanceof java.util.HashSet && !(mirror instanceof java.util.LinkedHashSet))
+            elements.sort((a, b) -> ((Comparable<Object>) a).compareTo(b));
+        List<Object> out = new ArrayList<>();
+        for (Object e : elements) out.add(traceValue(e));
+        return ordered("objectId", id, "kind", "collection", "className", className, "elements", out);
+    }
+
+    private static boolean libraryFits(String type, Object mirror) {
+        String raw = Analyzer.erasure(type);
+        try { return Class.forName(raw).isInstance(mirror); } catch (ClassNotFoundException e) { return false; }
+    }
+
+    /**
+     * {@code <site> <receiver|-> <n> <args...> <result|v>}: replays the call on the mirror (or the
+     * string, or statically), checks the recorded result, and records the receiver's new contents.
+     */
+    private void libraryCall(Site site, String[] t) throws Inconsistent {
+        if (t.length < 4) throw new Inconsistent("library record");
+        int n = Integer.parseInt(t[2]);
+        if (t.length != 4 + n) throw new Inconsistent("library record arguments");
+        java.lang.reflect.Method method;
+        try { method = Library.method(site.methodId); } catch (ReflectiveOperationException | RuntimeException e) { throw new Inconsistent("library method " + site.methodId); }
+        Class<?>[] params = method.getParameterTypes();
+        if (params.length != n) throw new Inconsistent("library arity");
+        String receiverId = null;
+        Object target = null;
+        if (site.instance) {
+            Map<String, Object> receiver = reference(t[1]);
+            receiverId = (String) receiver.get("objectId");
+            if (receiverId == null) throw new Inconsistent("library call on null"); // a null receiver fails instead
+            target = stringTexts.containsKey(receiverId) ? stringTexts.get(receiverId) : mirrors.get(receiverId);
+            if (target == null) throw new Inconsistent("library receiver");
+        } else if (!t[1].equals("-")) throw new Inconsistent("static library receiver");
+        Object[] args = new Object[n];
+        List<Object> arguments = new ArrayList<>();
+        for (int i = 0; i < n; i++) {
+            String token = t[3 + i];
+            arguments.add(libraryValueOf(token));
+            Object value = mirror(token);
+            // A string argument of a String or StringBuilder method, or of a String/CharSequence parameter, is its text.
+            if ((params[i] == String.class || params[i] == CharSequence.class || target instanceof String) && value instanceof Library.Str str) value = str.text();
+            args[i] = value;
+        }
+        Map<String, Object> before = mirrors.containsKey(receiverId) ? libraryValue(receiverId) : null;
+        Object replayed;
+        try { replayed = method.invoke(target, args); }
+        catch (ReflectiveOperationException | RuntimeException e) { throw new Inconsistent("library replay of " + site.methodId); }
+        String token = t[3 + n];
+        Map<String, Object> result;
+        if (method.getReturnType() == void.class) {
+            if (!token.equals("v")) throw new Inconsistent("void library result");
+            result = null;
+        } else {
+            result = libraryValueOf(token);
+            boolean same = replayed instanceof String text ? text.equals(stringTexts.get((String) result.get("objectId")))
+                    : traceValue(replayed).equals(result);
+            if (!same) throw new Inconsistent("library result of " + site.methodId + ": recorded " + token + ", replayed " + replayed);
+        }
+        Map<String, Object> after = before == null ? null : libraryValue(receiverId);
+        addObservable(site, "LIBRARY", ordered("objectId", receiverId, "method", site.methodId, "arguments", arguments,
+                "result", result, "after", after == null || after.equals(before) ? null : after));
     }
 
     private List<Map<String, Object>> array(String token, Site site) throws Inconsistent {
@@ -981,7 +1231,7 @@ final class TraceBuilder {
             diagnosticJson.add(map);
         }
         return Json.write(ordered(
-                "schemaVersion", "1.4.0",
+                "schemaVersion", "1.5.0",
                 "runId", runId,
                 "source", ordered("file", Analyzer.FILE, "text", source, "sha256", sha256(source)),
                 "execution", ordered("status", executionStatus, "reason", executionReason),

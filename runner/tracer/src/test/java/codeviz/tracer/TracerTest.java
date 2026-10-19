@@ -151,6 +151,14 @@ class TracerTest {
                         .reduce((a, b) -> a + " " + b).orElse("") + " = " + value(d.get("result"));
                 case "EXCEPTION" -> "EXCEPTION " + d.get("exceptionType");
                 case "SWITCH" -> "SWITCH " + value(d.get("value")) + " " + d.get("matched");
+                case "LIBRARY" -> {
+                    String method = (String) d.get("method");
+                    String name = method.substring(method.lastIndexOf('.', method.indexOf('(')) + 1, method.indexOf('('));
+                    yield "LIB " + name + ((List<Object>) d.get("arguments")).stream().map(TracerTest::value).toList().toString()
+                            .replace(" ", "").replace("[", "(").replace("]", ")")
+                            + (d.get("result") == null ? "" : " = " + value(d.get("result")))
+                            + (d.get("after") == null ? "" : " -> " + describeObject(map(d.get("after"))));
+                }
                 case "CALL" -> {
                     List<Object> parameters = (List<Object>) d.get("parameters");
                     for (Object p : parameters) names.put(map(p).get("bindingId"), (String) map(p).get("name"));
@@ -177,9 +185,34 @@ class TracerTest {
     /** An array as [elements], an object (Part 8e) as Class{field=value,...}. */
     @SuppressWarnings("unchecked")
     private static String describeObject(Map<String, Object> o) {
+        if ("builder".equals(o.get("kind"))) return "\"" + ((List<Object>) o.get("utf16")).stream()
+                .map(u -> String.valueOf((char) ((Long) u).intValue())).reduce("", String::concat) + "\"";
+        if ("map".equals(o.get("kind"))) return ((List<Object>) o.get("entries")).stream()
+                .map(e -> value(map(e).get("key")) + "=" + value(map(e).get("value"))).toList().toString().replace(" ", "").replace("[", "{").replace("]", "}");
         if ("object".equals(o.get("kind"))) return o.get("className") + ((List<Object>) o.get("fields")).stream()
                 .map(f -> map(f).get("name") + "=" + value(map(f).get("value"))).toList().toString().replace(" ", "").replace("[", "{").replace("]", "}");
         return ((List<Object>) o.get("elements")).stream().map(TracerTest::value).toList().toString().replace(" ", "");
+    }
+
+    /** Steps with string references shown as their quoted text (Part 8f). */
+    @SuppressWarnings("unchecked")
+    private static List<String> textSteps(Map<String, Object> trace) {
+        Map<String, String> texts = new HashMap<>();
+        for (Map<String, Object> e : events(trace)) {
+            if (!(map(e.get("data")).get("object") instanceof Map<?, ?> o) || !"string".equals(o.get("kind"))) continue;
+            texts.put((String) o.get("objectId"), ((List<Object>) o.get("utf16")).stream()
+                    .map(u -> String.valueOf((char) ((Long) u).intValue())).reduce("", String::concat));
+        }
+        List<String> out = new ArrayList<>();
+        for (String step : steps(trace)) {
+            var m = java.util.regex.Pattern.compile("#(o\\d+)").matcher(step);
+            StringBuilder b = new StringBuilder();
+            while (m.find()) m.appendReplacement(b, java.util.regex.Matcher.quoteReplacement(
+                    texts.containsKey(m.group(1)) ? "\"" + texts.get(m.group(1)) + "\"" : m.group()));
+            m.appendTail(b);
+            out.add(b.toString());
+        }
+        return out;
     }
 
     private static List<String> kinds(Map<String, Object> trace) {
@@ -588,7 +621,7 @@ class TracerTest {
                 int[][] g = {{1, 2}, {3, 4}};
                 String[] s = {"a"};
                 g[0] = java.util.Arrays.copyOf(g[1], 3);
-                s[0] = String.valueOf(42);
+                s[0] = Integer.toString(42);
                 int x = g[0][2];
                 System.out.println(x);
                 System.out.println(s[0]);""");
@@ -609,11 +642,11 @@ class TracerTest {
                 for (int k = 0; k < 3; k++) {
                     switch (k) {
                         case 0: continue;
-                        case 1: n = Math.max(n, 9); break;
+                        case 1: n = Integer.max(n, 9); break;
                         default: n++;
                     }
                 }
-                int m = switch (n) { case 10 -> { int q = Math.abs(-3); yield q; } default -> 0; };
+                int m = switch (n) { case 10 -> { int q = StrictMath.abs(-3); yield q; } default -> 0; };
                 int p = 1 + switch (m) { case 3 -> 4; default -> 5; };
                 System.out.println(found);
                 System.out.println(n);
@@ -623,10 +656,10 @@ class TracerTest {
         assertEquals("6\n10\n3\n5\n", r.result().stdout());
         List<String> steps = steps(r.trace());
         assertInOrder(steps, "READ [1]=6 @a", "DECLARE v=6 @int v", "EXPR == 6 6 = true @v == 6", "ASSIGN found -1->6 @found = v",
-                "SWITCH 0 case @case 0", "SWITCH 1 case @case 1", "UNCAPTURED n=? @n = Math.max(n, 9);",
+                "SWITCH 0 case @case 0", "SWITCH 1 case @case 1", "UNCAPTURED n=? @n = Integer.max(n, 9);",
                 "SWITCH 2 default @default", "UPDATE n ?->10 =9 @n++",
-                "SWITCH 10 case @case 10", "UNCAPTURED @int q = Math.abs(-3);", "UNCAPTURED @yield q;",
-                "DECLARE m=3 @int m = switch (n) { case 10 -> { int q = Math.abs(-3); yield q; } default -> 0; }",
+                "SWITCH 10 case @case 10", "UNCAPTURED @int q = StrictMath.abs(-3);", "UNCAPTURED @yield q;",
+                "DECLARE m=3 @int m = switch (n) { case 10 -> { int q = StrictMath.abs(-3); yield q; } default -> 0; }",
                 "UNCAPTURED @int p = 1 + switch (m) { case 3 -> 4; default -> 5; };");
         assertFalse(steps.stream().anyMatch(s -> s.startsWith("READ [2]")), "break leaves the for-each before its last element");
     }
@@ -755,8 +788,8 @@ class TracerTest {
                         int[] a = {1, 2, 3};
                         int total = 0;
                         for (int i = 0; i < a.length; i++) total += square(a[i]);
-                        System.out.println("total = " + square(total));
-                        int big = Math.max(square(2), 1);
+                        System.out.println(String.format("total = %d", square(total)));
+                        int big = Integer.max(square(2), 1);
                         tick();
                         System.out.println(total + big);
                     }
@@ -766,8 +799,8 @@ class TracerTest {
         assertEquals("total = 196\n18\n", r.result().stdout());
         List<String> steps = steps(r.trace());
         assertEquals(3, steps.stream().filter(s -> s.startsWith("CALL Main.square")).count(), String.join("\n", steps));
-        assertInOrder(steps, "ASSIGN total 5->14 @total += square(a[i])", "UNCAPTURED @System.out.println(\"total = \" + square(total));",
-                "UNCAPTURED @int big = Math.max(square(2), 1);", "CALL Main.tick():void @tick()", "UNCAPTURED @counter++;",
+        assertInOrder(steps, "ASSIGN total 5->14 @total += square(a[i])", "UNCAPTURED @System.out.println(String.format(\"total = %d\", square(total)));",
+                "UNCAPTURED @int big = Integer.max(square(2), 1);", "CALL Main.tick():void @tick()", "UNCAPTURED @counter++;",
                 "RETURN void implicit @}");
     }
 
@@ -776,7 +809,7 @@ class TracerTest {
                 public class Main {
                     static int pick(int[] a, int k) {
                         for (int v : a) if (v > k) return v;
-                        return Math.max(k, 0);
+                        return Integer.max(k, 0);
                     }
                     static int boom(int x) { return 10 / x; }
                     public static void main(String[] args) {
@@ -791,7 +824,7 @@ class TracerTest {
         assertComplete(r, "failed");
         assertEquals("14\n", r.result().stdout());
         assertInOrder(steps(r.trace()), "EXPR > 5 2 = true @v > k", "RETURN 5 @return v;", "DECLARE p=5 @int p = pick(a, 2)",
-                "UNCAPTURED @return Math.max(k, 0);", "RETURN 9 @return Math.max(k, 0);", "DECLARE q=9 @int q = pick(a, 9)",
+                "UNCAPTURED @return Integer.max(k, 0);", "RETURN 9 @return Integer.max(k, 0);", "DECLARE q=9 @int q = pick(a, 9)",
                 "CALL Main.boom(int):int x=0 @boom(0)", "EXCEPTION java.lang.ArithmeticException @10 / x");
         List<Map<String, Object>> events = events(r.trace());
         List<Object> ends = events.stream().filter(e -> "FRAME_END".equals(e.get("kind"))).map(e -> map(e.get("data")).get("frameId")).toList();
@@ -970,6 +1003,162 @@ class TracerTest {
         assertTrue(many.json().contains("TRAVERSAL_LIMIT"));
     }
 
+    // ---- Part 8f: strings and library collections ------------------------------------------
+
+    @Test void stringsConcatenationAndPureLibraryCalls() throws Exception {
+        Run r = main("library-strings", """
+                String name = "Ada";
+                int age = 36;
+                String line = "Hi " + name + ", " + age + '!';
+                String s = "";
+                for (int i = 0; i < 3; i++) s += i;
+                int len = line.length();
+                char first = line.charAt(0);
+                String part = line.substring(3, 6);
+                boolean same = part.equals(name);
+                int at = line.indexOf(",");
+                String up = name.toUpperCase();
+                int big = Math.max(age, 40);
+                int parsed = Integer.parseInt("12") + 1;
+                boolean digit = Character.isDigit(line.charAt(8));
+                double root = Math.sqrt(16.0);
+                Integer boxed = age;
+                int back = boxed + 1;
+                Integer none = null;
+                if (none == null) none = 3;
+                String desc = "v=" + boxed + " " + null + " " + 1.5 + " " + true + none;
+                System.out.println(line);
+                System.out.println(s);
+                System.out.println(len + " " + first + " " + part + " " + same + " " + at + " " + up);
+                System.out.println(big + parsed + back);
+                System.out.println(digit + " " + root);
+                System.out.println(desc);""");
+        assertComplete(r, "completed");
+        assertEquals("Hi Ada, 36!\n012\n11 H Ada true 6 ADA\n90\ntrue 4.0\nv=36 null 1.5 true3\n", r.result().stdout());
+        assertInOrder(textSteps(r.trace()), "EXPR + \"Hi \" \"Ada\" \", \" 36 33 = \"Hi Ada, 36!\" @\"Hi \" + name + \", \" + age + '!'",
+                "EXPR + \"\" 0 = \"0\" @s += i", "ASSIGN s \"\"->\"0\" @s += i", "EXPR + \"01\" 2 = \"012\" @s += i",
+                "LIB length() = 11 @line.length()", "LIB charAt(0) = 72 @line.charAt(0)", "LIB substring(3,6) = \"Ada\" @line.substring(3, 6)",
+                "LIB equals(\"Ada\") = true @part.equals(name)", "LIB indexOf(\",\") = 6 @line.indexOf(\",\")",
+                "LIB toUpperCase() = \"ADA\" @name.toUpperCase()", "LIB max(36,40) = 40 @Math.max(age, 40)",
+                "LIB parseInt(\"12\") = 12 @Integer.parseInt(\"12\")", "LIB isDigit(51) = true @Character.isDigit(line.charAt(8))",
+                "LIB sqrt(16.0) = 4.0 @Math.sqrt(16.0)", "DECLARE boxed=36 @Integer boxed = age", "EXPR + 36 1 = 37 @boxed + 1",
+                "DECLARE none=null @Integer none = null", "EXPR == null null = true @none == null", "ASSIGN none null->3 @none = 3",
+                "EXPR + \"v=\" 36 \" \" null \" \" 1.5 \" \" true 3 = \"v=36 null 1.5 true3\" @\"v=\" + boxed + \" \" + null + \" \" + 1.5 + \" \" + true + none");
+    }
+
+    @Test void stringBuilderAndCollectionsAreReplayedAndVerified() throws Exception {
+        Run r = main("library-collections", """
+                StringBuilder sb = new StringBuilder();
+                sb.append("ab").append(3).append('c');
+                sb.reverse();
+                sb.insert(0, 'x');
+                sb.setCharAt(1, 'Z');
+                String built = sb.toString();
+                java.util.List<Integer> xs = new java.util.ArrayList<>();
+                xs.add(5);
+                xs.add(7);
+                xs.add(0, 1);
+                int second = xs.get(1);
+                xs.set(2, 9);
+                int removed = xs.remove(0);
+                boolean has = xs.contains(9);
+                java.util.Deque<Integer> stack = new java.util.ArrayDeque<>();
+                stack.push(1);
+                stack.push(2);
+                int top = stack.pop();
+                java.util.Queue<String> q = new java.util.LinkedList<>();
+                q.offer("a");
+                q.offer("b");
+                String head = q.poll();
+                java.util.Map<String, Integer> counts = new java.util.HashMap<>();
+                String word = "abca";
+                for (int i = 0; i < word.length(); i++) {
+                    String k = "" + word.charAt(i);
+                    counts.put(k, counts.getOrDefault(k, 0) + 1);
+                }
+                java.util.Set<Integer> seen = new java.util.TreeSet<>();
+                seen.add(3);
+                seen.add(1);
+                seen.add(3);
+                java.util.PriorityQueue<Integer> pq = new java.util.PriorityQueue<>();
+                pq.add(5);
+                pq.add(1);
+                pq.add(3);
+                int min = pq.poll();
+                java.util.Stack<Integer> st = new java.util.Stack<>();
+                st.push(4);
+                int peek = st.peek();
+                System.out.println(built);
+                System.out.println(xs.size() + " " + second + " " + removed + " " + has);
+                System.out.println(top + " " + head + " " + counts.get("a") + " " + seen.size() + " " + min + " " + peek);""");
+        assertComplete(r, "completed");
+        assertEquals("xZ3ba\n2 5 1 true\n2 a 2 2 1 4\n", r.result().stdout());
+        assertInOrder(textSteps(r.trace()), "ALLOCATE \"\" @new StringBuilder()",
+                "LIB append(\"ab\") = #o2 -> \"ab\" @sb.append(\"ab\")", "LIB append(3) = #o2 -> \"ab3\" @sb.append(\"ab\").append(3)",
+                "LIB reverse() = #o2 -> \"c3ba\" @sb.reverse()", "LIB insert(0,120) = #o2 -> \"xc3ba\" @sb.insert(0, 'x')",
+                "LIB setCharAt(1,90) -> \"xZ3ba\" @sb.setCharAt(1, 'Z')", "LIB toString() = \"xZ3ba\" @sb.toString()",
+                "ALLOCATE [] @new java.util.ArrayList<>()", "LIB add(5) = true -> [5] @xs.add(5)", "LIB add(0,1) -> [1,5,7] @xs.add(0, 1)",
+                "LIB get(1) = 5 @xs.get(1)", "DECLARE second=5 @int second = xs.get(1)", "LIB set(2,9) = 7 -> [1,5,9] @xs.set(2, 9)",
+                "LIB remove(0) = 1 -> [5,9] @xs.remove(0)", "LIB contains(9) = true @xs.contains(9)",
+                "LIB push(2) -> [2,1] @stack.push(2)", "LIB pop() = 2 -> [1] @stack.pop()",
+                "LIB poll() = \"a\" -> [\"b\"] @q.poll()",
+                "LIB put(\"a\",2) = 1 -> {\"a\"=2,\"b\"=1,\"c\"=1} @counts.put(k, counts.getOrDefault(k, 0) + 1)",
+                "LIB add(3) = false @seen.add(3)", "LIB add(1) = true -> [1,5] @pq.add(1)", "LIB add(3) = true -> [1,3,5] @pq.add(3)", "LIB poll() = 1 -> [3,5] @pq.poll()",
+                "LIB peek() = 4 @st.peek()");
+    }
+
+    @Test void nestedCollectionsUserObjectsAndCollectionsFromUncapturedCode() throws Exception {
+        Run r = run("library-nested", """
+                public class Main {
+                    static class Node { int val; Node(int v) { val = v; } }
+                    public static void main(String[] args) {
+                        java.util.List<Integer> xs = null;
+                        xs = new java.util.ArrayList<>(java.util.List.of(4, 5));
+                        xs.add(6);
+                        java.util.Map<String, java.util.List<Integer>> groups = new java.util.TreeMap<>();
+                        groups.put("a", xs);
+                        int size = groups.get("a").size();
+                        java.util.List<Node> nodes = new java.util.LinkedList<>();
+                        nodes.add(new Node(7));
+                        int v = nodes.get(0).val;
+                        System.out.println(size + v);
+                    }
+                }
+                """);
+        assertComplete(r, "completed");
+        assertEquals("10\n", r.result().stdout());
+        List<String> steps = textSteps(r.trace());
+        assertInOrder(steps, "UNCAPTURED xs=? @xs = new java.util.ArrayList<>(java.util.List.of(4, 5));", "LIB add(6) = true -> [4,5,6] @xs.add(6)",
+                "LIB size() = 3 @groups.get(\"a\").size()", "FREAD val=7 @nodes.get(0).val");
+        assertTrue(steps.stream().anyMatch(s -> s.matches("LIB put\\(\"a\",#o\\d+\\) = null -> \\{\"a\"=#o\\d+} @groups.put\\(\"a\", xs\\)")), String.join("\n", steps));
+        assertTrue(kinds(r.trace()).contains("OBJECT_CAPTURE"), "the list made by uncaptured code is captured on first use");
+    }
+
+    @Test void libraryFailuresAndUncapturedChangesToCollections() throws Exception {
+        Run failure = main("library-failure", "java.util.List<Integer> e = new java.util.ArrayList<>();\nint x = e.get(0);");
+        assertComplete(failure, "failed");
+        assertInOrder(steps(failure.trace()), "EXCEPTION java.lang.IndexOutOfBoundsException @e.get(0)");
+        Run empty = main("library-empty-pop", "java.util.Deque<Integer> d = new java.util.ArrayDeque<>();\nd.push(1);\nd.pop();\nd.pop();");
+        assertComplete(empty, "failed");
+        assertInOrder(steps(empty.trace()), "LIB pop() = 1 -> [] @d.pop()", "EXCEPTION java.util.NoSuchElementException @d.pop()");
+        Run region = main("library-region", """
+                java.util.List<Integer> xs = new java.util.ArrayList<>();
+                xs.add(1);
+                java.util.Collections.addAll(xs, 3, 2);
+                java.util.Collections.sort(xs);
+                int n = xs.size();
+                int last = xs.get(2);
+                System.out.println(n + last);""");
+        assertComplete(region, "completed");
+        assertEquals("6\n", region.result().stdout());
+        assertInOrder(textSteps(region.trace()), "LIB add(1) = true -> [1] @xs.add(1)", "UNCAPTURED @java.util.Collections.addAll(xs, 3, 2);",
+                "UNCAPTURED @java.util.Collections.sort(xs);", "LIB size() = 3 @xs.size()", "LIB get(2) = 3 @xs.get(2)");
+        @SuppressWarnings("unchecked")
+        List<Object> reread = events(region.trace()).stream().filter(e -> "UNCAPTURED".equals(e.get("kind")))
+                .flatMap(e -> ((List<Object>) map(e.get("data")).get("collections")).stream()).toList();
+        assertEquals(2, reread.size(), "both uncaptured statements changed the list: " + reread);
+    }
+
     // ---- outside coverage -------------------------------------------------------
 
     // ---- Part 8a: uncaptured statements inside traced programs -----------------------
@@ -988,21 +1177,21 @@ class TracerTest {
         assertTrue(diagnostics.get(0).containsKey("source"), "diagnostic names the construct's range");
         assertTrue(((String) map(h.trace().get("capture")).get("reason")).contains("without capture"));
 
-        Run c = main("uncaptured-concat", "int n = 1;\nSystem.out.println(\"a\" + n);");
-        assertEquals(List.of("DECLARE n=1 @int n = 1", "UNCAPTURED @System.out.println(\"a\" + n);"), steps(c.trace()));
+        Run c = main("uncaptured-concat", "int n = 1;\nSystem.out.println(Integer.toBinaryString(n));");
+        assertEquals(List.of("DECLARE n=1 @int n = 1", "UNCAPTURED @System.out.println(Integer.toBinaryString(n));"), steps(c.trace()));
         assertFalse(c.result().raw().stream().anyMatch(l -> l.startsWith("A")), "printing never re-reads arrays");
 
         // A declaration without code is silent; uses of its variable are uncaptured.
-        Run u = main("uncaptured-unsupported-type", "Integer[] q;\nq = new Integer[2];\nSystem.out.println(q.length);");
-        assertEquals(List.of("UNCAPTURED @q = new Integer[2];", "UNCAPTURED @System.out.println(q.length);"), steps(u.trace()));
+        Run u = main("uncaptured-unsupported-type", "Object[] q;\nq = new Object[2];\nSystem.out.println(q.length);");
+        assertEquals(List.of("UNCAPTURED @q = new Object[2];", "UNCAPTURED @System.out.println(q.length);"), steps(u.trace()));
         assertEquals("2\n", u.result().stdout());
     }
 
     @Test void assignedBindingsBecomeUnknownUntilTheNextCoveredStore() throws Exception {
-        Run r = main("uncaptured-unknown", "int x = 1;\nx = Math.max(x, 5);\nx = x + 1;\nint i = 0;\ni = Math.abs(i - 2);\ni++;");
+        Run r = main("uncaptured-unknown", "int x = 1;\nx = Integer.max(x, 5);\nx = x + 1;\nint i = 0;\ni = StrictMath.abs(i - 2);\ni++;");
         assertComplete(r, "completed");
-        assertEquals(List.of("DECLARE x=1 @int x = 1", "UNCAPTURED x=? @x = Math.max(x, 5);", "EXPR + 5 1 = 6 @x + 1", "ASSIGN x ?->6 @x = x + 1",
-                "DECLARE i=0 @int i = 0", "UNCAPTURED i=? @i = Math.abs(i - 2);", "UPDATE i ?->3 =2 @i++"), steps(r.trace()));
+        assertEquals(List.of("DECLARE x=1 @int x = 1", "UNCAPTURED x=? @x = Integer.max(x, 5);", "EXPR + 5 1 = 6 @x + 1", "ASSIGN x ?->6 @x = x + 1",
+                "DECLARE i=0 @int i = 0", "UNCAPTURED i=? @i = StrictMath.abs(i - 2);", "UPDATE i ?->3 =2 @i++"), steps(r.trace()));
     }
 
     @Test void arraysChangedByUncapturedCodeAreReRead() throws Exception {
@@ -1030,21 +1219,21 @@ class TracerTest {
     }
 
     @Test void uncapturedStatementsInsideLoopsAndBranches() throws Exception {
-        Run r = main("uncaptured-loop", "int s = 0;\nfor (int i = 0; i < 5; i++) {\n    if (i == 3) break;\n    s = Math.max(s, s + i);\n}\n"
+        Run r = main("uncaptured-loop", "int s = 0;\nfor (int i = 0; i < 5; i++) {\n    if (i == 3) break;\n    s = Integer.max(s, s + i);\n}\n"
                 + "for (int j = 0; j < 4; j = Math.addExact(j, 2)) System.out.println(j);\nSystem.out.println(s);");
         assertComplete(r, "completed");
         assertEquals("0\n2\n3\n", r.result().stdout());
         List<String> steps = steps(r.trace());
-        assertEquals(3, steps.stream().filter(s -> s.equals("UNCAPTURED s=? @s = Math.max(s, s + i);")).count());
+        assertEquals(3, steps.stream().filter(s -> s.equals("UNCAPTURED s=? @s = Integer.max(s, s + i);")).count());
         // An unsupported for-update degrades the whole loop into one uncaptured step.
         assertEquals(1, steps.stream().filter(s -> s.startsWith("UNCAPTURED @for (int j")).count());
     }
 
     @Test void tabIndentedSourceMapsStatementRanges() throws Exception {
         Run r = run("uncaptured-tabs", "public class Main {\n\tpublic static void main(String[] args) {\n\t\tint x = 1;\n"
-                + "\t\tx = Math.max(x, 3);\n\t\tSystem.out.println(x);\n\t}\n}\n");
+                + "\t\tx = Integer.max(x, 3);\n\t\tSystem.out.println(x);\n\t}\n}\n");
         assertComplete(r, "completed");
-        assertEquals(List.of("DECLARE x=1 @int x = 1", "UNCAPTURED x=? @x = Math.max(x, 3);"), steps(r.trace())); // println(x) is covered
+        assertEquals(List.of("DECLARE x=1 @int x = 1", "UNCAPTURED x=? @x = Integer.max(x, 3);"), steps(r.trace())); // println(x) is covered
     }
 
     @Test void failureInsideAnUncapturedStatementEndsAtThatStep() throws Exception {

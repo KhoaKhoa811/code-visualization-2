@@ -208,7 +208,7 @@ values; section 12 defines additional semantic checks. See the official
 
 | Top-level field | Meaning |
 | --- | --- |
-| schemaVersion | Exactly `1.4.0` (Part 8e; earlier versions retired); reject unrecognized versions rather than silently skipping facts |
+| schemaVersion | Exactly `1.5.0` (Part 8f; earlier versions retired); reject unrecognized versions rather than silently skipping facts |
 | runId | Nonempty identity for this run; identities below are local to it |
 | source | Exact source text, file `Main.java`, and lowercase SHA-256 of its UTF-8 bytes |
 | execution | Terminal status and human-readable reason; describes execution, not capture completeness |
@@ -252,7 +252,8 @@ Representation for a type does not establish tracing coverage for its operations
 
 Objects are arrays (`objectId`, `kind: array`, `elementType`, `elements`), since 1.4.0
 objects of traced classes (`objectId`, `kind: object`, `className`, ordered `fields` of
-`name`, `javaType`, `value`; [objects](objects.md)),
+`name`, `javaType`, `value`; [objects](objects.md)), since 1.5.0 library collections, maps and
+string builders (`collection`, `map`, `builder`; [library](library.md)),
 or strings (`objectId`, `kind: string`, `utf16` code-unit array). Array length is
 elements.length; elements are complete within this contract. The element types
 are Java primitive names, `java.lang.String` and, since 1.3.0, array types of those at any
@@ -295,6 +296,7 @@ ranges follow sections 2–3 and the Java-support specification.
 | SWITCH | 1.3.0: value (byte, short, int or char), matched (case, default or none); a switch chose a branch; source is the chosen label, or the selector when nothing matched; no state change ([statements and arrays](statements.md)) |
 | FIELD_READ | 1.4.0: objectId, field, value; no mutation ([objects](objects.md)) |
 | FIELD_WRITE | 1.4.0: objectId, field, previous, value; commit exactly one field change |
+| LIBRARY | 1.5.0: objectId (receiver or null), method, arguments, result, after; one covered library call; after replaces the receiver's contents when it changed ([library](library.md)) |
 
 EXPRESSION operators are `+`, `-`, `*`, `/`, `%`, `!`, comparisons, `&&`, `||`,
 `condition`, and since 1.2.0 `&`, `|`, `^`, `~`, `<<`, `>>`, `>>>` and the primitive casts

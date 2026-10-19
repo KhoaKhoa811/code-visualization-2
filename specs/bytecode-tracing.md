@@ -158,3 +158,15 @@ A traced constructor is entered after its `super()` call, when `this` exists, an
 its first record allocates the object. Objects first seen by traced code are
 captured breadth-first with everything newly reachable, cycles included; see
 [objects.md](objects.md).
+
+## Strings and library collections (Part 8f)
+
+Programs are compiled with `-XDstringConcat=inline`, so a concatenation is a
+`StringBuilder` chain whose appended operands and result are recorded as one
+step. A covered library call keeps its original invocation: the instrumenter
+spills the receiver and arguments, registers a first-seen receiver before the
+call, records receiver, arguments and result afterwards, and records the
+exception when the call throws (a handler around that one instruction rethrows
+it). Boxing calls and casts of erased generic results are matched but not
+recorded. The trusted builder replays each call on mirrors built from the same
+JDK classes; see [library.md](library.md).

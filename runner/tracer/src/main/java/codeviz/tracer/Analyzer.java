@@ -49,6 +49,9 @@ final class Analyzer {
     /** Element type of an array type. */
     static String component(String arrayType) { return arrayType.substring(0, arrayType.length() - 2); }
 
+    /** A type name without its generic arguments (Part 8f). */
+    static String erasure(String t) { int i = t.indexOf('<'); return i < 0 ? t : t.substring(0, i); }
+
     static Analysis analyze(String source) {
         JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
         var collector = new DiagnosticCollector<JavaFileObject>();
@@ -76,7 +79,7 @@ final class Analyzer {
             }
         };
         JavacTask task = (JavacTask) compiler.getTask(null, memory, collector,
-                List.of("-g", "-Xjcov", "--release", "21", "-proc:none", "-implicit:none"), null, List.of(file));
+                List.of("-g", "-Xjcov", "-XDstringConcat=inline", "--release", "21", "-proc:none", "-implicit:none"), null, List.of(file));
         List<Diagnostic> errors = new ArrayList<>();
         List<Diagnostic> unsupported = new ArrayList<>();
         Walker walker = null;
@@ -86,7 +89,7 @@ final class Analyzer {
             errors.addAll(compileErrors(collector));
             if (errors.isEmpty()) {
                 CompilationUnitTree unit = units.iterator().next();
-                walker = new Walker(unit, Trees.instance(task), task.getElements(), unsupported);
+                walker = new Walker(unit, Trees.instance(task), task.getElements(), task.getTypes(), unsupported);
                 walker.unit();
                 task.generate();
                 errors.clear(); // diagnostics accumulate; take the full list again
@@ -119,6 +122,7 @@ final class Analyzer {
         private final CompilationUnitTree unit;
         private final Trees trees;
         private final Elements elements;
+        private final javax.lang.model.util.Types types;
         private final SourcePositions positions;
         private final List<Diagnostic> unsupported;
         final List<Diagnostic> uncaptured = new ArrayList<>();
@@ -131,6 +135,7 @@ final class Analyzer {
         private final Map<String, Site> classes = new LinkedHashMap<>();
         private final Map<String, ClassTree> classTrees = new HashMap<>();
         private final Map<Element, Site> fieldSites = new HashMap<>();
+        private final Set<String> plainClasses = new HashSet<>(); // traced classes usable as collection elements (Part 8f)
         final Map<Integer, Site> sites = new LinkedHashMap<>();
         private final Deque<String> scopes = new ArrayDeque<>();
         private final Map<Element, Site> declarations = new HashMap<>();
@@ -146,8 +151,8 @@ final class Analyzer {
         private boolean topValue;
         String rootScope;
 
-        Walker(CompilationUnitTree unit, Trees trees, Elements elements, List<Diagnostic> unsupported) {
-            this.unit = unit; this.trees = trees; this.elements = elements;
+        Walker(CompilationUnitTree unit, Trees trees, Elements elements, javax.lang.model.util.Types types, List<Diagnostic> unsupported) {
+            this.unit = unit; this.trees = trees; this.elements = elements; this.types = types;
             this.positions = trees.getSourcePositions(); this.unsupported = unsupported;
         }
 
@@ -270,6 +275,11 @@ final class Analyzer {
                 site.fields = List.copyOf(fields);
                 classes.put(site.javaType, site);
                 classTrees.put(site.javaType, c);
+                boolean identity = true; // equals/hashCode/compareTo would run user code inside library calls
+                for (Tree member : c.getMembers()) {
+                    if (member instanceof MethodTree m && List.of("equals", "hashCode", "compareTo").contains(m.getName().toString())) identity = false;
+                }
+                if (identity) plainClasses.add(site.javaType);
             }
             return candidates;
         }
@@ -793,12 +803,202 @@ final class Analyzer {
         private static final Set<String> SCALARS = Set.of("byte", "short", "char", "int", "long", "float", "double", "boolean");
 
         /** Traced local types: primitives, String, and arrays of those at any depth (Part 8c). */
-        private boolean localType(String t) { return SCALARS.contains(t) || t.equals("java.lang.String") || classes.containsKey(t) || array(t); }
+        private boolean localType(String t) {
+            return SCALARS.contains(t) || t.equals("java.lang.String") || classes.containsKey(t) || array(t)
+                    || BOXES.containsKey(t) || libraryType(t); // Part 8f
+        }
+
+        // ---- Part 8f: boxed values, strings and library collections --------------------------
+
+        private static final Map<String, String> BOXES = Map.of("java.lang.Integer", "int", "java.lang.Long", "long",
+                "java.lang.Double", "double", "java.lang.Float", "float", "java.lang.Short", "short", "java.lang.Byte", "byte",
+                "java.lang.Character", "char", "java.lang.Boolean", "boolean");
+
+        private static String boxOf(String primitive) {
+            for (var e : BOXES.entrySet()) if (e.getValue().equals(primitive)) return e.getKey();
+            throw new IllegalArgumentException(primitive);
+        }
+
+
+        /** Top-level type arguments of a parameterized type name. */
+        private static List<String> typeArguments(String t) {
+            int open = t.indexOf('<');
+            if (open < 0 || !t.endsWith(">")) return List.of();
+            List<String> out = new ArrayList<>();
+            int depth = 0, from = open + 1;
+            for (int i = from; i < t.length() - 1; i++) {
+                char ch = t.charAt(i);
+                if (ch == '<') depth++;
+                else if (ch == '>') depth--;
+                else if (ch == ',' && depth == 0) { out.add(t.substring(from, i).trim()); from = i + 1; }
+            }
+            out.add(t.substring(from, t.length() - 1).trim());
+            return out;
+        }
+
+        private static final Set<String> LISTS = Set.of("java.util.List", "java.util.ArrayList", "java.util.LinkedList");
+        private static final Set<String> DEQUES = Set.of("java.util.Deque", "java.util.Queue", "java.util.ArrayDeque", "java.util.Stack");
+        private static final Set<String> MAPS = Set.of("java.util.Map", "java.util.HashMap", "java.util.TreeMap", "java.util.LinkedHashMap");
+        private static final Set<String> SETS = Set.of("java.util.Set", "java.util.HashSet", "java.util.TreeSet", "java.util.LinkedHashSet");
+        private static final String PQ = "java.util.PriorityQueue", BUILDER = "java.lang.StringBuilder";
+
+        /** A covered library type with covered type arguments (Part 8f). */
+        private boolean libraryType(String t) {
+            String raw = erasure(t);
+            if (raw.equals(BUILDER)) return t.equals(raw);
+            List<String> args = typeArguments(t);
+            if (MAPS.contains(raw)) return args.size() == 2 && keyType(args.get(0)) && elementType(args.get(1));
+            if (SETS.contains(raw) || raw.equals(PQ)) return args.size() == 1 && keyType(args.get(0));
+            if (LISTS.contains(raw) || DEQUES.contains(raw)) return args.size() == 1 && elementType(args.get(0));
+            return false;
+        }
+
+        /** Keys of hashed or sorted collections: equality and order come from the JDK, never user code. */
+        private static boolean keyType(String t) { return BOXES.containsKey(t) || t.equals("java.lang.String"); }
+
+        private boolean elementType(String t) { return keyType(t) || plainClasses.contains(t) || array(t) || libraryType(t); }
+
+        private static final Map<String, Set<String>> FAMILY_METHODS = Map.of(
+                "string", Set.of("length", "charAt", "substring", "indexOf", "lastIndexOf", "equals", "compareTo", "contains",
+                        "startsWith", "endsWith", "isEmpty", "toUpperCase", "toLowerCase", "trim"),
+                "builder", Set.of("append", "insert", "reverse", "toString", "length", "charAt", "setCharAt", "deleteCharAt", "setLength"),
+                "list", Set.of("add", "get", "set", "remove", "size", "isEmpty", "contains", "indexOf", "clear"),
+                "deque", Set.of("push", "pop", "peek", "offer", "poll", "add", "remove", "addFirst", "addLast", "offerFirst", "offerLast",
+                        "pollFirst", "pollLast", "peekFirst", "peekLast", "removeFirst", "removeLast", "size", "isEmpty", "empty", "clear"),
+                "map", Set.of("put", "get", "getOrDefault", "containsKey", "remove", "size", "isEmpty", "clear"),
+                "set", Set.of("add", "contains", "remove", "size", "isEmpty", "clear"),
+                "pq", Set.of("add", "offer", "poll", "peek", "remove", "size", "isEmpty", "clear"),
+                "java.lang.Math", Set.of("max", "min", "abs", "sqrt"),
+                "java.lang.Integer", Set.of("parseInt"),
+                "java.lang.Character", Set.of("isDigit", "isLetter", "isUpperCase", "isLowerCase", "toUpperCase", "toLowerCase"));
+
+        /** The library call a method invocation denotes, or null when it is not covered. */
+        private ExecutableElement library(MethodInvocationTree call) {
+            if (!(element(call) instanceof ExecutableElement m) || !(m.getEnclosingElement() instanceof TypeElement owner)) return null;
+            boolean isStatic = m.getModifiers().contains(Modifier.STATIC);
+            String name = m.getSimpleName().toString();
+            Set<String> names;
+            if (isStatic) {
+                String o = owner.getQualifiedName().toString();
+                names = o.equals("java.lang.String") ? Set.of("valueOf") : FAMILY_METHODS.get(o);
+            } else {
+                if (!(call.getMethodSelect() instanceof MemberSelectTree select)) return null;
+                String receiver = javaType(select.getExpression());
+                String raw = erasure(receiver);
+                if (!raw.equals("java.lang.String") && !libraryType(receiver)) return null;
+                String family = raw.equals("java.lang.String") ? "string" : raw.equals(BUILDER) ? "builder" : LISTS.contains(raw) ? "list"
+                        : DEQUES.contains(raw) ? "deque" : MAPS.contains(raw) ? "map" : SETS.contains(raw) ? "set" : "pq";
+                names = new HashSet<>(FAMILY_METHODS.get(family));
+                if (raw.equals("java.util.LinkedList")) names.addAll(FAMILY_METHODS.get("deque"));
+                if (raw.equals("java.util.Stack")) names.addAll(FAMILY_METHODS.get("list"));
+            }
+            if (names == null || !names.contains(name)) return null;
+            // No argument may make the library run user code (toString, equals, compareTo of user objects).
+            for (VariableElement p : m.getParameters()) {
+                String t = types.erasure(p.asType()).toString();
+                if (!SCALARS.contains(t) && !t.equals("java.lang.String") && !t.equals("java.lang.Object") && !t.equals("java.lang.CharSequence")) return null;
+                if (t.equals("java.lang.Object") && !name.equals("equals") // String.equals(Object) runs no user code
+                        && (owner.getQualifiedName().contentEquals("java.lang.String") || owner.getQualifiedName().contentEquals(BUILDER))) return null;
+            }
+            for (ExpressionTree a : call.getArguments()) {
+                String t = javaType(a);
+                if (!SCALARS.contains(t) && !keyType(t) && !elementType(t) && !t.equals("<nulltype>") && !t.equals("<null>")) return null;
+            }
+            return m;
+        }
+
+        /** A covered library call (Part 8f): receiver, arguments, one invocation; a LIBRARY step. */
+        private void libraryCall(MethodInvocationTree call, ExecutableElement m) {
+            boolean isStatic = m.getModifiers().contains(Modifier.STATIC);
+            String qualifying = isStatic ? ((TypeElement) m.getEnclosingElement()).getQualifiedName().toString()
+                    : erasure(javaType(((MemberSelectTree) call.getMethodSelect()).getExpression()));
+            if (!isStatic) value(((MemberSelectTree) call.getMethodSelect()).getExpression(), null);
+            var instantiated = (javax.lang.model.type.ExecutableType) trees.getTypeMirror(TreePath.getPath(unit, call.getMethodSelect()));
+            List<? extends ExpressionTree> arguments = call.getArguments();
+            for (int i = 0; i < arguments.size(); i++) value(arguments.get(i), instantiated.getParameterTypes().get(i).toString());
+            List<String> erased = m.getParameters().stream().map(p -> types.erasure(p.asType()).toString()).toList();
+            String result = types.erasure(m.getReturnType()).toString();
+            Site site = site(Kind.LIBRARY, call);
+            site.owner = qualifying;
+            site.name = m.getSimpleName().toString();
+            site.instance = !isStatic;
+            site.methodId = qualifying + "." + site.name + "(" + String.join(",", erased) + ")";
+            site.javaType = javaType(call);
+            TypeElement owner = elements.getTypeElement(qualifying);
+            site.operator = isStatic ? "static" : owner != null && owner.getKind() == ElementKind.INTERFACE ? "interface" : "virtual";
+            StringBuilder desc = new StringBuilder("(");
+            for (String p : erased) desc.append(Instrumenter.descriptorOf(p));
+            desc.append(')').append(result.equals("void") ? "V" : Instrumenter.descriptorOf(result));
+            plan.add(new Item(Expect.LIB, site, 0, Instrumenter.internal(qualifying) + "#" + site.name + desc));
+        }
+
+        private static final Set<String> CONSTRUCTIBLE = Set.of("java.util.ArrayList", "java.util.LinkedList", "java.util.ArrayDeque",
+                "java.util.Stack", "java.util.HashMap", "java.util.TreeMap", "java.util.LinkedHashMap", "java.util.HashSet",
+                "java.util.TreeSet", "java.util.LinkedHashSet", "java.util.PriorityQueue", BUILDER);
+
+        /** {@code new ArrayList<>()} and friends: an ALLOCATE step after the library constructor runs (Part 8f). */
+        private boolean libraryNew(NewClassTree n) {
+            String type = javaType(n), raw = erasure(type);
+            if (!CONSTRUCTIBLE.contains(raw) || !libraryType(type) || n.getClassBody() != null
+                    || !(element(n) instanceof ExecutableElement constructor)) return false;
+            List<String> params = constructor.getParameters().stream().map(p -> types.erasure(p.asType()).toString()).toList();
+            if (!params.isEmpty() && !params.equals(List.of("int")) && !(raw.equals(BUILDER) && params.equals(List.of("java.lang.String")))) return false;
+            plan.add(new Item(Expect.NEW, null, 0, Instrumenter.internal(raw)));
+            for (ExpressionTree a : n.getArguments()) value(a, params.get(0));
+            Site site = site(Kind.ALLOCATE, n);
+            site.javaType = type;
+            plan.add(new Item(Expect.LIBNEW, site, 0, Instrumenter.internal(raw) + "#<init>(" + (params.isEmpty() ? "" : Instrumenter.descriptorOf(params.get(0))) + ")V"));
+            return true;
+        }
+
+        /** The operands of a flattened string concatenation, as javac collects them. */
+        private List<ExpressionTree> flatten(ExpressionTree e) {
+            e = strip(e);
+            if (e.getKind() == Tree.Kind.PLUS && "java.lang.String".equals(javaType(e)) && !isConstant(e)) {
+                BinaryTree b = (BinaryTree) e;
+                List<ExpressionTree> out = new ArrayList<>(flatten(b.getLeftOperand()));
+                out.addAll(flatten(b.getRightOperand()));
+                return out;
+            }
+            return List.of(e);
+        }
+
+        /**
+         * javac's inline concatenation: new StringBuilder, one append per operand, toString. One
+         * EXPRESSION step with every operand; operands must not run user toString().
+         */
+        private void concat(Tree whole, List<ExpressionTree> leaves) {
+            for (ExpressionTree leaf : leaves) {
+                String t = javaType(leaf);
+                if (!SCALARS.contains(t) && !keyType(t) && !t.equals("<nulltype>") && !t.equals("<null>")) {
+                    unsupported(leaf, "concatenating " + t + " (its toString() is not traced)");
+                    return;
+                }
+            }
+            plan.add(new Item(Expect.NEW, null, 0, "java/lang/StringBuilder"));
+            plan.add(new Item(Expect.CTOR, null, 0, "java/lang/StringBuilder#<init>()V"));
+            Site end = site(Kind.CONCAT, whole);
+            end.javaType = "java.lang.String";
+            for (ExpressionTree leaf : leaves) {
+                value(leaf, null);
+                String t = javaType(leaf);
+                String arg = switch (t) {
+                    case "int", "short", "byte" -> "I"; case "long" -> "J"; case "float" -> "F"; case "double" -> "D";
+                    case "char" -> "C"; case "boolean" -> "Z"; case "java.lang.String" -> "Ljava/lang/String;";
+                    default -> "Ljava/lang/Object;";
+                };
+                Site a = site(Kind.CONCAT_ARG, leaf);
+                a.callee = end;
+                a.javaType = t;
+                plan.add(new Item(Expect.APPEND, a, 0, "java/lang/StringBuilder#append(" + arg + ")Ljava/lang/StringBuilder;"));
+            }
+            plan.add(new Item(Expect.TOSTRING, end, 0, "java/lang/StringBuilder#toString()Ljava/lang/String;"));
+        }
 
         private boolean array(String t) {
             if (!t.endsWith("[]")) return false;
             String base = t.substring(0, t.indexOf('['));
-            return SCALARS.contains(base) || base.equals("java.lang.String") || classes.containsKey(base);
+            return SCALARS.contains(base) || base.equals("java.lang.String") || classes.containsKey(base) || BOXES.containsKey(base);
         }
 
         private static boolean numeric(String t) { return SCALARS.contains(t) && !t.equals("boolean"); }
@@ -835,6 +1035,17 @@ final class Analyzer {
 
         /** An implicit conversion: matched against the bytecode, never a step. */
         private void coerce(String from, String to) {
+            if (SCALARS.contains(from) && to != null && !SCALARS.contains(to)) { // boxing (Part 8f): valueOf, never a step
+                String box = boxOf(from);
+                plan.add(new Item(Expect.BOX, null, 0, Instrumenter.internal(box) + "#valueOf(" + Instrumenter.descriptorOf(from) + ")L"
+                        + Instrumenter.internal(box) + ";"));
+                return;
+            }
+            if (BOXES.containsKey(from) && to != null && SCALARS.contains(to)) { // unboxing, then any widening
+                String p = BOXES.get(from);
+                plan.add(new Item(Expect.UNBOX, null, 0, Instrumenter.internal(from) + "#" + p + "Value()" + Instrumenter.descriptorOf(p)));
+                from = p;
+            }
             for (String c : conversions(from, to)) plan.add(new Item(Expect.CONVERT, null, 0, c));
         }
 
@@ -903,7 +1114,9 @@ final class Analyzer {
                 case PREFIX_INCREMENT, PREFIX_DECREMENT, POSTFIX_INCREMENT, POSTFIX_DECREMENT -> update((UnaryTree) e);
                 case METHOD_INVOCATION -> {
                     MethodInvocationTree call = (MethodInvocationTree) e;
+                    ExecutableElement library = library(call);
                     if (helpers.containsKey(element(call))) call(call); // an ignored result is popped: no binding
+                    else if (library != null) libraryCall(call, library);
                     else output(call);
                 }
                 case NEW_CLASS -> value(e, null); // an ignored new object is popped
@@ -932,6 +1145,15 @@ final class Analyzer {
             ExpressionTree target = strip(c.getVariable());
             ExpressionTree rhs = c.getExpression();
             String rhsType = javaType(rhs);
+            if (c.getKind() == Tree.Kind.PLUS_ASSIGNMENT && "java.lang.String".equals(javaType(target))) { // Part 8f: s += x
+                Site local = target instanceof IdentifierTree ? declarations.get(element(target)) : null;
+                if (local == null) { unsupported(c, "+= on this string target"); return; }
+                List<ExpressionTree> leaves = new ArrayList<>(List.of(target));
+                leaves.addAll(flatten(rhs));
+                concat(c, leaves);
+                plan.add(Item.of(Expect.STORE, assignment(c, local)));
+                return;
+            }
             String type, arrayType = null;
             Site declared = null, fieldTarget = null;
             if (target instanceof IdentifierTree id && (declared = declarations.get(element(id))) != null && SCALARS.contains(declared.javaType)) {
@@ -1081,7 +1303,10 @@ final class Analyzer {
             boolean top = topValue;
             topValue = false;
             e = strip(e);
-            if (isConstant(e)) return; // javac folds compile-time constants: nothing executes.
+            if (isConstant(e)) { // javac folds compile-time constants: nothing executes but boxing (Part 8f)
+                if (target != null && SCALARS.contains(javaType(e)) && !SCALARS.contains(target) && !target.equals("java.lang.String")) coerce(javaType(e), target);
+                return;
+            }
             String type = javaType(e);
             switch (e.getKind()) {
                 case NULL_LITERAL -> { }
@@ -1092,7 +1317,7 @@ final class Analyzer {
                         if (currentMethod == null || !currentMethod.instance) unsupported(e, "this here");
                     } else if (!declarations.containsKey(element(e))) unsupported(e, "this variable (only locals and parameters of traced methods are traced)");
                 }
-                case NEW_CLASS -> newObject((NewClassTree) e);
+                case NEW_CLASS -> { if (!libraryNew((NewClassTree) e)) newObject((NewClassTree) e); }
                 case PLUS, MINUS, MULTIPLY, DIVIDE, REMAINDER, AND, OR, XOR, LEFT_SHIFT, RIGHT_SHIFT, UNSIGNED_RIGHT_SHIFT ->
                         binary((BinaryTree) e, type);
                 case UNARY_MINUS, UNARY_PLUS, BITWISE_COMPLEMENT -> {
@@ -1142,14 +1367,19 @@ final class Analyzer {
                     SwitchExpressionTree w = (SwitchExpressionTree) e;
                     switchBlock(w, w.getExpression(), w.getCases(), type);
                 }
-                case METHOD_INVOCATION -> call((MethodInvocationTree) e);
+                case METHOD_INVOCATION -> {
+                    ExecutableElement library = library((MethodInvocationTree) e);
+                    if (library != null) libraryCall((MethodInvocationTree) e, library);
+                    else call((MethodInvocationTree) e);
+                }
                 default -> unsupported(e, "this expression (" + e.getKind() + ")");
             }
             if (target != null) coerce(type, target);
         }
 
         private void binary(BinaryTree b, String type) {
-            if (!SCALARS.contains(type)) { unsupported(b, "string concatenation"); return; }
+            if (type.equals("java.lang.String") && b.getKind() == Tree.Kind.PLUS) { concat(b, flatten(b)); return; } // Part 8f
+            if (!SCALARS.contains(type)) { unsupported(b, "this operator on " + type); return; }
             String op = symbol(b.getKind());
             boolean shift = op.startsWith("<") || op.startsWith(">");
             value(b.getLeftOperand(), type);
@@ -1267,9 +1497,13 @@ final class Analyzer {
                 case LESS_THAN, LESS_THAN_EQUAL, GREATER_THAN, GREATER_THAN_EQUAL, EQUAL_TO, NOT_EQUAL_TO -> {
                     BinaryTree b = (BinaryTree) e;
                     String left = javaType(b.getLeftOperand()), right = javaType(b.getRightOperand());
+                    boolean equality = e.getKind() == Tree.Kind.EQUAL_TO || e.getKind() == Tree.Kind.NOT_EQUAL_TO;
+                    if (BOXES.containsKey(left) && BOXES.containsKey(right) && equality) { unsupported(b, "== between boxed values (identity)"); return null; }
+                    boolean nullTest = left.startsWith("<null") || right.startsWith("<null");
+                    String l = nullTest ? left : BOXES.getOrDefault(left, left), r = nullTest ? right : BOXES.getOrDefault(right, right); // unboxed (Part 8f)
                     String operandType;
-                    if (numeric(left) && numeric(right)) operandType = promote(left, right);
-                    else if (left.equals("boolean") && right.equals("boolean")) operandType = "boolean";
+                    if (numeric(l) && numeric(r)) operandType = promote(l, r);
+                    else if (l.equals("boolean") && r.equals("boolean")) operandType = "boolean";
                     else if (isReference(left) && isReference(right) && (e.getKind() == Tree.Kind.EQUAL_TO || e.getKind() == Tree.Kind.NOT_EQUAL_TO))
                         operandType = "ref";
                     else { unsupported(b, "comparing " + left + " with " + right); return null; }
@@ -1310,7 +1544,8 @@ final class Analyzer {
         }
 
         private boolean isReference(String type) {
-            return type.equals("java.lang.String") || array(type) || classes.containsKey(type) || type.equals("<nulltype>") || type.equals("<null>");
+            return type.equals("java.lang.String") || array(type) || classes.containsKey(type) || BOXES.containsKey(type) || libraryType(type)
+                    || type.equals("<nulltype>") || type.equals("<null>");
         }
 
         // ---- helpers -------------------------------------------------------------
