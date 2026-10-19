@@ -65,4 +65,16 @@ overflowing invocation. Silent invocations are not counted. A real
 
 ## Results
 
-Pending.
+Tracer host tests: 59 passed on 2026-10-19, including 4 new 8d cases:
+
+- calls and recursion with distinct frames, overloads and implicit returns;
+- helpers called silently from uncaptured code;
+- returns inside uncaptured statements, and a failure in a callee unwinding
+  every frame;
+- the 64-frame depth limit (63 helper frames fit; one more halts as `limited`).
+
+Two 8a cases that used helper calls as their uncaptured example now call a
+method of another class. Root reactor `clean verify` with live Docker: 145 Java
+tests (tracer 59, backend 86; the container test now checks a traced helper
+call). Frontend: 15 reducer tests, build, and 6 Playwright tests against the real
+backend and Docker.

@@ -18,6 +18,7 @@ from algorithm or example recognition ([coverage roadmap](../specs/coverage-road
 | 8a | Trace 1.1.0: uncaptured steps, unknown values (`?`), re-read arrays, warning markers, helper-and-library example ([partial coverage](../specs/partial-coverage.md)) | 9 reducer tests, 3 browser tests |
 | 8b | Trace 1.2.0: all primitive types, casts, bitwise operators; number-types example ([primitive types](../specs/primitive-types.md)) | 10 reducer tests, 4 browser tests |
 | 8c | Trace 1.3.0: `SWITCH` steps, arrays of every type, arrays of arrays drawn as rows with shared rows marked, element paths such as `grid[1]`; grid-and-switch example ([statements and arrays](../specs/statements.md)) | 13 reducer tests, 5 browser tests |
+| 8d | Call stack (innermost first, running frame marked), call and return descriptions; recursion example ([methods](../specs/methods.md)) | 15 reducer tests, 6 browser tests |
 
 ## Stack and pins
 
