@@ -31,6 +31,43 @@ export const EXAMPLES: Record<string, string> = {
     }
 }
 `,
+  'Linked list and tree': `public class Main {
+    static class Node {
+        int value;
+        Node next;
+        Node(int value) { this.value = value; }
+    }
+
+    static class Tree {
+        int key;
+        Tree left, right;
+        Tree(int key) { this.key = key; }
+
+        void insert(int k) {
+            if (k < key) {
+                if (left == null) left = new Tree(k); else left.insert(k);
+            } else {
+                if (right == null) right = new Tree(k); else right.insert(k);
+            }
+        }
+    }
+
+    public static void main(String[] args) {
+        Node head = new Node(3);
+        head.next = new Node(1);
+        head.next.next = new Node(4);
+        int sum = 0;
+        for (Node n = head; n != null; n = n.next) sum += n.value;
+
+        Tree root = new Tree(5);
+        root.insert(2);
+        root.insert(8);
+        root.insert(6);
+        System.out.println(sum);
+        System.out.println(root.right.left.key);
+    }
+}
+`,
   'Recursion and helpers': `public class Main {
     static int factorial(int n) {
         if (n <= 1) return 1;

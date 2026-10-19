@@ -251,3 +251,40 @@ test('an uncaught failure in a callee unwinds every frame (8d)', () => {
   assert.deepEqual(last.state.frames, []);
   assert.equal(last.beforeEnd!.frames.length, 2); // main and boom when it failed
 });
+
+test('objects, fields and references play back with field paths (8e)', () => {
+  const p = new Playback(fixture('objects'));
+  const views = Array.from({ length: p.steps + 1 }, (_, k) => p.at(k));
+  const created = views.find(v => v.event?.kind === 'ALLOCATE')!;
+  assert.equal(describeStep(created.event!, created.state), 'Create Node o2');
+  const call = views.find(v => v.event?.kind === 'CALL')!;
+  assert.equal(describeStep(call.event!, call.state), 'Call new Node(this = Node o2, v = 1)');
+  const write = views.find(v => v.event?.kind === 'FIELD_WRITE' && v.event.data.field === 'next')!;
+  assert.equal(describeStep(write.event!, write.state), 'Write head.next: null → Node o3');
+  assert.deepEqual(write.focus, { objectId: 'o2', field: 'next', access: 'write' });
+  const end = p.at(p.steps).beforeEnd!;
+  const third = [...end.objects.values()].find(o => o.kind === 'object' && namesOf(end, o.objectId).includes('head.next.next'));
+  assert.ok(third, 'the third node is reached through head.next.next');
+  assert.equal(p.at(write.cursor - 1).state.objects.get('o2')?.kind, 'object');
+  const before = p.at(write.cursor - 1).state.objects.get('o2');
+  assert.ok(before?.kind === 'object' && before.fields.find(f => f.name === 'next')!.value.kind === 'null'); // backward restores the field
+});
+
+test('objects from uncaptured code, cycles included, are captured within one step (8e)', () => {
+  const p = new Playback(fixture('objects-uncaptured'));
+  const end = p.at(p.steps).beforeEnd!;
+  assert.equal(end.bindings.find(b => b.name === 'c')!.value.kind, 'unknown'); // only uncaptured code assigned c
+  const read = Array.from({ length: p.steps }, (_, k) => p.at(k + 1)).find(v => v.event?.kind === 'FIELD_READ' && v.event.data.field === 'other'
+    && v.event.data.value.kind === 'ref' && v.state.objects.get(v.event.data.objectId)?.kind === 'object'
+    && namesOf(v.state, v.event.data.objectId).length === 0)!; // c.other: the object c refers to has no name
+  const c = { value: { kind: 'ref' as const, objectId: read.focus.objectId! } };
+  const first = end.objects.get(c.value.objectId);
+  assert.ok(first?.kind === 'object');
+  const other = first.fields.find(f => f.name === 'other')!.value;
+  assert.ok(other.kind === 'ref');
+  const second = end.objects.get(other.objectId);
+  assert.ok(second?.kind === 'object');
+  assert.deepEqual(second.fields.find(f => f.name === 'other')!.value, { kind: 'ref', objectId: c.value.objectId }); // a cycle
+  const bump = Array.from({ length: p.steps }, (_, k) => p.at(k + 1)).find(v => v.event?.kind === 'UNCAPTURED' && v.event.data.objects.length > 0)!;
+  assert.match(describeStep(bump.event!, bump.state), /changed/);
+});

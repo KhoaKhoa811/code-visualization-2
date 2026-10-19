@@ -18,9 +18,20 @@ export function formatValue(value: Value, objects?: Map<string, TraceObject>): s
       const object = objects?.get(value.objectId);
       if (object?.kind === 'string') return JSON.stringify(stringText(object));
       if (object?.kind === 'array') return arrayType(object);
+      if (object?.kind === 'object') return objectLabel(object);
       return `ref ${value.objectId}`;
     }
   }
+}
+
+/** An object of a traced class: its short class name and identity, such as Node o3. */
+export function objectLabel(object: TraceObject & { kind: 'object' }): string {
+  return `${shortClass(object.className)} ${object.objectId}`;
+}
+
+/** Main.Node shows as Node. */
+export function shortClass(name: string): string {
+  return name.startsWith('Main.') ? name.slice(5) : name;
 }
 
 /** Java notation with the length in the first dimension: int[3], int[2][] for rows of int[]. */
@@ -57,12 +68,19 @@ export function namesOf(state: State, objectId: string, visiting: Set<string> = 
   visiting.add(objectId);
   const paths: string[] = [];
   for (const parent of state.objects.values()) {
-    if (parent.kind !== 'array') continue;
-    parent.elements.forEach((element, index) => {
-      if (element.kind === 'ref' && element.objectId === objectId) {
-        for (const name of namesOf(state, parent.objectId, visiting)) paths.push(`${name}[${index}]`);
+    if (parent.kind === 'array') {
+      parent.elements.forEach((element, index) => {
+        if (element.kind === 'ref' && element.objectId === objectId) {
+          for (const name of namesOf(state, parent.objectId, visiting)) paths.push(`${name}[${index}]`);
+        }
+      });
+    } else if (parent.kind === 'object') { // 1.4.0: field paths such as head.next
+      for (const field of parent.fields) {
+        if (field.value.kind === 'ref' && field.value.objectId === objectId) {
+          for (const name of namesOf(state, parent.objectId, visiting)) paths.push(`${name}.${field.name}`);
+        }
       }
-    });
+    }
   }
   visiting.delete(objectId);
   return [...direct, ...paths];
@@ -76,6 +94,10 @@ function operand(o: Operand, objects: Map<string, TraceObject>): string {
 export function describe(event: ObservableEvent, state: State): string {
   const objects = state.objects;
   const arrayName = (objectId: string) => namesOf(state, objectId)[0] ?? 'array';
+  const objectName = (objectId: string) => {
+    const object = objects.get(objectId);
+    return namesOf(state, objectId)[0] ?? (object?.kind === 'object' ? objectLabel(object) : 'object');
+  };
   const bindingName = (bindingId: string) => state.bindings.find(b => b.bindingId === bindingId)?.name ?? 'variable';
   switch (event.kind) {
     case 'DECLARE': {
@@ -91,8 +113,12 @@ export function describe(event: ObservableEvent, state: State): string {
     }
     case 'ALLOCATE': {
       const o = event.data.object;
-      return o.kind === 'array' ? `Create ${arrayType(o)}` : 'Create string';
+      return o.kind === 'array' ? `Create ${arrayType(o)}` : o.kind === 'object' ? `Create ${objectLabel(o)}` : 'Create string';
     }
+    case 'FIELD_READ':
+      return `Read ${objectName(event.data.objectId)}.${event.data.field} = ${formatValue(event.data.value, objects)}`;
+    case 'FIELD_WRITE':
+      return `Write ${objectName(event.data.objectId)}.${event.data.field}: ${formatValue(event.data.previous, objects)} → ${formatValue(event.data.value, objects)}`;
     case 'SWITCH': {
       const value = formatValue(event.data.value);
       if (event.data.matched === 'case') return `Switch on ${value}: matching case`;
@@ -122,6 +148,8 @@ export function describe(event: ObservableEvent, state: State): string {
         ...event.data.unknownBindings.map(id => `${bindingName(id)} unknown`),
         ...event.data.arrays.map(a => `${arrayName(a.objectId)} changed`),
         ...event.data.unknownArrays.map(id => `${arrayName(id)} unknown`),
+        ...event.data.objects.map(o => `${objectName(o.objectId)} changed`),
+        ...event.data.unknownObjects.map(id => `${objectName(id)} unknown`),
       ];
       return `Ran without visualization${changed.length ? ` (${changed.join(', ')})` : ''}`;
     }
@@ -134,5 +162,8 @@ export function describe(event: ObservableEvent, state: State): string {
 export function methodName(methodId: string): string {
   const open = methodId.indexOf('(');
   const head = open < 0 ? methodId : methodId.slice(0, open);
-  return head.slice(head.lastIndexOf('.') + 1);
+  const name = head.slice(head.lastIndexOf('.') + 1);
+  if (name !== '<init>') return name;
+  const owner = head.slice(0, head.lastIndexOf('.'));
+  return `new ${owner.slice(owner.lastIndexOf('.') + 1)}`; // a constructor
 }

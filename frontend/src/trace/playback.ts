@@ -21,6 +21,8 @@ export interface Focus {
   objectId?: string;
   index?: number;
   access?: 'read' | 'write' | 'length' | 'allocate';
+  /** 1.4.0: the field a FIELD_READ/FIELD_WRITE touched. */
+  field?: string;
   /** Bindings and arrays an uncaptured statement changed or made unknown. */
   touched?: string[];
 }
@@ -47,7 +49,7 @@ export class Playback {
 
   constructor(trace: Trace, checkpointEvery = 256) {
     this.every = checkpointEvery;
-    if (trace.schemaVersion !== '1.3.0') throw new TraceError(`Unsupported trace version ${String(trace.schemaVersion)}`);
+    if (trace.schemaVersion !== '1.4.0') throw new TraceError(`Unsupported trace version ${String(trace.schemaVersion)}`);
     this.trace = trace;
     this.steps = trace.stepEnds.length;
     if (trace.initialState === null) {
@@ -163,6 +165,18 @@ function apply(state: State, event: TraceEvent, seen?: Set<string>): void {
     case 'EXCEPTION':
     case 'SWITCH':
       return;
+    case 'FIELD_READ': {
+      const field = findField(state, event.data.objectId, event.data.field);
+      expectSame(field.value, event.data.value, 'field read');
+      return;
+    }
+    case 'FIELD_WRITE': {
+      const field = findField(state, event.data.objectId, event.data.field);
+      expectSame(field.value, event.data.previous, 'field previous value');
+      resolves(state, event.data.value);
+      field.value = event.data.value;
+      return;
+    }
     case 'UNCAPTURED': {
       activeFrame(state, event.frameId);
       for (const bindingId of event.data.unknownBindings) findBinding(state, bindingId).value = { kind: 'unknown' };
@@ -174,6 +188,14 @@ function apply(state: State, event: TraceEvent, seen?: Set<string>): void {
       for (const objectId of event.data.unknownArrays) {
         const array = findArray(state, objectId);
         array.elements = array.elements.map(() => ({ kind: 'unknown' }));
+      }
+      for (const { objectId, fields } of event.data.objects) {
+        for (const { name, value } of fields) findField(state, objectId, name).value = value;
+      }
+      for (const objectId of event.data.unknownObjects) {
+        const object = state.objects.get(objectId);
+        if (object?.kind !== 'object') throw new TraceError(`Unknown object ${objectId}`);
+        for (const field of object.fields) field.value = { kind: 'unknown' };
       }
       return;
     }
@@ -229,9 +251,24 @@ function findArray(state: State, objectId: string, index?: number): TraceObject 
   return object;
 }
 
+function findField(state: State, objectId: string, name: string) {
+  const object = state.objects.get(objectId);
+  if (!object || object.kind !== 'object') throw new TraceError(`Unknown object ${objectId}`);
+  const field = object.fields.find(f => f.name === name);
+  if (!field) throw new TraceError(`Unknown field ${name} of ${objectId}`);
+  return field;
+}
+
 function addObject(state: State, object: TraceObject, seen?: Set<string>): void {
   fresh(object.objectId, seen);
-  state.objects.set(object.objectId, object.kind === 'array' ? { ...object, elements: [...object.elements] } : object);
+  state.objects.set(object.objectId, copyObject(object));
+}
+
+/** Arrays and objects change in place during replay, so every state holds its own copies. */
+function copyObject(object: TraceObject): TraceObject {
+  if (object.kind === 'array') return { ...object, elements: [...object.elements] };
+  if (object.kind === 'object') return { ...object, fields: object.fields.map(f => ({ ...f })) };
+  return object;
 }
 
 function resolves(state: State, value: Value): void {
@@ -258,7 +295,7 @@ function expectSame(actual: Value | undefined, recorded: Value, what: string): v
 
 function clone(state: State): State {
   const objects = new Map<string, TraceObject>();
-  for (const [id, object] of state.objects) objects.set(id, object.kind === 'array' ? { ...object, elements: [...object.elements] } : object);
+  for (const [id, object] of state.objects) objects.set(id, copyObject(object));
   return {
     objects,
     frames: state.frames.map(f => ({ ...f })),
@@ -276,7 +313,10 @@ function focusOf(event: ObservableEvent | null): Focus {
     case 'ARRAY_READ': return { objectId: event.data.objectId, index: event.data.index, access: 'read' };
     case 'ARRAY_WRITE': return { objectId: event.data.objectId, index: event.data.index, access: 'write' };
     case 'ARRAY_LENGTH': return { objectId: event.data.objectId, access: 'length' };
-    case 'UNCAPTURED': return { touched: [...event.data.unknownBindings, ...event.data.arrays.map(a => a.objectId), ...event.data.unknownArrays] };
+    case 'FIELD_READ': return { objectId: event.data.objectId, field: event.data.field, access: 'read' };
+    case 'FIELD_WRITE': return { objectId: event.data.objectId, field: event.data.field, access: 'write' };
+    case 'UNCAPTURED': return { touched: [...event.data.unknownBindings, ...event.data.arrays.map(a => a.objectId), ...event.data.unknownArrays,
+      ...event.data.objects.map(o => o.objectId), ...event.data.unknownObjects] };
     default: return {};
   }
 }

@@ -106,3 +106,19 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 .frame { border-left: 2px solid var(--border); padding-left: 8px; margin-bottom: 8px; }
 .frame.active { border-left-color: var(--accent); }
 .frame:not(.active) .bindings { opacity: .7; }
+
+/* Part 8e: object graph. Columns by reference distance from variables; arrows are references. */
+.graph { position: relative; display: flex; gap: 48px; align-items: flex-start; overflow-x: auto; padding: 4px 4px 12px; }
+.graph-arrows { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+.graph-arrows path { fill: none; stroke: var(--accent); stroke-width: 1.5; }
+.graph-arrows marker path { fill: var(--accent); stroke: none; }
+.graph-column { display: flex; flex-direction: column; gap: 14px; }
+.object { min-width: 120px; border: 1px solid var(--border); border-radius: 6px; background: var(--panel-2); font-family: Consolas, monospace; position: relative; z-index: 1; }
+.object.allocated { outline: 2px solid var(--accent); outline-offset: 2px; }
+.object-label { padding: 4px 8px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+.field { display: flex; justify-content: space-between; gap: 12px; padding: 2px 8px; }
+.field.read { background: var(--read); }
+.field.write { background: var(--write); }
+.field.unknown .field-value { color: var(--muted); font-style: italic; }
+.field-name { color: var(--muted); }
+.ref-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); align-self: center; }
