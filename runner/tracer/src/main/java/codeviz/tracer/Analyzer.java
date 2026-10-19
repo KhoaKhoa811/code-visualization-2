@@ -129,6 +129,7 @@ final class Analyzer {
         private final List<Element> declared = new ArrayList<>(); // insertion order, for rollback
         // Per block: declarations without initializer not yet attached to a following operation (Part 8b).
         private final Deque<List<Site>> pending = new ArrayDeque<>();
+        private final Map<Site, Integer> pendingMarks = new HashMap<>(); // plan position of each waiting declaration
         // Findings for the statement being planned; null outside main's statements (they block tracing).
         private List<Diagnostic> current;
         // Part 8c: result types of the enclosing traced switch expressions, and whether the value
@@ -250,21 +251,28 @@ final class Analyzer {
                 for (List<Site> waiting : pending) waiting.removeIf(d -> d.id > siteMark);
                 region(s, found);
             }
-            attachPending(planMark);
+            attachPending();
         }
 
-        /** Waiting declarations run just before the first recorded operation of this statement. */
-        private void attachPending(int planMark) {
-            Site first = null;
-            for (int i = planMark; i < plan.size() && first == null; i++) first = plan.get(i).site();
-            if (first == null) return;
-            List<Site> waiting = new ArrayList<>();
+        /**
+         * Waiting declarations run just before the first recorded operation planned after them
+         * (javac code layout). Nested statements are planned before their statement ends, so each
+         * declaration is matched from its own plan position, not from the statement's (Part 8c:
+         * {@code int k; switch (...) { case 0: k = 0; ... }} must declare k before the switch step).
+         */
+        private void attachPending() {
+            Map<Site, List<Site>> targets = new LinkedHashMap<>();
             for (Iterator<List<Site>> outerFirst = pending.descendingIterator(); outerFirst.hasNext(); ) {
-                List<Site> block = outerFirst.next();
-                waiting.addAll(block);
-                block.clear();
+                for (Iterator<Site> it = outerFirst.next().iterator(); it.hasNext(); ) {
+                    Site declaration = it.next();
+                    Site first = null;
+                    for (int i = pendingMarks.get(declaration); i < plan.size() && first == null; i++) first = plan.get(i).site();
+                    if (first == null) continue;
+                    targets.computeIfAbsent(first, s -> new ArrayList<>()).add(declaration);
+                    it.remove();
+                }
             }
-            first.declareBefore.addAll(0, waiting);
+            targets.forEach((first, waiting) -> first.declareBefore.addAll(0, waiting));
         }
 
         private void region(StatementTree s, List<Diagnostic> found) {
@@ -640,7 +648,7 @@ final class Analyzer {
             Site site = declareSite(v, type);
             // No code runs for a declaration without initializer: it is recorded just before
             // the next operation that runs after it in the same block.
-            if (v.getInitializer() == null) { pending.peek().add(site); return; }
+            if (v.getInitializer() == null) { pending.peek().add(site); pendingMarks.put(site, plan.size()); return; }
             topValue = true;
             value(v.getInitializer(), type);
             plan.add(Item.of(Expect.STORE, site));

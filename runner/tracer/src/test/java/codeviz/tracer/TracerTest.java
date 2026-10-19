@@ -601,6 +601,23 @@ class TracerTest {
         assertFalse(steps.stream().anyMatch(s -> s.startsWith("READ [2]")), "break leaves the for-each before its last element");
     }
 
+    @Test void declarationWithoutInitializerBeforeASwitchIsDeclaredBeforeItsStep() throws Exception {
+        // Found by the 8c browser check: the case assignments were planned before the switch
+        // statement finished, so the waiting declaration attached to the first case only.
+        Run r = main("switch-assigns-declared", """
+                int total = 18;
+                int kind;
+                switch (total) {
+                    case 0: kind = 0; break;
+                    default: kind = 2;
+                }
+                System.out.println(kind);""");
+        assertComplete(r, "completed");
+        assertEquals("2\n", r.result().stdout());
+        assertEquals(List.of("DECLARE total=18 @int total = 18", "DECLARE kind=_ @int kind", "SWITCH 18 default @default",
+                "ASSIGN kind _->2 @kind = 2"), steps(r.trace()));
+    }
+
     @Test void arrayFailuresMatchTheOriginal() throws Exception {
         Run bounds = main("arrays-bounds", "double[] d = new double[2];\nd[2] = 1.0;");
         assertComplete(bounds, "failed");
