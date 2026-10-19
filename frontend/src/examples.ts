@@ -31,6 +31,27 @@ export const EXAMPLES: Record<string, string> = {
     }
 }
 `,
+  'Recursion and helpers': `public class Main {
+    static int factorial(int n) {
+        if (n <= 1) return 1;
+        return n * factorial(n - 1);
+    }
+
+    static void swap(int[] a, int i, int j) {
+        int t = a[i];
+        a[i] = a[j];
+        a[j] = t;
+    }
+
+    public static void main(String[] args) {
+        int f = factorial(4);
+        int[] a = {3, 1, 2};
+        swap(a, 0, 2);
+        System.out.println(f);
+        System.out.println(a[0]);
+    }
+}
+`,
   'Grid and switch': `public class Main {
     public static void main(String[] args) {
         int[][] grid = new int[3][4];

@@ -113,9 +113,10 @@ export function describe(event: ObservableEvent, state: State): string {
       return `${operand(a, objects)} ${event.data.operator} ${operand(b, objects)} = ${result}`;
     }
     case 'CALL':
-      return `Call ${event.data.frame.methodId}`;
+      return `Call ${methodName(event.data.frame.methodId)}(${event.data.parameters.map(p => `${p.name} = ${formatValue(p.value, objects)}`).join(', ')})`;
     case 'RETURN':
-      return event.data.result === null ? 'Return' : `Return ${formatValue(event.data.result, objects)}`;
+      if (event.data.result !== null) return `Return ${formatValue(event.data.result, objects)}`;
+      return event.data.implicit ? 'Return (end of method)' : 'Return';
     case 'UNCAPTURED': {
       const changed = [
         ...event.data.unknownBindings.map(id => `${bindingName(id)} unknown`),
@@ -127,4 +128,11 @@ export function describe(event: ObservableEvent, state: State): string {
     case 'EXCEPTION':
       return `${event.data.exceptionType}${event.data.message ? `: ${event.data.message}` : ''}`;
   }
+}
+
+/** Short method name from a method id such as Main.factorial(int):int. */
+export function methodName(methodId: string): string {
+  const open = methodId.indexOf('(');
+  const head = open < 0 ? methodId : methodId.slice(0, open);
+  return head.slice(head.lastIndexOf('.') + 1);
 }
