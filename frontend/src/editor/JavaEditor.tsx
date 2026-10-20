@@ -53,6 +53,13 @@ export function JavaEditor({ value, onChange, readOnly, highlight, markers }: Pr
     const range = monaco.Range.fromPositions(model.getPositionAt(highlight.start), model.getPositionAt(highlight.end));
     decorations.current.set([{ range, options: { className: 'step-highlight', inlineClassName: 'step-highlight-text' } }]);
     instance.revealRangeInCenterIfOutsideViewport(range);
+    // Horizontally, show code from the line start when the highlight fits from there; otherwise
+    // from just before the highlight. A long earlier step must not leave the view scrolled right.
+    const oneLine = range.startLineNumber === range.endLineNumber;
+    const startX = instance.getOffsetForColumn(range.startLineNumber, range.startColumn);
+    const endX = oneLine ? instance.getOffsetForColumn(range.endLineNumber, range.endColumn) : startX;
+    const width = instance.getLayoutInfo().contentWidth;
+    instance.setScrollLeft(endX <= width - 24 ? 0 : Math.max(0, startX - 48));
   }, [highlight]);
 
   useEffect(() => {
