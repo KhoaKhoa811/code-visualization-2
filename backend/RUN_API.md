@@ -17,6 +17,7 @@ to `127.0.0.1:8080` only. Submitted Java never runs in the backend JVM.
 | 7d.3 | `8cd5e4a` | `RunController`, strict request parser, `RunnerAccess`, server limits | 6 controller tests, 2 loopback HTTP tests |
 | 7d.4 | `593c6ce` | `contracts/run/check.cjs` and live API tests | Full live verify, 118 tests |
 | 7d.5 | docs commit | This guide, spec section and memory | Paths checked |
+| 8g.2 | `d32776c` | Request 1.1.0 with `inputMode: live`, bounded input, interactive runs, live console WebSocket | Full live verify, 161 tests (tracer 69, backend 92) |
 
 ## Endpoints
 

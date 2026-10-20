@@ -84,4 +84,24 @@ Contract 1.6.0 adds the object kind `input` (`objectId`, `className`) for a
 
 ## Results
 
-Pending.
+Verified on 2026-10-20 with Docker Desktop 29.8.0:
+
+- Root reactor `clean verify` with live Docker: **161 Java tests, 0 failures or
+  skips** (tracer 69, backend 92). The new tests cover:
+  - Scanner replay, invalid tokens, end of input and a forged transcript (tracer);
+  - input bounds and ordering (`RunInputTest`);
+  - one live line in a container (`Enter n: 42`, the nextInt step recorded);
+  - the same program without a console, which fails with Java's own
+    `NoSuchElementException`;
+  - the WebSocket API: the prompt arrives before input, an observer gets
+    `NOT_CONTROLLER`, a bogus message gets `INPUT_INVALID`, `end` is followed by
+    a normal close;
+  - controller disconnect, which ends the run with `INPUT_DISCONNECTED`.
+- `contracts/` `npm test`: 61 passed.
+- Frontend: 20 reducer tests, production build, and **9 Playwright tests** with the
+  real backend and Docker. AC-19 is one of them: the prompt shows before input,
+  Enter sends `21`, the console shows `Enter n: 42`, and playback shows
+  `Read input: in.nextInt() → 21` without sending input again.
+
+Not done: the input-wait deadline (see above), more than one Scanner, and other
+`System.in` readers (these run without capture).
