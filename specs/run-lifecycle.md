@@ -6,6 +6,11 @@ Live input and separate test inputs remain required V1 work; this first slice
 accepts only `inputMode: none`. HTTP methods, transport errors, input messages,
 console transport, and production admission validation remain later work.
 
+Part 8g: request version 1.1.0 accepts `inputMode` `none` or `live`; 1.0.0 is
+retired. A live request whose source refers to `System.in` runs interactively with a
+120 s execution deadline, and its input arrives over the
+[live console](live-console.md). Any other request closes stdin at once.
+
 ## Request and ownership
 
 [Request schema](../contracts/run/v1/request.schema.json) reuses trace-v1 source:

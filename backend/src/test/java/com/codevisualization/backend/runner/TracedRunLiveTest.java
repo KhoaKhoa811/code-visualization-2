@@ -140,6 +140,44 @@ class TracedRunLiveTest {
         }
     }
 
+    static final String DOUBLER = """
+            import java.util.Scanner;
+
+            public class Main {
+                public static void main(String[] args) {
+                    Scanner in = new Scanner(System.in);
+                    System.out.print("Enter n: ");
+                    int n = in.nextInt();
+                    System.out.println(n * 2);
+                }
+            }
+            """;
+
+    /** AC-19 inside the container: a prompt, one line of live input, the doubled value; Scanner reads replayed. */
+    @Test void liveInputReachesAnInteractiveRun() throws Exception {
+        var lifecycle = new TracedRunLifecycle(docker());
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        try {
+            Future<TracedRunLifecycle.Result> future = executor.submit(() -> lifecycle.run(DOUBLER, true));
+            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(30);
+            while ((lifecycle.input() == null || !lifecycle.input().accepting()) && System.nanoTime() < deadline) Thread.sleep(20);
+            assertTrue(lifecycle.interactive());
+            assertEquals(RunInput.Outcome.ACCEPTED, lifecycle.input().offer(1, "21"));
+            lifecycle.input().eof();
+            var r = future.get(60, TimeUnit.SECONDS);
+            assertTrue(r.terminationConfirmed() && r.cleanupVerified(), r.infrastructureFailures().toString());
+            assertEquals("Enter n: 42\n", stdout(r));
+            check("interactive", r.trace());
+            assertTrue(r.trace().contains("\"status\":\"completed\"") && r.trace().contains("java.util.Scanner.nextInt()"), r.trace());
+        } finally {
+            executor.shutdown();
+            assertTrue(executor.awaitTermination(30, TimeUnit.SECONDS));
+        }
+        // Without a live console the same program sees end of input at once (Java's own exception).
+        var closed = run("no-console", DOUBLER);
+        assertTrue(closed.trace().contains("\"status\":\"failed\"") && closed.trace().contains("java.util.NoSuchElementException"));
+    }
+
     @Test void noOwnedContainerRemainsAfterTracedRuns() throws Exception {
         bubbleSortIsTracedInsideTheContainer();
         try (var control = new BoundedCommandRunner()) {

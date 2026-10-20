@@ -53,6 +53,7 @@ public final class RunSupervisor implements AutoCloseable {
     public final class Run {
         private final String id = "run-" + UUID.randomUUID();
         private final String source, sha256;
+        private final boolean live;
         private final long accepted;
         private long ended;
         private State state = State.QUEUED;
@@ -62,8 +63,8 @@ public final class RunSupervisor implements AutoCloseable {
         private long revision = -1;
         private Object published;
 
-        private Run(String source, String sha256) {
-            this.source = source; this.sha256 = sha256; accepted = clock.getAsLong();
+        private Run(String source, String sha256, boolean live) {
+            this.source = source; this.sha256 = sha256; this.live = live; accepted = clock.getAsLong();
         }
 
         public String id() { return id; }
@@ -104,13 +105,19 @@ public final class RunSupervisor implements AutoCloseable {
      */
     public synchronized Run submit(String source, String claimedSha256)
             throws TracedRunLifecycle.AdmissionException, BusyException {
+        return submit(source, claimedSha256, false);
+    }
+
+    /** {@code live}: a console may send input, so a program reading System.in runs interactively (Part 8g). */
+    public synchronized Run submit(String source, String claimedSha256, boolean live)
+            throws TracedRunLifecycle.AdmissionException, BusyException {
         byte[] bytes = TracedRunLifecycle.admit(source);
         String sha = sha256(bytes);
         if (!sha.equals(claimedSha256)) throw new TracedRunLifecycle.AdmissionException("SOURCE_HASH_MISMATCH", "Source hash mismatch");
         if (closed) throw new IllegalStateException("Supervisor closed");
         housekeeping();
         if (occupied != null && queue.size() == QUEUE_LIMIT) throw new BusyException();
-        Run run = new Run(source, sha);
+        Run run = new Run(source, sha, live);
         runs.put(run.id, run);
         if (occupied == null) start(run); else queue.addLast(run);
         return run;
@@ -199,6 +206,31 @@ public final class RunSupervisor implements AutoCloseable {
         return new Snapshot(run.id, run.sha256, run.revision, phase, terminated, cleaned, held, trace, failures);
     }
 
+    /**
+     * Live console view of a run (Part 8g): its phase, whether it runs interactively, its
+     * input while it executes, and whether termination is confirmed (all output is final).
+     */
+    public record Console(Phase phase, boolean interactive, RunInput input, boolean ended) { }
+
+    public synchronized Console console(Run run) {
+        if (run.state == State.EXPIRED) return new Console(Phase.FINISHED, false, null, true);
+        Snapshot s = snapshot(run);
+        TracedRunLifecycle lifecycle = run.lifecycle;
+        boolean interactive = lifecycle != null && lifecycle.interactive();
+        RunInput input = interactive && s.phase() == Phase.EXECUTING ? lifecycle.input() : null;
+        return new Console(s.phase(), interactive, input, s.terminationConfirmed());
+    }
+
+    /** Console bytes of a run in arrival order, from chunk {@code index} on. */
+    public synchronized List<RunOutput.Chunk> outputSince(Run run, int index) {
+        return run.lifecycle == null ? List.of() : run.lifecycle.outputSince(index);
+    }
+
+    /** The controlling console disconnected from an executing interactive run: cancel it (INPUT_DISCONNECTED). */
+    public synchronized boolean cancelDisconnected(Run run) {
+        return run.state == State.ACTIVE && run.lifecycle != null && run.lifecycle.cancelDisconnected();
+    }
+
     synchronized void housekeeping() {
         long now = clock.getAsLong();
         var queued = queue.iterator();
@@ -222,7 +254,7 @@ public final class RunSupervisor implements AutoCloseable {
             run.lifecycle = factory.get();
             worker.execute(() -> {
                 try {
-                    var result = run.lifecycle.runReserved(run.source, run.id, preparationDeadline);
+                    var result = run.lifecycle.runReserved(run.source, run.id, preparationDeadline, run.live);
                     synchronized (this) {
                         run.result = result;
                         if (result.terminationConfirmed() && result.cleanupVerified()) release(run);

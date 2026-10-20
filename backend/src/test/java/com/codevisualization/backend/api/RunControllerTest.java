@@ -19,8 +19,13 @@ class RunControllerTest {
     @AfterEach void close() { runs.release.countDown(); access.close(); }
 
     static String request(String text, String sha) {
-        return "{\"schemaVersion\":\"1.0.0\",\"source\":{\"file\":\"Main.java\",\"text\":"
+        return "{\"schemaVersion\":\"1.1.0\",\"source\":{\"file\":\"Main.java\",\"text\":"
                 + quote(text) + ",\"sha256\":\"" + sha + "\"},\"inputMode\":\"none\"}";
+    }
+
+    /** Part 8g: a request whose console may send input. */
+    static String liveRequest(String text, String sha) {
+        return request(text, sha).replace("\"inputMode\":\"none\"", "\"inputMode\":\"live\"");
     }
 
     static String quote(String s) {
@@ -128,15 +133,16 @@ class RunControllerTest {
         String valid = request(TestRuns.SOURCE, TestRuns.SHA);
         assertDoesNotThrow(() -> RunRequest.parse(valid.getBytes(StandardCharsets.UTF_8)));
         for (String bad : new String[]{
-                valid.replace("\"inputMode\":\"none\"", "\"inputMode\":\"live\""),
+                valid.replace("\"inputMode\":\"none\"", "\"inputMode\":\"tty\""),
+                valid.replace("1.1.0", "1.0.0"),
                 valid.replace("\"inputMode\":\"none\"", "\"inputMode\":\"none\",\"inputMode\":\"none\""),
                 valid.replace("\"inputMode\":\"none\"", "\"inputMode\":\"none\",\"command\":\"java\""),
                 valid.replace("Main.java", "../Main.java"),
-                valid.replace("1.0.0", "2.0.0"),
+                valid.replace("1.1.0", "2.0.0"),
                 valid + " {}",
                 valid.replace(TestRuns.SHA, TestRuns.SHA.toUpperCase()),
                 "[" .repeat(40) + "]".repeat(40),
-                "{\"schemaVersion\":\"1.0.0\"}"}) {
+                "{\"schemaVersion\":\"1.1.0\"}"}) {
             assertThrows(RunRequest.Invalid.class, () -> RunRequest.parse(bad.getBytes(StandardCharsets.UTF_8)), bad);
         }
         byte[] malformed = valid.getBytes(StandardCharsets.UTF_8);

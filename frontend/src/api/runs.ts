@@ -46,7 +46,7 @@ export async function sha256Hex(text: string): Promise<string> {
 export async function submitRun(text: string): Promise<Snapshot> {
   const sha256 = await sha256Hex(text);
   return call(http.post<Snapshot>('/runs', {
-    schemaVersion: '1.0.0', source: { file: 'Main.java', text, sha256 }, inputMode: 'none',
+    schemaVersion: '1.1.0', source: { file: 'Main.java', text, sha256 }, inputMode: 'live',
   }));
 }
 

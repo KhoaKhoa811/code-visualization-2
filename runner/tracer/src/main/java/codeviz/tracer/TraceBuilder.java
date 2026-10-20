@@ -38,6 +38,7 @@ final class TraceBuilder {
                     ? new Execution("completed", "Normal return from main.", null, null)
                     : new Execution("failed", "Program exited with status " + outcome.exitCode() + ".", null, null);
             case EXECUTION_TIMEOUT -> new Execution("limited", "Execution exceeded 5000 ms", "EXECUTION_TIMEOUT", "execution");
+            case INTERACTIVE_TIMEOUT -> new Execution("limited", "Execution exceeded 120000 ms", "EXECUTION_TIMEOUT", "execution");
             case COMPILATION_TIMEOUT -> new Execution("limited", "Compilation exceeded 10000 ms", "COMPILATION_TIMEOUT", "compile");
             case OUTPUT_LIMIT -> new Execution("limited", "Program output exceeded 1048576 bytes", "OUTPUT_LIMIT", outputPhase);
             case CANCELLED -> new Execution("cancelled", "Run cancelled by user", "RUN_CANCELLED", "execution");

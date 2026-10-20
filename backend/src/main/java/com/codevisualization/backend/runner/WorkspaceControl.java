@@ -17,6 +17,11 @@ interface WorkspaceControl {
     /** Docker exec arguments for a fixed command inside the running container. */
     List<String> workspaceCommand(List<String> fixedCommand) throws IOException;
 
+    /** Part 8g: an interactive phase keeps standard input attached ({@code docker exec -i}). */
+    default List<String> workspaceCommand(List<String> fixedCommand, boolean interactive) throws IOException {
+        return workspaceCommand(fixedCommand);
+    }
+
     /**
      * Reads a fixed /work file. With {@code killFirst}, every process of the run
      * user except the container's init is killed before reading, so no record is

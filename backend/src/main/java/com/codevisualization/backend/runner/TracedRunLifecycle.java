@@ -67,6 +67,10 @@ public final class TracedRunLifecycle {
     private final RunOutput output = new RunOutput();
     private final List<PhaseProcess> transports = new CopyOnWriteArrayList<>();
     private volatile boolean runtimePhase;
+    // Part 8g: live standard input of an interactive run, and whether the controller disconnected.
+    private volatile RunInput input;
+    private volatile boolean interactive, disconnected;
+    static final Duration RUNTIME = Duration.ofSeconds(5), INTERACTIVE_RUNTIME = Duration.ofSeconds(120);
     private volatile String phase = "not_started";
     private volatile Result latest;
     // Built once termination is confirmed, possibly later by explicit recovery.
@@ -86,7 +90,7 @@ public final class TracedRunLifecycle {
         phases = (command, out, budget) -> {
             var transport = new PhaseProcess();
             transports.add(transport);
-            return transport.execute(command, out, budget, cancellation, runtimePhase);
+            return transport.execute(command, out, budget, cancellation, runtimePhase, runtimePhase ? input : null);
         };
         closeControl = runner::close;
         this.runtimeJar = runtimeJar;
@@ -107,6 +111,21 @@ public final class TracedRunLifecycle {
 
     public boolean cancel() { return cancellation.request(); }
 
+    /** Part 8g: the controlling console connection was lost; the run ends cancelled with INPUT_DISCONNECTED. */
+    public boolean cancelDisconnected() {
+        if (!cancellation.request()) return false;
+        disconnected = true;
+        return true;
+    }
+
+    public boolean interactive() { return interactive; }
+
+    /** Live input of the executing interactive run, or null. */
+    public RunInput input() { return input; }
+
+    /** Console bytes accepted so far, in arrival order, from chunk {@code index} on. */
+    public List<RunOutput.Chunk> outputSince(int index) { return output.since(index); }
+
     boolean cancellationRequested() { return cancellation.requested(); }
 
     /** Exact-text admission: well-formed Unicode and at most 256 KiB of UTF-8. */
@@ -126,12 +145,19 @@ public final class TracedRunLifecycle {
         }
     }
 
-    public Result run(String source) throws AdmissionException {
-        return runReserved(source, "run-" + control.identity().owner(), System.nanoTime() + Duration.ofSeconds(10).toNanos());
+    public Result run(String source) throws AdmissionException { return run(source, false); }
+
+    /** {@code live}: input may arrive through {@link #input()} while an interactive program executes (Part 8g). */
+    public Result run(String source, boolean live) throws AdmissionException {
+        return runReserved(source, "run-" + control.identity().owner(), System.nanoTime() + Duration.ofSeconds(10).toNanos(), live);
     }
 
     /** Runs with a run ID and a preparation deadline that started when the slot was reserved. */
     Result runReserved(String source, String runId, long preparationDeadline) throws AdmissionException {
+        return runReserved(source, runId, preparationDeadline, false);
+    }
+
+    Result runReserved(String source, String runId, long preparationDeadline, boolean live) throws AdmissionException {
         byte[] sourceBytes = admit(source);
         if (!used.compareAndSet(false, true)) throw new IllegalStateException("Lifecycle is one-shot");
         List<Failure> failures = new ArrayList<>();
@@ -169,10 +195,13 @@ public final class TracedRunLifecycle {
                         } else if (cancellation.requested()) {
                             trace = stopped(source, runId, Tracer.Cause.CANCELLED);
                         } else {
+                            interactive = live && plan.interactive();
+                            if (interactive) input = new RunInput();
+                            List<String> command = control.workspaceCommand(plan.traced() ? RUN_TRACED : RUN_PLAIN, interactive);
                             phase = "executing";
                             runtimePhase = true;
-                            var runtime = phases.execute(control.workspaceCommand(plan.traced() ? RUN_TRACED : RUN_PLAIN),
-                                    output, Duration.ofSeconds(5));
+                            if (interactive) input.open();
+                            var runtime = phases.execute(command, output, interactive ? INTERACTIVE_RUNTIME : RUNTIME);
                             Tracer.Outcome outcome = runtimeOutcome(runtime);
                             if (outcome == null) {
                                 failures.add(Failure.TRANSPORT_FAILED);
@@ -186,7 +215,8 @@ public final class TracedRunLifecycle {
                                     }
                                 }
                                 String records = raw;
-                                trace = () -> Tracer.trace(plan, runId, records, outcome);
+                                byte[] delivered = interactive ? input.transcript() : new byte[0];
+                                trace = () -> Tracer.trace(plan, runId, records, outcome, delivered);
                             }
                         }
                     }
@@ -275,12 +305,12 @@ public final class TracedRunLifecycle {
         };
     }
 
-    private static Tracer.Outcome runtimeOutcome(PhaseProcess.Result result) {
+    private Tracer.Outcome runtimeOutcome(PhaseProcess.Result result) {
         return switch (result.cause()) {
             case EXIT -> Tracer.Outcome.exited(result.exitCode());
-            case TIMEOUT -> new Tracer.Outcome(Tracer.Cause.EXECUTION_TIMEOUT, 0);
+            case TIMEOUT -> new Tracer.Outcome(interactive ? Tracer.Cause.INTERACTIVE_TIMEOUT : Tracer.Cause.EXECUTION_TIMEOUT, 0);
             case OUTPUT_LIMIT -> new Tracer.Outcome(Tracer.Cause.OUTPUT_LIMIT, 0);
-            case CANCELLED -> new Tracer.Outcome(Tracer.Cause.CANCELLED, 0);
+            case CANCELLED -> new Tracer.Outcome(disconnected ? Tracer.Cause.INPUT_DISCONNECTED : Tracer.Cause.CANCELLED, 0);
             case TRANSPORT_FAILURE -> null;
         };
     }

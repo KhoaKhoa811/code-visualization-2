@@ -50,7 +50,7 @@ public class RunController {
         try { supervisor = runner.openOrGet(); }
         catch (IOException | RuntimeException unavailable) { return error(HttpStatus.SERVICE_UNAVAILABLE, "RUNNER_UNAVAILABLE"); }
         try {
-            var run = supervisor.submit(parsed.text(), parsed.sha256());
+            var run = supervisor.submit(parsed.text(), parsed.sha256(), parsed.live());
             return ResponseEntity.accepted().location(URI.create("/api/runs/" + run.id()))
                     .contentType(MediaType.APPLICATION_JSON).body(RunJson.snapshot(supervisor.snapshot(run)));
         } catch (TracedRunLifecycle.AdmissionException rejected) {

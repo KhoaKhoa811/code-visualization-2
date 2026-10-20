@@ -16,7 +16,7 @@ import java.util.Map;
  */
 public final class Tracer {
     /** Why the run ended, as decided by the orchestrator (never by the user JVM). */
-    public enum Cause { EXIT, EXECUTION_TIMEOUT, OUTPUT_LIMIT, CANCELLED, COMPILATION_TIMEOUT, INPUT_DISCONNECTED }
+    public enum Cause { EXIT, EXECUTION_TIMEOUT, OUTPUT_LIMIT, CANCELLED, COMPILATION_TIMEOUT, INPUT_DISCONNECTED, INTERACTIVE_TIMEOUT }
 
     /** Stop cause plus the process exit code (meaningful for {@link Cause#EXIT}). */
     public record Outcome(Cause cause, int exitCode) {
@@ -26,6 +26,8 @@ public final class Tracer {
     /** Classes to run (binary name to bytes); {@code traced} says whether the recorder is needed. */
     public record Prepared(Analysis analysis, Map<String, byte[]> classes, boolean traced) {
         public boolean compiled() { return analysis.compileErrors().isEmpty(); }
+        /** Part 8g: the source refers to System.in. */
+        public boolean interactive() { return analysis.interactive(); }
     }
 
     private Tracer() { }

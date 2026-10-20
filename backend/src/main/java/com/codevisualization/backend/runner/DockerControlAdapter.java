@@ -136,11 +136,18 @@ public final class DockerControlAdapter implements FixtureControl, WorkspaceCont
 
     @Override
     public List<String> workspaceCommand(List<String> fixedCommand) throws IOException {
+        return workspaceCommand(fixedCommand, false);
+    }
+
+    @Override
+    public List<String> workspaceCommand(List<String> fixedCommand, boolean interactive) throws IOException {
         if (!operation.tryLock()) throw new IOException("Container control busy");
         try {
             if (quarantined || !started || stopped || removed) throw new IOException("Phase launch fenced");
             var command = new ArrayList<>(List.of(executable.toString(), "--context", "desktop-linux"));
-            command.addAll(execArguments(fixedCommand));
+            List<String> exec = new ArrayList<>(execArguments(fixedCommand));
+            if (interactive) exec.add(1, "-i"); // exec -i <container>: standard input stays attached
+            command.addAll(exec);
             return List.copyOf(command);
         } finally {
             operation.unlock();

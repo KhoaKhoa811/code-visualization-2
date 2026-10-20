@@ -18,9 +18,10 @@ const snapshot = (phase, overrides = {}) => ({
 });
 
 test('request preserves trace source shape and excludes caller execution controls', () => {
-  const valid = { schemaVersion: '1.0.0', source: trace.source, inputMode: 'none' };
+  const valid = { schemaVersion: '1.1.0', source: trace.source, inputMode: 'none' };
   assert.equal(request(valid), true);
-  for (const change of [{ schemaVersion: '2.0.0' }, { inputMode: 'live' },
+  assert.equal(request({ ...valid, inputMode: 'live' }), true); // Part 8g: a live console may send input
+  for (const change of [{ schemaVersion: '1.0.0' }, { schemaVersion: '2.0.0' }, { inputMode: 'tty' },
     { command: 'java Main' }, { runId: 'caller' }, { image: 'caller-image' },
     { source: { ...trace.source, file: '../Main.java' } }]) {
     assert.equal(request({ ...valid, ...change }), false, JSON.stringify(change));
