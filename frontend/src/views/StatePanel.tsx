@@ -6,10 +6,13 @@ import type { TraceObject } from '../trace/types.ts';
 import { ObjectGraph } from './ObjectGraph.tsx';
 import { LibraryPanel } from './LibraryPanel.tsx';
 import { Draggable, Panel } from './Draggable.tsx';
+import { TreePanel } from './TreePanel.tsx';
+import type { TreeMapping } from '../trace/tree.ts';
 
 type ArrayObject = TraceObject & { kind: 'array' };
 
-export function StatePanel({ view }: { view: View }) {
+/** {@code trees}: confirmed tree mappings that fit this run (Part 9b). */
+export function StatePanel({ view, trees = [] }: { view: View; trees?: TreeMapping[] }) {
   // After main returns, show the recorded values it ended with, labelled as such.
   const state = view.beforeEnd ?? view.state;
   const focus = view.focus;
@@ -44,6 +47,7 @@ export function StatePanel({ view }: { view: View }) {
         ))}
       </Panel>
       <LibraryPanel view={view} />
+      <TreePanel view={view} mappings={trees} />
       <ObjectGraph view={view} />
       <Panel id="arrays" label="Arrays" title="Arrays">
         {topLevel.length === 0 && <p className="muted">No arrays yet.</p>}

@@ -177,8 +177,64 @@ test('dragging diagram boxes and reordering panels changes layout only (9a, AC-1
   await expect(page.getByRole('region', { name: 'Call stack' })).toHaveCSS('order', '1');
 
   await page.getByRole('button', { name: 'Reset layout' }).click();
-  await expect(objects).toHaveCSS('order', '2');
+  await expect(objects).toHaveCSS('order', '3');
   expect(Math.round((await head.boundingBox())!.x - before.x)).toBe(0);
+});
+
+test('a confirmed node mapping draws a tree sort as a binary search tree (9b, AC-13, AC-27)', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.monaco-editor')).toBeVisible();
+  await page.getByLabel('Example').selectOption('Tree sort');
+  await run(page);
+  await expect(page.getByTestId('run-summary')).toContainText('completed');
+  await expect(page.getByTestId('run-summary')).toContainText('capture complete');
+  await expect(page.getByTestId('console-output')).toHaveText('1 2 5 6 8 \n');
+
+  // Nothing is drawn as a tree until the mapping is confirmed.
+  await expect(page.getByTestId('suggestion-Node')).toContainText('it may be a binary tree node (value key, children left / right)');
+  await page.getByTitle('End').click();
+  await expect(page.getByRole('region', { name: 'Trees' })).toHaveCount(0);
+  await page.getByTestId('suggestion-Node').getByRole('button', { name: 'Show as tree' }).click();
+  await expect(page.getByTestId('mapping-Node')).toContainText('Node shown as a tree');
+
+  const nodes = page.getByTestId('tree-Node').getByTestId('tree-node');
+  await expect(nodes).toHaveCount(5);
+  const byPosition = async () => (await nodes.evaluateAll(els => els.map(e => {
+    const r = e.getBoundingClientRect();
+    return { x: r.x, y: r.y, text: e.querySelector('.tree-value')!.textContent };
+  })));
+  const placed = await byPosition();
+  expect([...placed].sort((a, b) => a.x - b.x).map(n => n.text)).toEqual(['1', '2', '5', '6', '8']); // in-order = sorted
+  expect([...placed].sort((a, b) => a.y - b.y)[0].text).toBe('5'); // the first key is the root
+  await expect(page.getByTestId('tree-Node').locator('.tree-edges line')).toHaveCount(4);
+  await expect(page.getByTestId('array-sorted').getByTestId('cell').locator('.cell-value')).toHaveText(['1', '2', '5', '6', '8']);
+
+  // Stepping from the start: the first link written is root.left = 2 under 5, highlighted as a write.
+  await page.getByTitle('Restart').click();
+  const forward = page.getByRole('button', { name: 'Step forward' });
+  const detail = page.getByTestId('step-detail');
+  for (let i = 0; i < 120; i++) {
+    if ((await detail.textContent())?.includes('Write root.left')) break;
+    await forward.click();
+  }
+  await expect(detail).toContainText('Write root.left: null → Node');
+  await expect(page.getByTestId('tree-Node').locator('.tree-node.write')).toHaveText(/^5/);
+  await expect(nodes).toHaveCount(2);
+  await page.screenshot({ path: 'test-results/tree-step.png' });
+
+  // Tree nodes drag like other diagram elements; edges follow.
+  await page.getByTitle('End').click();
+  const edges = page.getByTestId('tree-Node').locator('.tree-edges line');
+  const before = await edges.evaluateAll(ls => ls.map(l => l.getAttribute('x2')));
+  await dragBy(page, nodes.filter({ hasText: /^8/ }), 30, 25);
+  await expect.poll(async () => (await edges.evaluateAll(ls => ls.map(l => l.getAttribute('x2'))))).not.toEqual(before);
+  await expect(edges).toHaveCount(4);
+
+  // The mapping stays confirmed for the next run of the same class.
+  await run(page);
+  await expect(page.getByTestId('mapping-Node')).toContainText('Node shown as a tree');
+  await page.getByTitle('End').click();
+  await expect(nodes).toHaveCount(5);
 });
 
 test('recursive calls get their own frames and returns restore the caller (8d)', async ({ page }) => {

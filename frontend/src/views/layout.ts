@@ -11,7 +11,7 @@ export interface Layout {
   offsets: Record<string, Offset>;
 }
 
-export const PANELS = ['variables', 'collections', 'objects', 'arrays', 'strings'] as const;
+export const PANELS = ['variables', 'collections', 'trees', 'objects', 'arrays', 'strings'] as const;
 
 export function initialLayout(): Layout {
   return { order: [...PANELS], offsets: {} };
