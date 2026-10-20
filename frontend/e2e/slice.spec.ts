@@ -264,6 +264,8 @@ test('a helper throws, its frame unwinds, and main catches with finally on every
   await expect(detail).toContainText('Catch e = InsufficientFunds: short by 430');
   await expect(page.getByTestId('frame')).toHaveCount(1); // withdraw unwound
   await expect(page.getByTestId('var-e')).toContainText('InsufficientFunds("short by 430")');
+  // 8i: after the long throw line the editor scrolls back so the catch line shows from its start.
+  await expect(page.locator('.editor .lines-content')).toHaveCSS('left', '0px');
   await page.screenshot({ path: 'test-results/exception-catch.png' });
   await forward.click();
   await expect(detail).toContainText('e.getMessage() → "short by 430"');

@@ -213,3 +213,15 @@ not verbatim transcripts, unless quoted.
 - 751d0f5 frontend playback, exceptions example, container and browser tests.
 - Final: 170 Java tests (tracer 77, backend 93) with live Docker, 62 contract,
   21 reducer, 10 browser tests; no containers left.
+
+## 2026-10-20 — Part 8i hardening (Claude Code)
+
+- User merged 8g/8h and said "continue implement" after Claude's 8i recommendation.
+- 23212c6: recorder helpers drop their own frames from JDK exceptions; tracer
+  tests compare full uncaught stack traces (3 tests had shown Recorder frames).
+- 8b62621: BufferedReader over System.in as the input object (contract 1.8.0),
+  readLine/read/close replayed; container live input test.
+- 5ab7451: editor scrolls back horizontally for each step (browser check fails
+  without it).
+- Final: 171 Java tests (tracer 78, backend 93) with live Docker, 62 contract,
+  21 reducer, 10 browser tests; no containers left.

@@ -1220,12 +1220,13 @@ final class Analyzer {
         private static final Set<String> DEQUES = Set.of("java.util.Deque", "java.util.Queue", "java.util.ArrayDeque", "java.util.Stack");
         private static final Set<String> MAPS = Set.of("java.util.Map", "java.util.HashMap", "java.util.TreeMap", "java.util.LinkedHashMap");
         private static final Set<String> SETS = Set.of("java.util.Set", "java.util.HashSet", "java.util.TreeSet", "java.util.LinkedHashSet");
-        private static final String PQ = "java.util.PriorityQueue", BUILDER = "java.lang.StringBuilder", SCANNER = "java.util.Scanner";
+        private static final String PQ = "java.util.PriorityQueue", BUILDER = "java.lang.StringBuilder", SCANNER = "java.util.Scanner",
+                READER = "java.io.BufferedReader"; // Part 8i
 
         /** A covered library type with covered type arguments (Part 8f). */
         private boolean libraryType(String t) {
             String raw = erasure(t);
-            if (raw.equals(BUILDER) || raw.equals(SCANNER)) return t.equals(raw);
+            if (raw.equals(BUILDER) || raw.equals(SCANNER) || raw.equals(READER)) return t.equals(raw);
             List<String> args = typeArguments(t);
             if (MAPS.contains(raw)) return args.size() == 2 && keyType(args.get(0)) && elementType(args.get(1));
             if (SETS.contains(raw) || raw.equals(PQ)) return args.size() == 1 && keyType(args.get(0));
@@ -1250,6 +1251,8 @@ final class Analyzer {
                 Map.entry("pq", Set.of("add", "offer", "poll", "peek", "remove", "size", "isEmpty", "clear")),
                 Map.entry("scanner", Set.of("nextInt", "nextLong", "nextDouble", "nextBoolean", "next", "nextLine", "hasNext", "hasNextInt",
                         "hasNextLine", "close")),
+                // Part 8i: ready() is left out, its answer depends on when input arrives, not on the input.
+                Map.entry("reader", Set.of("readLine", "read", "close")),
                 Map.entry("java.lang.Math", Set.of("max", "min", "abs", "sqrt")),
                 Map.entry("java.lang.Integer", Set.of("parseInt")),
                 Map.entry("java.lang.Character", Set.of("isDigit", "isLetter", "isUpperCase", "isLowerCase", "toUpperCase", "toLowerCase")));
@@ -1271,6 +1274,7 @@ final class Analyzer {
                 if (exceptionElement(receiver) != null && name.equals("getMessage") && m.getParameters().isEmpty()) return m;
                 if (!raw.equals("java.lang.String") && !libraryType(receiver)) return null;
                 String family = raw.equals("java.lang.String") ? "string" : raw.equals(BUILDER) ? "builder" : raw.equals(SCANNER) ? "scanner"
+                        : raw.equals(READER) ? "reader"
                         : LISTS.contains(raw) ? "list"
                         : DEQUES.contains(raw) ? "deque" : MAPS.contains(raw) ? "map" : SETS.contains(raw) ? "set" : "pq";
                 names = new HashSet<>(FAMILY_METHODS.get(family));
@@ -1319,7 +1323,7 @@ final class Analyzer {
 
         private static final Set<String> CONSTRUCTIBLE = Set.of("java.util.ArrayList", "java.util.LinkedList", "java.util.ArrayDeque",
                 "java.util.Stack", "java.util.HashMap", "java.util.TreeMap", "java.util.LinkedHashMap", "java.util.HashSet",
-                "java.util.TreeSet", "java.util.LinkedHashSet", "java.util.PriorityQueue", BUILDER, SCANNER);
+                "java.util.TreeSet", "java.util.LinkedHashSet", "java.util.PriorityQueue", BUILDER, SCANNER, READER);
 
         /** {@code new ArrayList<>()} and friends: an ALLOCATE step after the library constructor runs (Part 8f). */
         private boolean libraryNew(NewClassTree n) {
@@ -1338,6 +1342,19 @@ final class Analyzer {
                 plan.add(new Item(Expect.LIBNEW, site, 0, "java/util/Scanner#<init>(Ljava/io/InputStream;)V"));
                 return true;
             }
+            if (raw.equals(READER)) { // Part 8i: only new BufferedReader(new InputStreamReader(System.in))
+                if (!params.equals(List.of("java.io.Reader")) || !(strip(n.getArguments().get(0)) instanceof NewClassTree inner)
+                        || inner.getClassBody() != null || !"java.io.InputStreamReader".equals(javaType(inner)) || inner.getArguments().size() != 1
+                        || !systemIn(inner.getArguments().get(0))) return false;
+                plan.add(new Item(Expect.NEW, null, 0, "java/io/BufferedReader"));
+                plan.add(new Item(Expect.NEW, null, 0, "java/io/InputStreamReader"));
+                plan.add(new Item(Expect.GETSTATIC, null, 0, "in"));
+                plan.add(new Item(Expect.CTOR, null, 0, "java/io/InputStreamReader#<init>(Ljava/io/InputStream;)V"));
+                Site site = site(Kind.ALLOCATE, n);
+                site.javaType = type;
+                plan.add(new Item(Expect.LIBNEW, site, 0, "java/io/BufferedReader#<init>(Ljava/io/Reader;)V"));
+                return true;
+            }
             if (!params.isEmpty() && !params.equals(List.of("int")) && !(raw.equals(BUILDER) && params.equals(List.of("java.lang.String")))) return false;
             plan.add(new Item(Expect.NEW, null, 0, Instrumenter.internal(raw)));
             for (ExpressionTree a : n.getArguments()) value(a, params.get(0));
@@ -1345,6 +1362,12 @@ final class Analyzer {
             site.javaType = type;
             plan.add(new Item(Expect.LIBNEW, site, 0, Instrumenter.internal(raw) + "#<init>(" + (params.isEmpty() ? "" : Instrumenter.descriptorOf(params.get(0))) + ")V"));
             return true;
+        }
+
+        /** The expression {@code System.in}. */
+        private boolean systemIn(ExpressionTree e) {
+            return strip(e) instanceof MemberSelectTree in && in.getIdentifier().contentEquals("in") && element(in) instanceof VariableElement v
+                    && v.getEnclosingElement() instanceof TypeElement system && system.getQualifiedName().contentEquals("java.lang.System");
         }
 
         /** The operands of a flattened string concatenation, as javac collects them. */

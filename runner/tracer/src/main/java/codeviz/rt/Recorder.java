@@ -118,7 +118,7 @@ public final class Recorder {
     private static String contents(Object o) {
         StringBuilder b = new StringBuilder().append(o.getClass().getName());
         if (o.getClass().isArray()) values(b, o);
-        else if (o instanceof java.util.Scanner) b.append(" 0"); // Part 8g: no readable state; reads are replayed
+        else if (o instanceof java.util.Scanner || o instanceof java.io.BufferedReader) b.append(" 0"); // Parts 8g, 8i: reads are replayed
         else if (o instanceof StringBuilder sb) b.append(' ').append(hex(sb.toString()));
         else if (o instanceof java.util.Map<?, ?> map) {
             b.append(' ').append(map.size());
@@ -133,12 +133,12 @@ public final class Recorder {
     private static final java.util.Set<Class<?>> LIBRARY = java.util.Set.of(java.util.ArrayList.class, java.util.LinkedList.class,
             java.util.ArrayDeque.class, java.util.Stack.class, java.util.HashMap.class, java.util.TreeMap.class, java.util.LinkedHashMap.class,
             java.util.HashSet.class, java.util.TreeSet.class, java.util.LinkedHashSet.class, java.util.PriorityQueue.class, StringBuilder.class,
-            java.util.Scanner.class);
+            java.util.Scanner.class, java.io.BufferedReader.class);
 
     /** Record prefix of a first sight or re-read: array, library collection, map, builder or object. */
     private static String prefix(Object o) {
         return o.getClass().isArray() ? "A" : o instanceof StringBuilder ? "B" : o instanceof java.util.Map ? "M"
-                : o instanceof java.util.Collection || o instanceof java.util.Scanner ? "C" : "O";
+                : o instanceof java.util.Collection || o instanceof java.util.Scanner || o instanceof java.io.BufferedReader ? "C" : "O";
     }
 
     /** A boxed value as a self-describing token (boxes are values, never identities; Part 8f), else null. */
@@ -279,12 +279,34 @@ public final class Recorder {
     }
 
     private static void fail(int site, Throwable e) {
+        hideRecorder(e);
         synchronized (LOCK) {
             if (silent > 0) return;
             String r = ref(e);
             line("x" + site + " " + e.getClass().getName() + " " + message(e) + " " + r);
             try { OUT.flush(); } catch (IOException ignored) { }
         }
+    }
+
+    /**
+     * Part 8i: a helper performs the original instruction, so an exception it raises would show
+     * the recorder (and the JDK code it called) above the program's frame. Those leading frames are
+     * removed, so a printed stack trace matches the original program's. Only JDK exceptions are
+     * touched; their stack trace methods run no user code.
+     */
+    private static void hideRecorder(Throwable e) {
+        if (!e.getClass().getName().startsWith("java.")) return;
+        StackTraceElement[] trace = e.getStackTrace();
+        int first = 0;
+        while (first < trace.length && !trace[first].getClassName().startsWith("codeviz.rt.")) {
+            String c = trace[first].getClassName();
+            if (!c.startsWith("java.") && !c.startsWith("jdk.") && !c.startsWith("sun.")) return; // raised in user code
+            first++;
+        }
+        if (first == trace.length) return;
+        int end = first;
+        while (end < trace.length && trace[end].getClassName().startsWith("codeviz.rt.")) end++;
+        e.setStackTrace(java.util.Arrays.copyOfRange(trace, end, trace.length));
     }
 
     /** A message token; getMessage() runs only when the JDK implements it, never user code (Part 8h). */

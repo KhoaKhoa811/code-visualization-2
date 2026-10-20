@@ -322,7 +322,13 @@ test('Scanner reads are recorded library steps over console input (8g)', () => {
   assert.equal(describeStep(read.event!, read.state), 'Read input: in.nextInt() → 21');
   assert.deepEqual(read.focus, { objectId: 'in1', access: 'read' });
   assert.equal(formatValue(p.at(4).beforeEnd!.bindings.find(b => b.name === 'n')!.value), '21');
-  assert.throws(() => new Playback({ ...example('valid/scanner-read.json'), schemaVersion: '1.5.0' as '1.6.0' }), TraceError);
+  assert.throws(() => new Playback({ ...example('valid/scanner-read.json'), schemaVersion: '1.5.0' as '1.8.0' }), TraceError);
+  // 1.8.0: a BufferedReader over System.in is the same kind of input object.
+  const reader = structuredClone(example('valid/scanner-read.json'));
+  const allocate = reader.events[0];
+  if (allocate.kind === 'ALLOCATE' && allocate.data.object.kind === 'input') allocate.data.object.className = 'java.io.BufferedReader';
+  const r = new Playback(reader);
+  assert.equal(describeStep(r.at(1).event!, r.at(1).state), 'Create BufferedReader(System.in)');
 });
 
 test('a thrown exception unwinds its frame and a catch declares it (8h)', () => {

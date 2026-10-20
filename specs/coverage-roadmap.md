@@ -55,6 +55,7 @@ Yes in architecture; not yet in breadth.
 | 8f | Strings and library collections as logical operations (`String`, `StringBuilder`, `ArrayList`, `ArrayDeque`, `HashMap`, `HashSet`, `PriorityQueue`) with list/stack/queue/map/set views | Library-based programs |
 | 8g | Live `Scanner` console (WebSocket, ADR 0001 to be written) | Interactive programs |
 | 8h | Exceptions: `throw`, `try/catch/finally` | Defensive code |
+| 8i | Hardening: program-only stack traces, `BufferedReader` input ([live console](live-console.md)), editor scrolls to each step | Common input style, faithful errors |
 | Then | V1.1 items: custom mappings, view rankings, separate test inputs, grid refinements, broader acceptance cases | Remaining V1 |
 
 The 6g isolation-gap review stays deferred until before any public deployment.
