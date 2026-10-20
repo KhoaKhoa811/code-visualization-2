@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
-import { describe as describeStep, formatValue, fromBits, namesOf } from './format.ts';
+import { describe as describeStep, formatValue, fromBits, methodName, namesOf } from './format.ts';
 import { Playback, TraceError, type State } from './playback.ts';
 import type { Trace } from './types.ts';
 
@@ -223,4 +223,31 @@ test('rows and strings created by uncaptured statements are captured before the 
   assert.ok(created?.kind === 'array');
   assert.deepEqual(created.elements.map(v => formatValue(v)), ['3', '4', '0']);
   assert.equal(describeStep(region.event!, region.state), 'Ran without visualization (g changed)');
+});
+
+test('calls push distinct frames, returns pop them and backward steps restore them (8d)', () => {
+  const p = new Playback(fixture('methods'));
+  const views = Array.from({ length: p.steps + 1 }, (_, k) => p.at(k));
+  const deepest = Math.max(...views.map(v => v.state.frames.length));
+  assert.equal(deepest, 4); // main + factorial(3) + factorial(2) + factorial(1)
+  const firstCall = views.find(v => v.event?.kind === 'CALL')!;
+  assert.equal(describeStep(firstCall.event!, firstCall.state), 'Call factorial(n = 3)');
+  const deep = views.find(v => v.state.frames.length === 4)!;
+  const ns = deep.state.bindings.filter(b => b.name === 'n').map(b => formatValue(b.value));
+  assert.deepEqual(ns, ['3', '2', '1']); // one n per invocation
+  const ret = views.find(v => v.event?.kind === 'RETURN')!;
+  assert.equal(describeStep(ret.event!, ret.state), 'Return 1');
+  assert.equal(ret.state.frames.length, 3);
+  assert.equal(p.at(ret.cursor - 1).state.frames.length, 4); // stepping back restores the callee frame
+  const implicit = views.find(v => v.event?.kind === 'RETURN' && v.event.data.implicit)!;
+  assert.equal(describeStep(implicit.event!, implicit.state), 'Return (end of method)');
+  assert.equal(methodName('Main.len(java.lang.String[]):int'), 'len');
+});
+
+test('an uncaught failure in a callee unwinds every frame (8d)', () => {
+  const p = new Playback(fixture('methods-unwind'));
+  const last = p.at(p.steps);
+  assert.equal(last.event?.kind, 'EXCEPTION');
+  assert.deepEqual(last.state.frames, []);
+  assert.equal(last.beforeEnd!.frames.length, 2); // main and boom when it failed
 });

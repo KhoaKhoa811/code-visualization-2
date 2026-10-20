@@ -38,6 +38,10 @@ public final class Recorder {
     private static long written;
     // Set by an uncaptured statement that may write arrays; the next record re-reads them first.
     private static boolean dirty;
+    // Part 8d: a call site announced by traced code (consumed by the next entry), invocations
+    // entered from uncaptured code (they record nothing), and active traced frames including main.
+    private static int pendingCall, silent, depth;
+    static final int MAX_DEPTH = 64;
 
     private Recorder() { }
 
@@ -65,6 +69,7 @@ public final class Recorder {
 
     private static void line(String record) {
         synchronized (LOCK) {
+            if (silent > 0) return;
             if (dirty) { dirty = false; resync(); }
             write(record);
         }
@@ -133,6 +138,7 @@ public final class Recorder {
 
     private static String ref(Object o) {
         if (o == null) return "n";
+        if (silent > 0) return "?"; // never written; silent code registers nothing
         Integer id = IDS.get(o);
         if (id == null) {
             // Write before registering, so a pending re-read does not include this object twice.
@@ -160,6 +166,8 @@ public final class Recorder {
     // ---- frame ------------------------------------------------------------------
 
     public static void enter(String[] args) {
+        if (depth > 0) { silent++; return; } // main called again from uncaptured code
+        depth = 1;
         IDS.put(args, 1); // part of the initial state, not a first sight
         line("M r1 " + args.length);
     }
@@ -168,6 +176,7 @@ public final class Recorder {
 
     public static void region(int site, boolean mayWriteArrays) {
         synchronized (LOCK) {
+            if (silent > 0) return;
             line("u" + site);
             if (mayWriteArrays) dirty = true;
         }
@@ -175,16 +184,64 @@ public final class Recorder {
 
     /** Registers an array allocated by covered code; its ALLOCATE record carries the contents. */
     private static String fresh(Object o) {
-        synchronized (LOCK) { if (dirty) { dirty = false; resync(); } } // the re-read must not include the new array
+        synchronized (LOCK) {
+            if (silent > 0) return "?";
+            if (dirty) { dirty = false; resync(); } // the re-read must not include the new array
+        }
         Integer id = IDS.size() + 1;
         IDS.put(o, id);
         return "r" + id;
     }
 
     public static void exit() {
+        synchronized (LOCK) { if (silent > 0) { silent--; return; } }
         line("R");
         try { OUT.flush(); } catch (IOException e) { throw new UncheckedIOException(e); }
     }
+
+    // ---- traced helpers (Part 8d) ---------------------------------------------------
+
+    /** A traced call site, just before its invokestatic. Ignored while silent. */
+    public static void call(int site) {
+        synchronized (LOCK) { if (silent == 0) pendingCall = site; }
+    }
+
+    /**
+     * Entry of a traced helper. Without an announced call site (uncaptured code, a static
+     * initializer, a library callback) the invocation is silent, and so is everything it calls.
+     */
+    public static void begin(int method) {
+        synchronized (LOCK) {
+            int site = pendingCall;
+            pendingCall = 0;
+            if (silent > 0 || site == 0) { silent++; return; }
+            if (depth >= MAX_DEPTH) {
+                try { OUT.write("D\n"); OUT.flush(); } catch (IOException ignored) { }
+                System.out.flush();
+                System.err.flush();
+                Runtime.getRuntime().halt(LIMIT_EXIT);
+            }
+            depth++;
+            line("c" + method + " " + site);
+        }
+    }
+
+    /** Ends the current invocation; true if it was silent (nothing is recorded). */
+    private static boolean leave() {
+        if (silent > 0) { silent--; return true; }
+        depth--;
+        return false;
+    }
+
+    public static void ret(int site) { synchronized (LOCK) { if (!leave()) line(Integer.toString(site)); } }
+    public static void reti(int v, int site) { synchronized (LOCK) { if (!leave()) line(site + " " + v); } }
+    public static void retl(long v, int site) { synchronized (LOCK) { if (!leave()) line(site + " " + v); } }
+    public static void retf(float v, int site) { synchronized (LOCK) { if (!leave()) line(site + " " + f(v)); } }
+    public static void retd(double v, int site) { synchronized (LOCK) { if (!leave()) line(site + " " + d(v)); } }
+    public static void reta(Object v, int site) { synchronized (LOCK) { if (!leave()) { String r = ref(v); line(site + " " + r); } } }
+
+    /** An exception leaves a traced helper (the instrumenter's catch-all handler, which rethrows). */
+    public static void unwind() { synchronized (LOCK) { leave(); } }
 
     // ---- stored values ----------------------------------------------------------
 

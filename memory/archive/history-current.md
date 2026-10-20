@@ -142,3 +142,18 @@ not verbatim transcripts, unless quoted.
 - Live tests need `-Dcodeviz.docker.live=true` and `-Dcodeviz.docker.executable`.
   Final: 141 Java tests (tracer 55, backend 86) with live Docker, 56 contract,
   13 reducer, 5 browser tests; no containers left.
+
+## 2026-10-19 — Part 8d static methods and recursion (Claude Code)
+
+- User: "ok" to the 8d proposal. e8ac8a2: static methods of Main with traced
+  types are planned and instrumented like main (one plan per method). Call sites
+  announce themselves before invokestatic; entries without an announcement run
+  silently (uncaptured callers, static initializers, callbacks). Every return
+  instruction records its value (explicit, inside an uncaptured statement, or
+  javac's implicit void return); a catch-all handler ends silent invocations that
+  unwind. Builder keeps one frame (scopes, bindings, condition state) per
+  invocation; uncaught failures unwind every frame; more than 64 traced frames
+  halts with CALL_DEPTH_LIMIT. Contract unchanged (1.3.0); plan version 5.
+- 0f5baec frontend call stack and descriptions; eb5fb0d browser test.
+- Final: 145 Java tests (tracer 59, backend 86) with live Docker, 56 contract,
+  15 reducer, 6 browser tests; no containers left.

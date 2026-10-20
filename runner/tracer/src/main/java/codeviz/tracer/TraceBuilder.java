@@ -21,6 +21,7 @@ final class TraceBuilder {
     static final int RECORD_LIMIT = 256 * 1024;
     private static final String FRAME = "f0";
     static final String MAIN_METHOD = "Main.main(java.lang.String[]):void";
+    static final int MAX_FRAMES = 64; // Part 8d: active traced frames, main included (Part 4k budget)
 
     private static final class Inconsistent extends Exception {
         Inconsistent(String message) { super(message); }
@@ -58,12 +59,30 @@ final class TraceBuilder {
     private Map<String, Object> openRegion, openRegionEvent;
     private final Set<String> stale = new LinkedHashSet<>();
     private boolean sawRegion;
-    // Scope instances (static id -> instance id), outer to inner, and live bindings.
-    private final List<String[]> scopes = new ArrayList<>();
-    private final Map<String, Map<String, Object>> liveBindings = new HashMap<>(); // declarationId -> binding
-    private final Map<Cond, Boolean> conditionValues = new HashMap<>();
+    // Part 8d: one frame per active invocation, innermost first. Each owns its scope instances
+    // (static id -> instance id, outer to inner), live bindings (declarationId -> binding) and
+    // condition results, so recursive invocations never share them. The fields below always
+    // refer to the innermost frame.
+    private record Frame(String id, String methodId, List<String[]> scopes, Map<String, Map<String, Object>> bindings,
+                         Map<Cond, Boolean> conditions) {
+        Frame(String id, String methodId) { this(id, methodId, new ArrayList<>(), new HashMap<>(), new HashMap<>()); }
+    }
+    private final Deque<Frame> frames = new ArrayDeque<>();
+    private String frameId;
+    private List<String[]> scopes;
+    private Map<String, Map<String, Object>> liveBindings;
+    private Map<Cond, Boolean> conditionValues;
     private Map<String, Object> initialState;
-    private int nextScope = 1, nextBinding = 1;
+    private int nextScope = 1, nextBinding = 1, nextFrame = 1;
+    // A traced entry whose parameter records are still arriving.
+    private record PendingCall(Site call, Site method, List<Map<String, Object>> values) { }
+    private PendingCall pendingCall;
+
+    private void push(Frame frame) { frames.push(frame); use(frame); }
+
+    private void use(Frame frame) {
+        frameId = frame.id(); scopes = frame.scopes(); liveBindings = frame.bindings(); conditionValues = frame.conditions();
+    }
 
     private TraceBuilder(Analysis analysis, String runId) { this.analysis = analysis; this.runId = runId; }
 
@@ -115,8 +134,13 @@ final class TraceBuilder {
                     if (line.startsWith("A")) { arrayContents(line); continue; }
                     if (line.startsWith("S")) { stringSight(line); continue; }
                     closeRegion();
-                    if (line.equals("R")) terminal = "R";
+                    if (line.equals("R")) {
+                        if (frames.size() != 1 || pendingCall != null) throw new Inconsistent("main returned inside a call");
+                        terminal = "R";
+                    }
                     else if (line.equals("L")) terminal = "L";
+                    else if (line.equals("D")) terminal = "D";
+                    else if (line.startsWith("c")) callEntry(line);
                     else if (line.startsWith("x")) { failure = exception(line); terminal = "x"; }
                     else if (line.startsWith("u")) region(line);
                     else operation(line);
@@ -144,13 +168,19 @@ final class TraceBuilder {
             captureReason = sawRegion ? "All covered operations were recorded; some statements ran without capture."
                     : "All covered operations were recorded.";
         } else if (exited && stopReason == null && "x".equals(terminal) && outcome.exitCode() != 0) {
-            addBookkeeping("FRAME_END", ordered("frameId", FRAME, "reason", "unwind"));
+            // Uncaught: every active frame ends, innermost first (Part 8d).
+            for (Frame frame : frames) addBookkeeping("FRAME_END", ordered("frameId", frame.id(), "reason", "unwind"));
             executionStatus = "failed"; executionReason = "Uncaught " + failure.get("exceptionType") + ".";
             captureStatus = "complete"; captureReason = "All covered operations were recorded through the failure.";
         } else if (exited && "L".equals(terminal)) {
             executionStatus = "limited"; executionReason = "Raw trace data limit reached; execution was stopped.";
             captureStatus = "partial"; captureReason = "Capture stops at the last safe operation before the limit.";
             diagnostics.add(new Diagnostic("capture", "TRACE_LIMIT", "Raw trace data exceeded the recorder limit; execution was halted.", null, null));
+        } else if (exited && "D".equals(terminal)) {
+            executionStatus = "limited"; executionReason = "Call depth limit reached; execution was stopped.";
+            captureStatus = "partial"; captureReason = "Capture stops at the last safe operation before the call that exceeded the limit.";
+            diagnostics.add(new Diagnostic("capture", "CALL_DEPTH_LIMIT", "More than " + MAX_FRAMES
+                    + " traced frames (main included) would be active; execution was halted.", null, null));
         } else {
             // A latched stop cause always wins: never complete capture after a timeout, limit or cancellation.
             executionStatus = stop.status(); executionReason = stop.reason();
@@ -192,8 +222,9 @@ final class TraceBuilder {
         arrays.put(args, new ArrayList<>());
         elementTypes.put(args, "java.lang.String");
         String root = "s" + nextScope++;
+        push(new Frame(FRAME, MAIN_METHOD));
         scopes.add(new String[]{analysis.rootScope(), root});
-        Map<String, Object> argsBinding = binding("Main.main:args", "args", "java.lang.String[]", root, ref(args));
+        Map<String, Object> argsBinding = binding(FRAME, "Main.main:args", "args", "java.lang.String[]", root, ref(args));
         initialState = ordered(
                 "objects", List.of(ordered("objectId", args, "kind", "array", "elementType", "java.lang.String", "elements", List.of())),
                 "frames", List.of(ordered("frameId", FRAME, "methodId", MAIN_METHOD, "callerFrameId", null)),
@@ -324,7 +355,7 @@ final class TraceBuilder {
             syncScopes(d);
             if (liveBindings.containsKey(d.declarationId)) reenterInnermost(d);
             String scope = scopes.get(scopes.size() - 1)[1];
-            Map<String, Object> binding = binding(d.declarationId, d.name, d.javaType, scope, ordered("kind", "unassigned"));
+            Map<String, Object> binding = binding(frameId, d.declarationId, d.name, d.javaType, scope, ordered("kind", "unassigned"));
             liveBindings.put(d.declarationId, binding);
             addObservable(d, "DECLARE", ordered("binding", copy(binding)));
         }
@@ -332,9 +363,55 @@ final class TraceBuilder {
 
     private String[] pendingUpdate; // Part 8b: arithmetic of a non-int ++/--, before its store
 
+    // ---- calls (Part 8d) ------------------------------------------------------------------
+
+    /** {@code c<method> <callSite>}: a traced invocation starts; its parameter records follow. */
+    private void callEntry(String line) throws Inconsistent {
+        String[] t = line.substring(1).split(" ");
+        expect(t, 2);
+        Site method = site(t[0]), call = site(t[1]);
+        if (method.kind != Plan.Kind.METHOD || call.kind != Plan.Kind.CALL || call.callee != method)
+            throw new Inconsistent("call record");
+        if (frames.size() >= MAX_FRAMES) throw new Inconsistent("call depth");
+        declarePending(call);
+        syncScopes(call);
+        pendingCall = new PendingCall(call, method, new ArrayList<>());
+        if (method.params.isEmpty()) enterCallee();
+    }
+
+    private void parameter(Site site, String[] t) throws Inconsistent {
+        List<Map<String, Object>> values = pendingCall.values();
+        if (site != pendingCall.method().params.get(values.size())) throw new Inconsistent("parameter record");
+        expect(t, 2);
+        values.add(typed(site.javaType, t[1]));
+        if (values.size() == pendingCall.method().params.size()) enterCallee();
+    }
+
+    /** One CALL step in the caller's frame, then the callee's frame with its parameter bindings. */
+    private void enterCallee() {
+        Site method = pendingCall.method();
+        String frame = "f" + nextFrame++, scope = "s" + nextScope++;
+        Frame callee = new Frame(frame, method.methodId);
+        callee.scopes().add(new String[]{method.scopes.get(0), scope});
+        List<Object> parameters = new ArrayList<>();
+        for (int i = 0; i < method.params.size(); i++) {
+            Site p = method.params.get(i);
+            Map<String, Object> binding = binding(frame, p.declarationId, p.name, p.javaType, scope, pendingCall.values().get(i));
+            callee.bindings().put(p.declarationId, binding);
+            parameters.add(copy(binding));
+        }
+        addObservable(pendingCall.call(), "CALL", ordered(
+                "frame", ordered("frameId", frame, "methodId", method.methodId, "callerFrameId", frameId),
+                "scope", ordered("scopeId", scope, "frameId", frame, "parentScopeId", null),
+                "parameters", parameters));
+        pendingCall = null;
+        push(callee);
+    }
+
     private void operation(String line) throws Inconsistent {
         String[] t = line.split(" ");
         Site site = site(t[0]);
+        if (pendingCall != null) { parameter(site, t); return; }
         if (pendingUpdate == null) declarePending(site);
         syncScopes(site);
         switch (site.kind) {
@@ -342,7 +419,7 @@ final class TraceBuilder {
                 expect(t, 2);
                 if (liveBindings.containsKey(site.declarationId)) reenterInnermost(site);
                 String scope = scopes.get(scopes.size() - 1)[1];
-                Map<String, Object> binding = binding(site.declarationId, site.name, site.javaType, scope, typed(site.javaType, t[1]));
+                Map<String, Object> binding = binding(frameId, site.declarationId, site.name, site.javaType, scope, typed(site.javaType, t[1]));
                 liveBindings.put(site.declarationId, binding);
                 addObservable(site, "DECLARE", ordered("binding", copy(binding)));
             }
@@ -460,7 +537,17 @@ final class TraceBuilder {
                         "operands", List.of(operand(Values.typed(site.fromType, t[1]))), "result", Values.typed(site.javaType, t[2])));
             }
             case LEAF -> leaf(site, t);
+            case RETURN -> {
+                if (frames.size() < 2) throw new Inconsistent("return from main");
+                Object result = null;
+                if (site.javaType.equals("void")) expect(t, 1);
+                else { expect(t, 2); result = typed(site.javaType, t[1]); }
+                addObservable(site, "RETURN", ordered("result", result, "implicit", site.implicit));
+                frames.pop();
+                use(frames.peek());
+            }
             case REGION -> throw new Inconsistent("operation record for an uncaptured statement");
+            case METHOD, PARAM, CALL -> throw new Inconsistent("call record out of place");
         }
     }
 
@@ -584,7 +671,7 @@ final class TraceBuilder {
         String parent = scopes.get(scopes.size() - 1)[1];
         String id = "s" + nextScope++;
         scopes.add(new String[]{staticId, id});
-        addBookkeeping("SCOPE_ENTER", Map.of("scope", ordered("scopeId", id, "frameId", FRAME, "parentScopeId", parent)));
+        addBookkeeping("SCOPE_ENTER", Map.of("scope", ordered("scopeId", id, "frameId", frameId, "parentScopeId", parent)));
     }
 
     private void exitScope() {
@@ -692,8 +779,8 @@ final class TraceBuilder {
     private static Map<String, Object> ref(String id) { return ordered("kind", "ref", "objectId", id); }
     private static Map<String, Object> operand(Map<String, Object> value) { return ordered("value", value); }
 
-    private Map<String, Object> binding(String declarationId, String name, String javaType, String scope, Object value) {
-        return ordered("bindingId", "b" + nextBinding++, "declarationId", declarationId, "frameId", FRAME,
+    private Map<String, Object> binding(String frame, String declarationId, String name, String javaType, String scope, Object value) {
+        return ordered("bindingId", "b" + nextBinding++, "declarationId", declarationId, "frameId", frame,
                 "scopeId", scope, "name", name, "javaType", javaType, "value", value);
     }
 
@@ -725,7 +812,7 @@ final class TraceBuilder {
     private void addObservable(int start, int end, String kind, Map<String, Object> data) {
         int seq = events.size() + 1;
         events.add(ordered("seq", seq, "step", observableSeqs.size() + 1, "source", ordered("start", start, "end", end),
-                "frameId", FRAME, "kind", kind, "data", data));
+                "frameId", frameId, "kind", kind, "data", data));
         observableSeqs.add(seq);
     }
 

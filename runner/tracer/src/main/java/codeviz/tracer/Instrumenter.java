@@ -32,23 +32,36 @@ final class Instrumenter {
 
     private Instrumenter() { }
 
-    static byte[] instrument(byte[] classFile, List<Item> plan, Map<Integer, Site> sites, Map<String, byte[]> program)
+    static final String MAIN = "main([Ljava/lang/String;)V";
+
+    static byte[] instrument(byte[] classFile, Map<String, List<Item>> plans, Map<Integer, Site> sites, Map<String, byte[]> program)
             throws MappingException {
         ClassNode cn = new ClassNode();
         new CrtReader(classFile).accept(cn, new Attribute[]{new Crt()}, ClassReader.SKIP_FRAMES);
         rejectRecorderReferences(cn);
-        MethodNode main = cn.methods.stream()
-                .filter(m -> m.name.equals("main") && m.desc.equals("([Ljava/lang/String;)V")).findFirst()
-                .orElseThrow(() -> new MappingException("main not found"));
-        Map<Site, Region> regions = regions(main, plan);
-        List<Match> matches = match(main, plan, regions);
-        for (Match m : matches) rewrite(main, m);
-        InsnList entry = new InsnList();
-        entry.add(new VarInsnNode(Opcodes.ALOAD, 0));
-        entry.add(call("enter", "([Ljava/lang/String;)V"));
-        main.instructions.insert(entry);
-        for (AbstractInsnNode insn : main.instructions.toArray())
-            if (insn.getOpcode() == Opcodes.RETURN) main.instructions.insertBefore(insn, call("exit", "()V"));
+        if (cn.methods.stream().noneMatch(m -> (m.name + m.desc).equals(MAIN))) throw new MappingException("main not found");
+        Map<String, Site> helpers = new HashMap<>();
+        for (Site s : sites.values()) if (s.kind == Plan.Kind.METHOD) helpers.put(key(s), s);
+        for (MethodNode method : cn.methods) {
+            String key = method.name + method.desc;
+            List<Item> plan = plans.get(key);
+            if (plan == null) continue; // untraced: runs as compiled
+            Site helper = key.equals(MAIN) ? null : helpers.get(key);
+            if (!key.equals(MAIN) && helper == null) throw new MappingException("no method site for " + key);
+            Map<Site, Region> regions = regions(method, plan);
+            List<Match> matches = match(method, plan, regions, helper);
+            for (Match m : matches) rewrite(method, m);
+            if (helper == null) {
+                InsnList entry = new InsnList();
+                entry.add(new VarInsnNode(Opcodes.ALOAD, 0));
+                entry.add(call("enter", "([Ljava/lang/String;)V"));
+                method.instructions.insert(entry);
+                for (AbstractInsnNode insn : method.instructions.toArray())
+                    if (insn.getOpcode() == Opcodes.RETURN) method.instructions.insertBefore(insn, call("exit", "()V"));
+            } else {
+                enterHelper(method, helper);
+            }
+        }
         // The range table only served mapping; it is not written back.
         for (MethodNode m : cn.methods) if (m.attrs != null) m.attrs.removeIf(Crt.class::isInstance);
         Hierarchy hierarchy = new Hierarchy(program);
@@ -57,6 +70,44 @@ final class Instrumenter {
         };
         cn.accept(writer);
         return writer.toByteArray();
+    }
+
+    // ---- traced helpers (Part 8d) --------------------------------------------------------
+
+    /** Plan key of a METHOD site: name plus JVM descriptor. */
+    static String key(Site method) {
+        StringBuilder b = new StringBuilder(method.name).append('(');
+        for (Site p : method.params) b.append(descriptorOf(p.javaType));
+        return b.append(')').append(method.javaType.equals("void") ? "V" : descriptorOf(method.javaType)).toString();
+    }
+
+    /**
+     * Entry: {@code begin(method)} decides whether this invocation is traced, then one record per
+     * parameter. A catch-all handler ends the invocation in the recorder when an exception leaves
+     * it and rethrows the same exception; earlier (user) handlers keep precedence.
+     */
+    private static void enterHelper(MethodNode method, Site site) {
+        InsnList entry = new InsnList();
+        entry.add(siteConstant(site));
+        entry.add(call("begin", "(I)V"));
+        int slot = 0;
+        for (Site p : site.params) {
+            switch (Analyzer.stack(p.javaType)) {
+                case "long" -> { entry.add(new VarInsnNode(Opcodes.LLOAD, slot)); entry.add(siteConstant(p)); entry.add(call("vl", "(JI)V")); slot += 2; }
+                case "float" -> { entry.add(new VarInsnNode(Opcodes.FLOAD, slot)); entry.add(siteConstant(p)); entry.add(call("vf", "(FI)V")); slot++; }
+                case "double" -> { entry.add(new VarInsnNode(Opcodes.DLOAD, slot)); entry.add(siteConstant(p)); entry.add(call("vd", "(DI)V")); slot += 2; }
+                case "int" -> { entry.add(new VarInsnNode(Opcodes.ILOAD, slot)); entry.add(siteConstant(p)); entry.add(call("vi", "(II)V")); slot++; }
+                default -> { entry.add(new VarInsnNode(Opcodes.ALOAD, slot)); entry.add(siteConstant(p)); entry.add(call("va", "(Ljava/lang/Object;I)V")); slot++; }
+            }
+        }
+        LabelNode start = new LabelNode(), end = new LabelNode(), handler = new LabelNode();
+        entry.add(start);
+        method.instructions.insert(entry);
+        method.instructions.add(end);
+        method.instructions.add(handler);
+        method.instructions.add(call("unwind", "()V"));
+        method.instructions.add(new InsnNode(Opcodes.ATHROW));
+        method.tryCatchBlocks.add(new TryCatchBlockNode(start, end, handler, null));
     }
 
     // ---- statement ranges (javac -Xjcov CharacterRangeTable) ------------------------
@@ -175,15 +226,20 @@ final class Instrumenter {
 
     private record Match(Item item, AbstractInsnNode insn, AbstractInsnNode anchor) { }
 
-    private static List<Match> match(MethodNode main, List<Item> plan, Map<Site, Region> regions) throws MappingException {
+    private static List<Match> match(MethodNode main, List<Item> plan, Map<Site, Region> regions, Site helper) throws MappingException {
         List<Match> matches = new ArrayList<>();
         Map<LabelNode, Site> regionStarts = new HashMap<>();
         for (var r : regions.entrySet()) regionStarts.put(r.getValue().start(), r.getKey());
         int p = 0;
         LabelNode skipUntil = null; // end of the uncaptured statement being skipped
+        Site skipped = null;
         for (AbstractInsnNode insn : main.instructions.toArray()) {
             if (skipUntil != null) {
-                if (insn != skipUntil) continue;
+                if (insn != skipUntil) {
+                    // Part 8d: a return inside an uncaptured statement of a helper is still recorded, at that statement.
+                    if (helper != null && isReturn(insn)) matches.add(new Match(Item.of(Expect.RETURN, skipped.returnSite), insn, insn));
+                    continue;
+                }
                 skipUntil = null; // the end label may start the next region
             }
             if (insn instanceof LabelNode label && regionStarts.containsKey(label)) {
@@ -191,11 +247,17 @@ final class Instrumenter {
                 if (p >= plan.size() || plan.get(p).site() != site)
                     throw new MappingException("uncaptured statement out of plan order");
                 matches.add(new Match(plan.get(p++), label, label));
-                if (regions.get(site).end() != label) skipUntil = regions.get(site).end();
+                if (regions.get(site).end() != label) { skipUntil = regions.get(site).end(); skipped = site; }
                 continue;
             }
-            Expect found = classify(insn);
+            Expect found = helper != null && isReturn(insn) ? Expect.RETURN : classify(insn);
             if (found == null) continue;
+            if (found == Expect.RETURN && (p >= plan.size() || plan.get(p).expect() != Expect.RETURN)) {
+                // javac's implicit return at the end of a void method has no statement.
+                if (insn.getOpcode() != Opcodes.RETURN) throw new MappingException("unplanned value return");
+                matches.add(new Match(Item.of(Expect.RETURN, helper.returnSite), insn, insn));
+                continue;
+            }
             if (p >= plan.size()) throw new MappingException("unplanned instruction " + found);
             Item item = plan.get(p++);
             if (found != family(item.expect())) throw new MappingException("expected " + item.expect() + ", found " + found);
@@ -211,11 +273,16 @@ final class Instrumenter {
         return switch (expect) {
             case NEWARRAY_LITERAL -> Expect.NEWARRAY;
             case LITERAL_STORE -> Expect.ASTORE;
+            case CALL -> Expect.INVOKE;
             default -> expect;
         };
     }
 
     /** Relevant instruction family, or null for purely structural instructions. */
+    private static boolean isReturn(AbstractInsnNode insn) {
+        return insn.getOpcode() >= Opcodes.IRETURN && insn.getOpcode() <= Opcodes.RETURN;
+    }
+
     private static Expect classify(AbstractInsnNode insn) {
         int op = insn.getOpcode();
         if (op < 0) return null; // labels, line numbers, frames
@@ -239,7 +306,8 @@ final class Instrumenter {
                  Opcodes.ICONST_1, Opcodes.ICONST_2, Opcodes.ICONST_3, Opcodes.ICONST_4, Opcodes.ICONST_5, Opcodes.LCONST_0,
                  Opcodes.LCONST_1, Opcodes.FCONST_0, Opcodes.FCONST_1, Opcodes.FCONST_2, Opcodes.DCONST_0, Opcodes.DCONST_1,
                  Opcodes.BIPUSH, Opcodes.SIPUSH, Opcodes.ACONST_NULL, Opcodes.DUP, Opcodes.DUP_X1, Opcodes.DUP_X2,
-                 Opcodes.DUP2, Opcodes.DUP2_X1, Opcodes.DUP2_X2, Opcodes.GOTO, Opcodes.RETURN, Opcodes.NOP -> null;
+                 Opcodes.DUP2, Opcodes.DUP2_X1, Opcodes.DUP2_X2, Opcodes.GOTO, Opcodes.RETURN, Opcodes.NOP,
+                 Opcodes.POP, Opcodes.POP2 -> null; // a pop discards a traced call's ignored result (Part 8d)
             case Opcodes.LDC -> {
                 Object c = ((LdcInsnNode) insn).cst;
                 yield c instanceof Integer || c instanceof String || c instanceof Long || c instanceof Float
@@ -277,6 +345,10 @@ final class Instrumenter {
                     default -> false;
                 };
                 if (!ok) throw new MappingException("array creation mismatch");
+            }
+            case CALL -> {
+                if (!(insn instanceof MethodInsnNode m) || insn.getOpcode() != Opcodes.INVOKESTATIC || !m.owner.equals("Main")
+                        || !(m.name + m.desc).equals(item.member())) throw new MappingException("unexpected call");
             }
             case SWITCH -> {
                 Set<Integer> keys = new HashSet<>();
@@ -542,6 +614,24 @@ final class Instrumenter {
                 after.add(siteConstant(site));
                 after.add(call("literal", "(Ljava/lang/Object;I)V"));
                 list.insert(insn, after);
+            }
+            case CALL -> { // announces a traced call site just before the invocation (Part 8d)
+                InsnList before = new InsnList();
+                before.add(siteConstant(site));
+                before.add(call("call", "(I)V"));
+                list.insertBefore(insn, before);
+            }
+            case RETURN -> {
+                InsnList before = new InsnList();
+                switch (insn.getOpcode()) {
+                    case Opcodes.RETURN -> { before.add(siteConstant(site)); before.add(call("ret", "(I)V")); }
+                    case Opcodes.LRETURN -> { before.add(new InsnNode(Opcodes.DUP2)); before.add(siteConstant(site)); before.add(call("retl", "(JI)V")); }
+                    case Opcodes.DRETURN -> { before.add(new InsnNode(Opcodes.DUP2)); before.add(siteConstant(site)); before.add(call("retd", "(DI)V")); }
+                    case Opcodes.FRETURN -> { before.add(new InsnNode(Opcodes.DUP)); before.add(siteConstant(site)); before.add(call("retf", "(FI)V")); }
+                    case Opcodes.ARETURN -> { before.add(new InsnNode(Opcodes.DUP)); before.add(siteConstant(site)); before.add(call("reta", "(Ljava/lang/Object;I)V")); }
+                    default -> { before.add(new InsnNode(Opcodes.DUP)); before.add(siteConstant(site)); before.add(call("reti", "(II)V")); }
+                }
+                list.insertBefore(insn, before);
             }
             case SWITCH -> {
                 InsnList before = new InsnList();

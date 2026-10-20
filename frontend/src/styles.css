@@ -101,3 +101,8 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 .row.write { background: var(--write); }
 .row.allocated .cells, .array.allocated .rows { outline: 2px solid var(--accent); outline-offset: 2px; }
 .cell-null { font-family: Consolas, monospace; color: var(--muted); padding: 6px 8px; }
+
+/* Part 8d: one frame per invocation, innermost first. */
+.frame { border-left: 2px solid var(--border); padding-left: 8px; margin-bottom: 8px; }
+.frame.active { border-left-color: var(--accent); }
+.frame:not(.active) .bindings { opacity: .7; }

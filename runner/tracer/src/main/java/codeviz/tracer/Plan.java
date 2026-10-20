@@ -13,9 +13,11 @@ final class Plan {
 
     /** Relevant bytecode instruction families, in javac code-layout order. */
     enum Expect { STORE, IINC, ALOAD, ASTORE, ARRAYLENGTH, NEWARRAY, NEWARRAY_LITERAL, LITERAL_STORE, ARITH, NEG, CONVERT, CMP, JUMP,
+        CALL, RETURN,
         SWITCH, GETSTATIC, INVOKE, REGION }
 
-    enum Kind { DECLARE, ASSIGN, UPDATE, ALLOCATE, ARRAY_READ, ARRAY_LENGTH, ARRAY_WRITE, ARITHMETIC, CAST, LEAF, SWITCH, REGION }
+    enum Kind { DECLARE, ASSIGN, UPDATE, ALLOCATE, ARRAY_READ, ARRAY_LENGTH, ARRAY_WRITE, ARITHMETIC, CAST, LEAF, SWITCH, REGION,
+        METHOD, PARAM, CALL, RETURN }
 
     /** One instrumented operation site. Fields not relevant to a kind stay null. */
     static final class Site {
@@ -44,6 +46,13 @@ final class Plan {
         // lengths (0 for an initializer). SWITCH: javaType is the selector type, cases in source order.
         int dims;
         List<Case> cases = List.of();
+        // Part 8d. METHOD: methodId, javaType = result type ("void"), params, scopes = [root scope];
+        // PARAM: a parameter's declaration; CALL: callee is the METHOD site; RETURN: implicit for a void
+        // method's closing brace; REGION in a helper: returnSite for returns inside it.
+        String methodId;
+        List<Site> params = List.of();
+        Site callee, returnSite;
+        boolean implicit;
 
         Site(int id, Kind kind, int start, int end, List<String> scopes) {
             this.id = id; this.kind = kind; this.start = start; this.end = end;

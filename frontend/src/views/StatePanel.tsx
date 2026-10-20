@@ -1,6 +1,6 @@
 // Frames, bindings and arrays at the playback cursor. Rendering is chosen by
 // recorded data shape only (bindings, arrays, arrays of arrays), never by algorithm.
-import { arrayType, formatValue, namesOf, stringText } from '../trace/format.ts';
+import { arrayType, formatValue, methodName, namesOf, stringText } from '../trace/format.ts';
 import type { Focus, State, View } from '../trace/playback.ts';
 import type { TraceObject } from '../trace/types.ts';
 
@@ -17,13 +17,16 @@ export function StatePanel({ view }: { view: View }) {
   const topLevel = arrays.filter(a => bound.has(a.objectId) || !nested.has(a.objectId));
   return (
     <div className="state">
-      <section className="panel" aria-label="Variables">
-        <h2>Variables</h2>
+      <section className="panel" aria-label="Call stack">
+        <h2>{state.frames.length > 1 ? `Call stack (${state.frames.length} frames)` : 'Variables'}</h2>
         {view.beforeEnd && <p className="muted" data-testid="ended-note">main has returned; showing the values it ended with.</p>}
         {state.frames.length === 0 && <p className="muted">No active frame.</p>}
-        {[...state.frames].reverse().map(frame => (
-          <div className="frame" key={frame.frameId}>
-            <div className="frame-name">{frame.methodId}</div>
+        {/* Innermost (running) frame first; each invocation has its own variables, even with the same names. */}
+        {[...state.frames].reverse().map((frame, depth) => (
+          <div className={`frame${depth === 0 ? ' active' : ''}`} key={frame.frameId} data-testid="frame">
+            <div className="frame-name" title={frame.methodId}>
+              {methodName(frame.methodId)}{depth === 0 && state.frames.length > 1 && <span className="badge">running</span>}
+            </div>
             <table className="bindings">
               <tbody>
                 {state.bindings.filter(b => b.frameId === frame.frameId).map(b => (

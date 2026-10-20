@@ -15,7 +15,7 @@ import java.util.*;
  * source's SHA-256 so the reader can reject a plan for different text.
  */
 final class PlanCodec {
-    static final int VERSION = 4; // 2: uncaptured regions (Part 8a); 3: primitive types (Part 8b); 4: switch and arrays (Part 8c)
+    static final int VERSION = 5; // 2: regions (8a); 3: primitive types (8b); 4: switch and arrays (8c); 5: methods (8d)
 
     private PlanCodec() { }
 
@@ -33,6 +33,11 @@ final class PlanCodec {
             if (s.operand != null) m.put("delta", s.delta);
             if (s.viaArith) m.put("viaArith", true);
             if (s.dims != 0) m.put("dims", s.dims);
+            put(m, "methodId", s.methodId);
+            if (!s.params.isEmpty()) m.put("params", s.params.stream().map(p -> (Object) p.id).toList());
+            if (s.callee != null) m.put("callee", s.callee.id);
+            if (s.returnSite != null) m.put("returnSite", s.returnSite.id);
+            if (s.implicit) m.put("implicit", true);
             if (!s.cases.isEmpty()) m.put("cases", s.cases.stream().map(c -> (Object) TraceBuilder.ordered("values",
                     new ArrayList<Object>(c.values()), "default", c.isDefault(), "start", c.start(), "end", c.end())).toList());
             if (!s.declareBefore.isEmpty()) m.put("declareBefore", s.declareBefore.stream().map(d -> (Object) d.id).toList());
@@ -94,6 +99,8 @@ final class PlanCodec {
             if (m.containsKey("delta")) s.delta = integer(m, "delta");
             s.viaArith = Boolean.TRUE.equals(m.get("viaArith"));
             if (m.containsKey("dims")) s.dims = integer(m, "dims");
+            s.methodId = (String) m.get("methodId");
+            s.implicit = Boolean.TRUE.equals(m.get("implicit"));
             if (m.containsKey("cases")) {
                 List<Plan.Case> cases = new ArrayList<>();
                 for (Object c : (List<Object>) m.get("cases")) {
@@ -128,13 +135,22 @@ final class PlanCodec {
         }
         for (var entry : rawSites.entrySet()) {
             if (entry.getValue().containsKey("leaf")) sites.get(entry.getKey()).leaf = require(conds, integer(entry.getValue(), "leaf"));
+            Map<String, Object> raw = entry.getValue();
+            Site site = sites.get(entry.getKey());
+            if (raw.containsKey("params")) {
+                List<Site> params = new ArrayList<>();
+                for (Object id : (List<Object>) raw.get("params")) params.add(require(sites, ((Long) id).intValue()));
+                site.params = List.copyOf(params);
+            }
+            if (raw.containsKey("callee")) site.callee = require(sites, integer(raw, "callee"));
+            if (raw.containsKey("returnSite")) site.returnSite = require(sites, integer(raw, "returnSite"));
             if (entry.getValue().containsKey("declareBefore")) {
                 for (Object id : (List<Object>) entry.getValue().get("declareBefore"))
                     sites.get(entry.getKey()).declareBefore.add(require(sites, ((Long) id).intValue()));
             }
         }
         Analysis analysis = new Analysis(source, readDiagnostics(root.get("compileErrors")), readDiagnostics(root.get("unsupported")),
-                readDiagnostics(root.get("uncaptured")), Map.of(), List.of(), Map.copyOf(sites), (String) root.get("rootScope"));
+                readDiagnostics(root.get("uncaptured")), Map.of(), Map.of(), Map.copyOf(sites), (String) root.get("rootScope"));
         return new Decoded(analysis, (Boolean) root.get("traced"));
     }
 
