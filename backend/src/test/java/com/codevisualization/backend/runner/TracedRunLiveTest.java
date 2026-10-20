@@ -178,6 +178,38 @@ class TracedRunLiveTest {
         assertTrue(closed.trace().contains("\"status\":\"failed\"") && closed.trace().contains("java.util.NoSuchElementException"));
     }
 
+    /** Part 8h inside the container: a helper throws, main catches, finally runs on both paths. */
+    @Test void exceptionsAreThrownCaughtAndUnwoundInTheContainer() throws Exception {
+        var r = run("exceptions", """
+                public class Main {
+                    static class InsufficientFunds extends RuntimeException {
+                        InsufficientFunds(String message) { super(message); }
+                    }
+                    static int withdraw(int balance, int amount) {
+                        if (amount > balance) throw new InsufficientFunds("short by " + (amount - balance));
+                        return balance - amount;
+                    }
+                    public static void main(String[] args) {
+                        int balance = 100;
+                        int[] requests = {30, 500, 20};
+                        for (int amount : requests) {
+                            try {
+                                balance = withdraw(balance, amount);
+                            } catch (InsufficientFunds e) {
+                                System.out.println("refused: " + e.getMessage());
+                            } finally {
+                                System.out.println("balance " + balance);
+                            }
+                        }
+                    }
+                }
+                """);
+        assertEquals("balance 70\nrefused: short by 430\nbalance 70\nbalance 50\n", stdout(r));
+        assertTrue(r.trace().contains("\"execution\":{\"status\":\"completed\"") && r.trace().contains("\"capture\":{\"status\":\"complete\""));
+        assertTrue(r.trace().contains("\"kind\":\"CATCH\"") && r.trace().contains("\"className\":\"Main$InsufficientFunds\""));
+        assertTrue(r.trace().contains("\"reason\":\"unwind\""), "the helper's frame unwinds when the exception leaves it");
+    }
+
     @Test void noOwnedContainerRemainsAfterTracedRuns() throws Exception {
         bubbleSortIsTracedInsideTheContainer();
         try (var control = new BoundedCommandRunner()) {

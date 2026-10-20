@@ -23,6 +23,7 @@ export function formatValue(value: Value, objects?: Map<string, TraceObject>): s
       if (object?.kind === 'collection') return `${shortName(object.className)}(${object.elements.length})`;
       if (object?.kind === 'map') return `${shortName(object.className)}(${object.entries.length})`;
       if (object?.kind === 'input') return 'Scanner(System.in)';
+      if (object?.kind === 'exception') return `${exceptionName(object.className)}(${object.message === null ? '' : JSON.stringify(object.message)})`;
       return `ref ${value.objectId}`;
     }
   }
@@ -36,6 +37,12 @@ export function objectLabel(object: TraceObject & { kind: 'object' }): string {
 /** java.util.ArrayList shows as ArrayList. */
 export function shortName(className: string): string {
   return className.slice(className.lastIndexOf('.') + 1);
+}
+
+/** 1.7.0: java.lang.ArithmeticException shows as ArithmeticException, Main$InsufficientFunds as InsufficientFunds. */
+export function exceptionName(className: string): string {
+  const simple = className.slice(className.lastIndexOf('.') + 1);
+  return simple.startsWith('Main$') ? simple.slice(5).replaceAll('$', '.') : simple.replaceAll('$', '.');
 }
 
 /** Main.Node shows as Node. */
@@ -111,8 +118,11 @@ function operand(o: Operand, objects: Map<string, TraceObject>): string {
   return 'skipped' in o ? '(not evaluated)' : formatValue(o.value, objects);
 }
 
-/** One-line description of the kth operation, read from the state at that cursor. */
-export function describe(event: ObservableEvent, state: State): string {
+/**
+ * One-line description of the kth operation, read from the state at that cursor. With the source
+ * text, an exception raised by a throw statement reads as a throw (1.7.0).
+ */
+export function describe(event: ObservableEvent, state: State, source?: string): string {
   const objects = state.objects;
   const arrayName = (objectId: string) => namesOf(state, objectId)[0] ?? 'array';
   const objectName = (objectId: string) => {
@@ -197,8 +207,17 @@ export function describe(event: ObservableEvent, state: State): string {
       ];
       return `Ran without visualization${changed.length ? ` (${changed.join(', ')})` : ''}`;
     }
-    case 'EXCEPTION':
-      return `${event.data.exceptionType}${event.data.message ? `: ${event.data.message}` : ''}`;
+    case 'EXCEPTION': {
+      const message = event.data.message ? `: ${event.data.message}` : '';
+      if (source?.startsWith('throw', event.source.start)) return `Throw ${exceptionName(event.data.exceptionType)}${message}`;
+      return `${event.data.exceptionType}${message}`;
+    }
+    case 'CATCH': {
+      const b = event.data.binding;
+      const caught = b.value.kind === 'ref' ? objects.get(b.value.objectId) : undefined;
+      const what = caught?.kind === 'exception' ? `${exceptionName(caught.className)}${caught.message ? `: ${caught.message}` : ''}` : '';
+      return `Catch ${b.name}${what ? ` = ${what}` : ''}`;
+    }
   }
 }
 

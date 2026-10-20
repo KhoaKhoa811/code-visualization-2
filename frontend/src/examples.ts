@@ -169,6 +169,31 @@ public class Main {
     }
 }
 `,
+  'Exceptions': `public class Main {
+    static class InsufficientFunds extends RuntimeException {
+        InsufficientFunds(String message) { super(message); }
+    }
+
+    static int withdraw(int balance, int amount) {
+        if (amount > balance) throw new InsufficientFunds("short by " + (amount - balance));
+        return balance - amount;
+    }
+
+    public static void main(String[] args) {
+        int balance = 100;
+        int[] requests = {30, 500, 20};
+        for (int amount : requests) {
+            try {
+                balance = withdraw(balance, amount);
+            } catch (InsufficientFunds e) {
+                System.out.println("refused: " + e.getMessage());
+            } finally {
+                System.out.println("balance " + balance);
+            }
+        }
+    }
+}
+`,
   'Read input': `import java.util.Scanner;
 
 public class Main {

@@ -49,7 +49,7 @@ export class Playback {
 
   constructor(trace: Trace, checkpointEvery = 256) {
     this.every = checkpointEvery;
-    if (trace.schemaVersion !== '1.6.0') throw new TraceError(`Unsupported trace version ${String(trace.schemaVersion)}`);
+    if (trace.schemaVersion !== '1.7.0') throw new TraceError(`Unsupported trace version ${String(trace.schemaVersion)}`);
     this.trace = trace;
     this.steps = trace.stepEnds.length;
     if (trace.initialState === null) {
@@ -126,7 +126,8 @@ function initial(trace: Trace, seen?: Set<string>): State {
 
 function apply(state: State, event: TraceEvent, seen?: Set<string>): void {
   switch (event.kind) {
-    case 'DECLARE': {
+    case 'DECLARE':
+    case 'CATCH': { // 1.7.0: a catch parameter is declared like a local
       const binding = event.data.binding;
       activeFrame(state, event.frameId);
       if (!state.scopes.some(s => s.scopeId === binding.scopeId)) throw new TraceError(`Unknown scope ${binding.scopeId}`);
@@ -161,8 +162,12 @@ function apply(state: State, event: TraceEvent, seen?: Set<string>): void {
       array.elements[event.data.index] = event.data.value;
       return;
     }
+    case 'EXCEPTION': {
+      const object = state.objects.get(event.data.objectId);
+      if (object?.kind !== 'exception') throw new TraceError(`Unknown exception ${event.data.objectId}`);
+      return;
+    }
     case 'EXPRESSION':
-    case 'EXCEPTION':
     case 'SWITCH':
       return;
     case 'LIBRARY': {
@@ -329,7 +334,7 @@ function clone(state: State): State {
 function focusOf(event: ObservableEvent | null): Focus {
   if (!event) return {};
   switch (event.kind) {
-    case 'DECLARE': return { bindingId: event.data.binding.bindingId };
+    case 'DECLARE': case 'CATCH': return { bindingId: event.data.binding.bindingId };
     case 'ASSIGN': case 'UPDATE': return { bindingId: event.data.bindingId };
     case 'ALLOCATE': return { objectId: event.data.object.objectId, access: 'allocate' };
     case 'ARRAY_READ': return { objectId: event.data.objectId, index: event.data.index, access: 'read' };
