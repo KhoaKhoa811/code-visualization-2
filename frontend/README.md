@@ -27,6 +27,7 @@ from algorithm or example recognition ([coverage roadmap](../specs/coverage-road
 | 9a | Grid of panels on one cursor; drag panel titles to reorder; drag object boxes, arrays (as groups) and collections, arrows follow; Reset layout ([frontend design](../specs/frontend-design.md)) | 23 reducer/layout tests, 11 browser tests |
 | 9b | Tree view: suggested and confirmed value/left/right mapping of a user class, in-order layout, dashed conflict links, highlights, draggable nodes; tree-sort example ([tree view](../specs/tree-view.md)) | 26 unit tests, 12 browser tests |
 | 9c | Heap view: an array confirmed as a heap (indexing, size variable, order) as a synchronized strip and tree; recorded boundary, sorted suffix, observed order violations; heap-sort example ([heap view](../specs/heap-view.md)) | 30 unit tests, 13 browser tests |
+| 9d | ArrayDeque/LinkedList view switch: Deque (List) / Stack / Queue by explicit choice, kept per variable across steps and runs; controls inside draggable boxes keep their clicks | 31 unit tests, 13 browser tests |
 
 ## Stack and pins
 

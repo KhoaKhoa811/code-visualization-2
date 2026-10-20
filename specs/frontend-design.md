@@ -47,7 +47,12 @@ playback cursor (AC-18, AC-23).
   its place.
 - **Move diagram elements:** drag an object box, an array (as one group, rows
   included) or a collection. Reference arrows follow the moved box.
-- **Reset layout** restores the default panel order and positions.
+- **Deque view (Part 9d):** an `ArrayDeque` or `LinkedList` has a Deque (or List) / Stack / Queue
+  switch. Stack draws the first element as the top, vertically (push, pop and peek work
+  there). Queue marks the first element as the front and the last as the back. The choice
+  belongs to the variable name, so it lasts across steps and runs. It is never made
+  automatically.
+- **Reset layout** restores the default panel order, positions and view choices.
 - **Persistence:** panel order lasts for the page session, across runs. Element
   positions last for one run, because element identities belong to one run and are
   never reused (requirements 6.1). Nothing is stored after the page closes. Saving

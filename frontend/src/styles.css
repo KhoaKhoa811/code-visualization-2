@@ -176,3 +176,10 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 .heap-strip .cell.outside { opacity: .65; border-style: dashed; }
 .heap-strip .cell.unused { opacity: .35; }
 .heap-tree { margin-top: 18px; }
+
+/* Part 9d: a deque or linked list shown as a stack or a queue by the user's choice. */
+.mode-switch { display: inline-flex; margin-left: 8px; }
+.mode-switch button { padding: 0 8px; font-size: 11px; border-radius: 0; }
+.mode-switch button:first-child { border-radius: 6px 0 0 6px; }
+.mode-switch button:last-child { border-radius: 0 6px 6px 0; }
+.mode-switch button.selected { background: var(--accent); border-color: var(--accent); color: #fff; }

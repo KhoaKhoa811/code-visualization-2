@@ -9,12 +9,16 @@ export interface Layout {
   order: string[];
   /** Drag offsets by element key, such as object:o3 or array:o2; keys use the current run's ids. */
   offsets: Record<string, Offset>;
+  /** Part 9d: the chosen view of a deque or linked list, by variable name (it survives runs). */
+  modes: Record<string, CollectionMode>;
 }
+
+export type CollectionMode = 'stack' | 'queue';
 
 export const PANELS = ['variables', 'collections', 'trees', 'heaps', 'objects', 'arrays', 'strings'] as const;
 
 export function initialLayout(): Layout {
-  return { order: [...PANELS], offsets: {} };
+  return { order: [...PANELS], offsets: {}, modes: {} };
 }
 
 /** Moves panel {@code from} to the position of {@code to}; the panels between shift by one. */
@@ -34,6 +38,13 @@ export function setOffset(layout: Layout, key: string, x: number, y: number): La
 /** A new run: element ids of the previous run mean nothing now, so offsets are dropped; panel order stays. */
 export function forNewRun(layout: Layout): Layout {
   return Object.keys(layout.offsets).length === 0 ? layout : { ...layout, offsets: {} };
+}
+
+/** Shows a deque or linked list (by variable name) as a stack or a queue; null restores its own view. */
+export function setMode(layout: Layout, name: string, mode: CollectionMode | null): Layout {
+  const modes = { ...layout.modes };
+  if (mode === null) delete modes[name]; else modes[name] = mode;
+  return { ...layout, modes };
 }
 
 /** CSS order of a panel in the grid. */

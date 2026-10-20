@@ -101,6 +101,27 @@ test('strings, a map, a stack, a queue and a priority queue play back as library
   await expect(page.getByTestId('library-queue').getByTestId('item').locator('.cell-value')).toHaveText(['"second"']);
   await expect(page.getByTestId('library-pq').getByTestId('item').locator('.cell-value')).toHaveText(['1', '3', '5']);
   await expect(page.getByTestId('library-word').getByTestId('item')).toHaveCount(0); // setLength(0) after the last word
+
+  // 9d, AC-12: the user chooses to see the ArrayDeque as a stack and the LinkedList as a queue.
+  const stack = page.getByTestId('library-stack');
+  await stack.getByRole('group', { name: 'stack view' }).getByRole('button', { name: 'Stack' }).click();
+  await expect(stack.getByTestId('as-stack').getByTestId('item').locator('.cell-value')).toHaveText(['2', '1']);
+  await expect(stack.locator('.cell.top .cell-value')).toHaveText('2'); // push/pop/peek end
+  await expect(stack).toContainText('top = first element');
+  const queue = page.getByTestId('library-queue');
+  await queue.getByRole('group', { name: 'queue view' }).getByRole('button', { name: 'Queue' }).click();
+  await expect(queue.getByTestId('as-queue').getByTestId('item')).toHaveText(['"second"front / back']);
+  // The choice stays while stepping: back to the first push, then before it the stack is empty.
+  for (let i = 0; i < 120; i++) {
+    if ((await page.getByTestId('step-detail').textContent())?.includes('stack.push(1)')) break;
+    await page.getByRole('button', { name: 'Step back' }).click();
+  }
+  await expect(page.getByTestId('step-detail')).toContainText('stack.push(1)');
+  await expect(stack.getByTestId('as-stack').getByTestId('item').locator('.cell-value')).toHaveText(['1']);
+  await page.getByRole('button', { name: 'Step back' }).click();
+  await expect(stack).toContainText('empty stack');
+  await stack.getByRole('group', { name: 'stack view' }).getByRole('button', { name: 'Deque' }).click();
+  await expect(stack.getByTestId('as-stack')).toHaveCount(0);
   await page.screenshot({ path: 'test-results/library-end.png', fullPage: true });
 });
 
