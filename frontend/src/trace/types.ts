@@ -44,6 +44,8 @@ export type ObservableEvent = { seq: number; step: number; source: SourceRange; 
   | { kind: 'RETURN'; data: { result: Value | null; implicit: boolean } }
   | { kind: 'EXCEPTION'; data: { exceptionType: string; message: string } }
   | { kind: 'UNCAPTURED'; data: { unknownBindings: string[]; arrays: { objectId: string; elements: Value[] }[]; unknownArrays: string[] } }
+  // 1.3.0: a switch chose a branch; the source range is the chosen label.
+  | { kind: 'SWITCH'; data: { value: Value; matched: 'case' | 'default' | 'none' } }
 );
 
 export type BookkeepingEvent = { seq: number } & (
@@ -64,7 +66,7 @@ export interface Diagnostic {
 }
 
 export interface Trace {
-  schemaVersion: '1.2.0';
+  schemaVersion: '1.3.0';
   runId: string;
   source: { file: 'Main.java'; text: string; sha256: string };
   execution: { status: ExecutionStatus; reason: string };
@@ -76,7 +78,7 @@ export interface Trace {
 }
 
 export const OBSERVABLE_KINDS = new Set(['DECLARE', 'ASSIGN', 'UPDATE', 'ALLOCATE', 'ARRAY_READ', 'ARRAY_LENGTH',
-  'ARRAY_WRITE', 'EXPRESSION', 'CALL', 'RETURN', 'EXCEPTION', 'UNCAPTURED']);
+  'ARRAY_WRITE', 'EXPRESSION', 'CALL', 'RETURN', 'EXCEPTION', 'UNCAPTURED', 'SWITCH']);
 export const BOOKKEEPING_KINDS = new Set(['SCOPE_ENTER', 'SCOPE_EXIT', 'FRAME_END', 'OBJECT_CAPTURE']);
 
 export function isObservable(event: TraceEvent): event is ObservableEvent {

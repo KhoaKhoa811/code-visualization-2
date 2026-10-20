@@ -122,3 +122,23 @@ not verbatim transcripts, unless quoted.
   are folded (no l2i).
 - Final: 132 Java tests (tracer 46, backend 86) with live Docker, 54 contract,
   10 reducer, 4 browser tests passed; no containers left.
+
+## 2026-10-19 — Part 8c statements and arrays (Claude Code)
+
+- User: "Please continue implementing part 8c" (2026-10-18). User merged 7d-8b
+  (PRs #86-#89); the branch was rebased onto main 234a586.
+- 4dc320a: contract 1.3.0 (SWITCH step, nested array element types) and tracer
+  for do/while, labeled jumps, switch statements and top-level switch
+  expressions on int-like selectors, for-each over arrays (javac's hidden copy,
+  length and index matched, not shown), arrays of every primitive type, String
+  and arrays of those (newarray/anewarray/multianewarray helpers, typed
+  load/store helpers, initializer expressions). Uncaptured for-each loops map
+  through javac's range-table entry at the iterated expression; inner arrays are
+  captured before references, and before an uncaptured step that revealed them.
+- a7fb958 frontend (rows for arrays of arrays, element paths, SWITCH text);
+  0a128aa browser test. The browser test found a waiting declaration attached to
+  the first case of a following switch; declarations now attach from their own
+  plan position (regression test added).
+- Live tests need `-Dcodeviz.docker.live=true` and `-Dcodeviz.docker.executable`.
+  Final: 141 Java tests (tracer 55, backend 86) with live Docker, 56 contract,
+  13 reducer, 5 browser tests; no containers left.

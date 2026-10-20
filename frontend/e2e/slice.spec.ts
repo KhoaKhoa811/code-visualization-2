@@ -92,6 +92,38 @@ test('long, double and char values are traced exactly (8b)', async ({ page }) =>
   await expect(page.getByTestId('var-low')).toContainText('0');
 });
 
+test('a grid, for-each, switch and do-while play back (8c)', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.monaco-editor')).toBeVisible();
+  await page.getByLabel('Example').selectOption('Grid and switch');
+  await run(page);
+  await expect(page.getByTestId('run-summary')).toContainText('capture complete');
+  await expect(page.getByTestId('console-output')).toHaveText('18\nmany\nA\n');
+
+  const forward = page.getByRole('button', { name: 'Step forward' });
+  await forward.click();
+  await expect(page.getByTestId('step-detail')).toContainText('Create int[3][]');
+  await expect(page.getByTestId('array-grid').getByTestId('row')).toHaveCount(0); // not declared yet: drawn as temporary
+  await forward.click();
+  await expect(page.getByTestId('array-grid').getByTestId('row')).toHaveCount(3);
+
+  for (let i = 0; i < 400; i++) {
+    if ((await page.getByTestId('step-detail').textContent())?.includes('Switch on')) break;
+    await forward.click();
+  }
+  await expect(page.getByTestId('step-detail')).toContainText('Switch on 18: no case matches, default');
+  await expect(page.locator('.step-highlight-text').first()).toBeVisible();
+  await page.screenshot({ path: 'test-results/grid-switch.png' });
+
+  await page.getByTitle('End').click();
+  await expect(page.getByTestId('array-grid').getByTestId('row').nth(2).getByTestId('cell').locator('.cell-value'))
+    .toHaveText(['0', '2', '4', '6']);
+  await expect(page.getByTestId('var-total')).toContainText('18');
+  await expect(page.getByTestId('var-grade')).toContainText("'A'");
+  await expect(page.getByTestId('var-countdown')).toContainText('0');
+  await expect(page.getByTestId('array-names').getByTestId('cell').locator('.cell-value')).toHaveText(['"zero"', '"one"', '"many"']);
+});
+
 test('another program and a compile error', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('.monaco-editor')).toBeVisible();

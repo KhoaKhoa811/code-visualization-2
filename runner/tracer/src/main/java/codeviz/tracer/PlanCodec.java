@@ -15,7 +15,7 @@ import java.util.*;
  * source's SHA-256 so the reader can reject a plan for different text.
  */
 final class PlanCodec {
-    static final int VERSION = 3; // 2: uncaptured regions (Part 8a); 3: primitive types (Part 8b)
+    static final int VERSION = 4; // 2: uncaptured regions (Part 8a); 3: primitive types (Part 8b); 4: switch and arrays (Part 8c)
 
     private PlanCodec() { }
 
@@ -32,6 +32,9 @@ final class PlanCodec {
             put(m, "fromType", s.fromType); put(m, "operand", s.operand);
             if (s.operand != null) m.put("delta", s.delta);
             if (s.viaArith) m.put("viaArith", true);
+            if (s.dims != 0) m.put("dims", s.dims);
+            if (!s.cases.isEmpty()) m.put("cases", s.cases.stream().map(c -> (Object) TraceBuilder.ordered("values",
+                    new ArrayList<Object>(c.values()), "default", c.isDefault(), "start", c.start(), "end", c.end())).toList());
             if (!s.declareBefore.isEmpty()) m.put("declareBefore", s.declareBefore.stream().map(d -> (Object) d.id).toList());
             if (s.kind == Kind.REGION) {
                 m.put("unknownDeclarations", new ArrayList<Object>(s.unknownDeclarations));
@@ -90,6 +93,16 @@ final class PlanCodec {
             s.fromType = (String) m.get("fromType"); s.operand = (String) m.get("operand");
             if (m.containsKey("delta")) s.delta = integer(m, "delta");
             s.viaArith = Boolean.TRUE.equals(m.get("viaArith"));
+            if (m.containsKey("dims")) s.dims = integer(m, "dims");
+            if (m.containsKey("cases")) {
+                List<Plan.Case> cases = new ArrayList<>();
+                for (Object c : (List<Object>) m.get("cases")) {
+                    Map<String, Object> cm = (Map<String, Object>) c;
+                    cases.add(new Plan.Case(((List<Object>) cm.get("values")).stream().map(v -> Math.toIntExact((Long) v)).toList(),
+                            (Boolean) cm.get("default"), integer(cm, "start"), integer(cm, "end")));
+                }
+                s.cases = List.copyOf(cases);
+            }
             if (m.containsKey("unknownDeclarations")) {
                 s.unknownDeclarations = ((List<Object>) m.get("unknownDeclarations")).stream().map(String.class::cast).toList();
                 s.mayWriteArrays = (Boolean) m.get("mayWriteArrays");

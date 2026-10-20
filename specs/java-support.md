@@ -47,13 +47,13 @@ all compositions preserve semantics.
 | Capability | First scalar/array increment | Later required V1 work or unresolved detail |
 | --- | --- | --- |
 | Scalar types | int, boolean; String literal/null bindings and captured text/reference identity | Implemented in Part 8b: byte, short, char, long, float, double with exact typed capture and conversions ([primitive types](primitive-types.md)) |
-| Array types | One-dimensional int[]: literal-only initializers, new int[length], length, access, write, alias, null | Broader element types, dimensions, initializer expressions and operations require an agreed matrix; remain V1 work |
+| Array types | One-dimensional int[]: literal-only initializers, new int[length], length, access, write, alias, null | Implemented in Part 8c: every primitive element type and String, nested arrays at any depth (sized creation with up to three lengths), initializer expressions, row aliasing ([statements and arrays](statements.md)) |
 | Local bindings | Explicitly typed declarations, optional initializer, assignment, final locals, nested block lifetimes | var and additional declaration forms require verified type-resolution contexts |
 | Integer expressions | Unary +/-, binary +, -, *, /, %, comparisons; parentheses | Implemented in Part 8b: bitwise, shifts, casts, mixed numeric promotion, conditional operator |
 | Boolean expressions | !, &&, \|\|, ==, !=; supported comparisons as operands | Eager Boolean operators and conditional expressions need separate coverage |
 | References | Assignment, null, == and != for covered references | Custom objects/fields, casts and richer reference contexts follow object capture |
 | Updates | Prefix/postfix ++/-- on int locals, including nested covered expressions | Implemented in Part 8b: ++/-- on all numeric locals and int[] elements; compound assignment decomposed into read, operation and write steps |
-| Control flow | Blocks, if/else, while, basic for, unlabeled break/continue, return from main | Enhanced for, do/while, switch, labels, and other forms need explicit coverage decisions |
+| Control flow | Blocks, if/else, while, basic for, unlabeled break/continue, return from main | Implemented in Part 8c: do/while, enhanced for over arrays, switch statements and switch expressions on int-like selectors, labeled statements and jumps; switch on String or enums and enhanced for over collections remain uncaptured |
 | Output | Actual System.out/System.err print/println calls with covered scalar/String arguments | Exact overload inventory and console transport contract before implementation |
 | User methods | Main frame represented; helper calls are outside the first increment | Static fixed-arity helpers and recursion described in section 5; implement before tree/heap sorting |
 | Exceptions | Capture failures of covered operations, preserve earlier effects, report uncaught failure | Explicit throw, handlers, finally and resource cleanup need full tracing coverage before partial playback through them |

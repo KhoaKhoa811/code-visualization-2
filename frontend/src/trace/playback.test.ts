@@ -167,3 +167,60 @@ test('primitive types, casts, bitwise operators and unassigned declarations play
   const first = unassigned.at(1);
   assert.equal(describeStep(first.event!, first.state), 'Declare int total = (unassigned)');
 });
+
+test('switch steps highlight the chosen label and change no state (1.3.0)', () => {
+  const p = new Playback(fixture('switch'));
+  const views = Array.from({ length: p.steps }, (_, k) => p.at(k + 1));
+  const switches = views.filter(v => v.event?.kind === 'SWITCH');
+  const text = p.trace.source.text;
+  assert.deepEqual(switches.map(v => describeStep(v.event!, v.state)).slice(0, 4),
+    ['Switch on 0: matching case', 'Switch on 1: matching case', 'Switch on 2: matching case', 'Switch on 3: no case matches, default']);
+  const none = switches.find(v => v.event?.kind === 'SWITCH' && v.event.data.matched === 'none')!;
+  assert.equal(text.slice(none.event!.source.start, none.event!.source.end), 's');
+  assert.equal(describeStep(none.event!, none.state), 'Switch on 624: no case matches');
+  const onChar = switches.find(v => v.event?.kind === 'SWITCH' && v.event.data.value.kind === 'char')!;
+  assert.equal(text.slice(onChar.event!.source.start, onChar.event!.source.end), "case 'a', 'b'");
+  assert.equal(describeStep(onChar.event!, onChar.state), "Switch on 'b': matching case");
+  const before = p.at(switches[0].cursor - 1).state;
+  assert.deepEqual(switches[0].state.bindings, before.bindings);
+});
+
+test('arrays of arrays keep row identities, aliases and element paths (1.3.0)', () => {
+  const p = new Playback(fixture('nested-arrays'));
+  const end = p.at(p.steps).beforeEnd!;
+  const bound = (name: string) => {
+    const b = end.bindings.find(x => x.name === name)!;
+    assert.ok(b.value.kind === 'ref');
+    const o = end.objects.get(b.value.objectId);
+    assert.ok(o?.kind === 'array');
+    return o;
+  };
+  const grid = bound('grid');
+  assert.equal(formatValue(end.bindings.find(b => b.name === 'grid')!.value, end.objects), 'int[2][]');
+  const row1 = grid.elements[1];
+  assert.ok(row1.kind === 'ref');
+  assert.deepEqual(namesOf(end, row1.objectId), ['grid[1]']);
+  const tri = bound('tri');
+  assert.deepEqual(tri.elements[0], tri.elements[1]); // tri[0] = tri[1] shares the row
+  assert.equal(formatValue(bound('cube').elements[0], end.objects), 'int[2][]');
+  const write = Array.from({ length: p.steps }, (_, k) => p.at(k + 1)).find(v => v.event?.kind === 'ARRAY_WRITE')!;
+  assert.equal(describeStep(write.event!, write.state), 'Write grid[1][2]: 0 → 7');
+  const first = p.at(1);
+  assert.equal(describeStep(first.event!, first.state), 'Create int[2][]');
+  assert.equal(first.state.objects.size, 4); // args, the outer array and its two rows captured in the same step
+});
+
+test('rows and strings created by uncaptured statements are captured before the step that shows them', () => {
+  const p = new Playback(fixture('uncaptured-rows'));
+  const region = Array.from({ length: p.steps }, (_, k) => p.at(k + 1)).find(v => v.event?.kind === 'UNCAPTURED')!;
+  const g = region.state.bindings.find(b => b.name === 'g')!;
+  assert.ok(g.value.kind === 'ref');
+  const outer = region.state.objects.get(g.value.objectId);
+  assert.ok(outer?.kind === 'array');
+  const row = outer.elements[0];
+  assert.ok(row.kind === 'ref');
+  const created = region.state.objects.get(row.objectId);
+  assert.ok(created?.kind === 'array');
+  assert.deepEqual(created.elements.map(v => formatValue(v)), ['3', '4', '0']);
+  assert.equal(describeStep(region.event!, region.state), 'Ran without visualization (g changed)');
+});

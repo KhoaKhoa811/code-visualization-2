@@ -40,7 +40,38 @@ class TracerTest {
         }
         String json = Tracer.trace(prepared, "test-" + name, result.raw(), result.exit());
         validate(name, json);
-        return new Run(JsonReader.object(json), result, prepared, json);
+        // The backend builds the trace from the serialized plan; it must give the same trace.
+        Tracer.Prepared decoded = Tracer.fromPlan(source, Tracer.plan(prepared));
+        assertEquals(json, Tracer.trace(decoded, "test-" + name, result.raw(), result.exit()), "plan round trip");
+        Map<String, Object> trace = JsonReader.object(json);
+        assertReferencesResolve(trace);
+        return new Run(trace, result, prepared, json);
+    }
+
+    /** Every reference in an event names an object captured by that point (Part 8c: nested arrays). */
+    @SuppressWarnings("unchecked")
+    private static void assertReferencesResolve(Map<String, Object> trace) {
+        if (trace.get("initialState") == null) return;
+        java.util.Set<Object> known = new java.util.HashSet<>();
+        for (Object o : (List<Object>) map(trace.get("initialState")).get("objects")) known.add(map(o).get("objectId"));
+        for (Map<String, Object> e : events(trace)) {
+            Map<String, Object> data = map(e.get("data"));
+            Object created = data.get("object") instanceof Map<?, ?> object ? object.get("objectId") : null;
+            List<Object> refs = new ArrayList<>();
+            collectRefs(data, refs);
+            for (Object id : refs) assertTrue(known.contains(id), "event " + e.get("seq") + " references uncaptured " + id);
+            if (created != null) assertTrue(known.add(created), "object captured twice: " + created);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void collectRefs(Object node, List<Object> out) {
+        if (node instanceof Map<?, ?> m) {
+            if ("ref".equals(m.get("kind"))) out.add(m.get("objectId"));
+            for (Object v : m.values()) collectRefs(v, out);
+        } else if (node instanceof List<?> l) {
+            for (Object v : l) collectRefs(v, out);
+        }
     }
 
     private Run main(String name, String body) throws Exception { return run(name, program(body)); }
@@ -108,6 +139,7 @@ class TracerTest {
                         .map(o -> map(o).containsKey("skipped") ? "_" : value(map(o).get("value")))
                         .reduce((a, b) -> a + " " + b).orElse("") + " = " + value(d.get("result"));
                 case "EXCEPTION" -> "EXCEPTION " + d.get("exceptionType");
+                case "SWITCH" -> "SWITCH " + value(d.get("value")) + " " + d.get("matched");
                 case "UNCAPTURED" -> "UNCAPTURED" + ((List<Object>) d.get("unknownBindings")).stream().map(id -> " " + names.get(id) + "=?")
                         .reduce("", String::concat) + ((List<Object>) d.get("arrays")).stream().map(a -> " #" + map(a).get("objectId") + "="
                         + ((List<Object>) map(a).get("elements")).stream().map(TracerTest::value).toList().toString().replace(" ", ""))
@@ -372,6 +404,253 @@ class TracerTest {
         assertInOrder(steps(r.trace()), "EXPR + 2147483647 1 = -2147483648 @big + 1");
     }
 
+    // ---- Part 8c: statements and arrays ------------------------------------------------
+
+    @Test void forEachDoWhileAndLabeledJumps() throws Exception {
+        Run r = main("statements-loops", """
+                int[] a = {3, 1, 2};
+                int sum = 0;
+                for (int v : a) sum += v;
+                long total = 0;
+                for (long w : a) { total += w; }
+                int i = 0;
+                do { i++; } while (i < 3);
+                do i--; while (false);
+                int hits = 0;
+                outer:
+                for (int x = 0; x < 3; x++) {
+                    for (int y = 0; y < 3; y++) {
+                        if (y == x) continue outer;
+                        if (x == 2) break outer;
+                        hits++;
+                    }
+                }
+                System.out.println(sum);
+                System.out.println(total);
+                System.out.println(i);
+                System.out.println(hits);""");
+        assertComplete(r, "completed");
+        assertEquals("6\n6\n2\n1\n", r.result().stdout());
+        List<String> steps = steps(r.trace());
+        assertInOrder(steps, "LENGTH 3 @a", "READ [0]=3 @a", "DECLARE v=3 @int v", "EXPR + 0 3 = 3 @sum += v", "ASSIGN sum 0->3 @sum += v",
+                "READ [1]=1 @a", "DECLARE v=1 @int v", "READ [2]=2 @a", "DECLARE v=2 @int v", "ASSIGN sum 4->6 @sum += v",
+                "READ [0]=3 @a", "DECLARE w=3 @long w", "ASSIGN total 0->3 @total += w",
+                "UPDATE i 0->1 =0 @i++", "EXPR < 1 3 = true @i < 3", "UPDATE i 2->3 =2 @i++", "EXPR < 3 3 = false @i < 3",
+                "UPDATE i 3->2 =3 @i--",
+                "EXPR == 0 0 = true @y == x", "EXPR == 0 1 = false @y == x", "EXPR == 1 2 = false @x == 2", "UPDATE hits 0->1 =0 @hits++",
+                "EXPR == 1 1 = true @y == x", "EXPR == 0 2 = false @y == x", "EXPR == 2 2 = true @x == 2");
+        assertEquals(2, steps.stream().filter(s -> s.startsWith("LENGTH")).count(), "each for-each reads the length once");
+        // Each iteration declares its loop variable afresh in a new scope instance.
+        assertTrue(kinds(r.trace()).stream().filter("SCOPE_ENTER"::equals).count() >= 6);
+    }
+
+    @Test void switchStatementsAndExpressions() throws Exception {
+        Run r = main("statements-switch", """
+                int s = 0;
+                for (int k = 0; k < 4; k++) {
+                    switch (k) {
+                        case 0: s += 10; break;
+                        case 1:
+                        case 2: s += 1;
+                        default: s += 100;
+                    }
+                }
+                char c = 'b';
+                switch (c) { case 'a', 'b' -> s = s * 2; case 'z' -> s = 0; }
+                switch (s) { case 1 -> s = 5; }
+                int label = switch ((s + 1) % 3) { case 0 -> 7; case 1 -> { int t = s * 2; yield t; } default -> -1; };
+                long big = switch (c) { case 'b' -> 1L << 40; default -> 0; };
+                byte small = 3;
+                switch (small) { case 3: label++; }
+                System.out.println(s);
+                System.out.println(label);
+                System.out.println(big);""");
+        assertComplete(r, "completed");
+        assertEquals("624\n1249\n1099511627776\n", r.result().stdout());
+        assertInOrder(steps(r.trace()), "SWITCH 0 case @case 0", "ASSIGN s 0->10 @s += 10",
+                "SWITCH 1 case @case 1", "ASSIGN s 10->11 @s += 1", "ASSIGN s 11->111 @s += 100",
+                "SWITCH 2 case @case 2", "SWITCH 3 default @default", "ASSIGN s 212->312 @s += 100",
+                "SWITCH 98 case @case 'a', 'b'", "ASSIGN s 312->624 @s = s * 2",
+                "SWITCH 624 none @s",
+                "EXPR % 625 3 = 1 @(s + 1) % 3", "SWITCH 1 case @case 1", "EXPR * 624 2 = 1248 @s * 2", "DECLARE t=1248 @int t = s * 2",
+                "SWITCH 98 case @case 'b'", "DECLARE big=1099511627776 @long big = switch (c) { case 'b' -> 1L << 40; default -> 0; }",
+                "SWITCH 3 case @case 3", "UPDATE label 1248->1249 =1248 @label++");
+        assertTrue(steps(r.trace()).stream().anyMatch(s -> s.startsWith("DECLARE label=1248 @int label = switch")));
+    }
+
+    @Test void arraysOfEveryElementType() throws Exception {
+        Run r = main("arrays-types", """
+                double[] d = new double[3];
+                d[1] = 2.5;
+                d[2] += d[1] * 2;
+                char[] word = {'h', 'i'};
+                word[0]++;
+                boolean[] seen = new boolean[2];
+                seen[1] = true;
+                if (seen[1]) d[0] = -0.0;
+                seen[0] = !seen[1];
+                byte[] b = {127};
+                b[0]++;
+                long[] l = new long[1];
+                l[0] = 1L << 40;
+                String[] names = {"x", null, "z"};
+                names[1] = names[0];
+                float[] f = {1.5f};
+                f[0] /= 0;
+                short[] sh = new short[1];
+                sh[0] -= 1;
+                System.out.println(d[2]);
+                System.out.println(word[0]);
+                System.out.println(b[0]);
+                System.out.println(names[1] == names[0]);
+                System.out.println(f[0]);
+                System.out.println(sh[0]);
+                System.out.println(l[0] + d[0]);""");
+        assertComplete(r, "completed");
+        assertEquals("5.0\ni\n-128\ntrue\nInfinity\n-1\n1.099511627776E12\n", r.result().stdout());
+        assertInOrder(steps(r.trace()), "ALLOCATE [0.0,0.0,0.0] @new double[3]", "WRITE [1] 0.0->2.5 @d[1] = 2.5",
+                "READ [2]=0.0 @d[2]", "READ [1]=2.5 @d[1]", "EXPR * 2.5 2.0 = 5.0 @d[1] * 2", "EXPR + 0.0 5.0 = 5.0 @d[2] += d[1] * 2",
+                "WRITE [2] 0.0->5.0 @d[2] += d[1] * 2",
+                "ALLOCATE [104,105] @{'h', 'i'}", "READ [0]=104 @word[0]", "EXPR + 104 1 = 105 @word[0]++", "WRITE [0] 104->105 @word[0]++",
+                "ALLOCATE [false,false] @new boolean[2]", "WRITE [1] false->true @seen[1] = true",
+                "READ [1]=true @seen[1]", "EXPR condition true = true @seen[1]", "WRITE [0] 0.0->-0.0 @d[0] = -0.0",
+                "WRITE [0] false->false @seen[0] = !seen[1]",
+                "ALLOCATE [127] @{127}", "EXPR + 127 1 = 128 @b[0]++", "WRITE [0] 127->-128 @b[0]++",
+                "ALLOCATE [0] @new long[1]", "WRITE [0] 0->1099511627776 @l[0] = 1L << 40",
+                "READ [0]=1.5 @f[0]", "EXPR / 1.5 0.0 = Infinity @f[0] /= 0", "WRITE [0] 1.5->Infinity @f[0] /= 0",
+                "EXPR - 0 1 = -1 @sh[0] -= 1", "WRITE [0] 0->-1 @sh[0] -= 1");
+        assertTrue(steps(r.trace()).stream().anyMatch(s -> s.matches("ALLOCATE \\[#o\\d+,null,#o\\d+] @\\{\"x\", null, \"z\"}")));
+        assertTrue(steps(r.trace()).stream().anyMatch(s -> s.matches("WRITE \\[1] null->#o\\d+ @names\\[1] = names\\[0]")));
+    }
+
+    @Test void multiDimensionalArraysShareRows() throws Exception {
+        Run r = main("arrays-nested", """
+                int[][] grid = new int[2][3];
+                grid[1][2] = 7;
+                int[][] tri = {{1}, {2, 3}};
+                tri[0] = tri[1];
+                tri[0][0] = 9;
+                int[][][] cube = new int[2][2][2];
+                cube[1][1][1] = tri[1][0];
+                int[][] jag = new int[2][];
+                jag[0] = new int[]{4, 5};
+                int total = 0;
+                for (int[] row : grid) for (int v : row) total += v;
+                char[][] board = {{'x', 'o'}, {'o', 'x'}};
+                System.out.println(total);
+                System.out.println(tri[1][0]);
+                System.out.println(cube[1][1][1]);
+                System.out.println(jag[1] == null);
+                System.out.println(board[1][0]);""");
+        assertComplete(r, "completed");
+        assertEquals("7\n9\n9\ntrue\no\n", r.result().stdout());
+        List<String> steps = steps(r.trace());
+        assertTrue(steps.get(0).matches("ALLOCATE \\[#o\\d+,#o\\d+] @new int\\[2]\\[3]"), steps.get(0));
+        assertInOrder(steps, "WRITE [2] 0->7 @grid[1][2] = 7", "ALLOCATE [1] @{1}", "ALLOCATE [2,3] @{2, 3}",
+                "WRITE [0] 2->9 @tri[0][0] = 9", "READ [0]=9 @tri[1][0]", "WRITE [1] 0->9 @cube[1][1][1] = tri[1][0]",
+                "ALLOCATE [null,null] @new int[2][]", "ALLOCATE [4,5] @new int[]{4, 5}", "ASSIGN total 0->7 @total += v");
+        // Inner arrays of a sized creation are captured as bookkeeping inside its step: 2 rows, then 2 + 4 for the cube.
+        assertEquals(8, kinds(r.trace()).stream().filter("OBJECT_CAPTURE"::equals).count());
+    }
+
+    @Test void uncapturedStatementsRevealNewRowsAndStrings() throws Exception {
+        Run r = main("arrays-uncaptured", """
+                int[][] g = {{1, 2}, {3, 4}};
+                String[] s = {"a"};
+                g[0] = java.util.Arrays.copyOf(g[1], 3);
+                s[0] = String.valueOf(42);
+                int x = g[0][2];
+                System.out.println(x);
+                System.out.println(s[0]);""");
+        assertComplete(r, "completed");
+        assertEquals("0\n42\n", r.result().stdout());
+        List<String> steps = steps(r.trace());
+        assertTrue(steps.stream().anyMatch(s -> s.matches("UNCAPTURED #o\\d+=\\[#o\\d+,#o\\d+] @g\\[0] = .*")), String.join("\n", steps));
+        assertTrue(steps.stream().anyMatch(s -> s.matches("UNCAPTURED #o\\d+=\\[#o\\d+] @s\\[0] = .*")), String.join("\n", steps));
+        assertInOrder(steps, "READ [2]=0 @g[0][2]", "DECLARE x=0 @int x = g[0][2]");
+    }
+
+    @Test void jumpsAndUncapturedStatementsInsideSwitchesAndLoops() throws Exception {
+        Run r = main("statements-corners", """
+                int[] a = {5, 6, 7};
+                int found = -1;
+                for (int v : a) { if (v == 6) { found = v; break; } }
+                int n = 0;
+                for (int k = 0; k < 3; k++) {
+                    switch (k) {
+                        case 0: continue;
+                        case 1: n = Math.max(n, 9); break;
+                        default: n++;
+                    }
+                }
+                int m = switch (n) { case 10 -> { int q = Math.abs(-3); yield q; } default -> 0; };
+                int p = 1 + switch (m) { case 3 -> 4; default -> 5; };
+                System.out.println(found);
+                System.out.println(n);
+                System.out.println(m);
+                System.out.println(p);""");
+        assertComplete(r, "completed");
+        assertEquals("6\n10\n3\n5\n", r.result().stdout());
+        List<String> steps = steps(r.trace());
+        assertInOrder(steps, "READ [1]=6 @a", "DECLARE v=6 @int v", "EXPR == 6 6 = true @v == 6", "ASSIGN found -1->6 @found = v",
+                "SWITCH 0 case @case 0", "SWITCH 1 case @case 1", "UNCAPTURED n=? @n = Math.max(n, 9);",
+                "SWITCH 2 default @default", "UPDATE n ?->10 =9 @n++",
+                "SWITCH 10 case @case 10", "UNCAPTURED @int q = Math.abs(-3);", "UNCAPTURED @yield q;",
+                "DECLARE m=3 @int m = switch (n) { case 10 -> { int q = Math.abs(-3); yield q; } default -> 0; }",
+                "UNCAPTURED @int p = 1 + switch (m) { case 3 -> 4; default -> 5; };");
+        assertFalse(steps.stream().anyMatch(s -> s.startsWith("READ [2]")), "break leaves the for-each before its last element");
+    }
+
+    @Test void declarationWithoutInitializerBeforeASwitchIsDeclaredBeforeItsStep() throws Exception {
+        // Found by the 8c browser check: the case assignments were planned before the switch
+        // statement finished, so the waiting declaration attached to the first case only.
+        Run r = main("switch-assigns-declared", """
+                int total = 18;
+                int kind;
+                switch (total) {
+                    case 0: kind = 0; break;
+                    default: kind = 2;
+                }
+                System.out.println(kind);""");
+        assertComplete(r, "completed");
+        assertEquals("2\n", r.result().stdout());
+        assertEquals(List.of("DECLARE total=18 @int total = 18", "DECLARE kind=_ @int kind", "SWITCH 18 default @default",
+                "ASSIGN kind _->2 @kind = 2"), steps(r.trace()));
+    }
+
+    @Test void arrayFailuresMatchTheOriginal() throws Exception {
+        Run bounds = main("arrays-bounds", "double[] d = new double[2];\nd[2] = 1.0;");
+        assertComplete(bounds, "failed");
+        assertInOrder(steps(bounds.trace()), "EXCEPTION java.lang.ArrayIndexOutOfBoundsException @d[2] = 1.0");
+        Run negative = main("arrays-negative", "int k = -1;\nString[] s = new String[k];");
+        assertComplete(negative, "failed");
+        assertInOrder(steps(negative.trace()), "EXCEPTION java.lang.NegativeArraySizeException @new String[k]");
+        Run multi = main("arrays-negative-multi", "int k = -2;\nint[][] g = new int[3][k];");
+        assertComplete(multi, "failed");
+        assertInOrder(steps(multi.trace()), "EXCEPTION java.lang.NegativeArraySizeException @new int[3][k]");
+        Run chars = main("arrays-char-bounds", "char[] c = new char[1];\nchar x = c[1];");
+        assertComplete(chars, "failed");
+        assertInOrder(steps(chars.trace()), "EXCEPTION java.lang.ArrayIndexOutOfBoundsException @c[1]");
+    }
+
+    @Test void switchAndForEachOutsideCoverageRunUncaptured() throws Exception {
+        Run r = main("statements-uncaptured", """
+                String key = "b";
+                int n = 0;
+                switch (key) { case "a" -> n = 1; case "b" -> n = 2; }
+                for (Integer v : java.util.List.of(1, 2)) n += v;
+                switch (n) { }
+                int[] a = {1};
+                for (int v : a) n += v;
+                System.out.println(n);""");
+        assertComplete(r, "completed");
+        assertEquals("6\n", r.result().stdout());
+        List<String> steps = steps(r.trace());
+        assertInOrder(steps, "UNCAPTURED n=? @switch (key) { case \"a\" -> n = 1; case \"b\" -> n = 2; }",
+                "UNCAPTURED n=? @for (Integer v : java.util.List.of(1, 2)) n += v;", "UNCAPTURED @switch (n) { }",
+                "READ [0]=1 @a", "ASSIGN n ?->6 @n += v");
+    }
+
     // ---- outside coverage -------------------------------------------------------
 
     // ---- Part 8a: uncaptured statements inside traced programs -----------------------
@@ -394,8 +673,8 @@ class TracerTest {
         assertFalse(c.result().raw().stream().anyMatch(l -> l.startsWith("A")), "printing never re-reads arrays");
 
         // A declaration without code is silent; uses of its variable are uncaptured.
-        Run u = main("uncaptured-unsupported-type", "long[] q;\nq = new long[2];\nSystem.out.println(q.length);");
-        assertEquals(List.of("UNCAPTURED @q = new long[2];", "UNCAPTURED @System.out.println(q.length);"), steps(u.trace()));
+        Run u = main("uncaptured-unsupported-type", "Integer[] q;\nq = new Integer[2];\nSystem.out.println(q.length);");
+        assertEquals(List.of("UNCAPTURED @q = new Integer[2];", "UNCAPTURED @System.out.println(q.length);"), steps(u.trace()));
         assertEquals("2\n", u.result().stdout());
     }
 

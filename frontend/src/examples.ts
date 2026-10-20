@@ -31,6 +31,36 @@ export const EXAMPLES: Record<string, string> = {
     }
 }
 `,
+  'Grid and switch': `public class Main {
+    public static void main(String[] args) {
+        int[][] grid = new int[3][4];
+        for (int r = 0; r < grid.length; r++) {
+            for (int c = 0; c < grid[r].length; c++) {
+                grid[r][c] = r * c;
+            }
+        }
+        int total = 0;
+        for (int[] row : grid) {
+            for (int v : row) total += v;
+        }
+        String[] names = {"zero", "one", "many"};
+        int kind;
+        switch (total) {
+            case 0: kind = 0; break;
+            case 1: kind = 1; break;
+            default: kind = 2;
+        }
+        char grade = switch (kind) { case 0 -> 'C'; case 1 -> 'B'; default -> 'A'; };
+        int countdown = 3;
+        do {
+            countdown--;
+        } while (countdown > 0);
+        System.out.println(total);
+        System.out.println(names[kind]);
+        System.out.println(grade);
+    }
+}
+`,
   'Helper and library calls': `public class Main {
     static int square(int v) {
         return v * v;
