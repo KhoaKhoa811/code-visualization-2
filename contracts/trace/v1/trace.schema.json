@@ -1,12 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/KhoaKhoa811/code-visualization-2/contracts/trace/v1/trace.schema.json",
-  "title": "Recorded Java trace 1.7.0",
+  "title": "Recorded Java trace 1.8.0",
   "description": "Candidate contract. Structural validity is not proof of Java execution or semantic replay correctness.",
   "type": "object",
   "properties": {
     "schemaVersion": {
-      "const": "1.7.0"
+      "const": "1.8.0"
     },
     "runId": {
       "$ref": "#/$defs/id"
@@ -667,7 +667,7 @@
     },
     "inputObject": {
       "type": "object",
-      "description": "A Scanner reading standard input (1.6.0). Its reads are LIBRARY steps; it has no other state.",
+      "description": "A reader of standard input: a Scanner (1.6.0) or a BufferedReader over System.in (1.8.0). Its reads are LIBRARY steps; it has no other state.",
       "properties": {
         "objectId": {
           "$ref": "#/$defs/id"
@@ -677,7 +677,10 @@
         },
         "className": {
           "type": "string",
-          "const": "java.util.Scanner"
+          "enum": [
+            "java.util.Scanner",
+            "java.io.BufferedReader"
+          ]
         }
       },
       "required": [

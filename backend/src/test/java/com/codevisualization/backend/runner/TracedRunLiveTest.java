@@ -153,26 +153,47 @@ class TracedRunLiveTest {
             }
             """;
 
-    /** AC-19 inside the container: a prompt, one line of live input, the doubled value; Scanner reads replayed. */
-    @Test void liveInputReachesAnInteractiveRun() throws Exception {
+    /** An interactive run that receives one live line, then end of input; its trace passes the checker. */
+    private static TracedRunLifecycle.Result interactive(String name, String source, String line) throws Exception {
         var lifecycle = new TracedRunLifecycle(docker());
         ExecutorService executor = Executors.newSingleThreadExecutor();
         try {
-            Future<TracedRunLifecycle.Result> future = executor.submit(() -> lifecycle.run(DOUBLER, true));
+            Future<TracedRunLifecycle.Result> future = executor.submit(() -> lifecycle.run(source, true));
             long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(30);
             while ((lifecycle.input() == null || !lifecycle.input().accepting()) && System.nanoTime() < deadline) Thread.sleep(20);
             assertTrue(lifecycle.interactive());
-            assertEquals(RunInput.Outcome.ACCEPTED, lifecycle.input().offer(1, "21"));
+            assertEquals(RunInput.Outcome.ACCEPTED, lifecycle.input().offer(1, line));
             lifecycle.input().eof();
             var r = future.get(60, TimeUnit.SECONDS);
             assertTrue(r.terminationConfirmed() && r.cleanupVerified(), r.infrastructureFailures().toString());
-            assertEquals("Enter n: 42\n", stdout(r));
-            check("interactive", r.trace());
-            assertTrue(r.trace().contains("\"status\":\"completed\"") && r.trace().contains("java.util.Scanner.nextInt()"), r.trace());
+            check(name, r.trace());
+            return r;
         } finally {
             executor.shutdown();
             assertTrue(executor.awaitTermination(30, TimeUnit.SECONDS));
         }
+    }
+
+    /** AC-19 inside the container: a prompt, one line of live input, the doubled value; Scanner reads replayed. */
+    @Test void liveInputReachesAnInteractiveRun() throws Exception {
+        var r = interactive("interactive", DOUBLER, "21");
+        assertEquals("Enter n: 42\n", stdout(r));
+        assertTrue(r.trace().contains("\"status\":\"completed\"") && r.trace().contains("java.util.Scanner.nextInt()"), r.trace());
+        // Part 8i: a BufferedReader over System.in reads the same live line.
+        var reader = interactive("interactive-reader", """
+                import java.io.*;
+
+                public class Main {
+                    public static void main(String[] args) throws IOException {
+                        BufferedReader in = new BufferedReader(new InputStreamReader(System.in));
+                        System.out.print("Name: ");
+                        String name = in.readLine();
+                        System.out.println("Hello " + name);
+                    }
+                }
+                """, "Ada");
+        assertEquals("Name: Hello Ada\n", stdout(reader));
+        assertTrue(reader.trace().contains("\"status\":\"completed\"") && reader.trace().contains("java.io.BufferedReader.readLine()"), reader.trace());
         // Without a live console the same program sees end of input at once (Java's own exception).
         var closed = run("no-console", DOUBLER);
         assertTrue(closed.trace().contains("\"status\":\"failed\"") && closed.trace().contains("java.util.NoSuchElementException"));

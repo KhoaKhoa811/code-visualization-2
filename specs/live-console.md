@@ -82,6 +82,15 @@ that point.
 Contract 1.6.0 adds the object kind `input` (`objectId`, `className`) for a
 `Scanner`; replay never sends input again (AC-21).
 
+## BufferedReader (Part 8i)
+
+`new BufferedReader(new InputStreamReader(System.in))` is an `input` object too
+(contract 1.8.0 allows the class `java.io.BufferedReader`). Its `readLine`, `read` and
+`close` calls are LIBRARY steps, replayed by the builder on a `BufferedReader` over the
+delivered bytes, as for `Scanner`. `ready()` is not covered: its answer depends on
+when input arrives, not on the input. One reader of standard input per run: a second
+`Scanner` or `BufferedReader` makes capture partial.
+
 ## Results
 
 Verified on 2026-10-20 with Docker Desktop 29.8.0:

@@ -22,7 +22,7 @@ export function formatValue(value: Value, objects?: Map<string, TraceObject>): s
       if (object?.kind === 'builder') return `StringBuilder ${JSON.stringify(String.fromCharCode(...object.utf16))}`;
       if (object?.kind === 'collection') return `${shortName(object.className)}(${object.elements.length})`;
       if (object?.kind === 'map') return `${shortName(object.className)}(${object.entries.length})`;
-      if (object?.kind === 'input') return 'Scanner(System.in)';
+      if (object?.kind === 'input') return `${shortName(object.className)}(System.in)`;
       if (object?.kind === 'exception') return `${exceptionName(object.className)}(${object.message === null ? '' : JSON.stringify(object.message)})`;
       return `ref ${value.objectId}`;
     }
@@ -147,7 +147,7 @@ export function describe(event: ObservableEvent, state: State, source?: string):
       if (o.kind === 'array') return `Create ${arrayType(o)}`;
       if (o.kind === 'object') return `Create ${objectLabel(o)}`;
       if (o.kind === 'string') return 'Create string';
-      if (o.kind === 'input') return 'Create Scanner(System.in)';
+      if (o.kind === 'input') return `Create ${shortName(o.className)}(System.in)`;
       return `Create ${shortName(o.className)}`;
     }
     case 'LIBRARY': {

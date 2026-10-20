@@ -28,11 +28,12 @@ final class Library {
 
     static final Set<String> CLASSES = Set.of("java.util.ArrayList", "java.util.LinkedList", "java.util.ArrayDeque",
             "java.util.Stack", "java.util.HashMap", "java.util.TreeMap", "java.util.LinkedHashMap", "java.util.HashSet",
-            "java.util.TreeSet", "java.util.LinkedHashSet", "java.util.PriorityQueue", "java.lang.StringBuilder", "java.util.Scanner");
+            "java.util.TreeSet", "java.util.LinkedHashSet", "java.util.PriorityQueue", "java.lang.StringBuilder", "java.util.Scanner",
+            "java.io.BufferedReader");
 
     /** Empty mirror of a covered library class. */
     static Object create(String className) throws ReflectiveOperationException {
-        if (!CLASSES.contains(className) || className.equals("java.util.Scanner")) throw new IllegalArgumentException("library class " + className);
+        if (!CLASSES.contains(className) || className.equals("java.util.Scanner") || className.equals("java.io.BufferedReader")) throw new IllegalArgumentException("library class " + className);
         return Class.forName(className).getConstructor().newInstance();
     }
 

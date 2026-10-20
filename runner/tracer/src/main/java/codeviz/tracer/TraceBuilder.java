@@ -103,8 +103,8 @@ final class TraceBuilder {
         frameId = frame.id(); scopes = frame.scopes(); liveBindings = frame.bindings(); conditionValues = frame.conditions();
     }
 
-    private final byte[] input; // Part 8g: bytes delivered to standard input, replayed by a Scanner mirror
-    private boolean scannerCreated;
+    private final byte[] input; // Part 8g: bytes delivered to standard input, replayed by a Scanner or (8i) BufferedReader mirror
+    private boolean inputCreated;
 
     // Part 8h: exception objects (id -> class binary name, message or null), first sights not yet captured,
     // superclasses of the source's Throwable classes, the exception in flight (thrown and not yet caught)
@@ -1110,10 +1110,13 @@ final class TraceBuilder {
     /** Builds (or rebuilds) a mirror from recorded contents. Registered first: elements may refer back. */
     private void buildMirror(String id, String className, List<String> body) throws Inconsistent {
         Object mirror;
-        if (className.equals("java.util.Scanner")) { // Part 8g: replays reads over the delivered input
-            if (scannerCreated || !body.equals(List.of("0"))) throw new Inconsistent("a second Scanner");
-            scannerCreated = true;
-            mirror = new java.util.Scanner(new java.io.ByteArrayInputStream(input), java.nio.charset.StandardCharsets.UTF_8);
+        if (className.equals("java.util.Scanner") || className.equals("java.io.BufferedReader")) {
+            // Parts 8g, 8i: one reader of standard input per run replays its reads over the delivered input.
+            if (inputCreated || !body.equals(List.of("0"))) throw new Inconsistent("a second reader of standard input");
+            inputCreated = true;
+            var delivered = new java.io.ByteArrayInputStream(input);
+            mirror = className.equals("java.util.Scanner") ? new java.util.Scanner(delivered, java.nio.charset.StandardCharsets.UTF_8)
+                    : new java.io.BufferedReader(new java.io.InputStreamReader(delivered, java.nio.charset.StandardCharsets.UTF_8));
             mirrors.put(id, mirror);
             mirrorIds.put(mirror, id);
             knownObjects.add(id);
@@ -1205,7 +1208,7 @@ final class TraceBuilder {
     private Map<String, Object> libraryValue(String id) throws Inconsistent {
         Object mirror = mirrors.get(id);
         String className = mirror.getClass().getName();
-        if (mirror instanceof java.util.Scanner) return ordered("objectId", id, "kind", "input", "className", className);
+        if (mirror instanceof java.util.Scanner || mirror instanceof java.io.BufferedReader) return ordered("objectId", id, "kind", "input", "className", className);
         if (mirror instanceof StringBuilder sb) {
             List<Integer> units = new ArrayList<>();
             for (int i = 0; i < sb.length(); i++) units.add((int) sb.charAt(i));
@@ -1391,7 +1394,7 @@ final class TraceBuilder {
             diagnosticJson.add(map);
         }
         return Json.write(ordered(
-                "schemaVersion", "1.7.0",
+                "schemaVersion", "1.8.0",
                 "runId", runId,
                 "source", ordered("file", Analyzer.FILE, "text", source, "sha256", sha256(source)),
                 "execution", ordered("status", executionStatus, "reason", executionReason),

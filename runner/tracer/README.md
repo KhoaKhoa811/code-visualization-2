@@ -83,6 +83,8 @@ the uninstrumented original.
   finally copies on every path, mid-trace unwinding of helper frames, exception objects and `getMessage()`
   (trace 1.7.0, plan format 8). Uncaptured try-with-resources now maps from its first resource.
   **77 tests, 0 failures** on 2026-10-20.
+- Since 8i stack traces of failing operations show only the program's frames (tests compare them with the
+  original), and `BufferedReader` over `System.in` is an input object (trace 1.8.0). **78 tests, 0 failures** on 2026-10-20.
 - Scope entry/exit is derived from recorded operations and static block structure
   (see the spec); blocks with no recorded operation leave no trace.
 - On the host, a builder-side trace limit marks the run `limited` even though the

@@ -24,7 +24,7 @@ export type TraceObject =
   | { objectId: string; kind: 'map'; className: string; entries: { key: Value; value: Value }[] }
   | { objectId: string; kind: 'builder'; className: string; utf16: number[] }
   // 1.6.0: a Scanner reading standard input. Its reads are LIBRARY steps; it has no other state.
-  | { objectId: string; kind: 'input'; className: 'java.util.Scanner' }
+  | { objectId: string; kind: 'input'; className: 'java.util.Scanner' | 'java.io.BufferedReader' } // 1.8.0: BufferedReader
   // 1.7.0: a thrown exception: its class (binary name) and message when first seen.
   | { objectId: string; kind: 'exception'; className: string; message: string | null };
 
@@ -85,7 +85,7 @@ export interface Diagnostic {
 }
 
 export interface Trace {
-  schemaVersion: '1.7.0';
+  schemaVersion: '1.8.0';
   runId: string;
   source: { file: 'Main.java'; text: string; sha256: string };
   execution: { status: ExecutionStatus; reason: string };

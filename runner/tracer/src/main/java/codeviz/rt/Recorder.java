@@ -118,7 +118,7 @@ public final class Recorder {
     private static String contents(Object o) {
         StringBuilder b = new StringBuilder().append(o.getClass().getName());
         if (o.getClass().isArray()) values(b, o);
-        else if (o instanceof java.util.Scanner) b.append(" 0"); // Part 8g: no readable state; reads are replayed
+        else if (o instanceof java.util.Scanner || o instanceof java.io.BufferedReader) b.append(" 0"); // Parts 8g, 8i: reads are replayed
         else if (o instanceof StringBuilder sb) b.append(' ').append(hex(sb.toString()));
         else if (o instanceof java.util.Map<?, ?> map) {
             b.append(' ').append(map.size());
@@ -133,12 +133,12 @@ public final class Recorder {
     private static final java.util.Set<Class<?>> LIBRARY = java.util.Set.of(java.util.ArrayList.class, java.util.LinkedList.class,
             java.util.ArrayDeque.class, java.util.Stack.class, java.util.HashMap.class, java.util.TreeMap.class, java.util.LinkedHashMap.class,
             java.util.HashSet.class, java.util.TreeSet.class, java.util.LinkedHashSet.class, java.util.PriorityQueue.class, StringBuilder.class,
-            java.util.Scanner.class);
+            java.util.Scanner.class, java.io.BufferedReader.class);
 
     /** Record prefix of a first sight or re-read: array, library collection, map, builder or object. */
     private static String prefix(Object o) {
         return o.getClass().isArray() ? "A" : o instanceof StringBuilder ? "B" : o instanceof java.util.Map ? "M"
-                : o instanceof java.util.Collection || o instanceof java.util.Scanner ? "C" : "O";
+                : o instanceof java.util.Collection || o instanceof java.util.Scanner || o instanceof java.io.BufferedReader ? "C" : "O";
     }
 
     /** A boxed value as a self-describing token (boxes are values, never identities; Part 8f), else null. */

@@ -201,7 +201,7 @@ class TracerTest {
     /** An array as [elements], an object (Part 8e) as Class{field=value,...}. */
     @SuppressWarnings("unchecked")
     private static String describeObject(Map<String, Object> o) {
-        if ("input".equals(o.get("kind"))) return "Scanner";
+        if ("input".equals(o.get("kind"))) { String c = (String) o.get("className"); return c.substring(c.lastIndexOf('.') + 1); }
         if ("builder".equals(o.get("kind"))) return "\"" + ((List<Object>) o.get("utf16")).stream()
                 .map(u -> String.valueOf((char) ((Long) u).intValue())).reduce("", String::concat) + "\"";
         if ("map".equals(o.get("kind"))) return ((List<Object>) o.get("entries")).stream()
@@ -1209,6 +1209,47 @@ class TracerTest {
                 "LIB nextDouble() = 2.5 @in.nextDouble()", "LIB hasNextInt() = false @in.hasNextInt()");
         assertTrue(r.json().contains("\"kind\":\"input\""), "the Scanner is an input object");
         assertFalse(Tracer.prepare(program("int x = 1;")).analysis().interactive(), "no System.in: not interactive");
+    }
+
+    /** Part 8i: BufferedReader over System.in is an input object too; readLine and read are replayed and verified. */
+    @Test void bufferedReaderReadsAreStepsReplayedOverTheDeliveredInput() throws Exception {
+        Run r = run("reader-reads", """
+                import java.io.*;
+
+                public class Main {
+                    public static void main(String[] args) throws IOException {
+                        BufferedReader in = new BufferedReader(new InputStreamReader(System.in));
+                        String first = in.readLine();
+                        int n = Integer.parseInt(first.trim());
+                        int c = in.read();
+                        String rest = in.readLine();
+                        String end = in.readLine();
+                        System.out.println(n * 2 + " " + c + " " + rest + " " + end);
+                        in.close();
+                    }
+                }
+                """, " 21 \nab\n".getBytes(StandardCharsets.UTF_8));
+        assertComplete(r, "completed");
+        assertTrue(r.prepared().analysis().interactive());
+        assertEquals("42 97 b null\n", r.result().stdout());
+        assertInOrder(textSteps(r.trace()), "ALLOCATE BufferedReader @new BufferedReader(new InputStreamReader(System.in))",
+                "LIB readLine() = \" 21 \" @in.readLine()", "LIB read() = 97 @in.read()", "LIB readLine() = \"b\" @in.readLine()",
+                "LIB readLine() = null @in.readLine()", "LIB close() @in.close()");
+        assertTrue(r.json().contains("\"className\":\"java.io.BufferedReader\""));
+        // A second reader of standard input is not replayed.
+        Run two = run("reader-and-scanner", """
+                import java.io.*;
+                import java.util.Scanner;
+
+                public class Main {
+                    public static void main(String[] args) throws IOException {
+                        BufferedReader in = new BufferedReader(new InputStreamReader(System.in));
+                        Scanner sc = new Scanner(System.in);
+                        System.out.println(in.readLine());
+                    }
+                }
+                """, "x\n".getBytes(StandardCharsets.UTF_8));
+        assertEquals("partial", status(two.trace(), "capture"));
     }
 
     @Test void invalidTokensAndEndOfInputFollowJava() throws Exception {

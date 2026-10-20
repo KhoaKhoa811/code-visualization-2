@@ -69,6 +69,13 @@ remaining frames unwind at the end.
 A catch that receives an exception the recording never saw thrown (outside the cases
 above) makes capture partial instead of inventing the failure.
 
+## Stack traces (Part 8i)
+
+A recorder helper performs a failing instruction itself, so a JDK exception it raises
+would list the recorder (and any JDK code it called) above the program's frame. Those
+leading frames are removed before the exception continues, and the tracer tests compare
+every uncaught stack trace with the original program's.
+
 ## Implementation notes
 
 - The analyzer plans javac's layout: the try block; its finally copy when the block
