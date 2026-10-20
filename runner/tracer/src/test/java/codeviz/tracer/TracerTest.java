@@ -45,6 +45,8 @@ class TracerTest {
                 actual = actual.substring(0, actual.indexOf(" because ") + 1);
             }
             assertEquals(expected, actual, "uncaught exception must match");
+            // Part 8i: the stack trace below it shows the program's own frames, never the recorder's.
+            assertEquals(stackFrames(original.stderr()), stackFrames(result.stderr()), "stack trace must match the original program");
         }
         byte[] delivered = input == null ? new byte[0] : input;
         String json = Tracer.trace(prepared, "test-" + name, result.raw(), result.exit(), delivered);
@@ -55,6 +57,11 @@ class TracerTest {
         Map<String, Object> trace = JsonReader.object(json);
         assertReferencesResolve(trace);
         return new Run(trace, result, prepared, json);
+    }
+
+    /** The "at ..." lines of uncaught stack traces (the message lines are compared separately). */
+    private static List<String> stackFrames(String stderr) {
+        return stderr.lines().filter(l -> l.startsWith("\tat ") || l.startsWith("\t... ") || l.startsWith("Caused by")).toList();
     }
 
     /**

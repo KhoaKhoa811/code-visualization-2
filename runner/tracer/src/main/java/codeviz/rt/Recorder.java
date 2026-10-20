@@ -279,12 +279,34 @@ public final class Recorder {
     }
 
     private static void fail(int site, Throwable e) {
+        hideRecorder(e);
         synchronized (LOCK) {
             if (silent > 0) return;
             String r = ref(e);
             line("x" + site + " " + e.getClass().getName() + " " + message(e) + " " + r);
             try { OUT.flush(); } catch (IOException ignored) { }
         }
+    }
+
+    /**
+     * Part 8i: a helper performs the original instruction, so an exception it raises would show
+     * the recorder (and the JDK code it called) above the program's frame. Those leading frames are
+     * removed, so a printed stack trace matches the original program's. Only JDK exceptions are
+     * touched; their stack trace methods run no user code.
+     */
+    private static void hideRecorder(Throwable e) {
+        if (!e.getClass().getName().startsWith("java.")) return;
+        StackTraceElement[] trace = e.getStackTrace();
+        int first = 0;
+        while (first < trace.length && !trace[first].getClassName().startsWith("codeviz.rt.")) {
+            String c = trace[first].getClassName();
+            if (!c.startsWith("java.") && !c.startsWith("jdk.") && !c.startsWith("sun.")) return; // raised in user code
+            first++;
+        }
+        if (first == trace.length) return;
+        int end = first;
+        while (end < trace.length && trace[end].getClassName().startsWith("codeviz.rt.")) end++;
+        e.setStackTrace(java.util.Arrays.copyOfRange(trace, end, trace.length));
     }
 
     /** A message token; getMessage() runs only when the JDK implements it, never user code (Part 8h). */

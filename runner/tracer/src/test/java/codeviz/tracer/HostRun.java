@@ -14,7 +14,9 @@ import java.util.concurrent.TimeUnit;
  * not the isolated runner (Part 7c); it exists to compare behavior and produce traces.
  */
 final class HostRun {
-    record Result(int exit, String stdout, String stderrFirstLine, List<String> raw) { }
+    record Result(int exit, String stdout, String stderr, List<String> raw) {
+        String stderrFirstLine() { return stderr.lines().findFirst().orElse(""); }
+    }
 
     static Result run(Map<String, byte[]> classes, boolean traced, Path dir) throws Exception {
         return run(classes, traced, dir, null);
@@ -46,7 +48,7 @@ final class HostRun {
         String err = new String(streams[1], StandardCharsets.UTF_8);
         List<String> lines = traced && Files.exists(raw) ? Files.readAllLines(raw) : List.of();
         return new Result(process.exitValue(), new String(streams[0], StandardCharsets.UTF_8).replace("\r", ""),
-                err.lines().findFirst().orElse(""), lines);
+                err.replace("\r", ""), lines);
     }
 
     private static File stdin(Path dir, byte[] input) throws java.io.IOException {
