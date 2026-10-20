@@ -8,11 +8,13 @@ import { LibraryPanel } from './LibraryPanel.tsx';
 import { Draggable, Panel } from './Draggable.tsx';
 import { TreePanel } from './TreePanel.tsx';
 import type { TreeMapping } from '../trace/tree.ts';
+import { HeapPanel } from './HeapPanel.tsx';
+import type { HeapMapping } from '../trace/heap.ts';
 
 type ArrayObject = TraceObject & { kind: 'array' };
 
-/** {@code trees}: confirmed tree mappings that fit this run (Part 9b). */
-export function StatePanel({ view, trees = [] }: { view: View; trees?: TreeMapping[] }) {
+/** Confirmed tree (Part 9b) and heap (Part 9c) mappings that fit this run. */
+export function StatePanel({ view, trees = [], heaps = [] }: { view: View; trees?: TreeMapping[]; heaps?: HeapMapping[] }) {
   // After main returns, show the recorded values it ended with, labelled as such.
   const state = view.beforeEnd ?? view.state;
   const focus = view.focus;
@@ -48,6 +50,7 @@ export function StatePanel({ view, trees = [] }: { view: View; trees?: TreeMappi
       </Panel>
       <LibraryPanel view={view} />
       <TreePanel view={view} mappings={trees} />
+      <HeapPanel view={view} mappings={heaps} />
       <ObjectGraph view={view} />
       <Panel id="arrays" label="Arrays" title="Arrays">
         {topLevel.length === 0 && <p className="muted">No arrays yet.</p>}

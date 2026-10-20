@@ -169,3 +169,10 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 .tree-field { position: absolute; top: -16px; font-size: 11px; color: var(--warning); }
 .tree-names { position: absolute; left: 100%; top: -10px; margin-left: 2px; font-size: 11px; color: var(--muted); white-space: nowrap; }
 .tree-stub { position: absolute; top: 56px; font-size: 10px; color: var(--muted); }
+
+/* Part 9c: arrays confirmed as heaps. */
+.heap-block { margin-bottom: 12px; }
+.heap-strip .cell.in-heap { border-color: var(--accent); }
+.heap-strip .cell.outside { opacity: .65; border-style: dashed; }
+.heap-strip .cell.unused { opacity: .35; }
+.heap-tree { margin-top: 18px; }

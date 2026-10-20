@@ -12,6 +12,8 @@ import { LayoutContext } from './views/Draggable.tsx';
 import { forNewRun, initialLayout } from './views/layout.ts';
 import { TreeMappings } from './views/TreeMappings.tsx';
 import { classFields, mappingProblem, type TreeMapping } from './trace/tree.ts';
+import { HeapMappings } from './views/HeapMappings.tsx';
+import { heapProblem, type HeapMapping } from './trace/heap.ts';
 
 const PHASE_TEXT: Record<Snapshot['phase'], string> = {
   queued: 'Queued', preparing: 'Preparing container', compiling: 'Compiling', executing: 'Running',
@@ -51,6 +53,9 @@ export function App() {
   const usable = playback instanceof Playback && playback.available && !stale ? playback : null;
   const fields = useMemo(() => usable ? classFields(usable.trace) : new Map(), [usable]);
   const fittingTrees = useMemo(() => treeMappings.filter(m => mappingProblem(m, fields) === null), [treeMappings, fields]);
+  // Part 9c: arrays confirmed as heaps, also for the session and checked against each run.
+  const [heapMappings, setHeapMappings] = useState<HeapMapping[]>([]);
+  const fittingHeaps = useMemo(() => usable ? heapMappings.filter(m => heapProblem(m, usable.trace) === null) : [], [heapMappings, usable]);
   const steps = usable?.steps ?? 0;
   const view = useMemo(() => usable ? usable.at(cursor) : null, [usable, cursor]);
 
@@ -100,7 +105,10 @@ export function App() {
                 onConfirm={m => setTreeMappings(list => [...list.filter(x => x.className !== m.className), m])}
                 onRemove={c => setTreeMappings(list => list.filter(x => x.className !== c))}
                 onDismiss={c => setNotTrees(list => [...list, c])} />
-              <StatePanel view={view} trees={fittingTrees} />
+              {usable && <HeapMappings trace={usable.trace} mappings={heapMappings}
+                onConfirm={(m, replacing) => setHeapMappings(list => [...list.filter(x => x.array !== m.array && x.array !== replacing), m])}
+                onRemove={a => setHeapMappings(list => list.filter(x => x.array !== a))} />}
+              <StatePanel view={view} trees={fittingTrees} heaps={fittingHeaps} />
             </LayoutContext.Provider>
           )}
           {!snap && !submit.isPending && <p className="muted hint">Write Java in the editor and press Run.</p>}

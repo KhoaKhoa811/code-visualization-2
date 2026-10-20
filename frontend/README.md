@@ -26,6 +26,7 @@ from algorithm or example recognition ([coverage roadmap](../specs/coverage-road
 | 8i | Trace 1.8.0 (`BufferedReader` input object); the editor scrolls back to show each step from its line start | 21 reducer tests, 10 browser tests |
 | 9a | Grid of panels on one cursor; drag panel titles to reorder; drag object boxes, arrays (as groups) and collections, arrows follow; Reset layout ([frontend design](../specs/frontend-design.md)) | 23 reducer/layout tests, 11 browser tests |
 | 9b | Tree view: suggested and confirmed value/left/right mapping of a user class, in-order layout, dashed conflict links, highlights, draggable nodes; tree-sort example ([tree view](../specs/tree-view.md)) | 26 unit tests, 12 browser tests |
+| 9c | Heap view: an array confirmed as a heap (indexing, size variable, order) as a synchronized strip and tree; recorded boundary, sorted suffix, observed order violations; heap-sort example ([heap view](../specs/heap-view.md)) | 30 unit tests, 13 browser tests |
 
 ## Stack and pins
 

@@ -177,7 +177,7 @@ test('dragging diagram boxes and reordering panels changes layout only (9a, AC-1
   await expect(page.getByRole('region', { name: 'Call stack' })).toHaveCSS('order', '1');
 
   await page.getByRole('button', { name: 'Reset layout' }).click();
-  await expect(objects).toHaveCSS('order', '3');
+  await expect(objects).toHaveCSS('order', '4');
   expect(Math.round((await head.boundingBox())!.x - before.x)).toBe(0);
 });
 
@@ -235,6 +235,60 @@ test('a confirmed node mapping draws a tree sort as a binary search tree (9b, AC
   await expect(page.getByTestId('mapping-Node')).toContainText('Node shown as a tree');
   await page.getByTitle('End').click();
   await expect(nodes).toHaveCount(5);
+});
+
+test('an array confirmed as a heap shows synchronized array and tree views of heap sort (9c, AC-14, AC-31)', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.monaco-editor')).toBeVisible();
+  await page.getByLabel('Example').selectOption('Heap sort');
+  await run(page);
+  await expect(page.getByTestId('run-summary')).toContainText('capture complete');
+  await expect(page.getByTestId('console-output')).toHaveText('1 3 4 5 8 10 \n');
+
+  // Nothing is a heap until the user says so: array, indexing, size variable, order.
+  await expect(page.getByRole('region', { name: 'Heaps' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Show an array as a heap…' }).click();
+  await page.getByLabel('Heap array').selectOption('a');
+  await page.getByLabel('Heap size').selectOption('end');
+  await page.getByLabel('Heap bound').selectOption('count');
+  await page.getByTestId('heap-editor').getByRole('button', { name: 'Show as heap' }).click();
+  await expect(page.getByTestId('heap-mapping-a')).toContainText('a shown as a max-heap (0-based, size from end)');
+
+  // Before a exists there is no heap; before the extraction loop, end is not in scope: no boundary is guessed.
+  const heap = page.getByTestId('heap-a');
+  await expect(heap).toContainText('a is not in scope at this step');
+  const forward = page.getByRole('button', { name: 'Step forward' });
+  const detail = page.getByTestId('step-detail');
+  for (let i = 0; i < 10; i++) {
+    if ((await detail.textContent())?.includes('Declare int[] a')) break;
+    await forward.click();
+  }
+  await expect(page.getByTestId('heap-boundary-note')).toContainText('end is not in scope here');
+
+  // First extraction: after the swap, siftDown(a, 0, 5) works on indices 0..4; index 5 holds the maximum.
+  for (let i = 0; i < 300; i++) {
+    if ((await detail.textContent())?.includes('n = 5')) break;
+    await forward.click();
+  }
+  await expect(detail).toContainText('Call siftDown(a = int[6], i = 0, n = 5)');
+  await expect(heap.locator('.heap-strip .cell.outside .cell-value')).toHaveText(['10']);
+  await expect(heap.getByTestId('heap-node')).toHaveCount(5);
+  await expect(heap.getByTestId('heap-order')).toContainText('does not hold'); // the swapped-in root, observed as recorded
+  // The heap is the same array object as the Arrays panel's a.
+  const strip = await heap.locator('.heap-strip .cell-value').allTextContents();
+  await expect(page.getByTestId('array-a').getByTestId('cell').locator('.cell-value')).toHaveText(strip);
+  await page.screenshot({ path: 'test-results/heap-extract.png' });
+
+  // A swap inside siftDown is a write on both projections at the same index.
+  for (let i = 0; i < 40; i++) {
+    if ((await detail.textContent())?.includes('Write a[')) break;
+    await forward.click();
+  }
+  await expect(heap.locator('.heap-strip .cell.write')).toHaveCount(1);
+  await expect(heap.locator('[data-testid="heap-node"].write')).toHaveCount(1);
+
+  await page.getByTitle('End').click();
+  await expect(heap.locator('.heap-strip .cell-value')).toHaveText(['1', '3', '4', '5', '8', '10']);
 });
 
 test('recursive calls get their own frames and returns restore the caller (8d)', async ({ page }) => {

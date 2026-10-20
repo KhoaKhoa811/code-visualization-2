@@ -44,7 +44,7 @@ deployment.
 | AC-11 limits | Done | 6d, 7c | timeout, output and trace-limit live tests |
 | AC-12 list/stack/queue/map | Partial | 8f, 9d | library tests; explicit Deque stack/queue mode in 9d |
 | AC-13 BST sort tree | Done | 9b | browser tree-sort test: confirmed mapping, in-order positions, link write highlighted ([tree view](tree-view.md)) |
-| AC-14 heap sort | Planned | 9c | — |
+| AC-14 heap sort | Done | 9c | browser heap-sort test: confirmed heap, synchronized strip and tree, boundary from end ([heap view](heap-view.md)) |
 | AC-15 edit after run | Done | 7e | browser source-edit check |
 | AC-16 calls and recursion | Done | 8d | tracer and browser recursion tests |
 | AC-17 several steps on one line | Done | 7b | tracer `ac17` |
@@ -53,7 +53,7 @@ deployment.
 | AC-20 wait, cancel, disconnect, EOF | Partial | 8g, 6g | cancel, disconnect, EOF and invalid tokens done; input-wait limit deferred to 6g |
 | AC-21 replay without resubmission | Done | 8g | browser AC-19 test (replay step) |
 | AC-22 only present structures | Done | 7e, 8e, 8f | views render from reconstructed state only |
-| AC-23 drag arrays and nodes | Partial | 9a, 9b, 9c | arrays as groups, graph and collection boxes (9a), tree nodes (9b); heap nodes in 9c |
+| AC-23 drag arrays and nodes | Done | 9a, 9b, 9c | arrays as groups, graph and collection boxes (9a), tree nodes (9b), heap nodes (9c) |
 | AC-24 output-only fallback | Done | 7c | output-only tests |
 | AC-25 safe boundary | Done | 7b, 8a | partial-capture tests |
 | AC-26 grid of synchronized panels | Done | 9a | panel grid on one cursor, reorderable ([frontend design](frontend-design.md)) |
@@ -61,10 +61,10 @@ deployment.
 | AC-28 object-graph fallback | Done | 8e | tracer objects tests; browser object graph |
 | AC-29 missing or truncated capture | Done | 8a, 8e | unknown values, traversal limit |
 | AC-30 mapping revalidation | Planned | 10b | — |
-| AC-31 array used as heap | Planned | 9c | — |
+| AC-31 array used as heap | Done | 9c | heap strip equals the Arrays panel's array; confirmed indexing and recorded boundary |
 | AC-32 view rankings | Planned | 10c | — |
 | AC-33 rankings on rewind | Planned | 10c | — |
-| AC-34 invariant vs fit vs correctness | Partial | 9b, 9c, 10c | conflicting tree links stay visible as dashed edges (9b); heap order (9c); rankings (10c) |
+| AC-34 invariant vs fit vs correctness | Partial | 9b, 9c, 10c | conflicting tree links dashed (9b); heap-order violations observed, not repaired (9c); rankings (10c) |
 | AC-35 separate test inputs | Planned | 10a | — |
 | AC-36 broader problems | Partial | 8b–8i, 10d | capabilities exist; agreed problem suite in 10d |
 
