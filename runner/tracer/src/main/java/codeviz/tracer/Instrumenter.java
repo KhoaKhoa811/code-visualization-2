@@ -179,6 +179,14 @@ final class Instrumenter {
                 start = s0;
                 if (end == null || main.instructions.indexOf(e0) > main.instructions.indexOf(end)) end = e0;
             }
+            if (s.crtFirstStart >= 0) { // try-with-resources: the region starts at its first resource
+                Crt.Entry first = crt.entries.stream().filter(e -> (e.flags() & Crt.STATEMENT) != 0
+                        && e.charStart() == s.crtFirstStart && e.charEnd() == s.crtFirstEnd).findFirst()
+                        .orElseThrow(() -> new MappingException("no bytecode range for a resource"));
+                if (!(first.start().info instanceof LabelNode resourceStart)) throw new MappingException("statement range labels missing");
+                if (main.instructions.indexOf(resourceStart) > main.instructions.indexOf(start)) throw new MappingException("resource after its try");
+                start = resourceStart;
+            }
             out.put(s, new Region(start, end));
         }
         return out;
@@ -309,6 +317,7 @@ final class Instrumenter {
             case Opcodes.ARRAYLENGTH -> Expect.ARRAYLENGTH;
             case Opcodes.NEWARRAY, Opcodes.ANEWARRAY, Opcodes.MULTIANEWARRAY -> Expect.NEWARRAY;
             case Opcodes.TABLESWITCH, Opcodes.LOOKUPSWITCH -> Expect.SWITCH;
+            case Opcodes.ATHROW -> Expect.THROW; // Part 8h: a throw statement or javac's rethrow after a finally block
             case Opcodes.NEW -> Expect.NEW;
             case Opcodes.CHECKCAST -> null; // javac's casts of erased generic results (Part 8f); never planned
             case Opcodes.GETFIELD -> Expect.FIELD_GET;
@@ -417,6 +426,10 @@ final class Instrumenter {
             }
             case STORE -> {
                 int var = ((VarInsnNode) insn).var;
+                if (site.kind == Plan.Kind.FINALLY) { // javac's hidden local for the exception in flight (Part 8h)
+                    if (insn.getOpcode() != Opcodes.ASTORE) throw new MappingException("expected the finally handler's store");
+                    return;
+                }
                 LocalVariableNode lv = localAfter(main, insn, var);
                 // javac drops zero-length scopes (a declaration ending its block), so a
                 // missing entry is acceptable; a different variable is not.
@@ -726,13 +739,20 @@ final class Instrumenter {
                 }
                 after.add(isVoid ? call("libV", "(ILjava/lang/Object;[Ljava/lang/Object;)V")
                         : call("lib", "(Ljava/lang/Object;ILjava/lang/Object;[Ljava/lang/Object;)V"));
+                // The failure handler sits right after the call, so its rethrow stays inside the
+                // user's try ranges around the call (Part 8h); normal flow jumps over it.
+                LabelNode resume = new LabelNode();
+                after.add(new JumpInsnNode(Opcodes.GOTO, resume));
+                after.add(handler);
+                after.add(new InsnNode(Opcodes.DUP));
+                after.add(siteConstant(site));
+                after.add(call("libFail", "(Ljava/lang/Throwable;I)V"));
+                after.add(new InsnNode(Opcodes.ATHROW));
+                after.add(resume);
                 list.insert(insn, after);
-                list.add(handler);
-                list.add(new InsnNode(Opcodes.DUP));
-                list.add(siteConstant(site));
-                list.add(call("libFail", "(Ljava/lang/Throwable;I)V"));
-                list.add(new InsnNode(Opcodes.ATHROW));
-                m.tryCatchBlocks.add(new TryCatchBlockNode(start, end, handler, null));
+                // First in the table: the JVM picks the first matching entry, and the user's handlers
+                // around this call must see the failure only after it is recorded (Part 8h).
+                m.tryCatchBlocks.add(0, new TryCatchBlockNode(start, end, handler, null));
             }
             case LIBNEW -> {
                 InsnList after = new InsnList();
@@ -799,6 +819,13 @@ final class Instrumenter {
                 InsnList before = new InsnList();
                 before.add(siteConstant(site));
                 before.add(call("sw", "(II)I"));
+                list.insertBefore(insn, before);
+            }
+            case THROW -> { // a throw statement: record the exception, then the original athrow (Part 8h)
+                InsnList before = new InsnList();
+                before.add(new InsnNode(Opcodes.DUP));
+                before.add(siteConstant(site));
+                before.add(call("thr", "(Ljava/lang/Throwable;I)V"));
                 list.insertBefore(insn, before);
             }
             case ARITH, NEG -> {

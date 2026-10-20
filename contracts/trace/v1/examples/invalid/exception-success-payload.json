@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "1.6.0",
+  "schemaVersion": "1.7.0",
   "runId": "example-failed-write",
   "source": {
     "file": "Main.java",
@@ -165,6 +165,7 @@
       "data": {
         "exceptionType": "java.lang.ArrayIndexOutOfBoundsException",
         "message": "Illustrative bounds failure.",
+        "objectId": "E",
         "value": {
           "kind": "int",
           "value": "9"

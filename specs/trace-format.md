@@ -161,7 +161,7 @@ a[2] = 9;
 Step 1 commits x = 7. Step 2 records ArrayIndexOutOfBoundsException at the array
 assignment. A remains [3, 1]; no successful array write is recorded. If uncaught,
 the run fails. Backward removes the exception display and restores the Step 1
-cursor; x remains 7. Catch/unwind semantics need the later support specification.
+cursor; x remains 7. Catch, finally and unwinding follow [exceptions](exceptions.md) (1.7.0).
 
 ## 5. Verification obligations before implementation is accepted
 
@@ -187,7 +187,7 @@ one creation Step; initializer expressions need further decomposition work.
 
 Part 3 below specifies the initial wire contract and numeric representation.
 Remaining work includes broader initializer expressions,
-array updates/compound assignment, full exception-handler semantics, collection
+array updates/compound assignment, collection
 operations, input events, concrete limits, and library-internal capture.
 
 Define these before their producers/consumers are implemented. In particular,
@@ -208,7 +208,7 @@ values; section 12 defines additional semantic checks. See the official
 
 | Top-level field | Meaning |
 | --- | --- |
-| schemaVersion | Exactly `1.6.0` (Part 8g; earlier versions retired); reject unrecognized versions rather than silently skipping facts |
+| schemaVersion | Exactly `1.7.0` (Part 8h; earlier versions retired); reject unrecognized versions rather than silently skipping facts |
 | runId | Nonempty identity for this run; identities below are local to it |
 | source | Exact source text, file `Main.java`, and lowercase SHA-256 of its UTF-8 bytes |
 | execution | Terminal status and human-readable reason; describes execution, not capture completeness |
@@ -291,7 +291,8 @@ ranges follow sections 2–3 and the Java-support specification.
 | EXPRESSION | operator, operands, result; no persistent mutation |
 | CALL | frame, scope, parameters; push new frame and its root scope and parameter bindings |
 | RETURN | result, implicit; pop this frame and remove its scopes/bindings; result is JSON null for void, otherwise a typed value |
-| EXCEPTION | exceptionType, message; no successful mutation or result for the failing operation |
+| EXCEPTION | exceptionType, message, and since 1.7.0 objectId (the exception object); no successful mutation or result for the failing operation; the exception is in flight until a CATCH |
+| CATCH | 1.7.0: binding; a catch clause received the exception in flight: add the binding, whose value refers to the exception object (same effect as DECLARE) ([exceptions](exceptions.md)) |
 | UNCAPTURED | 1.1.0: unknownBindings, arrays, unknownArrays; a statement ran without capture: listed bindings become unknown, listed array contents replace state, unknownArrays elements become unknown |
 | SWITCH | 1.3.0: value (byte, short, int or char), matched (case, default or none); a switch chose a branch; source is the chosen label, or the selector when nothing matched; no state change ([statements and arrays](statements.md)) |
 | FIELD_READ | 1.4.0: objectId, field, value; no mutation ([objects](objects.md)) |
@@ -321,10 +322,10 @@ Bookkeeping has seq, kind, data, but no step/source/frameId envelope fields:
 | SCOPE_ENTER | scope; add scope under its recorded parent in the active frame |
 | SCOPE_EXIT | scopeId; remove that innermost scope and its bindings |
 | FRAME_END | frameId, reason (main_return / unwind); pop the active frame and all remaining scopes/bindings |
-| OBJECT_CAPTURE | object; register a newly observed string identity and contents, or (1.1.0) an int array created by uncaptured code, without claiming a Java allocation at that expression |
+| OBJECT_CAPTURE | object; register a newly observed string identity and contents, or (1.1.0) an int array created by uncaptured code, or (1.7.0) an exception object when first thrown or caught, without claiming a Java allocation at that expression |
 
 Helper normal return uses RETURN, never FRAME_END. Main normal termination uses
-FRAME_END; unwinding uses FRAME_END for each frame actually departed. Binding
+FRAME_END; unwinding uses FRAME_END for each frame actually departed (since 1.7.0 also mid-trace, when an exception leaves a helper and is caught later). Binding
 removal is not object destruction; keep referenced and historic objects in replay
 storage. Objects are never reused as later identities.
 

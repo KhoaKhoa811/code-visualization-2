@@ -143,7 +143,15 @@ final class Analyzer {
         private final Map<Element, Site> declarations = new HashMap<>();
         private final List<Element> declared = new ArrayList<>(); // insertion order, for rollback
         // Per block: declarations without initializer not yet attached to a following operation (Part 8b).
-        private final Deque<List<Site>> pending = new ArrayDeque<>();
+        private Deque<List<Site>> pending = new ArrayDeque<>();
+        // Part 8h: statements a jump can leave (loops, switch statements, labeled statements, switch
+        // expressions) and enclosing finally blocks, innermost first; Throwable classes of the source
+        // (javaType -> binary name) and those simple enough to be created by traced code.
+        private final Deque<Object> exits = new ArrayDeque<>();
+        private record Finalizer(List<Item> items) { }
+        private final Map<String, String> exceptionClasses = new HashMap<>();
+        private final Set<String> simpleExceptions = new HashSet<>();
+        private int jumpingRegions; // uncaptured statements with a jump planned while a finally block encloses them
         private final Map<Site, Integer> pendingMarks = new HashMap<>(); // plan position of each waiting declaration
         // Findings for the statement being planned; null outside main's statements (they block tracing).
         private List<Diagnostic> current;
@@ -222,6 +230,7 @@ final class Analyzer {
             if (main == null) { unsupported(mainClass, "a class without public static void main(String[])"); return; }
             // Part 8e: traced classes first (their names are traced types), then every traced method
             // (calls may come before declarations), then the bodies. Everything else runs untraced.
+            exceptionClasses(mainClass); // Part 8h
             List<ClassTree> traced = tracedClasses(mainClass);
             List<MethodTree> methods = new ArrayList<>();
             for (Tree member : mainClass.getMembers()) {
@@ -380,6 +389,7 @@ final class Analyzer {
         private void method(MethodTree m, Site site) {
             currentMethod = site;
             plan = new ArrayList<>();
+            exits.clear();
             if (site == null) {
                 rootScope = "b" + start(m.getBody());
                 plans.put(Instrumenter.MAIN, plan);
@@ -490,6 +500,8 @@ final class Analyzer {
             // Statements that generate no code (a declaration without initializer, a local
             // class) leave no step; later uses of what they declare are uncaptured too.
             if (s instanceof VariableTree v && v.getInitializer() == null || s instanceof ClassTree) return;
+            // javac copies finally blocks into a jump's code; inside an uncaptured statement they would run unseen (Part 8h).
+            if (exits.stream().anyMatch(Finalizer.class::isInstance) && containsJump(s, false)) jumpingRegions++;
             Site site = site(Kind.REGION, s);
             Effects effects = new Effects();
             effects.scan(s, null);
@@ -499,6 +511,12 @@ final class Analyzer {
             Tree ranged = s instanceof EnhancedForLoopTree f ? f.getExpression() : s;
             site.crtStart = crt(start(ranged));
             site.crtEnd = crt(end(ranged));
+            // javac lowers try-with-resources: the first resource's declaration has its own range entry
+            // before the try statement's, which starts only after the resources are opened.
+            if (s instanceof TryTree t && !t.getResources().isEmpty() && t.getResources().get(0) instanceof VariableTree resource) {
+                site.crtFirstStart = crt(start(resource));
+                site.crtFirstEnd = crt(end(resource));
+            }
             if (currentMethod != null) { // a return inside it is recorded at this statement (Part 8d)
                 site.returnSite = site(Kind.RETURN, s);
                 site.returnSite.javaType = currentMethod.javaType;
@@ -631,20 +649,23 @@ final class Analyzer {
                 case WHILE_LOOP -> {
                     WhileLoopTree w = (WhileLoopTree) s;
                     loopCondition(w.getCondition());
-                    statement(w.getStatement());
+                    exits.push(s);
+                    try { statement(w.getStatement()); } finally { exits.pop(); }
                 }
                 case FOR_LOOP -> {
                     ForLoopTree f = (ForLoopTree) s;
                     scopes.push("f" + start(f));
                     for (StatementTree init : f.getInitializer()) plain(init); // an unsupported init degrades the whole loop
                     if (f.getCondition() != null) loopCondition(f.getCondition());
-                    statement(f.getStatement());
+                    exits.push(s);
+                    try { statement(f.getStatement()); } finally { exits.pop(); }
                     for (ExpressionStatementTree update : f.getUpdate()) expressionStatement(update.getExpression());
                     scopes.pop();
                 }
                 case DO_WHILE_LOOP -> { // javac: body, then the test jumping back (none for a constant)
                     DoWhileLoopTree d = (DoWhileLoopTree) s;
-                    statement(d.getStatement());
+                    exits.push(s);
+                    try { statement(d.getStatement()); } finally { exits.pop(); }
                     if (!isConstant(d.getCondition())) condition(d.getCondition());
                 }
                 case ENHANCED_FOR_LOOP -> forEach((EnhancedForLoopTree) s);
@@ -654,18 +675,38 @@ final class Analyzer {
                 }
                 case YIELD -> {
                     if (yieldTypes.isEmpty()) { unsupported(s, "this yield"); return; }
+                    for (Object exit : exits) { // Part 8h: a yield never leaves a finally block here
+                        if (exit instanceof SwitchExpressionTree) break;
+                        if (exit instanceof Finalizer) { unsupported(s, "a yield out of a try statement with finally"); return; }
+                    }
                     value(((YieldTree) s).getValue(), yieldTypes.peek());
                 }
-                case LABELED_STATEMENT -> plain(((LabeledStatementTree) s).getStatement()); // labels emit no code
-                case BREAK, CONTINUE, EMPTY_STATEMENT -> { } // jumps only, labeled or not
+                case LABELED_STATEMENT -> { // labels emit no code
+                    exits.push(s);
+                    try { plain(((LabeledStatementTree) s).getStatement()); } finally { exits.pop(); }
+                }
+                case BREAK, CONTINUE -> jump(s);
+                case EMPTY_STATEMENT -> { }
                 case RETURN -> {
                     ExpressionTree result = ((ReturnTree) s).getExpression();
-                    if (currentMethod == null) { if (result != null) unsupported(s, "return values"); return; } // main: only "return;"
-                    if (result != null) value(result, currentMethod.javaType);
+                    List<Finalizer> crossed = finalizers(null);
+                    if (currentMethod == null) { // main: only "return;"
+                        if (result != null) { unsupported(s, "return values"); return; }
+                        copies(crossed);
+                        return;
+                    }
+                    if (result != null) {
+                        value(result, currentMethod.javaType);
+                        // javac keeps the value in a hidden local while the finally blocks run.
+                        if (!crossed.isEmpty()) plan.add(new Item(Expect.STORE, null, 0, "result"));
+                    }
+                    copies(crossed);
                     Site site = site(Kind.RETURN, s);
                     site.javaType = currentMethod.javaType;
                     plan.add(Item.of(Expect.RETURN, site));
                 }
+                case TRY -> tryStatement((TryTree) s);
+                case THROW -> throwStatement((ThrowTree) s);
                 default -> unsupported(s, "this statement kind (" + s.getKind() + ")");
             }
         }
@@ -698,9 +739,335 @@ final class Analyzer {
             coerce(component(arrayType), type);
             Site declare = declareSite(v, type);
             plan.add(Item.of(Expect.STORE, declare));
-            statement(f.getStatement());
+            exits.push(f);
+            try { statement(f.getStatement()); } finally { exits.pop(); }
             plan.add(new Item(Expect.IINC, null, 0, "index++"));
             scopes.pop();
+        }
+
+        // ---- Part 8h: exceptions ------------------------------------------------------------
+
+        private javax.lang.model.type.TypeMirror throwable() { return elements.getTypeElement("java.lang.Throwable").asType(); }
+
+        /** A class of the java.lang or java.util package itself (no subpackage). */
+        private static boolean jdkPackage(String qualified) {
+            int dot = qualified.lastIndexOf('.');
+            String pkg = dot < 0 ? "" : qualified.substring(0, dot);
+            return pkg.equals("java.lang") || pkg.equals("java.util");
+        }
+
+        /**
+         * Throwable classes of the source (top level or static members of Main) get an EXCEPTION_CLASS
+         * site so the builder can check what a catch clause caught. Those that only declare constructors
+         * passing their parameters to super(...) (and constants) are simple: traced code may create them,
+         * and creating one runs no code beyond the JDK's.
+         */
+        private void exceptionClasses(ClassTree mainClass) {
+            List<ClassTree> candidates = new ArrayList<>();
+            for (Tree type : unit.getTypeDecls()) if (type instanceof ClassTree c && c != mainClass) candidates.add(c);
+            for (Tree member : mainClass.getMembers()) {
+                if (member instanceof ClassTree c && c.getModifiers().getFlags().contains(Modifier.STATIC)) candidates.add(c);
+            }
+            Map<String, ClassTree> trees = new LinkedHashMap<>();
+            Map<String, TypeElement> supers = new HashMap<>();
+            for (ClassTree c : candidates) {
+                if (!(element(c) instanceof TypeElement e) || !types.isSubtype(e.asType(), throwable())) continue;
+                String binary = elements.getBinaryName(e).toString();
+                TypeElement superclass = (TypeElement) types.asElement(e.getSuperclass());
+                Site site = site(Kind.EXCEPTION_CLASS, c);
+                site.name = binary;
+                site.owner = elements.getBinaryName(superclass).toString();
+                exceptionClasses.put(javaType(c), binary);
+                trees.put(binary, c);
+                supers.put(binary, superclass);
+            }
+            boolean changed = true;
+            while (changed) {
+                changed = false;
+                for (var entry : trees.entrySet()) {
+                    TypeElement superclass = supers.get(entry.getKey());
+                    String superName = superclass.getQualifiedName().toString();
+                    boolean superOk = jdkPackage(superName) || simpleExceptions.contains(elements.getBinaryName(superclass).toString());
+                    if (!simpleExceptions.contains(entry.getKey()) && superOk && plainException(entry.getValue())) {
+                        simpleExceptions.add(entry.getKey());
+                        changed = true;
+                    }
+                }
+            }
+        }
+
+        private boolean plainException(ClassTree c) {
+            if (c.getKind() != Tree.Kind.CLASS || !c.getImplementsClause().isEmpty() || !c.getTypeParameters().isEmpty()) return false;
+            for (Tree member : c.getMembers()) {
+                if (member instanceof VariableTree v) {
+                    Set<Modifier> flags = v.getModifiers().getFlags();
+                    if (flags.contains(Modifier.STATIC) && flags.contains(Modifier.FINAL) && element(v) instanceof VariableElement ve
+                            && ve.getConstantValue() != null) continue; // such as serialVersionUID
+                    return false;
+                }
+                if (!(member instanceof MethodTree m) || !(element(m) instanceof ExecutableElement e) || e.getKind() != ElementKind.CONSTRUCTOR
+                        || m.getBody() == null) return false;
+                List<? extends StatementTree> body = m.getBody().getStatements();
+                if (body.size() != 1 || !(body.get(0) instanceof ExpressionStatementTree s) || !(s.getExpression() instanceof MethodInvocationTree call)
+                        || !(call.getMethodSelect() instanceof IdentifierTree id) || !id.getName().contentEquals("super")) return false;
+                for (ExpressionTree a : call.getArguments()) {
+                    if (!(strip(a) instanceof IdentifierTree arg) || !(element(arg) instanceof VariableElement p) || p.getKind() != ElementKind.PARAMETER)
+                        return false;
+                }
+            }
+            return true;
+        }
+
+        /** A Throwable type traced code may name: a JDK class of java.lang or java.util, or a Throwable class of the source. */
+        private TypeElement exceptionElement(String javaType) {
+            TypeElement e = elements.getTypeElement(erasure(javaType));
+            if (e == null || !types.isSubtype(e.asType(), throwable())) return null;
+            return jdkPackage(e.getQualifiedName().toString()) || exceptionClasses.containsValue(elements.getBinaryName(e).toString()) ? e : null;
+        }
+
+        /** A Throwable type traced code may create and throw (a source class must be simple). */
+        private boolean throwableType(String javaType) {
+            TypeElement e = exceptionElement(javaType);
+            return e != null && (jdkPackage(e.getQualifiedName().toString()) || simpleExceptions.contains(elements.getBinaryName(e).toString()));
+        }
+
+        /** {@code throw new E(...)} or {@code throw e} of a caught exception: a THROW step recorded before athrow. */
+        private void throwStatement(ThrowTree t) {
+            ExpressionTree e = strip(t.getExpression());
+            String type = javaType(e);
+            if (!throwableType(type)) { unsupported(e, "throwing " + type); return; }
+            if (e instanceof NewClassTree n) {
+                if (n.getClassBody() != null || n.getEnclosingExpression() != null || !(element(n) instanceof ExecutableElement constructor)) {
+                    unsupported(n, "creating this exception");
+                    return;
+                }
+                List<String> params = constructor.getParameters().stream().map(p -> types.erasure(p.asType()).toString()).toList();
+                if (!params.isEmpty() && !params.equals(List.of("java.lang.String"))) { unsupported(n, "this exception constructor"); return; }
+                plan.add(new Item(Expect.NEW, null, 0, Instrumenter.internal(type)));
+                for (ExpressionTree a : n.getArguments()) value(a, "java.lang.String");
+                plan.add(new Item(Expect.CTOR, null, 0, Instrumenter.internal(type) + "#<init>(" + (params.isEmpty() ? "" : "Ljava/lang/String;") + ")V"));
+            } else if (!(e instanceof IdentifierTree) || !declarations.containsKey(element(e))) { // a catch parameter
+                unsupported(e, "this thrown expression");
+                return;
+            }
+            Site site = site(Kind.THROW, t);
+            site.javaType = type;
+            plan.add(Item.of(Expect.THROW, site));
+        }
+
+        /**
+         * try/catch/finally in javac's layout: the try block, its finally copy and a jump; per catch the
+         * parameter store, the block, its finally copy and a jump; then the finally handler (store of the
+         * exception in flight, the finally block, the rethrow). Jumps out of the try or a catch block run
+         * a finally copy first. Finally blocks are fully captured and contain no jumps.
+         */
+        private void tryStatement(TryTree t) {
+            if (!t.getResources().isEmpty()) { unsupported(t, "try-with-resources"); return; }
+            if (!emitsCode(t.getBlock())) { unsupported(t.getBlock(), "an empty try block"); return; }
+            BlockTree fin = t.getFinallyBlock();
+            List<Item> finallyItems = null;
+            if (fin != null) {
+                if (containsJump(fin, true)) { unsupported(fin, "a finally block with jumps, throw or try statements"); return; }
+                List<Item> outerPlan = plan;
+                Deque<List<Site>> outerPending = pending;
+                plan = new ArrayList<>();
+                pending = new ArrayDeque<>(); // waiting declarations outside never attach inside the copies
+                try { statement(fin); } finally { finallyItems = plan; plan = outerPlan; pending = outerPending; }
+                if (finallyItems.stream().anyMatch(i -> i.expect() == Expect.REGION)) {
+                    unsupported(fin, "a finally block with statements that run without capture");
+                    return;
+                }
+            }
+            Finalizer finalizer = fin == null ? null : new Finalizer(List.copyOf(finallyItems));
+            int regionsBefore = jumpingRegions;
+            if (finalizer != null) exits.push(finalizer);
+            try { statement(t.getBlock()); } finally { if (finalizer != null) exits.pop(); }
+            if (finalizer != null && canComplete(t.getBlock())) plan.addAll(finalizer.items());
+            for (CatchTree c : t.getCatches()) {
+                scopes.push("k" + start(c));
+                try {
+                    Site parameter = catchSite(c);
+                    if (parameter == null) return;
+                    plan.add(Item.of(Expect.STORE, parameter));
+                    if (finalizer != null) exits.push(finalizer);
+                    try { statement(c.getBlock()); } finally { if (finalizer != null) exits.pop(); }
+                    if (finalizer != null && canComplete(c.getBlock())) plan.addAll(finalizer.items());
+                } finally {
+                    scopes.pop();
+                }
+            }
+            if (finalizer != null) {
+                if (jumpingRegions != regionsBefore) {
+                    unsupported(t, "jumps inside statements that run without capture within a try statement with finally");
+                    return;
+                }
+                plan.add(Item.of(Expect.STORE, site(Kind.FINALLY, fin)));
+                plan.addAll(finalizer.items());
+                plan.add(new Item(Expect.THROW, null, 0, "rethrow"));
+            }
+        }
+
+        /** A catch parameter's declaration (Kind.CATCH); its range is {@code catch (T e)}. Null (reported) for an untraced type. */
+        private Site catchSite(CatchTree c) {
+            VariableTree p = c.getParameter();
+            List<? extends Tree> alternatives = p.getType() instanceof UnionTypeTree u ? u.getTypeAlternatives() : List.of(p.getType());
+            List<String> caught = new ArrayList<>(), names = new ArrayList<>();
+            for (Tree alternative : alternatives) {
+                TypeElement e = exceptionElement(javaType(alternative));
+                if (e == null) { unsupported(alternative, "catching " + javaType(alternative)); return null; }
+                caught.add(elements.getBinaryName(e).toString());
+                names.add(javaType(alternative));
+            }
+            int end = end(p);
+            while (end < end(c) && !sourceAt(end, ")")) end++;
+            Site site = new Site(sites.size() + 1, Kind.CATCH, start(c), end + 1, reversedScopes());
+            sites.put(site.id, site);
+            site.declarationId = "Main.main:" + p.getName() + "@" + start(p);
+            site.name = p.getName().toString();
+            site.javaType = String.join(" | ", names);
+            site.caught = List.copyOf(caught);
+            declarations.put(element(p), site);
+            declared.add(element(p));
+            return site;
+        }
+
+        /** Finally blocks a jump leaves, innermost first, up to its target ({@code target} null: the whole method). */
+        private List<Finalizer> finalizers(Object target) {
+            List<Finalizer> out = new ArrayList<>();
+            for (Object exit : exits) {
+                if (exit == target) break;
+                if (exit instanceof Finalizer f) out.add(f);
+            }
+            return out;
+        }
+
+        private void copies(List<Finalizer> crossed) {
+            for (Finalizer f : crossed) plan.addAll(f.items());
+        }
+
+        /** break/continue: no code but a jump, after the finally blocks it leaves. */
+        private void jump(StatementTree s) {
+            javax.lang.model.element.Name label = s instanceof BreakTree b ? b.getLabel() : ((ContinueTree) s).getLabel();
+            boolean isContinue = s.getKind() == Tree.Kind.CONTINUE;
+            for (Object exit : exits) {
+                if (exit instanceof SwitchExpressionTree) break;
+                boolean target = label != null ? exit instanceof LabeledStatementTree l && l.getLabel().contentEquals(label)
+                        : loop(exit) || !isContinue && exit instanceof SwitchTree;
+                if (target) { copies(finalizers(exit)); return; }
+            }
+            unsupported(s, "this jump");
+        }
+
+        private static boolean loop(Object tree) {
+            return tree instanceof WhileLoopTree || tree instanceof DoWhileLoopTree || tree instanceof ForLoopTree || tree instanceof EnhancedForLoopTree;
+        }
+
+        /** Whether javac emits any instruction for a statement. */
+        private static boolean emitsCode(StatementTree s) {
+            return switch (s) {
+                case BlockTree b -> b.getStatements().stream().anyMatch(Walker::emitsCode);
+                case VariableTree v -> v.getInitializer() != null;
+                case LabeledStatementTree l -> emitsCode(l.getStatement());
+                case ClassTree c -> false;
+                default -> s.getKind() != Tree.Kind.EMPTY_STATEMENT;
+            };
+        }
+
+        /** Jump statements (and, with {@code all}, throw and try) outside nested classes and lambdas. */
+        private static boolean containsJump(Tree tree, boolean all) {
+            boolean[] found = {false};
+            new TreeScanner<Void, Void>() {
+                @Override public Void visitReturn(ReturnTree r, Void p) { found[0] = true; return null; }
+                @Override public Void visitBreak(BreakTree b, Void p) { found[0] = true; return null; }
+                @Override public Void visitContinue(ContinueTree c, Void p) { found[0] = true; return null; }
+                @Override public Void visitYield(YieldTree y, Void p) { found[0] = true; return null; }
+                @Override public Void visitThrow(ThrowTree t, Void p) { if (all) found[0] = true; return super.visitThrow(t, p); }
+                @Override public Void visitTry(TryTree t, Void p) { if (all) found[0] = true; return super.visitTry(t, p); }
+                @Override public Void visitClass(ClassTree c, Void p) { return null; }
+                @Override public Void visitLambdaExpression(LambdaExpressionTree l, Void p) { return null; }
+            }.scan(tree, null);
+            return found[0];
+        }
+
+        /**
+         * JLS 14.22 "can complete normally" for the statements traced here, which is when javac's code
+         * after them is alive (it emits a finally copy and a jump only then). Constant if conditions
+         * are never traced, so the rules for loops and switches are the only constant-sensitive ones.
+         */
+        private boolean canComplete(StatementTree s) {
+            return switch (s.getKind()) {
+                case BLOCK -> ((BlockTree) s).getStatements().stream().allMatch(this::canComplete);
+                case RETURN, THROW, BREAK, CONTINUE, YIELD -> false;
+                case IF -> { // javac emits only the taken branch of a constant condition (such statements run uncaptured)
+                    IfTree i = (IfTree) s;
+                    Object constant = constantValue(i.getCondition());
+                    if (Boolean.TRUE.equals(constant)) yield canComplete(i.getThenStatement());
+                    if (Boolean.FALSE.equals(constant)) yield i.getElseStatement() == null || canComplete(i.getElseStatement());
+                    yield i.getElseStatement() == null || canComplete(i.getThenStatement()) || canComplete(i.getElseStatement());
+                }
+                case WHILE_LOOP -> !Boolean.TRUE.equals(constantValue(((WhileLoopTree) s).getCondition())) || breaksTo(s);
+                case FOR_LOOP -> {
+                    ExpressionTree c = ((ForLoopTree) s).getCondition();
+                    yield c != null && !Boolean.TRUE.equals(constantValue(c)) || breaksTo(s);
+                }
+                case DO_WHILE_LOOP -> {
+                    DoWhileLoopTree d = (DoWhileLoopTree) s;
+                    yield (canComplete(d.getStatement()) || continuesTo(d)) && !Boolean.TRUE.equals(constantValue(d.getCondition())) || breaksTo(s);
+                }
+                case LABELED_STATEMENT -> canComplete(((LabeledStatementTree) s).getStatement()) || breaksTo(s);
+                case SWITCH -> {
+                    SwitchTree w = (SwitchTree) s;
+                    boolean hasDefault = w.getCases().stream().anyMatch(c -> c.getLabels().stream().anyMatch(DefaultCaseLabelTree.class::isInstance));
+                    if (!hasDefault || breaksTo(s)) yield true;
+                    List<? extends CaseTree> cases = w.getCases();
+                    if (cases.get(0).getCaseKind() == CaseTree.CaseKind.RULE) {
+                        yield cases.stream().anyMatch(c -> !(c.getBody() instanceof StatementTree body) || canComplete(body));
+                    }
+                    yield cases.get(cases.size() - 1).getStatements().stream().allMatch(this::canComplete);
+                }
+                case TRY -> {
+                    TryTree t = (TryTree) s;
+                    boolean any = canComplete(t.getBlock()) || t.getCatches().stream().anyMatch(c -> canComplete(c.getBlock()));
+                    yield any && (t.getFinallyBlock() == null || canComplete(t.getFinallyBlock()));
+                }
+                default -> true;
+            };
+        }
+
+        /** A reachable-looking break that leaves {@code target} (a loop, switch or labeled statement). */
+        private static boolean breaksTo(StatementTree target) { return jumpsTo(target, false); }
+
+        private static boolean continuesTo(StatementTree loop) { return jumpsTo(loop, true); }
+
+        /**
+         * Whether a break (or continue) inside {@code target} jumps to it: a labeled one naming its label,
+         * or an unlabeled one whose innermost enclosing loop (or, for break, switch) is the target itself.
+         */
+        private static boolean jumpsTo(StatementTree target, boolean wantContinue) {
+            StatementTree inner = target instanceof LabeledStatementTree l ? l.getStatement() : target;
+            javax.lang.model.element.Name label = target instanceof LabeledStatementTree l ? l.getLabel() : null;
+            boolean unlabeledTarget = loop(inner) || !wantContinue && inner instanceof SwitchTree;
+            boolean[] found = {false};
+            new TreeScanner<Void, Integer>() { // depth: statements between here and the target that catch an unlabeled jump
+                private boolean catches(Tree t) {
+                    return loop(t) || t instanceof SwitchExpressionTree || !wantContinue && t instanceof SwitchTree;
+                }
+                @Override public Void scan(Tree tree, Integer depth) {
+                    if (tree == null) return null;
+                    return super.scan(tree, tree != inner && catches(tree) ? depth + 1 : depth);
+                }
+                @Override public Void visitBreak(BreakTree b, Integer depth) {
+                    if (!wantContinue && (b.getLabel() == null ? unlabeledTarget && depth == 0 : b.getLabel().equals(label))) found[0] = true;
+                    return null;
+                }
+                @Override public Void visitContinue(ContinueTree c, Integer depth) {
+                    if (wantContinue && (c.getLabel() == null ? unlabeledTarget && depth == 0 : c.getLabel().equals(label))) found[0] = true;
+                    return null;
+                }
+                @Override public Void visitClass(ClassTree c, Integer depth) { return null; }
+                @Override public Void visitLambdaExpression(LambdaExpressionTree l, Integer depth) { return null; }
+            }.scan(inner, 0);
+            return found[0];
         }
 
         private static final Set<String> SELECTORS = Set.of("int", "char", "short", "byte");
@@ -728,16 +1095,21 @@ final class Analyzer {
             scopes.push("w" + start(w));
             pending.push(new ArrayList<>());
             if (yieldType != null) yieldTypes.push(yieldType);
-            for (CaseTree c : cases) {
-                if (c.getCaseKind() == CaseTree.CaseKind.STATEMENT) {
-                    for (StatementTree inner : c.getStatements()) statement(inner);
-                } else if (c.getBody() instanceof ExpressionTree e) {
-                    // A rule body expression has no statement of its own: it is planned with the switch.
-                    if (yieldType != null) value(e, yieldType);
-                    else expressionStatement(e);
-                } else {
-                    statement((StatementTree) c.getBody());
+            exits.push(w); // break leaves a switch statement; a switch expression bounds yield (Part 8h)
+            try {
+                for (CaseTree c : cases) {
+                    if (c.getCaseKind() == CaseTree.CaseKind.STATEMENT) {
+                        for (StatementTree inner : c.getStatements()) statement(inner);
+                    } else if (c.getBody() instanceof ExpressionTree e) {
+                        // A rule body expression has no statement of its own: it is planned with the switch.
+                        if (yieldType != null) value(e, yieldType);
+                        else expressionStatement(e);
+                    } else {
+                        statement((StatementTree) c.getBody());
+                    }
                 }
+            } finally {
+                exits.pop();
             }
             if (yieldType != null) yieldTypes.pop();
             pending.pop();
@@ -895,6 +1267,8 @@ final class Analyzer {
                 if (!(call.getMethodSelect() instanceof MemberSelectTree select)) return null;
                 String receiver = javaType(select.getExpression());
                 String raw = erasure(receiver);
+                // Part 8h: the message of a caught exception, replayed from the recorded exception object.
+                if (exceptionElement(receiver) != null && name.equals("getMessage") && m.getParameters().isEmpty()) return m;
                 if (!raw.equals("java.lang.String") && !libraryType(receiver)) return null;
                 String family = raw.equals("java.lang.String") ? "string" : raw.equals(BUILDER) ? "builder" : raw.equals(SCANNER) ? "scanner"
                         : LISTS.contains(raw) ? "list"

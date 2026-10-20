@@ -1,0 +1,286 @@
+{
+  "schemaVersion": "1.7.0",
+  "runId": "example-try-catch",
+  "source": {
+    "file": "Main.java",
+    "text": "public class Main {\n    static int check(int n) {\n        if (n < 0) throw new IllegalArgumentException(\"negative\");\n        return n;\n    }\n    public static void main(String[] args) {\n        int r = 0;\n        try {\n            r = check(-1);\n        } catch (IllegalArgumentException e) {\n            r = -1;\n        }\n    }\n}\n",
+    "sha256": "f1a9f3fb12cba08bfd866e419a44af9389eb08413d53f1f815259963bb19f37f"
+  },
+  "execution": {
+    "status": "completed",
+    "reason": "Normal return from main."
+  },
+  "capture": {
+    "status": "complete",
+    "reason": "Illustrative complete recording, not executed Java.",
+    "safeEventCount": 13
+  },
+  "diagnostics": [],
+  "initialState": {
+    "objects": [
+      {
+        "objectId": "args0",
+        "kind": "array",
+        "elementType": "java.lang.String",
+        "elements": []
+      }
+    ],
+    "frames": [
+      {
+        "frameId": "f0",
+        "methodId": "Main.main(java.lang.String[]):void",
+        "callerFrameId": null
+      }
+    ],
+    "scopes": [
+      {
+        "scopeId": "s0",
+        "frameId": "f0",
+        "parentScopeId": null
+      }
+    ],
+    "bindings": [
+      {
+        "bindingId": "args",
+        "declarationId": "Main:args",
+        "frameId": "f0",
+        "scopeId": "s0",
+        "name": "args",
+        "javaType": "java.lang.String[]",
+        "value": {
+          "kind": "ref",
+          "objectId": "args0"
+        }
+      }
+    ]
+  },
+  "events": [
+    {
+      "seq": 1,
+      "step": 1,
+      "source": {
+        "start": 194,
+        "end": 203
+      },
+      "frameId": "f0",
+      "kind": "DECLARE",
+      "data": {
+        "binding": {
+          "bindingId": "br",
+          "declarationId": "Main.main:r",
+          "frameId": "f0",
+          "scopeId": "s0",
+          "name": "r",
+          "javaType": "int",
+          "value": {
+            "kind": "int",
+            "value": "0"
+          }
+        }
+      }
+    },
+    {
+      "seq": 2,
+      "kind": "SCOPE_ENTER",
+      "data": {
+        "scope": {
+          "scopeId": "s1",
+          "frameId": "f0",
+          "parentScopeId": "s0"
+        }
+      }
+    },
+    {
+      "seq": 3,
+      "step": 2,
+      "source": {
+        "start": 235,
+        "end": 244
+      },
+      "frameId": "f0",
+      "kind": "CALL",
+      "data": {
+        "frame": {
+          "frameId": "f1",
+          "methodId": "Main.check(int):int",
+          "callerFrameId": "f0"
+        },
+        "scope": {
+          "scopeId": "s2",
+          "frameId": "f1",
+          "parentScopeId": null
+        },
+        "parameters": [
+          {
+            "bindingId": "bn",
+            "declarationId": "Main.check:n",
+            "frameId": "f1",
+            "scopeId": "s2",
+            "name": "n",
+            "javaType": "int",
+            "value": {
+              "kind": "int",
+              "value": "-1"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "seq": 4,
+      "step": 3,
+      "source": {
+        "start": 62,
+        "end": 67
+      },
+      "frameId": "f1",
+      "kind": "EXPRESSION",
+      "data": {
+        "operator": "<",
+        "operands": [
+          {
+            "value": {
+              "kind": "int",
+              "value": "-1"
+            }
+          },
+          {
+            "value": {
+              "kind": "int",
+              "value": "0"
+            }
+          }
+        ],
+        "result": {
+          "kind": "boolean",
+          "value": true
+        }
+      }
+    },
+    {
+      "seq": 5,
+      "kind": "OBJECT_CAPTURE",
+      "data": {
+        "object": {
+          "objectId": "E",
+          "kind": "exception",
+          "className": "java.lang.IllegalArgumentException",
+          "message": "negative"
+        }
+      }
+    },
+    {
+      "seq": 6,
+      "step": 4,
+      "source": {
+        "start": 69,
+        "end": 116
+      },
+      "frameId": "f1",
+      "kind": "EXCEPTION",
+      "data": {
+        "exceptionType": "java.lang.IllegalArgumentException",
+        "message": "negative",
+        "objectId": "E"
+      }
+    },
+    {
+      "seq": 7,
+      "kind": "FRAME_END",
+      "data": {
+        "frameId": "f1",
+        "reason": "unwind"
+      }
+    },
+    {
+      "seq": 8,
+      "kind": "SCOPE_EXIT",
+      "data": {
+        "scopeId": "s1"
+      }
+    },
+    {
+      "seq": 9,
+      "kind": "SCOPE_ENTER",
+      "data": {
+        "scope": {
+          "scopeId": "s3",
+          "frameId": "f0",
+          "parentScopeId": "s0"
+        }
+      }
+    },
+    {
+      "seq": 10,
+      "step": 5,
+      "source": {
+        "start": 256,
+        "end": 290
+      },
+      "frameId": "f0",
+      "kind": "CATCH",
+      "data": {
+        "binding": {
+          "bindingId": "be",
+          "declarationId": "Main.main:e",
+          "frameId": "f0",
+          "scopeId": "s3",
+          "name": "e",
+          "javaType": "java.lang.IllegalArgumentException",
+          "value": {
+            "kind": "ref",
+            "objectId": "E"
+          }
+        }
+      }
+    },
+    {
+      "seq": 11,
+      "kind": "SCOPE_ENTER",
+      "data": {
+        "scope": {
+          "scopeId": "s4",
+          "frameId": "f0",
+          "parentScopeId": "s3"
+        }
+      }
+    },
+    {
+      "seq": 12,
+      "step": 6,
+      "source": {
+        "start": 305,
+        "end": 311
+      },
+      "frameId": "f0",
+      "kind": "ASSIGN",
+      "data": {
+        "bindingId": "br",
+        "previous": {
+          "kind": "int",
+          "value": "0"
+        },
+        "value": {
+          "kind": "int",
+          "value": "-1"
+        }
+      }
+    },
+    {
+      "seq": 13,
+      "kind": "FRAME_END",
+      "data": {
+        "frameId": "f0",
+        "reason": "main_return"
+      }
+    }
+  ],
+  "stepEnds": [
+    1,
+    3,
+    4,
+    6,
+    10,
+    13
+  ]
+}

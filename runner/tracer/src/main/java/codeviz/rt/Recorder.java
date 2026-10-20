@@ -29,6 +29,10 @@ import java.util.Map;
  * contents of an array seen for the first time, or re-read after a statement that may write arrays
  * ({@code <class>} is the JVM class name such as {@code [I} or {@code [[D}; Part 8c);
  * {@code <site> <values...>} a completed operation. A ref is {@code r<id>} or {@code n}.
+ * Part 8h: a failure is {@code x<site> <class> <message> <ref>}, the exception being a first sight
+ * {@code E<id> <class> <message>} (message {@code h<hex>}, {@code n} for null or {@code ?} when only user
+ * code could compute it); {@code w} means an exception left a traced helper. A failure no longer ends
+ * the recording: catch and finally handlers record the exception they receive.
  */
 public final class Recorder {
     /** Raw byte cap; beyond it the run is halted as limited (builder enforces trace limits). */
@@ -98,7 +102,7 @@ public final class Recorder {
         for (var entry : IDS.entrySet()) byId[entry.getValue()] = entry.getKey();
         for (int id = 1; id < byId.length; id++) {
             Object o = byId[id];
-            if (o == null || o instanceof String) continue;
+            if (o == null || o instanceof String || o instanceof Throwable) continue; // fixed once seen
             String body = contents(o); // may introduce objects it now references
             drain(); // their records come first: a re-read is applied at once
             write(prefix(o) + id + " " + body);
@@ -205,7 +209,8 @@ public final class Recorder {
         if (box != null) return box;
         Integer known = IDS.get(o);
         if (known != null) return "r" + known;
-        if (!(o instanceof String) && !o.getClass().isArray() && !LIBRARY.contains(o.getClass()) && o.getClass().getName().startsWith("java.")) return "?";
+        if (!(o instanceof String) && !(o instanceof Throwable) && !o.getClass().isArray() && !LIBRARY.contains(o.getClass())
+                && o.getClass().getName().startsWith("java.")) return "?";
         int id = register(o);
         INTRODUCED.add(o);
         return "r" + id;
@@ -229,6 +234,7 @@ public final class Recorder {
             Object o = INTRODUCED.poll();
             int id = IDS.get(o);
             if (o instanceof String s) write("S" + id + " " + hex(s));
+            else if (o instanceof Throwable t) write("E" + id + " " + t.getClass().getName() + " " + message(t));
             else write(prefix(o) + id + " " + contents(o));
         }
     }
@@ -273,10 +279,27 @@ public final class Recorder {
     }
 
     private static void fail(int site, Throwable e) {
-        String message = e.getMessage() == null ? "" : e.getMessage();
-        line("x" + site + " " + e.getClass().getName() + " " + hex(message));
-        try { OUT.flush(); } catch (IOException ignored) { }
+        synchronized (LOCK) {
+            if (silent > 0) return;
+            String r = ref(e);
+            line("x" + site + " " + e.getClass().getName() + " " + message(e) + " " + r);
+            try { OUT.flush(); } catch (IOException ignored) { }
+        }
     }
+
+    /** A message token; getMessage() runs only when the JDK implements it, never user code (Part 8h). */
+    private static String message(Throwable t) {
+        try {
+            if (!t.getClass().getMethod("getMessage").getDeclaringClass().getName().startsWith("java.")) return "?";
+        } catch (NoSuchMethodException impossible) {
+            return "?";
+        }
+        String m = t.getMessage();
+        return m == null ? "n" : hex(m);
+    }
+
+    /** A throw statement, just before its athrow (Part 8h); a null exception fails in the athrow itself. */
+    public static void thr(Throwable t, int site) { if (t != null) fail(site, t); }
 
     // ---- frame ------------------------------------------------------------------
 
@@ -355,7 +378,7 @@ public final class Recorder {
     public static void reta(Object v, int site) { synchronized (LOCK) { if (!leave()) { String r = ref(v); line(site + " " + r); } } }
 
     /** An exception leaves a traced helper (the instrumenter's catch-all handler, which rethrows). */
-    public static void unwind() { synchronized (LOCK) { leave(); } }
+    public static void unwind() { synchronized (LOCK) { if (!leave()) line("w"); } }
 
     // ---- stored values ----------------------------------------------------------
 

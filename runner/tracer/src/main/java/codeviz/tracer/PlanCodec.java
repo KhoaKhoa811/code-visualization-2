@@ -15,7 +15,7 @@ import java.util.*;
  * source's SHA-256 so the reader can reject a plan for different text.
  */
 final class PlanCodec {
-    static final int VERSION = 7; // 2: regions (8a); 3: primitives (8b); 4: switch, arrays (8c); 5: methods (8d); 6: objects (8e); 7: interactive (8g)
+    static final int VERSION = 8; // 2: regions (8a); 3: primitives (8b); 4: switch, arrays (8c); 5: methods (8d); 6: objects (8e); 7: interactive (8g); 8: exceptions (8h)
 
     private PlanCodec() { }
 
@@ -45,6 +45,7 @@ final class PlanCodec {
             if (!s.cases.isEmpty()) m.put("cases", s.cases.stream().map(c -> (Object) TraceBuilder.ordered("values",
                     new ArrayList<Object>(c.values()), "default", c.isDefault(), "start", c.start(), "end", c.end())).toList());
             if (!s.declareBefore.isEmpty()) m.put("declareBefore", s.declareBefore.stream().map(d -> (Object) d.id).toList());
+            if (!s.caught.isEmpty()) m.put("caught", new ArrayList<Object>(s.caught));
             if (s.kind == Kind.REGION) {
                 m.put("unknownDeclarations", new ArrayList<Object>(s.unknownDeclarations));
                 m.put("mayWriteArrays", s.mayWriteArrays);
@@ -118,6 +119,7 @@ final class PlanCodec {
                 }
                 s.cases = List.copyOf(cases);
             }
+            if (m.containsKey("caught")) s.caught = ((List<Object>) m.get("caught")).stream().map(String.class::cast).toList();
             if (m.containsKey("unknownDeclarations")) {
                 s.unknownDeclarations = ((List<Object>) m.get("unknownDeclarations")).stream().map(String.class::cast).toList();
                 s.mayWriteArrays = (Boolean) m.get("mayWriteArrays");
