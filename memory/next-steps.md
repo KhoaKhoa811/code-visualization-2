@@ -7,12 +7,10 @@ only. For the active task, [handoff.md](handoff.md) is authoritative. History:
 ## Approval boundaries
 
 - Merged: 6e (PR #82), 7a (PR #83), 7b (PR #84), 7c (PR #85), 7d (PR #86), 7e (PR #87), 8a (PR #88), 8b (PR #89),
-  8c (PR #90), 8d (PR #91), 8e (PR #92), 8f (PR #93). ADR 0004 accepted.
+  8c (PR #90), 8d (PR #91), 8e (PR #92), 8f (PR #93), 8g (PR #94), 8h (PR #95). ADR 0004 accepted.
 - Approved 2026-10-18: revised [coverage roadmap](../specs/coverage-roadmap.md).
-- Done, awaiting review: 8g live console and Scanner input (`feat/part-8g-live-console`, on main e24112a).
-- Done, awaiting review: 8h exceptions (`feat/part-8h-exceptions`, stacked on 8g).
-- Not approved yet: anything after 8h. Candidates: 8g input-wait detection via /proc (or fold into 6g),
-  BufferedReader/System.in.read coverage, V1.1 items. Propose each with a checklist and wait for approval.
+- Done, awaiting review: 8i hardening (`feat/part-8i-hardening`, on main d5265bb).
+- Not approved yet: anything after 8i. Candidates: V1.1 items; input-wait detection via /proc is deferred to 6g. Propose each with a checklist and wait for approval.
 - Never merge pull requests; the user merges.
 
 ## Part 7 roadmap (trace engine and first visible slice)
@@ -29,7 +27,7 @@ only. For the active task, [handoff.md](handoff.md) is authoritative. History:
 6. Part 8 (replaces the old 7f+): 8a graceful partial coverage (merged), 8b primitive (merged)
    types and operators, 8c statements, 8d methods/recursion, 8e objects and fields
    with the object-graph view (moved into Core V1), 8f strings and
-   collections (8c-8f merged), 8g live Scanner console and 8h exceptions (done, awaiting review). See the coverage roadmap.
+   collections (8c-8f merged), 8g live Scanner console, 8h exceptions (merged), 8i hardening (done, awaiting review). See the coverage roadmap.
 
 Then V1.1: custom mappings, view rankings, separate test inputs, broader coverage.
 6g isolation-gap review is deferred until before any public deployment.
