@@ -12,50 +12,49 @@
 - Status: ready for review. No approved task is unfinished.
 - Milestone: Part 8 (coverage); Milestone 0, full isolation and V1 incomplete
 
-## Last approved task: Part 8g live console and Scanner input (complete)
+## Last approved task: Part 8h exceptions (complete)
 
-User (2026-10-19): "ok" to the 8g proposal; "Add WebSocket (Recommended)" for
-`spring-boot-starter-websocket` (version from the Boot 4.1.1 BOM). Spec:
-[specs/live-console.md](../specs/live-console.md), ADR
-[0001](../specs/decisions/0001-live-console-websocket.md).
+User (2026-10-20): "ok, implement part 8h". Spec: [specs/exceptions.md](../specs/exceptions.md).
 
-- [x] 1. ADR 0001, spec, contract 1.6.0, tracer Scanner replay — b530c33
-- [x] 2. Backend: run request 1.1.0, RunInput, interactive runs, ConsoleSocket — d32776c
-- [x] 3. Frontend live console, trace 1.6.0, read-input example, AC-19 browser test — 029e08c
-- [x] 4. Guides and memory (this commit)
+- [x] 1. Contract 1.7.0, tracer (throw, try/catch/finally, unwinding), spec — 46df1b6
+- [x] 2. Frontend playback, example, container and browser checks — 751d0f5
+- [x] 3. Guides and memory (this commit)
 
 ## Git
 
-- Branch `feat/part-8g-live-console` on main e24112a (8c-8f merged).
-- PR (manual, `gh` unavailable):
+- Branch `feat/part-8h-exceptions`, stacked on unmerged 8g (`feat/part-8g-live-console`, f97103a), on main e24112a.
+- PRs (manual, `gh` unavailable), merge 8g first:
   https://github.com/KhoaKhoa811/code-visualization-2/compare/main...feat/part-8g-live-console?expand=1
+  https://github.com/KhoaKhoa811/code-visualization-2/compare/feat/part-8g-live-console...feat/part-8h-exceptions?expand=1
 
 ## Verification (2026-10-20, Claude)
 
-- Root reactor `clean verify` with `-Dcodeviz.docker.live=true` and
-  `-Dcodeviz.docker.executable=<docker path>`: **161 tests, 0 failures/skips**
-  (tracer 69, backend 92). Log `.tools/part-8g-verify.log`. No owned container left.
-- An earlier verify failed only because Docker Desktop was not running
-  (`RUNNER_UNAVAILABLE`); after starting it every suite passed.
-- Contracts 61; frontend 20 reducer tests, build, 9 Playwright tests (real backend + Docker).
+- Root reactor `clean verify` with live Docker: **170 tests, 0 failures/skips** (tracer 77, backend 93).
+  Log `.tools/part-8h-verify.log`. No owned container left.
+- Contracts 62; frontend 21 reducer tests, build, 10 Playwright tests (real backend + Docker).
 
 ## Decisions in this task
 
-- Interactive = request `inputMode: live` AND source refers to `System.in` (analyzer).
-  Interactive runs use `docker exec -i` and a 120 s runtime deadline; others close stdin.
-- Scanner is a library class: reads are replayed by the trusted builder on a Scanner
-  over the delivered transcript, so recorded results are verified.
-- Part 4r input bounds enforced in `RunInput`; the 30 s input-wait deadline is not
-  enforced (no verified evidence that a read blocks).
-- The first WebSocket connection controls input; its loss while executing cancels
-  the run (`INPUT_DISCONNECTED`). Origins limited to localhost/127.0.0.1.
-- Frontend opens the socket from the submit handler, never an effect or state
-  updater, because StrictMode would create a second connection.
+- Contract 1.7.0 (1.6.0 retired): `exception` object (binary className, message or null), CATCH step
+  (binding, DECLARE effect), EXCEPTION `objectId`, `|` allowed in javaType for multi-catch.
+- A failure no longer ends the recording. The builder tracks the exception in flight; `w` records
+  end helper frames mid-trace; catch parameter and finally-handler stores record the exception.
+  CATCH is checked against the clause's classes (source hierarchy, then JDK).
+- Finally blocks are planned once and copied into javac's layout (normal exits per JLS 14.22 with
+  javac's constant-if rule, jumps that leave the try, the finally handler). Finally blocks must be
+  fully captured and jump-free, else the whole try runs uncaptured.
+- Source exception classes are creatable only when "simple" (constructors calling super(params)).
+  The recorder never runs user getMessage().
+- Library failure handlers moved inline after the call and first in the exception table
+  (otherwise a user catch never saw the libFail record/rethrow).
+- Fixed a pre-existing bug: uncaptured try-with-resources made the whole program output-only;
+  its region now starts at the first resource's range entry.
 
 ## Resources
 
-- No commands running; no containers. Docker Desktop was started by Claude on 2026-10-20.
+- No commands running; no containers. Docker Desktop is running.
 
 ## Next action
 
-Wait for review/merge of 8g. Propose 8h (exceptions) for approval.
+Wait for review/merge of 8g and 8h. Part 8 roadmap is complete; propose the next step (V1.1 items or
+the 8g input-wait follow-up) for approval.

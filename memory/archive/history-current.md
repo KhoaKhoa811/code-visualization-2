@@ -200,3 +200,16 @@ not verbatim transcripts, unless quoted.
 - A first verify failed only because Docker Desktop was stopped.
 - Final: 161 Java tests (tracer 69, backend 92) with live Docker, 61 contract,
   20 reducer, 9 browser tests; no containers left.
+
+## 2026-10-20 — Part 8h exceptions (Claude Code)
+
+- User: "ok, implement part 8h". 46df1b6: contract 1.7.0 (exception object,
+  CATCH step, EXCEPTION objectId, union catch types) and tracer: throw,
+  try/catch/finally in javac's layout with finally copies, in-flight
+  exception tracking, mid-trace helper unwinding (`w`), getMessage replay,
+  forged catch records rejected. Fixes found by tests: library failure
+  handlers must sit after the call (a user catch never caught them) and
+  uncaptured try-with-resources must start at its first resource.
+- 751d0f5 frontend playback, exceptions example, container and browser tests.
+- Final: 170 Java tests (tracer 77, backend 93) with live Docker, 62 contract,
+  21 reducer, 10 browser tests; no containers left.

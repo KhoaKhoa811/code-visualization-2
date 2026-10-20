@@ -88,5 +88,23 @@ above) makes capture partial instead of inventing the failure.
 
 ## Results
 
-Verified on 2026-10-20: see the [tracer guide](../runner/tracer/README.md) and
-[frontend guide](../frontend/README.md) for the test counts.
+Verified on 2026-10-20 with Docker Desktop 29.8.0:
+
+- Root reactor `clean verify` with live Docker: **170 Java tests, 0 failures or
+  skips** (tracer 77, backend 93). The new tracer tests cover:
+  - catch then finally in main;
+  - a source exception thrown by a helper, a `return` inside try/finally, and
+    `getMessage()`;
+  - an uncaught throw through a finally block;
+  - `break`/`continue` out of try/finally, multi-catch, a caught library failure
+    and a `return` from main;
+  - a rethrow keeping its identity;
+  - an exception thrown by an uncaptured statement, then caught;
+  - uncaptured constructs, including try-with-resources;
+  - forged catch records.
+  A container test runs the exceptions example.
+- `contracts/` `npm test`: 62 passed.
+- Frontend: 21 reducer tests, production build, **10 Playwright tests** with the
+  real backend and Docker. The new one steps to "Throw InsufficientFunds: short
+  by 430" with two frames, then to "Catch e = …" with one frame. Stepping back
+  restores the unwound frame.
