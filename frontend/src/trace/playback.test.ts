@@ -325,6 +325,26 @@ test('Scanner reads are recorded library steps over console input (8g)', () => {
   assert.throws(() => new Playback({ ...example('valid/scanner-read.json'), schemaVersion: '1.5.0' as '1.6.0' }), TraceError);
 });
 
+test('a thrown exception unwinds its frame and a catch declares it (8h)', () => {
+  const trace = example('valid/try-catch.json');
+  const p = new Playback(trace);
+  const views = Array.from({ length: p.steps }, (_, k) => p.at(k + 1));
+  const thrown = views.find(v => v.event?.kind === 'EXCEPTION')!;
+  assert.equal(describeStep(thrown.event!, thrown.state, trace.source.text), 'Throw IllegalArgumentException: negative');
+  assert.equal(thrown.state.frames.length, 2, 'the helper is still active at its throw');
+  const caught = views.find(v => v.event?.kind === 'CATCH')!;
+  assert.equal(caught.state.frames.length, 1, 'the helper frame ended while the exception left it');
+  assert.equal(describeStep(caught.event!, caught.state), 'Catch e = IllegalArgumentException: negative');
+  const e = caught.state.bindings.find(b => b.name === 'e')!;
+  assert.equal(formatValue(e.value, caught.state.objects), 'IllegalArgumentException("negative")');
+  assert.deepEqual(caught.focus, { bindingId: e.bindingId });
+  assert.equal(p.at(caught.cursor - 1).state.bindings.some(b => b.name === 'e'), false, 'backward removes the catch binding');
+  const broken = structuredClone(trace);
+  const exception = broken.events.find(event => event.kind === 'EXCEPTION')!;
+  if (exception.kind === 'EXCEPTION') exception.data.objectId = 'args0';
+  assert.throws(() => new Playback(broken), TraceError);
+});
+
 test('concatenation is one step and uncaptured changes to collections are re-read (8f)', () => {
   const s = new Playback(fixture('strings'));
   const first = Array.from({ length: s.steps }, (_, k) => s.at(k + 1)).find(v => v.event?.kind === 'EXPRESSION' && v.event.data.operands.length > 2)!;

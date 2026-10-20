@@ -79,6 +79,10 @@ the uninstrumented original.
   LIBRARY steps; the builder replays them on a Scanner over the exact input delivered to the program,
   so a forged read makes the capture partial (trace 1.6.0, plan field `interactive`).
   **69 tests, 0 failures** on 2026-10-20.
+- Since 8h ([exceptions](../../specs/exceptions.md)) throw, try/catch (multi-catch) and finally are traced:
+  finally copies on every path, mid-trace unwinding of helper frames, exception objects and `getMessage()`
+  (trace 1.7.0, plan format 8). Uncaptured try-with-resources now maps from its first resource.
+  **77 tests, 0 failures** on 2026-10-20.
 - Scope entry/exit is derived from recorded operations and static block structure
   (see the spec); blocks with no recorded operation leave no trace.
 - On the host, a builder-side trace limit marks the run `limited` even though the

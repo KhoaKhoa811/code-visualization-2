@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "1.6.0",
+  "schemaVersion": "1.7.0",
   "runId": "example-failed-write",
   "source": {
     "file": "Main.java",
@@ -13,7 +13,7 @@
   "capture": {
     "status": "complete",
     "reason": "Illustrative complete recording, not executed Java.",
-    "safeEventCount": 6
+    "safeEventCount": 7
   },
   "diagnostics": [],
   "initialState": {
@@ -155,6 +155,18 @@
     },
     {
       "seq": 5,
+      "kind": "OBJECT_CAPTURE",
+      "data": {
+        "object": {
+          "objectId": "E",
+          "kind": "exception",
+          "className": "java.lang.ArrayIndexOutOfBoundsException",
+          "message": "Illustrative bounds failure."
+        }
+      }
+    },
+    {
+      "seq": 6,
       "step": 5,
       "source": {
         "start": 87,
@@ -164,11 +176,12 @@
       "kind": "EXCEPTION",
       "data": {
         "exceptionType": "java.lang.ArrayIndexOutOfBoundsException",
-        "message": "Illustrative bounds failure."
+        "message": "Illustrative bounds failure.",
+        "objectId": "E"
       }
     },
     {
-      "seq": 6,
+      "seq": 7,
       "kind": "FRAME_END",
       "data": {
         "frameId": "f0",
@@ -181,6 +194,6 @@
     2,
     3,
     4,
-    6
+    7
   ]
 }

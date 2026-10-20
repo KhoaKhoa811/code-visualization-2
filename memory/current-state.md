@@ -34,6 +34,7 @@ first frontend slice exist; live console input exists since 8g.
 | 8e | Objects of user classes: fields, constructors, instance methods, cycles, object graph view; trace contract 1.4.0 ([spec](../specs/objects.md)); 149 Java tests with live Docker, 7 browser tests | Merged (PR #92) |
 | 8f | Strings and library collections as recorded calls replayed on trusted mirrors, collections panel; trace contract 1.5.0 ([spec](../specs/library.md)); 152 Java tests with live Docker, 8 browser tests | Merged (PR #93) |
 | 8g | Live console over WebSocket (ADR 0001), bounded ordered input, interactive runs, Scanner reads replayed over delivered input; run request 1.1.0, trace contract 1.6.0 ([spec](../specs/live-console.md)); 161 Java tests with live Docker, 9 browser tests | Done, pushed, awaiting review |
+| 8h | Exceptions: throw, try/catch (multi-catch), finally on every path, mid-trace unwinding, exception objects and getMessage; trace contract 1.7.0 ([spec](../specs/exceptions.md)); 170 Java tests with live Docker, 10 browser tests | Done, pushed, awaiting review (stacked on 8g) |
 
 ## Verified environment
 

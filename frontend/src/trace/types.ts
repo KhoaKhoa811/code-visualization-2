@@ -24,7 +24,9 @@ export type TraceObject =
   | { objectId: string; kind: 'map'; className: string; entries: { key: Value; value: Value }[] }
   | { objectId: string; kind: 'builder'; className: string; utf16: number[] }
   // 1.6.0: a Scanner reading standard input. Its reads are LIBRARY steps; it has no other state.
-  | { objectId: string; kind: 'input'; className: 'java.util.Scanner' };
+  | { objectId: string; kind: 'input'; className: 'java.util.Scanner' }
+  // 1.7.0: a thrown exception: its class (binary name) and message when first seen.
+  | { objectId: string; kind: 'exception'; className: string; message: string | null };
 
 export interface Field { name: string; javaType: string; value: Value }
 
@@ -52,7 +54,9 @@ export type ObservableEvent = { seq: number; step: number; source: SourceRange; 
   | { kind: 'EXPRESSION'; data: { operator: string; operands: Operand[]; result: Value } }
   | { kind: 'CALL'; data: { frame: Frame; scope: Scope; parameters: Binding[] } }
   | { kind: 'RETURN'; data: { result: Value | null; implicit: boolean } }
-  | { kind: 'EXCEPTION'; data: { exceptionType: string; message: string } }
+  | { kind: 'EXCEPTION'; data: { exceptionType: string; message: string; objectId: string } }
+  // 1.7.0: a catch clause received the exception in flight; its parameter binding refers to it.
+  | { kind: 'CATCH'; data: { binding: Binding } }
   | { kind: 'UNCAPTURED'; data: { unknownBindings: string[]; arrays: { objectId: string; elements: Value[] }[]; unknownArrays: string[];
       objects: { objectId: string; fields: { name: string; value: Value }[] }[]; unknownObjects: string[];
       collections: TraceObject[]; unknownCollections: string[] } }
@@ -81,7 +85,7 @@ export interface Diagnostic {
 }
 
 export interface Trace {
-  schemaVersion: '1.6.0';
+  schemaVersion: '1.7.0';
   runId: string;
   source: { file: 'Main.java'; text: string; sha256: string };
   execution: { status: ExecutionStatus; reason: string };
@@ -93,7 +97,7 @@ export interface Trace {
 }
 
 export const OBSERVABLE_KINDS = new Set(['DECLARE', 'ASSIGN', 'UPDATE', 'ALLOCATE', 'ARRAY_READ', 'ARRAY_LENGTH',
-  'ARRAY_WRITE', 'EXPRESSION', 'CALL', 'RETURN', 'EXCEPTION', 'UNCAPTURED', 'SWITCH', 'FIELD_READ', 'FIELD_WRITE', 'LIBRARY']);
+  'ARRAY_WRITE', 'EXPRESSION', 'CALL', 'RETURN', 'EXCEPTION', 'UNCAPTURED', 'SWITCH', 'FIELD_READ', 'FIELD_WRITE', 'LIBRARY', 'CATCH']);
 export const BOOKKEEPING_KINDS = new Set(['SCOPE_ENTER', 'SCOPE_EXIT', 'FRAME_END', 'OBJECT_CAPTURE']);
 
 export function isObservable(event: TraceEvent): event is ObservableEvent {

@@ -37,7 +37,7 @@ class TracerTest {
         // A run halted at the raw or call-depth limit legitimately differs from the original.
         if (prepared.traced() && !result.raw().contains("L") && !result.raw().contains("D") && !result.raw().contains("T")) {
             HostRun.Result original = HostRun.run(prepared.analysis().classes(), false, temp, input);
-            assertEquals(original.stdout(), result.stdout(), "stdout must match the original program");
+            assertEquals(original.stdout(), result.stdout(), "stdout must match the original program; traced stderr: " + result.stderrFirstLine());
             assertEquals(original.exit(), result.exit(), "exit status must match the original program");
             String expected = original.stderrFirstLine(), actual = result.stderrFirstLine();
             if (actual.contains("because the object is null")) { // Part 8e: the recorder names the field, not a helpful NPE
@@ -154,6 +154,11 @@ class TracerTest {
                         .map(o -> map(o).containsKey("skipped") ? "_" : value(map(o).get("value")))
                         .reduce((a, b) -> a + " " + b).orElse("") + " = " + value(d.get("result"));
                 case "EXCEPTION" -> "EXCEPTION " + d.get("exceptionType");
+                case "CATCH" -> { // Part 8h
+                    Map<String, Object> b = map(d.get("binding"));
+                    names.put(b.get("bindingId"), (String) b.get("name"));
+                    yield "CATCH " + b.get("name") + "=" + value(b.get("value"));
+                }
                 case "SWITCH" -> "SWITCH " + value(d.get("value")) + " " + d.get("matched");
                 case "LIBRARY" -> {
                     String method = (String) d.get("method");
@@ -1227,6 +1232,232 @@ class TracerTest {
 
     // ---- Part 8a: uncaptured statements inside traced programs -----------------------
 
+    // ---- Part 8h: exceptions -------------------------------------------------------------
+
+    /** Ended frames in order, as frameId:reason. */
+    private static List<String> frameEnds(Map<String, Object> trace) {
+        return events(trace).stream().filter(e -> "FRAME_END".equals(e.get("kind")))
+                .map(e -> map(e.get("data")).get("frameId") + ":" + map(e.get("data")).get("reason")).toList();
+    }
+
+    @Test void caughtFailureRunsCatchThenFinally() throws Exception {
+        Run r = main("exceptions-main", """
+                int[] a = {1, 2};
+                int total = 0;
+                try {
+                    total += a[5];
+                } catch (ArrayIndexOutOfBoundsException e) {
+                    total = -1;
+                } finally {
+                    total += 10;
+                }
+                System.out.println(total);""");
+        assertComplete(r, "completed");
+        assertEquals("9\n", r.result().stdout());
+        assertInOrder(steps(r.trace()), "EXCEPTION java.lang.ArrayIndexOutOfBoundsException @a[5]",
+                "CATCH e=#o3 @catch (ArrayIndexOutOfBoundsException e)", "ASSIGN total 0->-1 @total = -1", "ASSIGN total -1->9 @total += 10");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> captured = events(r.trace()).stream().map(e -> map(e.get("data")).get("object")).filter(Map.class::isInstance)
+                .map(o -> (Map<String, Object>) o).filter(o -> "exception".equals(o.get("kind"))).findFirst().orElseThrow();
+        assertEquals("Index 5 out of bounds for length 2", captured.get("message"));
+    }
+
+    @Test void helpersThrowUnwindAndFinallyRunsOnEveryPath() throws Exception {
+        Run r = run("exceptions-helpers", """
+                public class Main {
+                    static class InsufficientFunds extends RuntimeException {
+                        InsufficientFunds(String message) { super(message); }
+                    }
+                    static int withdraw(int balance, int amount) {
+                        if (amount > balance) throw new InsufficientFunds("need " + (amount - balance) + " more");
+                        return balance - amount;
+                    }
+                    static int safeWithdraw(int balance, int amount) {
+                        try {
+                            return withdraw(balance, amount);
+                        } finally {
+                            System.out.println("checked " + amount);
+                        }
+                    }
+                    public static void main(String[] args) {
+                        int balance = 100;
+                        balance = safeWithdraw(balance, 30);
+                        String status;
+                        try {
+                            balance = safeWithdraw(balance, 500);
+                            status = "ok";
+                        } catch (InsufficientFunds e) {
+                            status = e.getMessage();
+                        }
+                        System.out.println(balance + " " + status);
+                    }
+                }
+                """);
+        assertComplete(r, "completed");
+        assertEquals("checked 30\nchecked 500\n70 need 430 more\n", r.result().stdout());
+        List<String> steps = textSteps(r.trace());
+        assertInOrder(steps, "ASSIGN balance 100->70 @balance = safeWithdraw(balance, 30)", "CALL Main.withdraw(int,int):int balance=70 amount=500 @withdraw(balance, amount)",
+                "EXCEPTION Main$InsufficientFunds @throw new InsufficientFunds(\"need \" + (amount - balance) + \" more\");",
+                "EXPR + \"checked \" 500 = \"checked 500\" @\"checked \" + amount",
+                "CATCH e=#o7 @catch (InsufficientFunds e)", "LIB getMessage() = \"need 430 more\" @e.getMessage()",
+                "ASSIGN status _->\"need 430 more\" @status = e.getMessage()");
+        // withdraw and safeWithdraw unwind where the exception leaves them; main returns normally.
+        assertEquals(List.of("f4:unwind", "f3:unwind", "f0:main_return"), frameEnds(r.trace()));
+    }
+
+    @Test void uncaughtThrowRunsFinallyAndUnwindsEveryFrame() throws Exception {
+        Run r = run("exceptions-uncaught", """
+                public class Main {
+                    static void check(int n) {
+                        try {
+                            if (n < 0) throw new IllegalArgumentException("negative: " + n);
+                        } finally {
+                            System.out.println("checked");
+                        }
+                    }
+                    public static void main(String[] args) {
+                        check(1);
+                        check(-2);
+                    }
+                }
+                """);
+        assertComplete(r, "failed");
+        assertEquals("checked\nchecked\n", r.result().stdout());
+        assertEquals("Uncaught java.lang.IllegalArgumentException.", map(r.trace().get("execution")).get("reason"));
+        assertInOrder(steps(r.trace()), "EXCEPTION java.lang.IllegalArgumentException @throw new IllegalArgumentException(\"negative: \" + n);");
+        assertEquals(List.of("f2:unwind", "f0:unwind"), frameEnds(r.trace()));
+    }
+
+    @Test void jumpsOutOfTryRunFinallyCopiesAndLibraryFailuresAreCaught() throws Exception {
+        Run r = main("exceptions-jumps", """
+                String[] inputs = {"12", "x", "7"};
+                int sum = 0;
+                int bad = 0;
+                for (int i = 0; i < inputs.length; i++) {
+                    try {
+                        if (i == 2) break;
+                        sum += Integer.parseInt(inputs[i]);
+                    } catch (NumberFormatException | ArithmeticException e) {
+                        bad++;
+                    } finally {
+                        sum += 100;
+                    }
+                }
+                int count = 0;
+                int fin = 0;
+                outer:
+                for (int i = 0; i < 3; i++) {
+                    for (int j = 0; j < 3; j++) {
+                        try {
+                            if (j == 1) continue outer;
+                            count++;
+                        } finally {
+                            fin++;
+                        }
+                    }
+                }
+                System.out.println(sum + " " + bad + " " + count + " " + fin);
+                try {
+                    return;
+                } finally {
+                    System.out.println("bye");
+                }""");
+        assertComplete(r, "completed");
+        assertEquals("312 1 3 6\nbye\n", r.result().stdout());
+        List<String> steps = steps(r.trace());
+        assertInOrder(steps, "EXCEPTION java.lang.NumberFormatException @Integer.parseInt(inputs[i])",
+                "CATCH e=#o6 @catch (NumberFormatException | ArithmeticException e)", "UPDATE bad 0->1 =0 @bad++",
+                "ASSIGN sum 112->212 @sum += 100", "EXPR == 2 2 = true @i == 2", "ASSIGN sum 212->312 @sum += 100");
+        assertEquals(6, steps.stream().filter(s -> s.startsWith("UPDATE fin")).count());
+        String multi = (String) events(r.trace()).stream().filter(e -> "CATCH".equals(e.get("kind")))
+                .map(e -> map(map(e.get("data")).get("binding")).get("javaType")).findFirst().orElseThrow();
+        assertEquals("java.lang.NumberFormatException | java.lang.ArithmeticException", multi);
+    }
+
+    @Test void rethrownExceptionKeepsItsIdentityThroughFinally() throws Exception {
+        Run r = main("exceptions-rethrow", """
+                int stage = 0;
+                try {
+                    try {
+                        stage = 1;
+                        int z = stage / 0;
+                    } catch (ArithmeticException e) {
+                        stage = 2;
+                        throw e;
+                    } finally {
+                        stage += 10;
+                    }
+                } catch (RuntimeException outer) {
+                    stage += 100;
+                }
+                System.out.println(stage);""");
+        assertComplete(r, "completed");
+        assertEquals("112\n", r.result().stdout());
+        assertInOrder(steps(r.trace()), "EXCEPTION java.lang.ArithmeticException @stage / 0", "CATCH e=#o2 @catch (ArithmeticException e)",
+                "ASSIGN stage 1->2 @stage = 2", "EXCEPTION java.lang.ArithmeticException @throw e;", "ASSIGN stage 2->12 @stage += 10",
+                "CATCH outer=#o2 @catch (RuntimeException outer)", "ASSIGN stage 12->112 @stage += 100");
+    }
+
+    @Test void exceptionsFromUncapturedStatementsAreCaught() throws Exception {
+        Run r = main("exceptions-uncaptured", """
+                int[] a = {3};
+                int r = 0;
+                try {
+                    r = Math.floorDiv(a[0], r);
+                } catch (ArithmeticException e) {
+                    r = -1;
+                }
+                System.out.println(r);""");
+        assertComplete(r, "completed");
+        assertEquals("-1\n", r.result().stdout());
+        assertInOrder(steps(r.trace()), "UNCAPTURED r=? @r = Math.floorDiv(a[0], r);", "CATCH e=#o3 @catch (ArithmeticException e)",
+                "ASSIGN r ?->-1 @r = -1");
+    }
+
+    @Test void unsupportedExceptionConstructsRunUncaptured() throws Exception {
+        Run r = run("exceptions-unsupported", """
+                public class Main {
+                    static class Fancy extends Exception {
+                        int code = 7;
+                        Fancy() { super("fancy"); }
+                    }
+                    static int risky(int n) throws Fancy {
+                        if (n > 1) throw new Fancy();
+                        return n;
+                    }
+                    public static void main(String[] args) {
+                        int x = 0;
+                        try (java.io.StringReader reader = new java.io.StringReader("a")) {
+                            x = 1;
+                        }
+                        try {
+                            x = risky(2);
+                        } catch (Fancy e) {
+                            x = 2;
+                        } finally {
+                            if (x > 1) { x = 3; }
+                        }
+                        try {
+                            x += 1;
+                        } finally {
+                            x = Math.floorMod(x, 10) + 5;
+                        }
+                        System.out.println(x);
+                    }
+                }
+                """);
+        assertTrue(r.prepared().traced());
+        assertEquals("completed", status(r.trace(), "execution"));
+        assertEquals("9\n", r.result().stdout());
+        List<String> steps = steps(r.trace());
+        assertTrue(steps.stream().anyMatch(s -> s.startsWith("UNCAPTURED") && s.contains("try (java.io.StringReader")), String.join("\n", steps));
+        assertTrue(steps.stream().anyMatch(s -> s.startsWith("UNCAPTURED") && s.contains("throw new Fancy()")), String.join("\n", steps));
+        assertTrue(steps.stream().anyMatch(s -> s.startsWith("CATCH e=")), "a class with fields is still caught: " + steps);
+        // A finally block that would run uncaptured keeps its whole try statement uncaptured.
+        assertTrue(steps.stream().anyMatch(s -> s.startsWith("UNCAPTURED") && s.contains("x += 1;") && s.contains("Math.floorMod")),
+                String.join("\n", steps));
+    }
+
     @Test void unsupportedStatementsRunUncapturedWhileTheRestIsTraced() throws Exception {
         // Methods of other classes stay uncaptured (Part 8d traces only static methods of Main).
         String helper = "class Util<T> { // generic: stays untraced (Part 8e)\n    static int twice(int v) { return v * 2; }\n}\npublic class Main {\n"
@@ -1498,5 +1729,30 @@ class TracerTest {
         Map<String, Object> trace = JsonReader.object(json);
         assertEquals("partial", status(trace, "capture"));
         assertEquals(List.of("ALLOCATE [4,1] @{4, 1}", "DECLARE a=#o2 @int[] a = {4, 1}"), steps(trace));
+    }
+
+    /** Part 8h: a catch needs an exception in flight, and the exception it receives must be one its clause catches. */
+    @Test void forgedCatchRecordsStopCapture() throws Exception {
+        String source = program("int x = 0;\ntry {\n    x = 10 / x;\n} catch (ArithmeticException e) {\n    x = -1;\n}");
+        Tracer.Prepared prepared = Tracer.prepare(source);
+        HostRun.Result result = HostRun.run(prepared.classes(), true, temp);
+        List<String> raw = new ArrayList<>(result.raw());
+        int failure = -1, exception = -1;
+        for (int i = 0; i < raw.size(); i++) {
+            if (raw.get(i).startsWith("x")) failure = i;
+            if (raw.get(i).startsWith("E")) exception = i;
+        }
+        assertTrue(failure > 0 && exception > 0, "failure records present: " + raw);
+        List<String> noFailure = new ArrayList<>(raw);
+        noFailure.remove(failure);
+        Map<String, Object> unthrown = JsonReader.object(Tracer.trace(prepared, "test-unthrown", noFailure, result.exit()));
+        assertEquals("partial", status(unthrown, "capture"));
+        assertTrue(steps(unthrown).stream().noneMatch(s -> s.startsWith("CATCH")));
+        List<String> otherClass = new ArrayList<>(raw);
+        otherClass.set(exception, otherClass.get(exception).replace("java.lang.ArithmeticException", "java.lang.IllegalStateException"));
+        otherClass.set(failure, otherClass.get(failure).replace("java.lang.ArithmeticException", "java.lang.IllegalStateException"));
+        Map<String, Object> wrong = JsonReader.object(Tracer.trace(prepared, "test-wrong-catch", otherClass, result.exit()));
+        assertEquals("partial", status(wrong, "capture"));
+        assertTrue(steps(wrong).stream().noneMatch(s -> s.startsWith("CATCH")));
     }
 }

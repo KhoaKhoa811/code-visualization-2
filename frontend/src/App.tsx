@@ -73,7 +73,7 @@ export function App() {
           <RunSummary snapshot={finished ? snap : undefined} playback={playback} stale={stale} />
           {view && (
             <div className={`step-detail${view.event?.kind === 'UNCAPTURED' ? ' uncaptured' : ''}`} data-testid="step-detail">
-              {view.event ? <><b>Step {view.cursor}:</b> {describe(view.event, view.beforeEnd ?? view.state)}</> : 'Initial state (before the first operation).'}
+              {view.event ? <><b>Step {view.cursor}:</b> {describe(view.event, view.beforeEnd ?? view.state, usable?.trace.source.text)}</> : 'Initial state (before the first operation).'}
               {view.terminal && view.cursor > 0 && <span className="muted"> (end of recording)</span>}
             </div>
           )}

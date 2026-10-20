@@ -106,9 +106,22 @@ final class TraceBuilder {
     private final byte[] input; // Part 8g: bytes delivered to standard input, replayed by a Scanner mirror
     private boolean scannerCreated;
 
+    // Part 8h: exception objects (id -> class binary name, message or null), first sights not yet captured,
+    // superclasses of the source's Throwable classes, the exception in flight (thrown and not yet caught)
+    // and whether the last statement ran without capture, so it may have thrown one unseen.
+    private record ExceptionObject(String className, String message) { }
+    private final Map<String, ExceptionObject> exceptions = new HashMap<>();
+    private final Map<String, ExceptionObject> pendingExceptions = new HashMap<>();
+    private final Map<String, String> exceptionSupers = new HashMap<>();
+    private String inFlight;
+    private boolean regionThrow, finallyRunning;
+
     private TraceBuilder(Analysis analysis, String runId, byte[] input) {
         this.analysis = analysis; this.runId = runId; this.input = input.clone();
-        for (Site s : analysis.sites().values()) if (s.kind == Plan.Kind.CLASS) classes.put(s.javaType, s);
+        for (Site s : analysis.sites().values()) {
+            if (s.kind == Plan.Kind.CLASS) classes.put(s.javaType, s);
+            if (s.kind == Plan.Kind.EXCEPTION_CLASS) exceptionSupers.put(s.name, s.owner);
+        }
     }
 
     // ---- envelopes ----------------------------------------------------------------
@@ -146,7 +159,6 @@ final class TraceBuilder {
         String terminal = null;
         String stopReason = null;
         List<Diagnostic> diagnostics = new ArrayList<>();
-        Map<String, Object> failure = null;
         try {
             // No records at all (killed before the first flush) is absence, not inconsistency:
             // initialState stays null and capture is unavailable.
@@ -160,17 +172,20 @@ final class TraceBuilder {
                     if (line.startsWith("S")) { stringSight(line); continue; }
                     if (line.startsWith("O")) { objectContents(line); continue; }
                     if (line.startsWith("C") || line.startsWith("M") || line.startsWith("B")) { libraryContents(line); continue; }
+                    if (line.startsWith("E")) { exceptionSight(line); continue; }
                     closeRegion();
                     if (line.equals("R")) {
                         if (frames.size() != 1 || pendingCall != null) throw new Inconsistent("main returned inside a call");
+                        if (inFlight != null) throw new Inconsistent("main returned with an exception in flight");
                         terminal = "R";
                     }
                     else if (line.equals("L")) terminal = "L";
                     else if (line.equals("D")) terminal = "D";
                     else if (line.equals("T")) terminal = "T";
-                    else if (line.startsWith("c")) callEntry(line);
-                    else if (line.startsWith("x")) { failure = exception(line); terminal = "x"; }
-                    else if (line.startsWith("u")) region(line);
+                    else if (line.startsWith("c")) { regionThrow = false; expectNotPropagating(); callEntry(line); }
+                    else if (line.startsWith("x")) exception(line);
+                    else if (line.equals("w")) unwind();
+                    else if (line.startsWith("u")) { expectNotPropagating(); region(line); }
                     else operation(line);
                 }
             }
@@ -195,10 +210,10 @@ final class TraceBuilder {
             captureStatus = "complete";
             captureReason = sawRegion ? "All covered operations were recorded; some statements ran without capture."
                     : "All covered operations were recorded.";
-        } else if (exited && stopReason == null && "x".equals(terminal) && outcome.exitCode() != 0) {
-            // Uncaught: every active frame ends, innermost first (Part 8d).
+        } else if (exited && stopReason == null && terminal == null && inFlight != null && outcome.exitCode() != 0) {
+            // Uncaught: every frame still active ends, innermost first (Part 8d); helpers it left already ended (8h).
             for (Frame frame : frames) addBookkeeping("FRAME_END", ordered("frameId", frame.id(), "reason", "unwind"));
-            executionStatus = "failed"; executionReason = "Uncaught " + failure.get("exceptionType") + ".";
+            executionStatus = "failed"; executionReason = "Uncaught " + exceptions.get(inFlight).className() + ".";
             captureStatus = "complete"; captureReason = "All covered operations were recorded through the failure.";
         } else if (exited && "L".equals(terminal)) {
             executionStatus = "limited"; executionReason = "Raw trace data limit reached; execution was stopped.";
@@ -289,6 +304,7 @@ final class TraceBuilder {
                 "objects", new ArrayList<>(), "unknownObjects", new ArrayList<>(), "collections", new ArrayList<>(), "unknownCollections", new ArrayList<>());
         addObservable(site, "UNCAPTURED", data);
         sawRegion = true;
+        regionThrow = true; // until the next recorded operation, a catch or finally may receive what it threw (Part 8h)
         if (site.mayWriteArrays) {
             openRegion = data;
             openRegionEvent = events.get(events.size() - 1);
@@ -443,15 +459,126 @@ final class TraceBuilder {
 
     private static Map<String, Object> unknown() { return ordered("kind", "unknown"); }
 
-    private Map<String, Object> exception(String line) throws Inconsistent {
+    // ---- exceptions (Part 8h) ---------------------------------------------------------------
+
+    /** {@code x<site> <class> <message> <ref>}: a covered operation failed or a throw statement ran; the exception is in flight. */
+    private void exception(String line) throws Inconsistent {
         String[] t = line.split(" ");
-        if (t.length != 3) throw new Inconsistent("malformed failure record");
+        if (t.length != 4) throw new Inconsistent("malformed failure record");
         Site site = site(t[0].substring(1));
+        if (site.kind == Plan.Kind.REGION || site.kind == Plan.Kind.CATCH || site.kind == Plan.Kind.FINALLY) throw new Inconsistent("failure at this site");
+        regionThrow = false;
         declarePending(site);
         syncScopes(site);
-        Map<String, Object> data = ordered("exceptionType", t[1], "message", unhex(t[2]));
-        addObservable(site, "EXCEPTION", data);
-        return data;
+        String id = exceptionReference(t[3]);
+        ExceptionObject e = exceptions.get(id);
+        if (!e.className().equals(t[1]) || !Objects.equals(e.message(), messageOf(t[2]))) throw new Inconsistent("failure record disagrees with its exception");
+        addObservable(site, "EXCEPTION", ordered("exceptionType", e.className(), "message", e.message() == null ? "" : e.message(), "objectId", id));
+        inFlight = id;
+        finallyRunning = false;
+    }
+
+    /** {@code E<id> <class> <message>}: an exception seen for the first time. */
+    private void exceptionSight(String line) throws Inconsistent {
+        String[] t = line.split(" ");
+        if (t.length != 3) throw new Inconsistent("exception record");
+        String id = "o" + Integer.parseInt(t[0].substring(1));
+        if (knownObjects.contains(id) || pendingExceptions.putIfAbsent(id, new ExceptionObject(t[1], messageOf(t[2]))) != null)
+            throw new Inconsistent("exception seen twice");
+    }
+
+    /** A message token: h<hex>, n for null; ? (computed by user code) is never accepted. */
+    private static String messageOf(String token) throws Inconsistent {
+        if (token.equals("n")) return null;
+        if (token.equals("?")) throw new Inconsistent("an exception message only user code computes");
+        return unhex(token);
+    }
+
+    /** The id of a recorded exception object, captured (OBJECT_CAPTURE) when first referenced. */
+    private String exceptionReference(String token) throws Inconsistent {
+        String id = object(token);
+        if (!knownObjects.contains(id)) {
+            ExceptionObject pending = pendingExceptions.remove(id);
+            if (pending == null) throw new Inconsistent("reference to an unrecorded exception");
+            knownObjects.add(id);
+            exceptions.put(id, pending);
+            addBookkeeping("OBJECT_CAPTURE", Map.of("object", exceptionValue(id)));
+        }
+        if (!exceptions.containsKey(id)) throw new Inconsistent("not an exception");
+        return id;
+    }
+
+    private Map<String, Object> exceptionValue(String id) {
+        ExceptionObject e = exceptions.get(id);
+        return ordered("objectId", id, "kind", "exception", "className", e.className(), "message", e.message());
+    }
+
+    /** An exception may be propagating: one recorded in flight, or one the last uncaptured statement may have thrown. */
+    private void expectPropagating(String what) throws Inconsistent {
+        if (inFlight == null && !regionThrow) throw new Inconsistent(what + " without an exception in flight");
+    }
+
+    /** While an exception is in flight, only the finally block that received it runs code. */
+    private void expectNotPropagating() throws Inconsistent {
+        if (inFlight != null && !finallyRunning) throw new Inconsistent("an operation while an exception is in flight");
+    }
+
+    /** {@code w}: the exception in flight left the innermost traced helper. */
+    private void unwind() throws Inconsistent {
+        expectPropagating("unwinding");
+        if (frames.size() < 2 || pendingCall != null) throw new Inconsistent("unwinding main");
+        addBookkeeping("FRAME_END", ordered("frameId", frameId, "reason", "unwind"));
+        frames.pop();
+        use(frames.peek());
+    }
+
+    /** A catch parameter receives the exception in flight: a CATCH step declaring it. */
+    private void caught(Site site, String[] t) throws Inconsistent {
+        expect(t, 2);
+        expectPropagating("a catch");
+        String id = exceptionReference(t[1]);
+        if (inFlight != null && !inFlight.equals(id)) throw new Inconsistent("caught another exception than the one in flight");
+        String className = exceptions.get(id).className();
+        if (site.caught.stream().noneMatch(type -> subclass(className, type))) throw new Inconsistent("catch clause does not catch " + className);
+        if (liveBindings.containsKey(site.declarationId)) reenterInnermost(site);
+        String scope = scopes.get(scopes.size() - 1)[1];
+        Map<String, Object> binding = binding(frameId, site.declarationId, site.name, site.javaType, scope, ref(id));
+        liveBindings.put(site.declarationId, binding);
+        addObservable(site, "CATCH", ordered("binding", copy(binding)));
+        inFlight = null;
+        regionThrow = false;
+        finallyRunning = false;
+        frames.peek().concats().clear(); // a concatenation the exception interrupted never completes
+    }
+
+    /** A finally handler receives the exception in flight (no step: its block's operations follow). */
+    private void finallyEntry(String[] t) throws Inconsistent {
+        expect(t, 2);
+        expectPropagating("a finally handler");
+        String id = exceptionReference(t[1]);
+        if (inFlight != null && !inFlight.equals(id)) throw new Inconsistent("finally received another exception than the one in flight");
+        inFlight = id;
+        regionThrow = false;
+        finallyRunning = true;
+        frames.peek().concats().clear();
+    }
+
+    /** Whether a Throwable class (binary name) is {@code type} or a subclass: the source's classes, then the JDK's. */
+    private boolean subclass(String className, String type) {
+        String c = className;
+        for (int guard = 0; exceptionSupers.containsKey(c) && guard < 64; guard++) {
+            if (c.equals(type)) return true;
+            c = exceptionSupers.get(c);
+        }
+        if (c.equals(type)) return true;
+        if (exceptionSupers.containsKey(type)) return false; // the chain left the source's classes without reaching it
+        try {
+            ClassLoader platform = ClassLoader.getPlatformClassLoader();
+            Class<?> actual = Class.forName(c, false, platform), wanted = Class.forName(type, false, platform);
+            return Throwable.class.isAssignableFrom(actual) && wanted.isAssignableFrom(actual);
+        } catch (ClassNotFoundException | LinkageError e) {
+            return false;
+        }
     }
 
     /**
@@ -527,6 +654,10 @@ final class TraceBuilder {
         if (pendingCall != null) { parameter(site, t); return; }
         if (pendingUpdate == null) declarePending(site);
         syncScopes(site);
+        if (site.kind == Plan.Kind.CATCH) { caught(site, t); return; }
+        if (site.kind == Plan.Kind.FINALLY) { finallyEntry(t); return; }
+        regionThrow = false;
+        expectNotPropagating();
         switch (site.kind) {
             case DECLARE -> {
                 expect(t, 2);
@@ -705,7 +836,8 @@ final class TraceBuilder {
                 use(frames.peek());
             }
             case REGION -> throw new Inconsistent("operation record for an uncaptured statement");
-            case METHOD, PARAM, CALL, CLASS, FIELD -> throw new Inconsistent("record for a declaration site");
+            case METHOD, PARAM, CALL, CLASS, FIELD, EXCEPTION_CLASS -> throw new Inconsistent("record for a declaration site");
+            case THROW, CATCH, FINALLY -> throw new Inconsistent("operation record for an exception site");
         }
     }
 
@@ -892,6 +1024,7 @@ final class TraceBuilder {
         if (!knownObjects.contains(id) && pendingArrays.containsKey(id)) captureArray(id);
         if (!knownObjects.contains(id) && pendingObjects.containsKey(id)) captureObject(id, null);
         if (!knownObjects.contains(id) && pendingLibrary.containsKey(id)) captureLibrary(id);
+        if (!knownObjects.contains(id) && pendingExceptions.containsKey(id)) exceptionReference(token);
         if (!knownObjects.contains(id)) {
             String pending = pendingStrings.remove(id);
             if (pending == null) throw new Inconsistent("reference to an unrecorded object");
@@ -1108,6 +1241,7 @@ final class TraceBuilder {
         if (t.length < 4) throw new Inconsistent("library record");
         int n = Integer.parseInt(t[2]);
         if (t.length != 4 + n) throw new Inconsistent("library record arguments");
+        if (site.name.equals("getMessage") && site.instance) { exceptionMessage(site, t); return; }
         java.lang.reflect.Method method;
         try { method = Library.method(site.methodId); } catch (ReflectiveOperationException | RuntimeException e) { throw new Inconsistent("library method " + site.methodId); }
         Class<?>[] params = method.getParameterTypes();
@@ -1149,6 +1283,17 @@ final class TraceBuilder {
         Map<String, Object> after = before == null ? null : libraryValue(receiverId);
         addObservable(site, "LIBRARY", ordered("objectId", receiverId, "method", site.methodId, "arguments", arguments,
                 "result", result, "after", after == null || after.equals(before) ? null : after));
+    }
+
+    /** {@code e.getMessage()} (Part 8h): the result must be the message recorded with the exception object. */
+    private void exceptionMessage(Site site, String[] t) throws Inconsistent {
+        expect(t, 4);
+        String id = exceptionReference(t[1]);
+        String message = exceptions.get(id).message();
+        Map<String, Object> result = libraryValueOf(t[3]);
+        boolean same = message == null ? "null".equals(result.get("kind")) : message.equals(stringTexts.get((String) result.get("objectId")));
+        if (!same) throw new Inconsistent("exception message");
+        addObservable(site, "LIBRARY", ordered("objectId", id, "method", site.methodId, "arguments", List.of(), "result", result, "after", null));
     }
 
     private List<Map<String, Object>> array(String token, Site site) throws Inconsistent {
@@ -1246,7 +1391,7 @@ final class TraceBuilder {
             diagnosticJson.add(map);
         }
         return Json.write(ordered(
-                "schemaVersion", "1.6.0",
+                "schemaVersion", "1.7.0",
                 "runId", runId,
                 "source", ordered("file", Analyzer.FILE, "text", source, "sha256", sha256(source)),
                 "execution", ordered("status", executionStatus, "reason", executionReason),

@@ -22,6 +22,7 @@ from algorithm or example recognition ([coverage roadmap](../specs/coverage-road
 | 8e | Trace 1.4.0: Objects panel (boxes, reference arrows, cycles), field steps, field paths such as `head.next`; linked list and tree example ([objects](../specs/objects.md)) | 17 reducer tests, 7 browser tests |
 | 8f | Trace 1.5.0: Collections panel (list, stack, deque, set, priority queue in poll order, map, StringBuilder), library calls as steps, one-step concatenation; strings and collections example ([library](../specs/library.md)) | 19 reducer tests, 8 browser tests |
 | 8g | Trace 1.6.0: live console over WebSocket (streamed output, input line, EOF, controller state), `Scanner` reads as "Read input" steps; read-input example ([live console](../specs/live-console.md)) | 20 reducer tests, 9 browser tests |
+| 8h | Trace 1.7.0: throw and catch steps ("Throw …", "Catch e = …"), exception values in variables, frames that unwind mid-run; exceptions example ([exceptions](../specs/exceptions.md)) | 21 reducer tests, 10 browser tests |
 
 ## Stack and pins
 

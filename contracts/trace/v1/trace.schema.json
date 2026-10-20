@@ -1,12 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/KhoaKhoa811/code-visualization-2/contracts/trace/v1/trace.schema.json",
-  "title": "Recorded Java trace 1.6.0",
+  "title": "Recorded Java trace 1.7.0",
   "description": "Candidate contract. Structural validity is not proof of Java execution or semantic replay correctness.",
   "type": "object",
   "properties": {
     "schemaVersion": {
-      "const": "1.6.0"
+      "const": "1.7.0"
     },
     "runId": {
       "$ref": "#/$defs/id"
@@ -368,8 +368,8 @@
     },
     "javaType": {
       "type": "string",
-      "pattern": "^[A-Za-z_$][A-Za-z0-9_$.<>,? \\[\\]]*(?![\\s\\S])",
-      "description": "A primitive type, java.lang.String, a traced class (1.4.0, for example Node or Main.Node), or an array of those at any depth. Since 1.5.0 generic arguments are kept (java.util.List<java.lang.Integer>)."
+      "pattern": "^[A-Za-z_$][A-Za-z0-9_$.<>,?| \\[\\]]*(?![\\s\\S])",
+      "description": "A primitive type, java.lang.String, a traced class (1.4.0, for example Node or Main.Node), or an array of those at any depth. Since 1.5.0 generic arguments are kept (java.util.List<java.lang.Integer>). Since 1.7.0 a multi-catch parameter has a union type (java.lang.IllegalStateException | java.lang.ArithmeticException)."
     },
     "frame": {
       "type": "object",
@@ -709,6 +709,9 @@
         },
         {
           "$ref": "#/$defs/inputObject"
+        },
+        {
+          "$ref": "#/$defs/exceptionObject"
         }
       ]
     },
@@ -1702,13 +1705,18 @@
             },
             "message": {
               "type": "string"
+            },
+            "objectId": {
+              "$ref": "#/$defs/id"
             }
           },
           "required": [
             "exceptionType",
-            "message"
+            "message",
+            "objectId"
           ],
-          "additionalProperties": false
+          "additionalProperties": false,
+          "description": "A covered operation failed or a throw statement ran (1.7.0: objectId is the exception object). It may be caught later."
         }
       },
       "required": [
@@ -1893,6 +1901,9 @@
           "$ref": "#/$defs/EXCEPTION"
         },
         {
+          "$ref": "#/$defs/CATCH"
+        },
+        {
           "$ref": "#/$defs/UNCAPTURED"
         },
         {
@@ -2068,6 +2079,81 @@
         "data"
       ],
       "additionalProperties": false
+    },
+    "exceptionObject": {
+      "type": "object",
+      "description": "A thrown exception (1.7.0): its class and message as Java reported them when it was first seen. It has no other state.",
+      "properties": {
+        "objectId": {
+          "$ref": "#/$defs/id"
+        },
+        "kind": {
+          "const": "exception"
+        },
+        "className": {
+          "type": "string",
+          "pattern": "^[A-Za-z_$][A-Za-z0-9_$.]*(?![\\s\\S])"
+        },
+        "message": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "objectId",
+        "kind",
+        "className",
+        "message"
+      ],
+      "additionalProperties": false
+    },
+    "CATCH": {
+      "type": "object",
+      "properties": {
+        "seq": {
+          "$ref": "#/$defs/positive"
+        },
+        "step": {
+          "$ref": "#/$defs/positive"
+        },
+        "source": {
+          "$ref": "#/$defs/sourceRange"
+        },
+        "frameId": {
+          "$ref": "#/$defs/id"
+        },
+        "kind": {
+          "const": "CATCH"
+        },
+        "data": {
+          "type": "object",
+          "properties": {
+            "binding": {
+              "$ref": "#/$defs/binding"
+            }
+          },
+          "required": [
+            "binding"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "seq",
+        "step",
+        "source",
+        "frameId",
+        "kind",
+        "data"
+      ],
+      "additionalProperties": false,
+      "description": "A catch clause caught the exception in flight (1.7.0): its parameter binding refers to the exception object. Same state effect as DECLARE."
     }
   }
 }

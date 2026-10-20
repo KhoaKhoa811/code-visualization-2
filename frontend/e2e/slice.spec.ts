@@ -243,6 +243,36 @@ test('a program reads live console input and playback shows the read (8g, AC-19)
   await expect(page.getByTestId('var-n')).toContainText('21');
 });
 
+test('a helper throws, its frame unwinds, and main catches with finally on every path (8h)', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.monaco-editor')).toBeVisible();
+  await page.getByLabel('Example').selectOption('Exceptions');
+  await run(page);
+  await expect(page.getByTestId('run-summary')).toContainText('completed');
+  await expect(page.getByTestId('run-summary')).toContainText('capture complete');
+  await expect(page.getByTestId('console-output')).toHaveText('balance 70\nrefused: short by 430\nbalance 70\nbalance 50\n');
+
+  const forward = page.getByRole('button', { name: 'Step forward' });
+  const detail = page.getByTestId('step-detail');
+  for (let i = 0; i < 80; i++) {
+    if ((await detail.textContent())?.includes('Throw')) break;
+    await forward.click();
+  }
+  await expect(detail).toContainText('Throw InsufficientFunds: short by 430');
+  await expect(page.getByTestId('frame')).toHaveCount(2); // main and withdraw at the throw
+  await forward.click();
+  await expect(detail).toContainText('Catch e = InsufficientFunds: short by 430');
+  await expect(page.getByTestId('frame')).toHaveCount(1); // withdraw unwound
+  await expect(page.getByTestId('var-e')).toContainText('InsufficientFunds("short by 430")');
+  await page.screenshot({ path: 'test-results/exception-catch.png' });
+  await forward.click();
+  await expect(detail).toContainText('e.getMessage() → "short by 430"');
+
+  await page.getByRole('button', { name: 'Step back' }).click();
+  await page.getByRole('button', { name: 'Step back' }).click();
+  await expect(page.getByTestId('frame')).toHaveCount(2); // backward restores the unwound frame
+});
+
 test('another program and a compile error', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('.monaco-editor')).toBeVisible();
