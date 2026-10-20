@@ -78,6 +78,32 @@ test('statements outside coverage run without visualization while the rest is tr
   await expect(page.getByTestId('var-total')).toContainText('30');
 });
 
+test('strings, a map, a stack, a queue and a priority queue play back as library calls (8f)', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.monaco-editor')).toBeVisible();
+  await page.getByLabel('Example').selectOption('Strings and collections');
+  await run(page);
+  await expect(page.getByTestId('run-summary')).toContainText('capture complete');
+  await expect(page.getByTestId('console-output')).toHaveText('the appears 2 times\n3 first 1\n');
+
+  const forward = page.getByRole('button', { name: 'Step forward' });
+  for (let i = 0; i < 120; i++) {
+    if ((await page.getByTestId('step-detail').textContent())?.includes('counts.put(')) break;
+    await forward.click();
+  }
+  await expect(page.getByTestId('step-detail')).toContainText('counts.put("the", 1) → null');
+  await expect(page.getByTestId('library-counts').getByTestId('entry')).toHaveCount(1);
+  await page.screenshot({ path: 'test-results/library-step.png' });
+
+  await page.getByTitle('End').click();
+  await expect(page.getByTestId('library-counts').getByTestId('entry')).toHaveText(['"and"→1', '"cat"→1', '"hat"→1', '"the"→2']);
+  await expect(page.getByTestId('library-stack').getByTestId('item').locator('.cell-value')).toHaveText(['2', '1']);
+  await expect(page.getByTestId('library-queue').getByTestId('item').locator('.cell-value')).toHaveText(['"second"']);
+  await expect(page.getByTestId('library-pq').getByTestId('item').locator('.cell-value')).toHaveText(['1', '3', '5']);
+  await expect(page.getByTestId('library-word').getByTestId('item')).toHaveCount(0); // setLength(0) after the last word
+  await page.screenshot({ path: 'test-results/library-end.png', fullPage: true });
+});
+
 test('objects of user classes form a linked list and a tree in the object graph (8e)', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('.monaco-editor')).toBeVisible();

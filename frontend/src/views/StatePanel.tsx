@@ -4,6 +4,7 @@ import { arrayType, formatValue, methodName, namesOf, stringText } from '../trac
 import type { Focus, State, View } from '../trace/playback.ts';
 import type { TraceObject } from '../trace/types.ts';
 import { ObjectGraph } from './ObjectGraph.tsx';
+import { LibraryPanel } from './LibraryPanel.tsx';
 
 type ArrayObject = TraceObject & { kind: 'array' };
 
@@ -32,7 +33,7 @@ export function StatePanel({ view }: { view: View }) {
               <tbody>
                 {state.bindings.filter(b => b.frameId === frame.frameId).map(b => (
                   <tr key={b.bindingId} className={focus.bindingId === b.bindingId || focus.touched?.includes(b.bindingId) ? 'changed' : undefined} data-testid={`var-${b.name}`}>
-                    <td className="type">{b.javaType}</td>
+                    <td className="type" title={b.javaType}>{b.javaType.replace(/\b(java\.lang|java\.util)\./g, '').replace(/\bMain\./g, '')}</td>
                     <td className="name">{b.name}</td>
                     <td className="value">{formatValue(b.value, state.objects)}</td>
                   </tr>
@@ -42,6 +43,7 @@ export function StatePanel({ view }: { view: View }) {
           </div>
         ))}
       </section>
+      <LibraryPanel view={view} />
       <ObjectGraph view={view} />
       <section className="panel" aria-label="Arrays">
         <h2>Arrays</h2>

@@ -1,12 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/KhoaKhoa811/code-visualization-2/contracts/trace/v1/trace.schema.json",
-  "title": "Recorded Java trace 1.4.0",
+  "title": "Recorded Java trace 1.5.0",
   "description": "Candidate contract. Structural validity is not proof of Java execution or semantic replay correctness.",
   "type": "object",
   "properties": {
     "schemaVersion": {
-      "const": "1.4.0"
+      "const": "1.5.0"
     },
     "runId": {
       "$ref": "#/$defs/id"
@@ -368,8 +368,8 @@
     },
     "javaType": {
       "type": "string",
-      "pattern": "^[A-Za-z_$][A-Za-z0-9_$]*(.[A-Za-z_$][A-Za-z0-9_$]*)*([])*(?![sS])",
-      "description": "A primitive type, java.lang.String, a traced class (1.4.0, for example Node or Main.Node), or an array of those at any depth."
+      "pattern": "^[A-Za-z_$][A-Za-z0-9_$.<>,? \\[\\]]*(?![\\s\\S])",
+      "description": "A primitive type, java.lang.String, a traced class (1.4.0, for example Node or Main.Node), or an array of those at any depth. Since 1.5.0 generic arguments are kept (java.util.List<java.lang.Integer>)."
     },
     "frame": {
       "type": "object",
@@ -473,7 +473,7 @@
         },
         "elementType": {
           "type": "string",
-          "pattern": "^[A-Za-z_$][A-Za-z0-9_$]*(.[A-Za-z_$][A-Za-z0-9_$]*)*([])*(?![sS])",
+          "pattern": "^[A-Za-z_$][A-Za-z0-9_$.<>,? \\[\\]]*(?![\\s\\S])",
           "description": "Component type: a primitive, java.lang.String, a traced class (1.4.0), or an array type of those."
         },
         "elements": {
@@ -563,6 +563,108 @@
       ],
       "additionalProperties": false
     },
+    "collectionObject": {
+      "type": "object",
+      "description": "A library collection (1.5.0): list, deque, stack, set or priority queue. Elements in iteration order; ascending for HashSet; poll order for PriorityQueue.",
+      "properties": {
+        "objectId": {
+          "$ref": "#/$defs/id"
+        },
+        "kind": {
+          "const": "collection"
+        },
+        "className": {
+          "type": "string",
+          "pattern": "^[A-Za-z_$][A-Za-z0-9_$.]*(?![\\s\\S])"
+        },
+        "elements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/stateValue"
+          }
+        }
+      },
+      "required": [
+        "objectId",
+        "kind",
+        "className",
+        "elements"
+      ],
+      "additionalProperties": false
+    },
+    "mapObject": {
+      "type": "object",
+      "description": "A library map (1.5.0). Entries in iteration order; ascending key order for HashMap.",
+      "properties": {
+        "objectId": {
+          "$ref": "#/$defs/id"
+        },
+        "kind": {
+          "const": "map"
+        },
+        "className": {
+          "type": "string",
+          "pattern": "^[A-Za-z_$][A-Za-z0-9_$.]*(?![\\s\\S])"
+        },
+        "entries": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "key": {
+                "$ref": "#/$defs/stateValue"
+              },
+              "value": {
+                "$ref": "#/$defs/stateValue"
+              }
+            },
+            "required": [
+              "key",
+              "value"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "objectId",
+        "kind",
+        "className",
+        "entries"
+      ],
+      "additionalProperties": false
+    },
+    "builderObject": {
+      "type": "object",
+      "description": "A StringBuilder (1.5.0) and its current text.",
+      "properties": {
+        "objectId": {
+          "$ref": "#/$defs/id"
+        },
+        "kind": {
+          "const": "builder"
+        },
+        "className": {
+          "type": "string",
+          "pattern": "^[A-Za-z_$][A-Za-z0-9_$.]*(?![\\s\\S])"
+        },
+        "utf16": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 65535
+          }
+        }
+      },
+      "required": [
+        "objectId",
+        "kind",
+        "className",
+        "utf16"
+      ],
+      "additionalProperties": false
+    },
     "object": {
       "oneOf": [
         {
@@ -573,6 +675,15 @@
         },
         {
           "$ref": "#/$defs/objectObject"
+        },
+        {
+          "$ref": "#/$defs/collectionObject"
+        },
+        {
+          "$ref": "#/$defs/mapObject"
+        },
+        {
+          "$ref": "#/$defs/builderObject"
         }
       ]
     },
@@ -923,14 +1034,7 @@
           "type": "object",
           "properties": {
             "object": {
-              "oneOf": [
-                {
-                  "$ref": "#/$defs/arrayObject"
-                },
-                {
-                  "$ref": "#/$defs/objectObject"
-                }
-              ]
+              "$ref": "#/$defs/object"
             }
           },
           "required": [
@@ -1202,6 +1306,89 @@
       "additionalProperties": false,
       "description": "One field of an object was assigned (1.4.0)."
     },
+    "LIBRARY": {
+      "type": "object",
+      "properties": {
+        "seq": {
+          "$ref": "#/$defs/positive"
+        },
+        "step": {
+          "$ref": "#/$defs/positive"
+        },
+        "source": {
+          "$ref": "#/$defs/sourceRange"
+        },
+        "frameId": {
+          "$ref": "#/$defs/id"
+        },
+        "kind": {
+          "const": "LIBRARY"
+        },
+        "data": {
+          "type": "object",
+          "properties": {
+            "objectId": {
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/id"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "method": {
+              "type": "string",
+              "minLength": 1
+            },
+            "arguments": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/value"
+              }
+            },
+            "result": {
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/value"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "after": {
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/object"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "objectId",
+            "method",
+            "arguments",
+            "result",
+            "after"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "seq",
+        "step",
+        "source",
+        "frameId",
+        "kind",
+        "data"
+      ],
+      "additionalProperties": false,
+      "description": "One call of a covered library method (1.5.0). after is the new contents of the receiver when the call changed it."
+    },
     "EXPRESSION": {
       "type": "object",
       "properties": {
@@ -1263,7 +1450,8 @@
                 "$ref": "#/$defs/operand"
               },
               "minItems": 1,
-              "maxItems": 2
+              "maxItems": 64,
+              "description": "Unary one, binary two; a flattened string concatenation (+, 1.5.0) has all its operands."
             },
             "result": {
               "$ref": "#/$defs/value"
@@ -1662,6 +1850,9 @@
           "$ref": "#/$defs/FIELD_WRITE"
         },
         {
+          "$ref": "#/$defs/LIBRARY"
+        },
+        {
           "$ref": "#/$defs/EXPRESSION"
         },
         {
@@ -1816,6 +2007,19 @@
               "items": {
                 "$ref": "#/$defs/id"
               }
+            },
+            "collections": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/object"
+              }
+            },
+            "unknownCollections": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "$ref": "#/$defs/id"
+              }
             }
           },
           "required": [
@@ -1823,7 +2027,9 @@
             "arrays",
             "unknownArrays",
             "objects",
-            "unknownObjects"
+            "unknownObjects",
+            "collections",
+            "unknownCollections"
           ],
           "additionalProperties": false
         }

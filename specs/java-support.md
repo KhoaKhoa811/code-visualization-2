@@ -57,7 +57,7 @@ all compositions preserve semantics.
 | Output | Actual System.out/System.err print/println calls with covered scalar/String arguments | Exact overload inventory and console transport contract before implementation |
 | User methods | Main frame represented; helper calls are outside the first increment | Implemented in Part 8d: static fixed-arity methods of Main with traced types, recursion with distinct frames, implicit returns, unwinding, call-depth limit 64 ([methods](methods.md)); instance methods and constructors follow objects (8e) |
 | Exceptions | Capture failures of covered operations, preserve earlier effects, report uncaught failure | Explicit throw, handlers, finally and resource cleanup need full tracing coverage before partial playback through them |
-| Libraries/input | No inferred internals or arbitrary callback evaluation | Scanner, strings, collections and separate test inputs remain required V1 features with exact operation contracts pending |
+| Libraries/input | No inferred internals or arbitrary callback evaluation | Implemented in Part 8f: string concatenation and methods, StringBuilder, lists, deques, stacks, queues, maps, sets and priority queues as recorded calls replayed on trusted mirrors ([library](library.md)); Scanner (8g) and separate test inputs remain |
 
 Types and constructs outside the first column are not rejected merely for lacking
 tracing support. Admission uses section 1. Coverage expands by resolved operation

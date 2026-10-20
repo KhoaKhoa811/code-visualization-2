@@ -172,3 +172,18 @@ not verbatim transcripts, unless quoted.
   field paths; aaca97d browser test.
 - Final: 149 Java tests (tracer 63, backend 86) with live Docker, 58 contract,
   17 reducer, 7 browser tests; no containers left.
+
+## 2026-10-19 — Part 8f strings and library collections (Claude Code)
+
+- User: "ok" to the 8f proposal. 69b14bc: contract 1.5.0 (collection, map,
+  builder objects; LIBRARY step; flattened concatenation; generic javaTypes) and
+  tracer: javac inline concatenation as one step, String/StringBuilder methods,
+  lists, deques, stacks, queues, maps, sets, priority queues and pure statics as
+  recorded calls (receiver spilled, failures recorded by a one-instruction
+  handler); boxing matched. The builder replays every call on mirrors of the
+  same JDK classes and verifies results; PriorityQueue in poll order, HashSet/
+  HashMap ascending. Fix found by tests: a first-seen receiver is now recorded
+  before its call.
+- bccb59c frontend Collections panel; 40888f0 browser test.
+- Final: 152 Java tests (tracer 67, backend 86) with live Docker, 60 contract,
+  19 reducer, 8 browser tests; no containers left.

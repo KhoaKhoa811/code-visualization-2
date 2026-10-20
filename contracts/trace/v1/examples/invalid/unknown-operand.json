@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "1.4.0",
+  "schemaVersion": "1.5.0",
   "runId": "example-unknown-operand",
   "source": {
     "file": "Main.java",
@@ -156,7 +156,9 @@
         "arrays": [],
         "unknownArrays": [],
         "objects": [],
-        "unknownObjects": []
+        "unknownObjects": [],
+        "collections": [],
+        "unknownCollections": []
       }
     },
     {
@@ -187,7 +189,9 @@
         ],
         "unknownArrays": [],
         "objects": [],
-        "unknownObjects": []
+        "unknownObjects": [],
+        "collections": [],
+        "unknownCollections": []
       }
     },
     {
@@ -206,7 +210,9 @@
         "arrays": [],
         "unknownArrays": [],
         "objects": [],
-        "unknownObjects": []
+        "unknownObjects": [],
+        "collections": [],
+        "unknownCollections": []
       }
     },
     {

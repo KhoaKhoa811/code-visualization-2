@@ -101,16 +101,51 @@ public final class Recorder {
             if (o == null || o instanceof String) continue;
             String body = contents(o); // may introduce objects it now references
             drain(); // their records come first: a re-read is applied at once
-            write((o.getClass().isArray() ? "A" : "O") + id + " " + body);
+            write(prefix(o) + id + " " + body);
         }
     }
 
-    /** {@code <class> <len> <values...>} for an array, {@code <class> <n> (<field> <value>)...} for an object. */
+    /**
+     * {@code <class> <len> <values...>} for an array or library collection (iteration order),
+     * {@code <class> <n> (<key> <value>)...} for a map, {@code <class> <hex>} for a StringBuilder,
+     * {@code <class> <n> (<field> <value>)...} for an object. Library contents are read by
+     * iteration, which runs no user code for the covered classes and element types (Part 8f).
+     */
     private static String contents(Object o) {
         StringBuilder b = new StringBuilder().append(o.getClass().getName());
         if (o.getClass().isArray()) values(b, o);
-        else fields(b, o);
+        else if (o instanceof StringBuilder sb) b.append(' ').append(hex(sb.toString()));
+        else if (o instanceof java.util.Map<?, ?> map) {
+            b.append(' ').append(map.size());
+            for (var e : map.entrySet()) b.append(' ').append(id(e.getKey())).append(' ').append(id(e.getValue()));
+        } else if (o instanceof java.util.Collection<?> c) {
+            b.append(' ').append(c.size());
+            for (Object e : c) b.append(' ').append(id(e));
+        } else fields(b, o);
         return b.toString();
+    }
+
+    private static final java.util.Set<Class<?>> LIBRARY = java.util.Set.of(java.util.ArrayList.class, java.util.LinkedList.class,
+            java.util.ArrayDeque.class, java.util.Stack.class, java.util.HashMap.class, java.util.TreeMap.class, java.util.LinkedHashMap.class,
+            java.util.HashSet.class, java.util.TreeSet.class, java.util.LinkedHashSet.class, java.util.PriorityQueue.class, StringBuilder.class);
+
+    /** Record prefix of a first sight or re-read: array, library collection, map, builder or object. */
+    private static String prefix(Object o) {
+        return o.getClass().isArray() ? "A" : o instanceof StringBuilder ? "B" : o instanceof java.util.Map ? "M"
+                : o instanceof java.util.Collection ? "C" : "O";
+    }
+
+    /** A boxed value as a self-describing token (boxes are values, never identities; Part 8f), else null. */
+    private static String boxed(Object o) {
+        if (o instanceof Integer v) return "I" + v;
+        if (o instanceof Long v) return "J" + v;
+        if (o instanceof Double v) return "D" + d(v);
+        if (o instanceof Float v) return "F" + f(v);
+        if (o instanceof Character v) return "C" + (int) v;
+        if (o instanceof Boolean v) return v ? "Z1" : "Z0";
+        if (o instanceof Short v) return "S" + v;
+        if (o instanceof Byte v) return "B" + v;
+        return null;
     }
 
     /** {@code <len> <values...>} with 8b value tokens and r/n references. */
@@ -164,9 +199,11 @@ public final class Recorder {
     /** Identity token; an object not seen before is registered and queued for its record. */
     private static String id(Object o) {
         if (o == null) return "n";
+        String box = boxed(o);
+        if (box != null) return box;
         Integer known = IDS.get(o);
         if (known != null) return "r" + known;
-        if (!(o instanceof String) && !o.getClass().isArray() && o.getClass().getName().startsWith("java.")) return "?";
+        if (!(o instanceof String) && !o.getClass().isArray() && !LIBRARY.contains(o.getClass()) && o.getClass().getName().startsWith("java.")) return "?";
         int id = register(o);
         INTRODUCED.add(o);
         return "r" + id;
@@ -190,7 +227,7 @@ public final class Recorder {
             Object o = INTRODUCED.poll();
             int id = IDS.get(o);
             if (o instanceof String s) write("S" + id + " " + hex(s));
-            else write((o.getClass().isArray() ? "A" : "O") + id + " " + contents(o));
+            else write(prefix(o) + id + " " + contents(o));
         }
     }
 
@@ -221,6 +258,8 @@ public final class Recorder {
     private static String ref(Object o) {
         if (o == null) return "n";
         if (silent > 0) return "?"; // never written; silent code registers nothing
+        String box = boxed(o);
+        if (box != null) return box;
         Integer known = IDS.get(o);
         if (known != null) return "r" + known;
         synchronized (LOCK) {
@@ -231,7 +270,7 @@ public final class Recorder {
         }
     }
 
-    private static void fail(int site, RuntimeException e) {
+    private static void fail(int site, Throwable e) {
         String message = e.getMessage() == null ? "" : e.getMessage();
         line("x" + site + " " + e.getClass().getName() + " " + hex(message));
         try { OUT.flush(); } catch (IOException ignored) { }
@@ -503,6 +542,46 @@ public final class Recorder {
     public static void wpF(Object o, float v, int site) { String r = ref(o); line(site + " " + r + " " + f(v)); }
     public static void wpD(Object o, double v, int site) { String r = ref(o); line(site + " " + r + " " + d(v)); }
     public static void wpA(Object o, Object v, int site) { String r = ref(o), t = ref(v); line(site + " " + r + " " + t); }
+
+    // ---- library calls and string concatenation (Part 8f) ----------------------------------
+    // The original call runs in user code; these record it afterwards. Arguments and results use
+    // self-describing tokens: boxed values (I5, D<bits>, C65, Z1, ...), r<id> references, n.
+
+    public static void lib(Object result, int site, Object receiver, Object[] args) {
+        String call = call(site, receiver, args);
+        String r = ref(result);
+        line(call + " " + r);
+    }
+
+    public static void libV(int site, Object receiver, Object[] args) { line(call(site, receiver, args) + " v"); }
+
+    private static String call(int site, Object receiver, Object[] args) {
+        StringBuilder b = new StringBuilder().append(site).append(' ').append(receiver == null ? "-" : ref(receiver)).append(' ').append(args.length);
+        for (Object a : args) b.append(' ').append(ref(a));
+        return b.toString();
+    }
+
+    /** A library object created by traced code, with its initial contents. */
+    public static void libNew(Object o, int site) {
+        String r = fresh(o);
+        if (r.equals("?")) return;
+        String body = contents(o);
+        line(site + " " + r + " " + body);
+    }
+
+    public static void libFail(Throwable e, int site) { fail(site, e); }
+
+    /** The receiver of a library call, before the call: a first sight records its contents as they were. */
+    public static void libSee(Object receiver) { if (receiver != null) ref(receiver); }
+
+    public static void catI(int v, int site) { line(site + " I" + v); }
+    public static void catJ(long v, int site) { line(site + " J" + v); }
+    public static void catF(float v, int site) { line(site + " F" + f(v)); }
+    public static void catD(double v, int site) { line(site + " D" + d(v)); }
+    public static void catC(char v, int site) { line(site + " C" + (int) v); }
+    public static void catZ(boolean v, int site) { line(site + (v ? " Z1" : " Z0")); }
+    public static void catA(Object v, int site) { String r = ref(v); line(site + " " + r); }
+    public static void catEnd(String s, int site) { String r = ref(s); line(site + " " + r); }
 
     /** A switch selector, recorded before the original tableswitch/lookupswitch uses it. */
     public static int sw(int value, int site) {

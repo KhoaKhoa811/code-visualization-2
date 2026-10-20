@@ -13,11 +13,11 @@ final class Plan {
 
     /** Relevant bytecode instruction families, in javac code-layout order. */
     enum Expect { STORE, IINC, ALOAD, ASTORE, ARRAYLENGTH, NEWARRAY, NEWARRAY_LITERAL, LITERAL_STORE, ARITH, NEG, CONVERT, CMP, JUMP,
-        CALL, RETURN, NEW, SUPER, CTOR, FIELD_GET, FIELD_PUT,
+        CALL, RETURN, NEW, SUPER, CTOR, FIELD_GET, FIELD_PUT, LIB, LIBNEW, APPEND, TOSTRING, BOX, UNBOX,
         SWITCH, GETSTATIC, INVOKE, REGION }
 
     enum Kind { DECLARE, ASSIGN, UPDATE, ALLOCATE, ARRAY_READ, ARRAY_LENGTH, ARRAY_WRITE, ARITHMETIC, CAST, LEAF, SWITCH, REGION,
-        METHOD, PARAM, CALL, RETURN, CLASS, FIELD, FIELD_READ, FIELD_WRITE }
+        METHOD, PARAM, CALL, RETURN, CLASS, FIELD, FIELD_READ, FIELD_WRITE, LIBRARY, CONCAT, CONCAT_ARG }
 
     /** One instrumented operation site. Fields not relevant to a kind stay null. */
     static final class Site {

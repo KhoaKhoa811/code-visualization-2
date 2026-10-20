@@ -11,7 +11,8 @@ only. For the active task, [handoff.md](handoff.md) is authoritative. History:
 - Done, awaiting review: 8c statements and arrays (`feat/part-8c-statements`, on main 234a586).
 - Done, awaiting review: 8d static methods and recursion (`feat/part-8d-methods`, stacked on 8c).
 - Done, awaiting review: 8e objects and fields (`feat/part-8e-objects`, stacked on 8d).
-- Not approved yet: 8f and later. Propose each with a checklist and wait for approval.
+- Done, awaiting review: 8f strings and library collections (`feat/part-8f-library`, stacked on 8e).
+- Not approved yet: 8g and later. Propose each with a checklist and wait for approval.
 - Never merge pull requests; the user merges.
 
 ## Part 7 roadmap (trace engine and first visible slice)
@@ -28,7 +29,7 @@ only. For the active task, [handoff.md](handoff.md) is authoritative. History:
 6. Part 8 (replaces the old 7f+): 8a graceful partial coverage (merged), 8b primitive (merged)
    types and operators, 8c statements (done, awaiting review), 8d methods/recursion (done, awaiting review), 8e objects and fields (done, awaiting review),
    with the object-graph view (moved into Core V1), 8f strings and
-   collections, 8g live Scanner console, 8h exceptions. See the coverage roadmap.
+   collections (done, awaiting review), 8g live Scanner console, 8h exceptions. See the coverage roadmap.
 
 Then V1.1: custom mappings, view rankings, separate test inputs, broader coverage.
 6g isolation-gap review is deferred until before any public deployment.

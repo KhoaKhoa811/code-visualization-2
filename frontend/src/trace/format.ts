@@ -19,6 +19,9 @@ export function formatValue(value: Value, objects?: Map<string, TraceObject>): s
       if (object?.kind === 'string') return JSON.stringify(stringText(object));
       if (object?.kind === 'array') return arrayType(object);
       if (object?.kind === 'object') return objectLabel(object);
+      if (object?.kind === 'builder') return `StringBuilder ${JSON.stringify(String.fromCharCode(...object.utf16))}`;
+      if (object?.kind === 'collection') return `${shortName(object.className)}(${object.elements.length})`;
+      if (object?.kind === 'map') return `${shortName(object.className)}(${object.entries.length})`;
       return `ref ${value.objectId}`;
     }
   }
@@ -27,6 +30,11 @@ export function formatValue(value: Value, objects?: Map<string, TraceObject>): s
 /** An object of a traced class: its short class name and identity, such as Node o3. */
 export function objectLabel(object: TraceObject & { kind: 'object' }): string {
   return `${shortClass(object.className)} ${object.objectId}`;
+}
+
+/** java.util.ArrayList shows as ArrayList. */
+export function shortName(className: string): string {
+  return className.slice(className.lastIndexOf('.') + 1);
 }
 
 /** Main.Node shows as Node. */
@@ -74,6 +82,18 @@ export function namesOf(state: State, objectId: string, visiting: Set<string> = 
           for (const name of namesOf(state, parent.objectId, visiting)) paths.push(`${name}[${index}]`);
         }
       });
+    } else if (parent.kind === 'collection') { // 1.5.0: an element of a library collection
+      parent.elements.forEach((element, index) => {
+        if (element.kind === 'ref' && element.objectId === objectId) {
+          for (const name of namesOf(state, parent.objectId, visiting)) paths.push(`${name}[${index}]`);
+        }
+      });
+    } else if (parent.kind === 'map') { // 1.5.0: a value of a map, by its key
+      for (const entry of parent.entries) {
+        if (entry.value.kind === 'ref' && entry.value.objectId === objectId) {
+          for (const name of namesOf(state, parent.objectId, visiting)) paths.push(`${name}[${formatValue(entry.key, state.objects)}]`);
+        }
+      }
     } else if (parent.kind === 'object') { // 1.4.0: field paths such as head.next
       for (const field of parent.fields) {
         if (field.value.kind === 'ref' && field.value.objectId === objectId) {
@@ -96,7 +116,7 @@ export function describe(event: ObservableEvent, state: State): string {
   const arrayName = (objectId: string) => namesOf(state, objectId)[0] ?? 'array';
   const objectName = (objectId: string) => {
     const object = objects.get(objectId);
-    return namesOf(state, objectId)[0] ?? (object?.kind === 'object' ? objectLabel(object) : 'object');
+    return namesOf(state, objectId)[0] ?? (object?.kind === 'object' ? objectLabel(object) : object ? formatValue({ kind: 'ref', objectId }, objects) : 'object');
   };
   const bindingName = (bindingId: string) => state.bindings.find(b => b.bindingId === bindingId)?.name ?? 'variable';
   switch (event.kind) {
@@ -113,7 +133,21 @@ export function describe(event: ObservableEvent, state: State): string {
     }
     case 'ALLOCATE': {
       const o = event.data.object;
-      return o.kind === 'array' ? `Create ${arrayType(o)}` : o.kind === 'object' ? `Create ${objectLabel(o)}` : 'Create string';
+      if (o.kind === 'array') return `Create ${arrayType(o)}`;
+      if (o.kind === 'object') return `Create ${objectLabel(o)}`;
+      if (o.kind === 'string') return 'Create string';
+      return `Create ${shortName(o.className)}`;
+    }
+    case 'LIBRARY': {
+      // java.util.List.add(java.lang.Object) on xs reads as xs.add(5) → true
+      const method = event.data.method;
+      const open = method.indexOf('(');
+      const name = method.slice(method.lastIndexOf('.', open) + 1, open);
+      const owner = method.slice(0, method.lastIndexOf('.', open));
+      const target = event.data.objectId ? objectName(event.data.objectId) : shortName(owner);
+      const args = event.data.arguments.map(a => formatValue(a, objects)).join(', ');
+      const call = `${target}.${name}(${args})`;
+      return event.data.result ? `${call} → ${formatValue(event.data.result, objects)}` : call;
     }
     case 'FIELD_READ':
       return `Read ${objectName(event.data.objectId)}.${event.data.field} = ${formatValue(event.data.value, objects)}`;
@@ -136,6 +170,9 @@ export function describe(event: ObservableEvent, state: State): string {
       const result = formatValue(event.data.result, objects);
       if (event.data.operator === 'condition') return `Condition ${operand(a, objects)}`;
       if (b === undefined) return `${event.data.operator}${operand(a, objects)} = ${result}`;
+      if (event.data.operands.length > 2) { // a flattened string concatenation (1.5.0)
+        return `${event.data.operands.map(o => operand(o, objects)).join(` ${event.data.operator} `)} = ${result}`;
+      }
       return `${operand(a, objects)} ${event.data.operator} ${operand(b, objects)} = ${result}`;
     }
     case 'CALL':
@@ -150,6 +187,8 @@ export function describe(event: ObservableEvent, state: State): string {
         ...event.data.unknownArrays.map(id => `${arrayName(id)} unknown`),
         ...event.data.objects.map(o => `${objectName(o.objectId)} changed`),
         ...event.data.unknownObjects.map(id => `${objectName(id)} unknown`),
+        ...event.data.collections.map(o => `${objectName(o.objectId)} changed`),
+        ...event.data.unknownCollections.map(id => `${objectName(id)} unknown`),
       ];
       return `Ran without visualization${changed.length ? ` (${changed.join(', ')})` : ''}`;
     }

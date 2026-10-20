@@ -49,7 +49,7 @@ export class Playback {
 
   constructor(trace: Trace, checkpointEvery = 256) {
     this.every = checkpointEvery;
-    if (trace.schemaVersion !== '1.4.0') throw new TraceError(`Unsupported trace version ${String(trace.schemaVersion)}`);
+    if (trace.schemaVersion !== '1.5.0') throw new TraceError(`Unsupported trace version ${String(trace.schemaVersion)}`);
     this.trace = trace;
     this.steps = trace.stepEnds.length;
     if (trace.initialState === null) {
@@ -165,6 +165,12 @@ function apply(state: State, event: TraceEvent, seen?: Set<string>): void {
     case 'EXCEPTION':
     case 'SWITCH':
       return;
+    case 'LIBRARY': {
+      event.data.arguments.forEach(a => resolves(state, a));
+      if (event.data.result) resolves(state, event.data.result);
+      if (event.data.after) replaceObject(state, event.data.after);
+      return;
+    }
     case 'FIELD_READ': {
       const field = findField(state, event.data.objectId, event.data.field);
       expectSame(field.value, event.data.value, 'field read');
@@ -191,6 +197,13 @@ function apply(state: State, event: TraceEvent, seen?: Set<string>): void {
       }
       for (const { objectId, fields } of event.data.objects) {
         for (const { name, value } of fields) findField(state, objectId, name).value = value;
+      }
+      for (const object of event.data.collections) replaceObject(state, object);
+      for (const objectId of event.data.unknownCollections) {
+        const object = state.objects.get(objectId);
+        if (object?.kind === 'collection') object.elements = object.elements.map(() => ({ kind: 'unknown' }));
+        else if (object?.kind === 'map') object.entries = object.entries.map(e => ({ key: e.key, value: { kind: 'unknown' } }));
+        else throw new TraceError(`Unknown collection ${objectId}`);
       }
       for (const objectId of event.data.unknownObjects) {
         const object = state.objects.get(objectId);
@@ -259,6 +272,13 @@ function findField(state: State, objectId: string, name: string) {
   return field;
 }
 
+/** 1.5.0: a library object's recorded new contents replace the old ones (same identity and kind). */
+function replaceObject(state: State, object: TraceObject): void {
+  const old = state.objects.get(object.objectId);
+  if (!old || old.kind !== object.kind) throw new TraceError(`Unknown library object ${object.objectId}`);
+  state.objects.set(object.objectId, copyObject(object));
+}
+
 function addObject(state: State, object: TraceObject, seen?: Set<string>): void {
   fresh(object.objectId, seen);
   state.objects.set(object.objectId, copyObject(object));
@@ -268,6 +288,8 @@ function addObject(state: State, object: TraceObject, seen?: Set<string>): void 
 function copyObject(object: TraceObject): TraceObject {
   if (object.kind === 'array') return { ...object, elements: [...object.elements] };
   if (object.kind === 'object') return { ...object, fields: object.fields.map(f => ({ ...f })) };
+  if (object.kind === 'collection') return { ...object, elements: [...object.elements] };
+  if (object.kind === 'map') return { ...object, entries: object.entries.map(e => ({ ...e })) };
   return object;
 }
 
@@ -314,9 +336,11 @@ function focusOf(event: ObservableEvent | null): Focus {
     case 'ARRAY_WRITE': return { objectId: event.data.objectId, index: event.data.index, access: 'write' };
     case 'ARRAY_LENGTH': return { objectId: event.data.objectId, access: 'length' };
     case 'FIELD_READ': return { objectId: event.data.objectId, field: event.data.field, access: 'read' };
+    case 'LIBRARY': return event.data.objectId ? { objectId: event.data.objectId, access: event.data.after ? 'write' : 'read' } : {};
     case 'FIELD_WRITE': return { objectId: event.data.objectId, field: event.data.field, access: 'write' };
     case 'UNCAPTURED': return { touched: [...event.data.unknownBindings, ...event.data.arrays.map(a => a.objectId), ...event.data.unknownArrays,
-      ...event.data.objects.map(o => o.objectId), ...event.data.unknownObjects] };
+      ...event.data.objects.map(o => o.objectId), ...event.data.unknownObjects,
+      ...event.data.collections.map(o => o.objectId), ...event.data.unknownCollections] };
     default: return {};
   }
 }
