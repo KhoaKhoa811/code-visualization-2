@@ -234,3 +234,6 @@ not verbatim transcripts, unless quoted.
 - c2b1fd0: specs/v1-scope.md maps every acceptance case to status and part.
 - dd459be: grid of panels, panel reorder, layout-only dragging (arrows follow),
   specs/frontend-design.md. 23 unit, 11 browser tests.
+- 9b (user "ok"): tree view through a suggested-then-confirmed value/left/right
+  mapping, Trees panel (in-order layout, dashed conflict links), tree-sort
+  example, specs/tree-view.md. 26 unit, 12 browser tests.

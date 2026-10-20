@@ -17,24 +17,27 @@
 9.0 scope checklist, 9a grid + dragging, 9b tree view (BST sort), 9c heap view (heap sort),
 9d Deque stack/queue mode; then V1.1: 10a separate test inputs, 10b custom mappings,
 10c view rankings, 10d broader problem suite. Order and AC mapping: [specs/v1-scope.md](../specs/v1-scope.md).
-The user approved the roadmap and starting 9.0 + 9a. Ask before starting 9b.
+The user approved the roadmap and starting 9.0 + 9a; "ok" to 9b. Ask before starting 9c.
 
-## Last task: 9.0 + 9a (complete)
+## Last tasks: 9.0 + 9a, then 9b (complete)
 
 - [x] 9.0 specs/v1-scope.md (every AC with status and part), roadmap rows — c2b1fd0
 - [x] 9a grid of panels, panel reorder by title drag, layout-only dragging of object boxes,
       arrays (groups) and collections; specs/frontend-design.md — dd459be
+- [x] 9b tree view: suggested/confirmed value-left-right mapping, Trees panel, tree-sort example,
+      specs/tree-view.md — see git log on feat/part-9b-tree-view
 - [x] memory (this commit)
 
 ## Git
 
-- Branch `feat/part-9a-grid-layout` on main 78b331e (8i merged as PR #96).
+- Branch `feat/part-9a-grid-layout` on main 78b331e (8i merged as PR #96); `feat/part-9b-tree-view` stacked on it.
 - PR (manual, `gh` unavailable):
   https://github.com/KhoaKhoa811/code-visualization-2/compare/main...feat/part-9a-grid-layout?expand=1
+  https://github.com/KhoaKhoa811/code-visualization-2/compare/feat/part-9a-grid-layout...feat/part-9b-tree-view?expand=1
 
 ## Verification (2026-10-20, Claude)
 
-- Frontend only: 23 unit tests (reducer + layout), production build, 11 Playwright tests with the
+- Frontend only: 26 unit tests (reducer, layout, tree), production build, 12 Playwright tests with the
   real backend jar and Docker. Java code unchanged since the 8i live verify (171 tests).
 
 ## Decisions in this task
@@ -43,6 +46,9 @@ The user approved the roadmap and starting 9.0 + 9a. Ask before starting 9b.
 - Panel order persists for the page session; element offsets last one run (ids never reused);
   nothing saved after the page closes (frontend-design.md).
 
+- 9b: suggestions never auto-confirm; field names only order a suggestion. Shared/cyclic links are
+  drawn once with a dashed extra edge. Mappings last the session, rechecked per run (full 10b later).
+
 ## Next action
 
-Wait for review/merge; then ask to start 9b (tree view with confirmed value/left/right mapping).
+Wait for review/merge (9a then 9b); then ask to start 9c (heap view).
