@@ -241,3 +241,5 @@ not verbatim transcripts, unless quoted.
   indexing, size variable, order); synchronized strip and tree, recorded
   boundary, observed order violations; heap-sort example, specs/heap-view.md.
   30 unit, 13 browser tests.
+- 9d (user "ok"): ArrayDeque/LinkedList Deque/Stack/Queue view switch per
+  variable; AC-12 done; Core V1 parts 9a-9d complete. 31 unit, 13 browser tests.

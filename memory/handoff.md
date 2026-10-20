@@ -17,9 +17,9 @@
 9.0 scope checklist, 9a grid + dragging, 9b tree view (BST sort), 9c heap view (heap sort),
 9d Deque stack/queue mode; then V1.1: 10a separate test inputs, 10b custom mappings,
 10c view rankings, 10d broader problem suite. Order and AC mapping: [specs/v1-scope.md](../specs/v1-scope.md).
-The user approved the roadmap and starting 9.0 + 9a; "ok" to 9b and 9c. Ask before starting 9d.
+The user approved the roadmap and starting 9.0 + 9a; "ok" to 9b, 9c and 9d. Core V1 parts are done; ask before starting 10a (V1.1).
 
-## Last tasks: 9.0 + 9a, 9b, 9c (complete)
+## Last tasks: 9.0 + 9a, 9b, 9c, 9d (complete)
 
 - [x] 9.0 specs/v1-scope.md (every AC with status and part), roadmap rows — c2b1fd0
 - [x] 9a grid of panels, panel reorder by title drag, layout-only dragging of object boxes,
@@ -28,19 +28,21 @@ The user approved the roadmap and starting 9.0 + 9a; "ok" to 9b and 9c. Ask befo
       specs/tree-view.md — see git log on feat/part-9b-tree-view
 - [x] 9c heap view: confirmed array/indexing/size/order mapping, Heaps panel, heap-sort example,
       specs/heap-view.md — see git log on feat/part-9c-heap-view
+- [x] 9d Deque/LinkedList Stack/Queue view switch per variable — see git log on feat/part-9d-deque-mode
 - [x] memory (this commit)
 
 ## Git
 
-- Branch `feat/part-9a-grid-layout` on main 78b331e (8i merged as PR #96); `feat/part-9b-tree-view` and `feat/part-9c-heap-view` stacked in that order.
+- Branch `feat/part-9a-grid-layout` on main 78b331e (8i merged as PR #96); `feat/part-9b-tree-view` and `feat/part-9c-heap-view`, `feat/part-9d-deque-mode` stacked in that order.
 - PR (manual, `gh` unavailable):
   https://github.com/KhoaKhoa811/code-visualization-2/compare/main...feat/part-9a-grid-layout?expand=1
   https://github.com/KhoaKhoa811/code-visualization-2/compare/feat/part-9a-grid-layout...feat/part-9b-tree-view?expand=1
   https://github.com/KhoaKhoa811/code-visualization-2/compare/feat/part-9b-tree-view...feat/part-9c-heap-view?expand=1
+  https://github.com/KhoaKhoa811/code-visualization-2/compare/feat/part-9c-heap-view...feat/part-9d-deque-mode?expand=1
 
 ## Verification (2026-10-20, Claude)
 
-- Frontend only: 30 unit tests (reducer, layout, tree, heap), production build, 13 Playwright tests with the
+- Frontend only: 31 unit tests (reducer, layout, tree, heap), production build, 13 Playwright tests with the
   real backend jar and Docker. Java code unchanged since the 8i live verify (171 tests).
 
 ## Decisions in this task
@@ -57,4 +59,4 @@ The user approved the roadmap and starting 9.0 + 9a; "ok" to 9b and 9c. Ask befo
 
 ## Next action
 
-Wait for review/merge (9a, 9b, 9c in order); then ask to start 9d (Deque stack/queue mode).
+Wait for review/merge (9a, 9b, 9c, 9d in order); then ask to start 10a (separate test inputs).
