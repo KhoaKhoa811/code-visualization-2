@@ -1,0 +1,25 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { forNewRun, initialLayout, movePanel, panelOrder, setOffset } from './layout.ts';
+
+test('panels reorder by moving one to another one\'s place (9a)', () => {
+  const start = initialLayout();
+  assert.deepEqual(start.order, ['variables', 'collections', 'objects', 'arrays', 'strings']);
+  const moved = movePanel(start, 'arrays', 'variables');
+  assert.deepEqual(moved.order, ['arrays', 'variables', 'collections', 'objects', 'strings']);
+  assert.deepEqual(movePanel(moved, 'arrays', 'strings').order, ['variables', 'collections', 'objects', 'strings', 'arrays']);
+  assert.equal(movePanel(start, 'arrays', 'arrays'), start, 'dropping on itself changes nothing');
+  assert.equal(movePanel(start, 'unknown', 'arrays'), start);
+  assert.equal(panelOrder(moved, 'arrays'), 0);
+  assert.equal(panelOrder(moved, 'not-a-panel'), 5, 'unknown panels go last');
+});
+
+test('element offsets are layout only and end with the run (9a)', () => {
+  const dragged = setOffset(initialLayout(), 'object:o3', 40, -12);
+  assert.deepEqual(dragged.offsets['object:o3'], { x: 40, y: -12 });
+  assert.equal(setOffset(dragged, 'object:o3', 40, -12), dragged, 'an unchanged offset keeps the same layout');
+  const reordered = movePanel(dragged, 'strings', 'variables');
+  const next = forNewRun(reordered);
+  assert.deepEqual(next.offsets, {}, 'ids of an earlier run are never reused');
+  assert.deepEqual(next.order, reordered.order, 'panel order is a preference that stays');
+});

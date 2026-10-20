@@ -133,6 +133,54 @@ test('objects of user classes form a linked list and a tree in the object graph 
   await page.screenshot({ path: 'test-results/object-graph.png', fullPage: true });
 });
 
+/** Drags an element by its top-left area with the mouse. */
+async function dragBy(page: Page, target: ReturnType<Page['locator']>, dx: number, dy: number) {
+  const box = (await target.boundingBox())!;
+  await page.mouse.move(box.x + 12, box.y + 10);
+  await page.mouse.down();
+  await page.mouse.move(box.x + 12 + dx / 2, box.y + 10 + dy / 2, { steps: 4 });
+  await page.mouse.move(box.x + 12 + dx, box.y + 10 + dy, { steps: 4 });
+  await page.mouse.up();
+}
+
+test('dragging diagram boxes and reordering panels changes layout only (9a, AC-18, AC-23, AC-26)', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.monaco-editor')).toBeVisible();
+  await page.getByLabel('Example').selectOption('Linked list and tree');
+  await run(page);
+  await expect(page.getByTestId('run-summary')).toContainText('capture complete');
+  await page.getByTitle('End').click();
+  const count = await page.getByTestId('step-count').textContent();
+
+  const head = page.getByTestId('object-head');
+  const before = (await head.boundingBox())!;
+  const arrows = page.locator('.graph-arrows path:not(marker path)');
+  const pathsBefore = await arrows.evaluateAll(paths => paths.map(p => p.getAttribute('d')));
+  await dragBy(page, head, 90, 70);
+  const after = (await head.boundingBox())!;
+  expect(Math.round(after.x - before.x)).toBe(90);
+  expect(Math.round(after.y - before.y)).toBe(70);
+  await expect(head.getByTestId('field-value')).toContainText('3'); // values unchanged
+  await expect(page.getByTestId('step-count')).toHaveText(count!); // cursor unchanged
+  const pathsAfter = await arrows.evaluateAll(paths => paths.map(p => p.getAttribute('d')));
+  expect(pathsAfter.length).toBe(pathsBefore.length); // same references
+  expect(pathsAfter).not.toEqual(pathsBefore); // arrows follow the moved box
+  await page.screenshot({ path: 'test-results/layout-dragged.png' });
+
+  await page.getByRole('button', { name: 'Step back' }).click();
+  expect(Math.round((await head.boundingBox())!.x - before.x)).toBe(90); // layout survives stepping
+
+  // Panels: drop the Objects title onto the Variables panel; Objects moves first in the grid.
+  const objects = page.getByRole('region', { name: 'Objects' });
+  await objects.locator('.panel-handle').dragTo(page.getByRole('region', { name: 'Call stack' }));
+  await expect(objects).toHaveCSS('order', '0');
+  await expect(page.getByRole('region', { name: 'Call stack' })).toHaveCSS('order', '1');
+
+  await page.getByRole('button', { name: 'Reset layout' }).click();
+  await expect(objects).toHaveCSS('order', '2');
+  expect(Math.round((await head.boundingBox())!.x - before.x)).toBe(0);
+});
+
 test('recursive calls get their own frames and returns restore the caller (8d)', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('.monaco-editor')).toBeVisible();
@@ -211,6 +259,15 @@ test('a grid, for-each, switch and do-while play back (8c)', async ({ page }) =>
   await expect(page.getByTestId('var-grade')).toContainText("'A'");
   await expect(page.getByTestId('var-countdown')).toContainText('0');
   await expect(page.getByTestId('array-names').getByTestId('cell').locator('.cell-value')).toHaveText(['"zero"', '"one"', '"many"']);
+
+  // 9a, AC-23: an array of arrays moves as one group; its rows and values stay as they are.
+  const grid = page.getByTestId('array-grid');
+  const before = (await grid.getByTestId('row').nth(2).boundingBox())!;
+  await dragBy(page, grid.locator('.array-label'), 60, 40);
+  const after = (await grid.getByTestId('row').nth(2).boundingBox())!;
+  expect(Math.round(after.x - before.x)).toBe(60);
+  expect(Math.round(after.y - before.y)).toBe(40);
+  await expect(grid.getByTestId('row').nth(2).getByTestId('cell').locator('.cell-value')).toHaveText(['0', '2', '4', '6']);
 });
 
 test('a program reads live console input and playback shows the read (8g, AC-19)', async ({ page }) => {

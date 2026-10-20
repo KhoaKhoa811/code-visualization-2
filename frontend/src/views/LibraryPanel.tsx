@@ -7,6 +7,7 @@
 import { formatValue, namesOf, shortName } from '../trace/format.ts';
 import type { Focus, State, View } from '../trace/playback.ts';
 import type { TraceObject, Value } from '../trace/types.ts';
+import { Draggable, Panel } from './Draggable.tsx';
 
 type LibraryObject = TraceObject & { kind: 'collection' | 'map' | 'builder' };
 
@@ -94,23 +95,22 @@ export function LibraryPanel({ view }: { view: View }) {
     o.kind === 'collection' || o.kind === 'map' || o.kind === 'builder');
   if (objects.length === 0) return null;
   return (
-    <section className="panel" aria-label="Collections">
-      <h2>Collections</h2>
+    <Panel id="collections" label="Collections" title="Collections">
       {objects.map(o => {
         const names = namesOf(state, o.objectId);
         const name = shortName(o.className);
         const active = focus.objectId === o.objectId || focus.touched?.includes(o.objectId);
         return (
-          <div className={`library${active ? ` ${focus.access === 'write' || focus.touched ? 'changed' : 'read'}` : ''}`} key={o.objectId}
+          <Draggable id={`collection:${o.objectId}`} className={`library${active ? ` ${focus.access === 'write' || focus.touched ? 'changed' : 'read'}` : ''}`} key={o.objectId}
                data-testid={`library-${names[0] ?? o.objectId}`}>
             <div className="array-label">
               {names.length ? names.join(' = ') : '(temporary)'} <span className="muted">{name}</span>
               {NOTES[name] && <span className="muted"> · {NOTES[name]}</span>}
             </div>
             <Body object={o} state={state} />
-          </div>
+          </Draggable>
         );
       })}
-    </section>
+    </Panel>
   );
 }

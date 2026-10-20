@@ -5,6 +5,7 @@ import { useLayoutEffect, useRef, useState } from 'react';
 import { formatValue, namesOf, objectLabel } from '../trace/format.ts';
 import type { State, View } from '../trace/playback.ts';
 import type { TraceObject } from '../trace/types.ts';
+import { Draggable, Panel } from './Draggable.tsx';
 
 type ObjectNode = TraceObject & { kind: 'object' };
 interface Arrow { key: string; d: string }
@@ -68,8 +69,7 @@ export function ObjectGraph({ view }: { view: View }) {
 
   if (layout.length === 0) return null;
   return (
-    <section className="panel" aria-label="Objects">
-      <h2>Objects</h2>
+    <Panel id="objects" label="Objects" title="Objects">
       <div className="graph" ref={container} data-testid="object-graph">
         <svg className="graph-arrows" aria-hidden="true">
           <defs>
@@ -85,7 +85,7 @@ export function ObjectGraph({ view }: { view: View }) {
               const names = namesOf(state, o.objectId);
               const allocated = focus.objectId === o.objectId && focus.access === 'allocate' || focus.touched?.includes(o.objectId);
               return (
-                <div className={`object${allocated ? ' allocated' : ''}`} key={o.objectId} data-object={o.objectId}
+                <Draggable id={`object:${o.objectId}`} className={`object${allocated ? ' allocated' : ''}`} key={o.objectId} data-object={o.objectId}
                      data-testid={`object-${names[0] ?? o.objectId}`}>
                   <div className="object-label" title={names.join(' = ')}>
                     {objectLabel(o)}{names.length > 0 && <span className="muted"> {names.slice(0, 2).join(' = ')}</span>}
@@ -102,12 +102,12 @@ export function ObjectGraph({ view }: { view: View }) {
                       </div>
                     );
                   })}
-                </div>
+                </Draggable>
               );
             })}
           </div>
         ))}
       </div>
-    </section>
+    </Panel>
   );
 }

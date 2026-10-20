@@ -67,7 +67,16 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 
 .step-detail { padding: 8px 10px; border-left: 3px solid var(--accent); background: var(--panel); margin-bottom: 10px; font-family: Consolas, monospace; }
 
-.state { display: grid; gap: 10px; }
+/* Part 9a: a grid of panels on one cursor; panel order and element offsets are layout only. */
+.state { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); align-items: start; }
+.state > [data-panel="objects"], .state > [data-panel="arrays"] { grid-column: 1 / -1; }
+.panel { min-width: 0; overflow: auto; }
+.panel-handle { cursor: grab; user-select: none; }
+.draggable { touch-action: none; user-select: none; cursor: grab; }
+.draggable:active { cursor: grabbing; }
+.draggable[style*="translate"] { position: relative; z-index: 2; }
+.layout-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; font-size: 12px; }
+.layout-bar button { padding: 2px 10px; }
 .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 10px; }
 .frame-name { font-family: Consolas, monospace; color: var(--muted); margin-bottom: 4px; }
 .bindings { border-collapse: collapse; font-family: Consolas, monospace; }

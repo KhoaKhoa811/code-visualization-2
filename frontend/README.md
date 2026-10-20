@@ -24,6 +24,7 @@ from algorithm or example recognition ([coverage roadmap](../specs/coverage-road
 | 8g | Trace 1.6.0: live console over WebSocket (streamed output, input line, EOF, controller state), `Scanner` reads as "Read input" steps; read-input example ([live console](../specs/live-console.md)) | 20 reducer tests, 9 browser tests |
 | 8h | Trace 1.7.0: throw and catch steps ("Throw …", "Catch e = …"), exception values in variables, frames that unwind mid-run; exceptions example ([exceptions](../specs/exceptions.md)) | 21 reducer tests, 10 browser tests |
 | 8i | Trace 1.8.0 (`BufferedReader` input object); the editor scrolls back to show each step from its line start | 21 reducer tests, 10 browser tests |
+| 9a | Grid of panels on one cursor; drag panel titles to reorder; drag object boxes, arrays (as groups) and collections, arrows follow; Reset layout ([frontend design](../specs/frontend-design.md)) | 23 reducer/layout tests, 11 browser tests |
 
 ## Stack and pins
 
