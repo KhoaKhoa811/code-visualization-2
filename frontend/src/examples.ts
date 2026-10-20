@@ -169,6 +169,17 @@ public class Main {
     }
 }
 `,
+  'Read input': `import java.util.Scanner;
+
+public class Main {
+    public static void main(String[] args) {
+        Scanner in = new Scanner(System.in);
+        System.out.print("Enter n: ");
+        int n = in.nextInt();
+        System.out.println(n * 2);
+    }
+}
+`,
   'Running total': `public class Main {
     public static void main(String[] args) {
         int[] values = new int[4];

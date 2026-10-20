@@ -22,7 +22,9 @@ export type TraceObject =
   // 1.5.0: library objects. Elements/entries in iteration order, ascending for HashSet/HashMap, poll order for PriorityQueue.
   | { objectId: string; kind: 'collection'; className: string; elements: Value[] }
   | { objectId: string; kind: 'map'; className: string; entries: { key: Value; value: Value }[] }
-  | { objectId: string; kind: 'builder'; className: string; utf16: number[] };
+  | { objectId: string; kind: 'builder'; className: string; utf16: number[] }
+  // 1.6.0: a Scanner reading standard input. Its reads are LIBRARY steps; it has no other state.
+  | { objectId: string; kind: 'input'; className: 'java.util.Scanner' };
 
 export interface Field { name: string; javaType: string; value: Value }
 
@@ -79,7 +81,7 @@ export interface Diagnostic {
 }
 
 export interface Trace {
-  schemaVersion: '1.5.0';
+  schemaVersion: '1.6.0';
   runId: string;
   source: { file: 'Main.java'; text: string; sha256: string };
   execution: { status: ExecutionStatus; reason: string };

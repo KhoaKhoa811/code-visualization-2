@@ -1,20 +1,27 @@
-// Server state for one run: submit, poll until finished, cancel, fetch output.
+// Server state for one run: submit, poll until finished, cancel, fetch output,
+// and its live console.
 // Playback state stays separate (trace/playback.ts).
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { LiveConsole } from './console.ts';
 import { ApiError, cancelRun, getOutput, getRun, submitRun, type Snapshot } from './runs.ts';
 
-export interface SubmittedRun { runId: string; source: string }
+export interface SubmittedRun { runId: string; source: string; console: LiveConsole }
 
 export function useRun() {
   const client = useQueryClient();
   const [run, setRun] = useState<SubmittedRun | null>(null);
+  const live = useRef<LiveConsole | null>(null);
 
   const submit = useMutation({
     mutationFn: (source: string) => submitRun(source).then(snapshot => ({ snapshot, source })),
     onSuccess: ({ snapshot, source }) => {
       client.setQueryData(['run', snapshot.runId], snapshot);
-      setRun({ runId: snapshot.runId, source });
+      // The live console opens here, once per accepted run (Part 8g); never in an
+      // effect or state updater, which StrictMode runs twice.
+      live.current?.close();
+      live.current = new LiveConsole(snapshot.runId);
+      setRun({ runId: snapshot.runId, source, console: live.current });
     },
   });
 

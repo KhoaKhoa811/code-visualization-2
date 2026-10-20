@@ -9,6 +9,7 @@ export default defineConfig({
     host: '127.0.0.1',
     port: 5173,
     strictPort: true,
-    proxy: { '/api': 'http://127.0.0.1:8080' },
+    // ws: the live console WebSocket (/api/runs/{id}/console, Part 8g) goes through the same proxy.
+    proxy: { '/api': { target: 'http://127.0.0.1:8080', ws: true } },
   },
 });

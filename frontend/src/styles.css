@@ -45,6 +45,10 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 .console { grid-area: console; overflow: auto; padding: 10px 12px; border-top: 1px solid var(--border); background: var(--panel); }
 .console pre { margin: 0; font-family: Consolas, 'Cascadia Mono', monospace; white-space: pre-wrap; }
 .stderr { color: var(--error); }
+.stdin { color: var(--accent, #2563eb); font-weight: 600; }
+.console-input form { display: flex; gap: 6px; margin-top: 8px; }
+.console-input input { flex: 1; font-family: Consolas, 'Cascadia Mono', monospace; padding: 4px 6px; }
+.console-input p { margin: 4px 0 0; }
 
 .controls { display: flex; align-items: center; gap: 6px; margin-bottom: 10px; }
 .controls input[type='range'] { flex: 1; }

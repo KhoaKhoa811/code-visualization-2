@@ -21,6 +21,7 @@ from algorithm or example recognition ([coverage roadmap](../specs/coverage-road
 | 8d | Call stack (innermost first, running frame marked), call and return descriptions; recursion example ([methods](../specs/methods.md)) | 15 reducer tests, 6 browser tests |
 | 8e | Trace 1.4.0: Objects panel (boxes, reference arrows, cycles), field steps, field paths such as `head.next`; linked list and tree example ([objects](../specs/objects.md)) | 17 reducer tests, 7 browser tests |
 | 8f | Trace 1.5.0: Collections panel (list, stack, deque, set, priority queue in poll order, map, StringBuilder), library calls as steps, one-step concatenation; strings and collections example ([library](../specs/library.md)) | 19 reducer tests, 8 browser tests |
+| 8g | Trace 1.6.0: live console over WebSocket (streamed output, input line, EOF, controller state), `Scanner` reads as "Read input" steps; read-input example ([live console](../specs/live-console.md)) | 20 reducer tests, 9 browser tests |
 
 ## Stack and pins
 
@@ -72,6 +73,13 @@ compile error with an editor marker.
 - **Run flow:** Run submits the exact editor text with its SHA-256. The snapshot
   is polled every 250 ms until `finished`; older revisions are ignored. Cancel
   stops a queued or running program. Output is fetched after the run finishes.
+- **Live console (8g):** each accepted run opens one WebSocket, from the submit
+  handler rather than an effect, so React StrictMode cannot open a second
+  connection that would take the controller role. Output streams while the run
+  executes. For a program that reads `System.in`, Enter sends the line plus LF and
+  "Send EOF" closes input; sent lines are echoed. Leaving the page while such a
+  run executes cancels it. After the run, the console shows the recorded output
+  and the lines that were sent.
 - **Playback:** cursor k is the recorded initial state plus events up to
   `stepEnds[k-1]` (trace-format section 10). Checkpoints every 256 steps are
   equivalent caches. Back, restart and the slider never rerun Java.
@@ -88,7 +96,9 @@ compile error with an editor marker.
 
 ## Limits
 
-- No live console or `Scanner` input yet; output appears after the run.
+- Live input covers `Scanner(System.in)`; other ways of reading `System.in` run
+  without capture. Input waits are not detected (the console says the program
+  reads input, not that it is waiting).
 - Views: variables per frame, arrays (read/write/length/allocate highlights),
   strings. Call-stack, object-graph and collection views follow Part 8.
 - Not a design-complete UI: no draggable grid, layout persistence or keyboard shortcuts.

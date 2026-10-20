@@ -312,6 +312,19 @@ test('library calls replace collection contents and read as calls (8f)', () => {
   assert.deepEqual(counts.entries.map(e => `${formatValue(e.key, end.objects)}=${formatValue(e.value)}`), ['"a"=2', '"b"=1', '"c"=1']);
 });
 
+test('Scanner reads are recorded library steps over console input (8g)', () => {
+  const p = new Playback(example('valid/scanner-read.json'));
+  const created = p.at(1);
+  assert.equal(describeStep(created.event!, created.state), 'Create Scanner(System.in)');
+  const declared = p.at(2);
+  assert.equal(describeStep(declared.event!, declared.state), 'Declare java.util.Scanner in = Scanner(System.in)');
+  const read = p.at(3);
+  assert.equal(describeStep(read.event!, read.state), 'Read input: in.nextInt() → 21');
+  assert.deepEqual(read.focus, { objectId: 'in1', access: 'read' });
+  assert.equal(formatValue(p.at(4).beforeEnd!.bindings.find(b => b.name === 'n')!.value), '21');
+  assert.throws(() => new Playback({ ...example('valid/scanner-read.json'), schemaVersion: '1.5.0' as '1.6.0' }), TraceError);
+});
+
 test('concatenation is one step and uncaptured changes to collections are re-read (8f)', () => {
   const s = new Playback(fixture('strings'));
   const first = Array.from({ length: s.steps }, (_, k) => s.at(k + 1)).find(v => v.event?.kind === 'EXPRESSION' && v.event.data.operands.length > 2)!;

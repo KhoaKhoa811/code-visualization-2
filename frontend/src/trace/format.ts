@@ -22,6 +22,7 @@ export function formatValue(value: Value, objects?: Map<string, TraceObject>): s
       if (object?.kind === 'builder') return `StringBuilder ${JSON.stringify(String.fromCharCode(...object.utf16))}`;
       if (object?.kind === 'collection') return `${shortName(object.className)}(${object.elements.length})`;
       if (object?.kind === 'map') return `${shortName(object.className)}(${object.entries.length})`;
+      if (object?.kind === 'input') return 'Scanner(System.in)';
       return `ref ${value.objectId}`;
     }
   }
@@ -136,6 +137,7 @@ export function describe(event: ObservableEvent, state: State): string {
       if (o.kind === 'array') return `Create ${arrayType(o)}`;
       if (o.kind === 'object') return `Create ${objectLabel(o)}`;
       if (o.kind === 'string') return 'Create string';
+      if (o.kind === 'input') return 'Create Scanner(System.in)';
       return `Create ${shortName(o.className)}`;
     }
     case 'LIBRARY': {
@@ -147,7 +149,10 @@ export function describe(event: ObservableEvent, state: State): string {
       const target = event.data.objectId ? objectName(event.data.objectId) : shortName(owner);
       const args = event.data.arguments.map(a => formatValue(a, objects)).join(', ');
       const call = `${target}.${name}(${args})`;
-      return event.data.result ? `${call} → ${formatValue(event.data.result, objects)}` : call;
+      const text = event.data.result ? `${call} → ${formatValue(event.data.result, objects)}` : call;
+      // 1.6.0: a Scanner read consumed delivered console input.
+      const input = event.data.objectId !== null && objects.get(event.data.objectId)?.kind === 'input';
+      return input && name !== 'close' ? `Read input: ${text}` : text;
     }
     case 'FIELD_READ':
       return `Read ${objectName(event.data.objectId)}.${event.data.field} = ${formatValue(event.data.value, objects)}`;
