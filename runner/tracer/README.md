@@ -75,6 +75,10 @@ the uninstrumented original.
 - Since 8f ([library](../../specs/library.md)) string concatenation, String/StringBuilder methods, lists,
   deques, stacks, queues, maps, sets and priority queues are recorded calls replayed on trusted mirrors
   (trace 1.5.0). **67 tests, 0 failures** on 2026-10-19.
+- Since 8g ([live console](../../specs/live-console.md)) `new Scanner(System.in)` and its reads are
+  LIBRARY steps; the builder replays them on a Scanner over the exact input delivered to the program,
+  so a forged read makes the capture partial (trace 1.6.0, plan field `interactive`).
+  **69 tests, 0 failures** on 2026-10-20.
 - Scope entry/exit is derived from recorded operations and static block structure
   (see the spec); blocks with no recorded operation leave no trace.
 - On the host, a builder-side trace limit marks the run `limited` even though the

@@ -1,6 +1,6 @@
 # Current state
 
-Last updated: 2026-10-19 (Asia/Saigon). Short summary only; keep it under about
+Last updated: 2026-10-20 (Asia/Saigon). Short summary only; keep it under about
 120 lines. For the active task, [handoff.md](handoff.md) is authoritative.
 History: [archive/](archive/README.md).
 
@@ -9,7 +9,7 @@ History: [archive/](archive/README.md).
 The project is still in the pre-application phase. Milestone 0 (specifications and
 instructions), full isolation verification, Milestone 1 tracing and V1 are **not
 complete**. A first-increment tracer, a minimal noninteractive run API and a
-first frontend slice exist; there is no live input yet.
+first frontend slice exist; live console input exists since 8g.
 
 | Part | What it delivered | Status |
 | --- | --- | --- |
@@ -29,10 +29,11 @@ first frontend slice exist; there is no live input yet.
 | 7e | Coverage roadmap ([roadmap](../specs/coverage-roadmap.md)); frontend slice: Monaco, run flow, playback reducer, variable/array views ([guide](../frontend/README.md)); 7 unit + 2 browser tests with live Docker | Merged (PR #87) |
 | 8a | Graceful partial coverage: unsupported statements run uncaptured, trace contract 1.1.0 ([spec](../specs/partial-coverage.md)); 126 Java tests with live Docker, 3 browser tests | Merged (PR #88) |
 | 8b | All primitive types, casts, bitwise/shift operators, compound assignment, conditional operator, uninitialized declarations; trace contract 1.2.0 ([spec](../specs/primitive-types.md)); 132 Java tests with live Docker, 4 browser tests | Merged (PR #89) |
-| 8c | do/while, labeled jumps, switch statements and expressions, for-each over arrays, arrays of every type and arrays of arrays; trace contract 1.3.0 ([spec](../specs/statements.md)); 141 Java tests with live Docker, 5 browser tests | Done, pushed, awaiting review |
-| 8d | Static methods of Main and recursion: CALL/RETURN steps, distinct frames, silent helpers under uncaptured code, unwinding, 64-frame limit ([spec](../specs/methods.md)); 145 Java tests with live Docker, 6 browser tests | Done, pushed, awaiting review |
-| 8e | Objects of user classes: fields, constructors, instance methods, cycles, object graph view; trace contract 1.4.0 ([spec](../specs/objects.md)); 149 Java tests with live Docker, 7 browser tests | Done, pushed, awaiting review |
-| 8f | Strings and library collections as recorded calls replayed on trusted mirrors, collections panel; trace contract 1.5.0 ([spec](../specs/library.md)); 152 Java tests with live Docker, 8 browser tests | Done, pushed, awaiting review |
+| 8c | do/while, labeled jumps, switch statements and expressions, for-each over arrays, arrays of every type and arrays of arrays; trace contract 1.3.0 ([spec](../specs/statements.md)); 141 Java tests with live Docker, 5 browser tests | Merged (PR #90) |
+| 8d | Static methods of Main and recursion: CALL/RETURN steps, distinct frames, silent helpers under uncaptured code, unwinding, 64-frame limit ([spec](../specs/methods.md)); 145 Java tests with live Docker, 6 browser tests | Merged (PR #91) |
+| 8e | Objects of user classes: fields, constructors, instance methods, cycles, object graph view; trace contract 1.4.0 ([spec](../specs/objects.md)); 149 Java tests with live Docker, 7 browser tests | Merged (PR #92) |
+| 8f | Strings and library collections as recorded calls replayed on trusted mirrors, collections panel; trace contract 1.5.0 ([spec](../specs/library.md)); 152 Java tests with live Docker, 8 browser tests | Merged (PR #93) |
+| 8g | Live console over WebSocket (ADR 0001), bounded ordered input, interactive runs, Scanner reads replayed over delivered input; run request 1.1.0, trace contract 1.6.0 ([spec](../specs/live-console.md)); 161 Java tests with live Docker, 9 browser tests | Done, pushed, awaiting review |
 
 ## Verified environment
 

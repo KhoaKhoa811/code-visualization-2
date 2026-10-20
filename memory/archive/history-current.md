@@ -187,3 +187,16 @@ not verbatim transcripts, unless quoted.
 - bccb59c frontend Collections panel; 40888f0 browser test.
 - Final: 152 Java tests (tracer 67, backend 86) with live Docker, 60 contract,
   19 reducer, 8 browser tests; no containers left.
+
+## 2026-10-19/20 — Part 8g live console and Scanner input (Claude Code)
+
+- User: "ok" to the 8g proposal; approved adding spring-boot-starter-websocket.
+  b530c33: ADR 0001, live-console spec, contract 1.6.0 (`input` object), tracer
+  Scanner reads replayed over the delivered transcript (plan format 7).
+- d32776c backend: run request 1.1.0 (`inputMode` none/live), bounded ordered
+  input (Part 4r), interactive runs (`docker exec -i`, 120 s), WebSocket console
+  with controller, disconnect cancel (`INPUT_DISCONNECTED`).
+- 029e08c frontend live console, "Read input" steps, AC-19 browser test.
+- A first verify failed only because Docker Desktop was stopped.
+- Final: 161 Java tests (tracer 69, backend 92) with live Docker, 61 contract,
+  20 reducer, 9 browser tests; no containers left.

@@ -27,13 +27,16 @@ class TracerTest {
         return "public class Main {\n    public static void main(String[] args) {\n" + body + "\n    }\n}\n";
     }
 
-    private Run run(String name, String source) throws Exception {
+    private Run run(String name, String source) throws Exception { return run(name, source, null); }
+
+    /** {@code input}: the program's standard input (Part 8g), given to the original, the traced run and the builder. */
+    private Run run(String name, String source, byte[] input) throws Exception {
         Tracer.Prepared prepared = Tracer.prepare(source);
-        HostRun.Result result = prepared.compiled() ? HostRun.run(prepared.classes(), prepared.traced(), temp)
+        HostRun.Result result = prepared.compiled() ? HostRun.run(prepared.classes(), prepared.traced(), temp, input)
                 : new HostRun.Result(-1, "", "", List.of());
         // A run halted at the raw or call-depth limit legitimately differs from the original.
         if (prepared.traced() && !result.raw().contains("L") && !result.raw().contains("D") && !result.raw().contains("T")) {
-            HostRun.Result original = HostRun.run(prepared.analysis().classes(), false, temp);
+            HostRun.Result original = HostRun.run(prepared.analysis().classes(), false, temp, input);
             assertEquals(original.stdout(), result.stdout(), "stdout must match the original program");
             assertEquals(original.exit(), result.exit(), "exit status must match the original program");
             String expected = original.stderrFirstLine(), actual = result.stderrFirstLine();
@@ -43,11 +46,12 @@ class TracerTest {
             }
             assertEquals(expected, actual, "uncaught exception must match");
         }
-        String json = Tracer.trace(prepared, "test-" + name, result.raw(), result.exit());
+        byte[] delivered = input == null ? new byte[0] : input;
+        String json = Tracer.trace(prepared, "test-" + name, result.raw(), result.exit(), delivered);
         validate(name, json);
         // The backend builds the trace from the serialized plan; it must give the same trace.
         Tracer.Prepared decoded = Tracer.fromPlan(source, Tracer.plan(prepared));
-        assertEquals(json, Tracer.trace(decoded, "test-" + name, result.raw(), result.exit()), "plan round trip");
+        assertEquals(json, Tracer.trace(decoded, "test-" + name, result.raw(), result.exit(), delivered), "plan round trip");
         Map<String, Object> trace = JsonReader.object(json);
         assertReferencesResolve(trace);
         return new Run(trace, result, prepared, json);
@@ -185,6 +189,7 @@ class TracerTest {
     /** An array as [elements], an object (Part 8e) as Class{field=value,...}. */
     @SuppressWarnings("unchecked")
     private static String describeObject(Map<String, Object> o) {
+        if ("input".equals(o.get("kind"))) return "Scanner";
         if ("builder".equals(o.get("kind"))) return "\"" + ((List<Object>) o.get("utf16")).stream()
                 .map(u -> String.valueOf((char) ((Long) u).intValue())).reduce("", String::concat) + "\"";
         if ("map".equals(o.get("kind"))) return ((List<Object>) o.get("entries")).stream()
@@ -1157,6 +1162,65 @@ class TracerTest {
         List<Object> reread = events(region.trace()).stream().filter(e -> "UNCAPTURED".equals(e.get("kind")))
                 .flatMap(e -> ((List<Object>) map(e.get("data")).get("collections")).stream()).toList();
         assertEquals(2, reread.size(), "both uncaptured statements changed the list: " + reread);
+    }
+
+    // ---- Part 8g: Scanner input ---------------------------------------------------------------
+
+    private static byte[] utf8(String s) { return s.getBytes(StandardCharsets.UTF_8); }
+
+    @Test void scannerReadsAreStepsReplayedOverTheDeliveredInput() throws Exception {
+        String source = """
+                import java.util.Scanner;
+
+                public class Main {
+                    public static void main(String[] args) {
+                        Scanner in = new Scanner(System.in);
+                        System.out.print("Enter n: ");
+                        int n = in.nextInt();
+                        in.nextLine();
+                        String name = in.nextLine();
+                        double d = in.nextDouble();
+                        System.out.println(n * 2);
+                        System.out.println("Hi " + name);
+                        boolean more = in.hasNextInt();
+                        System.out.println(more);
+                        System.out.println(d);
+                    }
+                }
+                """;
+        Run r = run("scanner-reads", source, utf8("21\nAda Lovelace\n2.5\nx\n"));
+        assertComplete(r, "completed");
+        assertTrue(r.prepared().analysis().interactive(), "System.in makes the run interactive");
+        assertEquals("Enter n: 42\nHi Ada Lovelace\nfalse\n2.5\n", r.result().stdout());
+        assertInOrder(textSteps(r.trace()), "LIB nextInt() = 21 @in.nextInt()", "DECLARE n=21 @int n = in.nextInt()",
+                "LIB nextLine() = \"\" @in.nextLine()", "LIB nextLine() = \"Ada Lovelace\" @in.nextLine()",
+                "LIB nextDouble() = 2.5 @in.nextDouble()", "LIB hasNextInt() = false @in.hasNextInt()");
+        assertTrue(r.json().contains("\"kind\":\"input\""), "the Scanner is an input object");
+        assertFalse(Tracer.prepare(program("int x = 1;")).analysis().interactive(), "no System.in: not interactive");
+    }
+
+    @Test void invalidTokensAndEndOfInputFollowJava() throws Exception {
+        String source = """
+                import java.util.Scanner;
+
+                public class Main {
+                    public static void main(String[] args) {
+                        Scanner in = new Scanner(System.in);
+                        int n = in.nextInt();
+                    }
+                }
+                """;
+        Run invalid = run("scanner-invalid", source, utf8("abc\n"));
+        assertComplete(invalid, "failed");
+        assertInOrder(steps(invalid.trace()), "EXCEPTION java.util.InputMismatchException @in.nextInt()");
+        Run eof = run("scanner-eof", source, new byte[0]);
+        assertComplete(eof, "failed");
+        assertInOrder(steps(eof.trace()), "EXCEPTION java.util.NoSuchElementException @in.nextInt()");
+        // A transcript that disagrees with what the program read stops capture instead of guessing.
+        Tracer.Prepared prepared = Tracer.prepare(source);
+        HostRun.Result result = HostRun.run(prepared.classes(), true, temp, utf8("7\n"));
+        String json = Tracer.trace(prepared, "test-scanner-forged", result.raw(), result.exit(), utf8("8\n"));
+        assertEquals("partial", status(JsonReader.object(json), "capture"));
     }
 
     // ---- outside coverage -------------------------------------------------------

@@ -106,6 +106,102 @@ class RunApiLiveTest {
         }
     }
 
+    // ---- Part 8g: live console over WebSocket ------------------------------------------------
+
+    private static final String DOUBLER = """
+            import java.util.Scanner;
+
+            public class Main {
+                public static void main(String[] args) {
+                    Scanner in = new Scanner(System.in);
+                    System.out.print("Enter n: ");
+                    int n = in.nextInt();
+                    System.out.println(n * 2);
+                }
+            }
+            """;
+
+    /** Collects whole text messages of one console connection. */
+    private static final class Console implements java.net.http.WebSocket.Listener {
+        final java.util.concurrent.LinkedBlockingQueue<String> messages = new java.util.concurrent.LinkedBlockingQueue<>();
+        final java.util.concurrent.CompletableFuture<Integer> closed = new java.util.concurrent.CompletableFuture<>();
+        private final StringBuilder partial = new StringBuilder();
+
+        @Override public java.util.concurrent.CompletionStage<?> onText(java.net.http.WebSocket ws, CharSequence data, boolean last) {
+            partial.append(data);
+            if (last) { messages.add(partial.toString()); partial.setLength(0); }
+            ws.request(1);
+            return null;
+        }
+
+        @Override public java.util.concurrent.CompletionStage<?> onClose(java.net.http.WebSocket ws, int status, String reason) {
+            closed.complete(status);
+            return null;
+        }
+
+        /** Waits for a message containing {@code text}; returns everything received until then. */
+        String until(String text) throws InterruptedException {
+            StringBuilder seen = new StringBuilder();
+            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(60);
+            while (System.nanoTime() < deadline) {
+                String message = messages.poll(100, TimeUnit.MILLISECONDS);
+                if (message == null) continue;
+                seen.append(message).append('\n');
+                if (message.contains(text)) return seen.toString();
+            }
+            fail("no console message containing " + text + "; received:\n" + seen);
+            return null;
+        }
+    }
+
+    private java.net.http.WebSocket connect(String id, Console console) {
+        return client.newWebSocketBuilder()
+                .buildAsync(URI.create("ws://127.0.0.1:" + port + "/api/runs/" + id + "/console"), console).join();
+    }
+
+    private String submitLive(String source) throws Exception {
+        var accepted = send("POST", "/api/runs", RunControllerTest.liveRequest(source, sha(source)));
+        assertEquals(202, accepted.statusCode(), accepted.body());
+        return accepted.headers().firstValue("Location").orElseThrow().substring("/api/runs/".length());
+    }
+
+    /** AC-19 through the API: the prompt streams before input, Enter sends the line, the run completes. */
+    @Test void liveConsoleStreamsOutputAndSendsInput() throws Exception {
+        String id = submitLive(DOUBLER);
+        var console = new Console();
+        var ws = connect(id, console);
+        String early = console.until("\"inputOpen\":true");
+        assertTrue(early.contains("\"interactive\":true") && early.contains("\"controller\":true"), early);
+        console.until("Enter n: ");
+        var observer = new Console();
+        var watching = connect(id, observer);
+        watching.sendText("{\"type\":\"input\",\"seq\":1,\"text\":\"9\"}", true);
+        observer.until("NOT_CONTROLLER");
+        ws.sendText("{\"type\":\"input\",\"seq\":1,\"text\":\"21\"}", true);
+        console.until("{\"type\":\"ack\",\"seq\":1}");
+        ws.sendText("{\"type\":\"bogus\"}", true);
+        console.until("INPUT_INVALID");
+        String rest = console.until("{\"type\":\"end\"}");
+        assertTrue(rest.contains("42"), rest);
+        assertEquals(1000, console.closed.get(30, TimeUnit.SECONDS));
+        String done = await(id, "finished");
+        check("live-console", done);
+        assertTrue(done.contains("\"status\":\"completed\"") && done.contains("java.util.Scanner.nextInt()"));
+        observer.until("{\"type\":\"end\"}");
+    }
+
+    /** Part 4r: losing the controlling console cancels an executing interactive run. */
+    @Test void controllerDisconnectCancelsTheRun() throws Exception {
+        String id = submitLive(DOUBLER);
+        var console = new Console();
+        var ws = connect(id, console);
+        console.until("\"inputOpen\":true");
+        ws.abort();
+        String done = await(id, "finished");
+        check("input-disconnected", done);
+        assertTrue(done.contains("\"status\":\"cancelled\"") && done.contains("INPUT_DISCONNECTED"), done);
+    }
+
     @Test void queueBusyAndCancellationThroughTheApi() throws Exception {
         String active = submit(LOOP);
         String next = submit(BUBBLE_SORT);

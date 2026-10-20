@@ -17,6 +17,7 @@ to `127.0.0.1:8080` only. Submitted Java never runs in the backend JVM.
 | 7d.3 | `8cd5e4a` | `RunController`, strict request parser, `RunnerAccess`, server limits | 6 controller tests, 2 loopback HTTP tests |
 | 7d.4 | `593c6ce` | `contracts/run/check.cjs` and live API tests | Full live verify, 118 tests |
 | 7d.5 | docs commit | This guide, spec section and memory | Paths checked |
+| 8g.2 | `d32776c` | Request 1.1.0 with `inputMode: live`, bounded input, interactive runs, live console WebSocket | Full live verify, 161 tests (tracer 69, backend 92) |
 
 ## Endpoints
 
@@ -31,8 +32,20 @@ to `127.0.0.1:8080` only. Submitted Java never runs in the backend JVM.
 The request body is [run request v1](../contracts/run/v1/request.schema.json):
 
 ```json
-{"schemaVersion":"1.0.0","source":{"file":"Main.java","text":"...","sha256":"<hex of UTF-8 text>"},"inputMode":"none"}
+{"schemaVersion":"1.1.0","source":{"file":"Main.java","text":"...","sha256":"<hex of UTF-8 text>"},"inputMode":"live"}
 ```
+
+`inputMode` is `none` (stdin closed at once) or `live` (Part 8g). A live run whose
+source refers to `System.in` is interactive: its console is the WebSocket below.
+
+## Live console (Part 8g)
+
+`ws://127.0.0.1:8080/api/runs/{id}/console` streams state, output and the end of a
+run, and accepts ordered input lines and EOF from the first connection (the
+controller). Messages and bounds are in [live-console.md](../specs/live-console.md)
+and [ADR 0001](../specs/decisions/0001-live-console-websocket.md). Closing the
+controller while an interactive run executes cancels it with `INPUT_DISCONNECTED`.
+Only `http://localhost:*` and `http://127.0.0.1:*` origins may connect.
 
 Errors are `{"error":"CODE"}` and never echo request content. Poll the snapshot
 until `phase` is `finished`; `trace` is then the trace-v1 envelope (or null after
@@ -88,7 +101,8 @@ To try it by hand, start the packaged jar with
 
 ## Limits and gaps
 
-- No live input (`inputMode` is `none`), streaming console or WebSocket yet.
+- Live input covers one controller per run; the input-wait deadline of Part 4r is
+  not enforced (the runner has no verified evidence that the program is waiting).
 - No browser origin policy yet; Part 7e decides how the frontend reaches the API.
 - Partly enforced Part 4p transport limits: headers 16 KiB and a 5 s connection
   timeout are set; the two-receiver cap, total body receive time and the shared

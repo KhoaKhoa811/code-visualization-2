@@ -20,7 +20,7 @@ import tools.jackson.core.json.JsonFactory;
  * at most 65,536 tokens (execution-isolation Part 4p). Exact source text is kept;
  * its size, Unicode and hash are checked at admission.
  */
-record RunRequest(String text, String sha256) {
+record RunRequest(String text, String sha256, boolean live) {
     static final class Invalid extends Exception {
         Invalid() { super("REQUEST_INVALID", null, false, false); }
     }
@@ -69,9 +69,9 @@ record RunRequest(String text, String sha256) {
             }
             expect(parser.currentToken(), JsonToken.END_OBJECT);
             if (parser.nextToken() != null) throw new Invalid();
-            if (!"1.0.0".equals(schemaVersion) || !"none".equals(inputMode) || !"Main.java".equals(file)
+            if (!"1.1.0".equals(schemaVersion) || !("none".equals(inputMode) || "live".equals(inputMode)) || !"Main.java".equals(file)
                     || text == null || sha256 == null || !sha256.matches("[0-9a-f]{64}")) throw new Invalid();
-            return new RunRequest(text, sha256);
+            return new RunRequest(text, sha256, "live".equals(inputMode));
         } catch (JacksonException malformed) {
             throw new Invalid();
         }

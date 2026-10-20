@@ -213,6 +213,36 @@ test('a grid, for-each, switch and do-while play back (8c)', async ({ page }) =>
   await expect(page.getByTestId('array-names').getByTestId('cell').locator('.cell-value')).toHaveText(['"zero"', '"one"', '"many"']);
 });
 
+test('a program reads live console input and playback shows the read (8g, AC-19)', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.monaco-editor')).toBeVisible();
+  await page.getByLabel('Example').selectOption('Read input');
+  await page.getByRole('button', { name: 'Run', exact: true }).click();
+  // The prompt streams before any input exists.
+  await expect(page.getByTestId('console-live')).toHaveText('Enter n: ');
+  const input = page.getByLabel('Console input');
+  await expect(input).toBeEnabled();
+  await page.screenshot({ path: 'test-results/live-console-prompt.png' });
+  await input.fill('21');
+  await input.press('Enter');
+  await expect(page.getByTestId('run-summary')).toBeVisible();
+  await expect(page.getByTestId('run-summary')).toContainText('completed');
+  await expect(page.getByTestId('run-summary')).toContainText('capture complete');
+  await expect(page.getByTestId('console-output')).toHaveText('Enter n: 42\n');
+  await expect(page.getByTestId('console-input')).toContainText('"21"');
+
+  // Replay shows the read from the recording; it never sends input again.
+  const forward = page.getByRole('button', { name: 'Step forward' });
+  for (let i = 0; i < 20; i++) {
+    if ((await page.getByTestId('step-detail').textContent())?.includes('Read input')) break;
+    await forward.click();
+  }
+  await expect(page.getByTestId('step-detail')).toContainText('Read input: in.nextInt() → 21');
+  await page.screenshot({ path: 'test-results/live-console-read.png' });
+  await page.getByTitle('End').click();
+  await expect(page.getByTestId('var-n')).toContainText('21');
+});
+
 test('another program and a compile error', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('.monaco-editor')).toBeVisible();

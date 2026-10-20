@@ -77,7 +77,7 @@
 These paths are referenced by the requirements or this file but do not exist yet. They are planned, unwritten work; do not search for them, invent their contents, or treat their absence as a recovery error. Create one only as part of an approved task, then remove it from this list.
 
 - Specs: `specs/composable-java-tracing.md`, `specs/architecture.md`, `specs/frontend-design.md`, `specs/v1-scope.md`, `specs/visualization-rules.md`, `specs/acceptance-cases.md`.
-- Decisions: `specs/decisions/0001-live-console-websocket.md`, `specs/decisions/0002-java-execution-and-visualization-coverage.md` (0003 and 0004 exist). Their decisions are summarized in the requirements' confirmed clarifications, which remain authoritative.
+- Decisions: `specs/decisions/0002-java-execution-and-visualization-coverage.md` (0001, 0003 and 0004 exist). Their decisions are summarized in the requirements' confirmed clarifications, which remain authoritative.
 - Directory instructions: `backend/AGENTS.md`, `frontend/AGENTS.md`, `runner/AGENTS.md`; agent configs under `.codex/agents/` (deliberately not created, decision 2026-10-17).
 - Memory: `memory/known-issues.md`; known gaps are kept in `memory/current-state.md` for now.
 - The requirements mention a verified JavaParser instrumentation prototype and a composable-tracing review merged as PR #11. Neither artifact exists in this repository (its own PR #11 is an unrelated memory-limit proposal); treat those claims as unverified here.

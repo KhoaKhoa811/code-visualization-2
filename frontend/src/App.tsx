@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
+import { REJECT_TEXT, useConsoleView, type ConsoleView } from './api/console.ts';
 import { ApiError, ERROR_TEXT, type Snapshot } from './api/runs.ts';
-import { useRun } from './api/useRun.ts';
+import { useRun, type SubmittedRun } from './api/useRun.ts';
 import { JavaEditor, type Marker } from './editor/JavaEditor.tsx';
 import { EXAMPLES } from './examples.ts';
 import { describe } from './trace/format.ts';
@@ -21,6 +22,7 @@ function errorText(error: unknown): string {
 export function App() {
   const [source, setSource] = useState(EXAMPLES['Bubble sort']);
   const { run, submit, snapshot, output, cancel } = useRun();
+  const live = useConsoleView(run?.console ?? null);
   const snap = snapshot.data;
   const finished = snap?.phase === 'finished';
   const running = submit.isPending || (snap !== undefined && !finished && !snapshot.error);
@@ -86,12 +88,40 @@ export function App() {
           {submit.error && <p className="error">{errorText(submit.error)}</p>}
           {snapshot.error && <p className="error">{errorText(snapshot.error)}</p>}
           {cancel.error && <p className="error">{errorText(cancel.error)}</p>}
-          {running && <p className="muted">Output appears when the run finishes (live console is later work).</p>}
+          {!finished && live.transcript.length > 0 && (
+            <pre data-testid="console-live">
+              {live.transcript.map((piece, i) => <span key={i} className={piece.stream === 'stdout' ? undefined : piece.stream}>{piece.text}</span>)}
+            </pre>
+          )}
+          {!finished && <ConsoleInput run={run} view={live} />}
           {output.data && (
             <pre data-testid="console-output">{output.data.stdout}<span className="stderr">{output.data.stderr}</span></pre>
           )}
+          {finished && live.sent.length > 0 && (
+            <p className="muted" data-testid="console-input">Input sent: {live.sent.map(line => JSON.stringify(line)).join(', ')}</p>
+          )}
         </section>
       </main>
+    </div>
+  );
+}
+
+/** The input line of an interactive run: Enter sends the line plus LF, EOF closes input. */
+function ConsoleInput({ run, view }: { run: SubmittedRun | null; view: ConsoleView }) {
+  const [line, setLine] = useState('');
+  const state = view.state;
+  if (!run || !state?.interactive) return null;
+  if (!state.controller) return <p className="muted">{REJECT_TEXT.NOT_CONTROLLER}</p>;
+  const open = state.inputOpen && !view.closed;
+  return (
+    <div className="console-input">
+      <form onSubmit={e => { e.preventDefault(); run.console.send(line); setLine(''); }}>
+        <input aria-label="Console input" value={line} onChange={e => setLine(e.target.value)} disabled={!open}
+          placeholder={open ? 'Type input and press Enter' : 'Input opens when the program runs'} autoComplete="off" spellCheck={false} />
+        <button type="button" onClick={() => run.console.eof()} disabled={!open}>Send EOF</button>
+      </form>
+      <p className="muted">This program reads input. Losing this page while it runs cancels the run.</p>
+      {view.rejected && <p className="error" data-testid="console-reject">{REJECT_TEXT[view.rejected] ?? view.rejected}</p>}
     </div>
   );
 }

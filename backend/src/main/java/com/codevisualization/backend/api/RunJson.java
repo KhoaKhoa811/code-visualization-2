@@ -43,7 +43,7 @@ final class RunJson {
         return ("{\"error\":\"" + code + "\"}").getBytes(StandardCharsets.UTF_8);
     }
 
-    private static void quote(StringBuilder b, String s) {
+    static void quote(StringBuilder b, String s) {
         b.append('"');
         for (int i = 0; i < s.length(); i++) {
             char c = s.charAt(i);
