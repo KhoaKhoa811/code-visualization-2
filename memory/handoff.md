@@ -12,40 +12,45 @@
 - Status: ready for review. No approved task is unfinished.
 - Milestone: Part 8 (coverage); Milestone 0, full isolation and V1 incomplete
 
-## Last approved task: Part 8d static methods and recursion (complete)
+## Last approved task: Part 8e objects and fields (complete)
 
-User (2026-10-19): "ok" to the 8d proposal. Spec: [specs/methods.md](../specs/methods.md).
+User (2026-10-19): "ok" to the 8e proposal. Spec: [specs/objects.md](../specs/objects.md).
 
-- [x] 1. Spec and tracer (calls, returns, frames, silent helpers, unwind, depth limit) — e8ac8a2
-- [x] 2. Frontend call stack, call/return descriptions, recursion example — 0f5baec
-- [x] 3. Browser check in Docker — eb5fb0d
+- [x] 1. Spec, contract 1.4.0, tracer (classes, fields, constructors, methods, cycles, limit) — 55f713d
+- [x] 2. Frontend object graph, field steps and paths, example — 1ef0197
+- [x] 3. Browser check in Docker — aaca97d
 - [x] 4. Guides and memory (this commit)
 
 ## Git
 
-- Branch `feat/part-8d-methods`, stacked on unmerged `feat/part-8c-statements` (d22f1f9),
-  which sits on main 234a586.
-- PRs (manual, `gh` unavailable), in order 8c, then 8d:
+- Branch `feat/part-8e-objects`, stacked on unmerged 8d (`feat/part-8d-methods`, f6ced75)
+  and 8c (`feat/part-8c-statements`, d22f1f9), on main 234a586.
+- PRs (manual, `gh` unavailable), merge in order 8c, 8d, 8e:
   https://github.com/KhoaKhoa811/code-visualization-2/compare/main...feat/part-8c-statements?expand=1
   https://github.com/KhoaKhoa811/code-visualization-2/compare/feat/part-8c-statements...feat/part-8d-methods?expand=1
+  https://github.com/KhoaKhoa811/code-visualization-2/compare/feat/part-8d-methods...feat/part-8e-objects?expand=1
 
 ## Verification (2026-10-19, Claude)
 
 - Root reactor `clean verify` with `-Dcodeviz.docker.live=true` and
-  `-Dcodeviz.docker.executable=<docker path>`: **145 tests, 0 failures/skips**
-  (tracer 59, backend 86). Log `.tools/part-8d-verify.log`. No owned container left.
-- Contracts 56; frontend 15 reducer tests, build, 6 Playwright tests (real backend + Docker).
+  `-Dcodeviz.docker.executable=<docker path>`: **149 tests, 0 failures/skips**
+  (tracer 63, backend 86). Log `.tools/part-8e-verify.log`. No owned container left.
+- Contracts 58; frontend 17 reducer tests, build, 7 Playwright tests (real backend + Docker).
 
 ## Decisions in this task
 
-- Traced helpers: static, non-generic, fixed-arity methods of Main with traced parameter
-  and result types (or void). Instance methods, constructors and other classes stay uncaptured.
-- Contract unchanged (1.3.0 already has CALL, RETURN, FRAME_END unwind); plan format 5.
-- Silence is decided at entry: no announced call site means silent (and everything below it).
-- Returns inside uncaptured statements are recorded at that statement; implicit void returns
-  at the closing brace (`implicit: true`).
-- Depth limit 64 active traced frames including main (Part 4k budget): raw `D` record,
-  halt with exit 86, execution limited, capture partial, CALL_DEPTH_LIMIT.
+- Traced classes: plain classes of the file (top level or static members of Main), no
+  extends/implements/type parameters/abstract, not extended, instance fields of traced types.
+  Static fields stay uncaptured.
+- Contract 1.4.0 (1.3.0 retired): object kind, FIELD_READ/FIELD_WRITE, UNCAPTURED
+  objects/unknownObjects; references inside objects captured in one step may refer to each
+  other (cycles) and resolve by the end of the step.
+- Constructors are traced only with simple field initializers and no this(...); others run
+  silently and the object is captured on first use. Entry is after super().
+- Field access keeps the original getfield/putfield in user code; a recorder null check
+  records the failure (message names the field; known stderr difference).
+- 1,024 captured identities per run (Part 4t), raw `T`, halt 86, TRAVERSAL_LIMIT. The
+  8,192-slot and 16-hop limits are not enforced yet.
 
 ## Resources
 
@@ -53,5 +58,5 @@ User (2026-10-19): "ok" to the 8d proposal. Spec: [specs/methods.md](../specs/me
 
 ## Next action
 
-Wait for review/merge of 8c and 8d. Propose 8e (objects and fields, new trace contract
-version, object-graph view) for approval.
+Wait for review/merge of 8c, 8d and 8e. Propose 8f (strings and library collections as
+logical operations with list/stack/queue/map/set views) for approval.

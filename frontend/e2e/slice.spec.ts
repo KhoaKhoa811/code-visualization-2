@@ -78,6 +78,35 @@ test('statements outside coverage run without visualization while the rest is tr
   await expect(page.getByTestId('var-total')).toContainText('30');
 });
 
+test('objects of user classes form a linked list and a tree in the object graph (8e)', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.monaco-editor')).toBeVisible();
+  await page.getByLabel('Example').selectOption('Linked list and tree');
+  await run(page);
+  await expect(page.getByTestId('run-summary')).toContainText('capture complete');
+  await expect(page.getByTestId('console-output')).toHaveText('8\n6\n');
+
+  const forward = page.getByRole('button', { name: 'Step forward' });
+  await forward.click();
+  await expect(page.getByTestId('step-detail')).toContainText('Create Node');
+  await forward.click();
+  await expect(page.getByTestId('step-detail')).toContainText('Call new Node(this = Node');
+  for (let i = 0; i < 40; i++) {
+    if ((await page.getByTestId('step-detail').textContent())?.includes('Write head.next')) break;
+    await forward.click();
+  }
+  await expect(page.getByTestId('step-detail')).toContainText('Write head.next: null → Node');
+  await expect(page.getByTestId('object-head').getByTestId('field-next')).toHaveClass(/write/);
+
+  await page.getByTitle('End').click();
+  const graph = page.getByTestId('object-graph');
+  await expect(graph.locator('.object')).toHaveCount(7); // 3 nodes + 4 tree nodes
+  await expect(page.getByTestId('object-head.next.next').getByTestId('field-value')).toContainText('4'); // the field named value
+  await expect(page.getByTestId('object-root.right.left').getByTestId('field-key')).toContainText('6');
+  await expect(graph.locator('.graph-arrows path')).toHaveCount(5 + 1); // 2 list links + 3 tree links, plus the marker shape
+  await page.screenshot({ path: 'test-results/object-graph.png', fullPage: true });
+});
+
 test('recursive calls get their own frames and returns restore the caller (8d)', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('.monaco-editor')).toBeVisible();

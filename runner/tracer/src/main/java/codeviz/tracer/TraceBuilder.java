@@ -56,6 +56,12 @@ final class TraceBuilder {
     // when first referenced), and the open uncaptured step whose array re-reads are still arriving.
     private record PendingArray(String elementType, List<String> tokens) { }
     private final Map<String, PendingArray> pendingArrays = new HashMap<>();
+    // Part 8e: objects of traced classes (id -> field name -> value), their classes, first sights.
+    private record PendingObject(String className, Map<String, String> tokens) { }
+    private final Map<String, Map<String, Map<String, Object>>> objects = new HashMap<>();
+    private final Map<String, String> objectClasses = new HashMap<>();
+    private final Map<String, PendingObject> pendingObjects = new HashMap<>();
+    private final Map<String, Site> classes = new HashMap<>(); // javaType -> CLASS site
     private Map<String, Object> openRegion, openRegionEvent;
     private final Set<String> stale = new LinkedHashSet<>();
     private boolean sawRegion;
@@ -84,7 +90,10 @@ final class TraceBuilder {
         frameId = frame.id(); scopes = frame.scopes(); liveBindings = frame.bindings(); conditionValues = frame.conditions();
     }
 
-    private TraceBuilder(Analysis analysis, String runId) { this.analysis = analysis; this.runId = runId; }
+    private TraceBuilder(Analysis analysis, String runId) {
+        this.analysis = analysis; this.runId = runId;
+        for (Site s : analysis.sites().values()) if (s.kind == Plan.Kind.CLASS) classes.put(s.javaType, s);
+    }
 
     // ---- envelopes ----------------------------------------------------------------
 
@@ -133,6 +142,7 @@ final class TraceBuilder {
                     // Array re-reads and the strings and arrays they reveal belong to the open uncaptured step.
                     if (line.startsWith("A")) { arrayContents(line); continue; }
                     if (line.startsWith("S")) { stringSight(line); continue; }
+                    if (line.startsWith("O")) { objectContents(line); continue; }
                     closeRegion();
                     if (line.equals("R")) {
                         if (frames.size() != 1 || pendingCall != null) throw new Inconsistent("main returned inside a call");
@@ -140,6 +150,7 @@ final class TraceBuilder {
                     }
                     else if (line.equals("L")) terminal = "L";
                     else if (line.equals("D")) terminal = "D";
+                    else if (line.equals("T")) terminal = "T";
                     else if (line.startsWith("c")) callEntry(line);
                     else if (line.startsWith("x")) { failure = exception(line); terminal = "x"; }
                     else if (line.startsWith("u")) region(line);
@@ -176,6 +187,10 @@ final class TraceBuilder {
             executionStatus = "limited"; executionReason = "Raw trace data limit reached; execution was stopped.";
             captureStatus = "partial"; captureReason = "Capture stops at the last safe operation before the limit.";
             diagnostics.add(new Diagnostic("capture", "TRACE_LIMIT", "Raw trace data exceeded the recorder limit; execution was halted.", null, null));
+        } else if (exited && "T".equals(terminal)) {
+            executionStatus = "limited"; executionReason = "Captured object limit reached; execution was stopped.";
+            captureStatus = "partial"; captureReason = "Capture stops at the last safe operation before the object limit.";
+            diagnostics.add(new Diagnostic("capture", "TRAVERSAL_LIMIT", "More than 1024 captured identities (arrays, strings and objects); execution was halted.", null, null));
         } else if (exited && "D".equals(terminal)) {
             executionStatus = "limited"; executionReason = "Call depth limit reached; execution was stopped.";
             captureStatus = "partial"; captureReason = "Capture stops at the last safe operation before the call that exceeded the limit.";
@@ -253,14 +268,73 @@ final class TraceBuilder {
             binding.put("value", unknown());
             unknownBindings.add(binding.get("bindingId"));
         }
-        Map<String, Object> data = ordered("unknownBindings", unknownBindings, "arrays", new ArrayList<>(), "unknownArrays", new ArrayList<>());
+        Map<String, Object> data = ordered("unknownBindings", unknownBindings, "arrays", new ArrayList<>(), "unknownArrays", new ArrayList<>(),
+                "objects", new ArrayList<>(), "unknownObjects", new ArrayList<>());
         addObservable(site, "UNCAPTURED", data);
         sawRegion = true;
         if (site.mayWriteArrays) {
             openRegion = data;
             openRegionEvent = events.get(events.size() - 1);
             stale.addAll(arrays.keySet());
+            stale.addAll(objects.keySet());
         }
+    }
+
+    /** {@code O<id> <class> <n> (<field> <value>)...}: an object's fields, re-read or seen for the first time (Part 8e). */
+    @SuppressWarnings("unchecked")
+    private void objectContents(String line) throws Inconsistent {
+        String[] t = line.split(" ");
+        if (t.length < 3) throw new Inconsistent("object record");
+        String id = "o" + Integer.parseInt(t[0].substring(1));
+        String className = classOf(t[1]);
+        int n = Integer.parseInt(t[2]);
+        if (t.length != 3 + 2 * n || n != classes.get(className).fields.size()) throw new Inconsistent("object fields");
+        Map<String, String> tokens = new HashMap<>();
+        for (int i = 0; i < n; i++) tokens.put(t[3 + 2 * i], t[4 + 2 * i]);
+        if (!knownObjects.contains(id)) {
+            if (pendingObjects.putIfAbsent(id, new PendingObject(className, tokens)) != null || pendingArrays.containsKey(id))
+                throw new Inconsistent("object seen twice");
+            return;
+        }
+        if (openRegion == null || !stale.remove(id)) throw new Inconsistent("unexpected object re-read");
+        if (!className.equals(objectClasses.get(id))) throw new Inconsistent("object class changed");
+        Map<String, Map<String, Object>> state = objects.get(id);
+        Map<String, Map<String, Object>> values = beforeOpenRegion(() -> fieldValues(className, tokens));
+        List<Object> changed = new ArrayList<>();
+        for (var entry : values.entrySet()) {
+            if (!entry.getValue().equals(state.get(entry.getKey()))) {
+                state.put(entry.getKey(), entry.getValue());
+                changed.add(ordered("name", entry.getKey(), "value", entry.getValue()));
+            }
+        }
+        if (!changed.isEmpty()) ((List<Object>) openRegion.get("objects")).add(ordered("objectId", id, "fields", changed));
+    }
+
+    /** Field values of a class's object from record tokens, in declaration order. */
+    private Map<String, Map<String, Object>> fieldValues(String className, Map<String, String> tokens) throws Inconsistent {
+        Map<String, Map<String, Object>> out = new LinkedHashMap<>();
+        for (Site field : classes.get(className).fields) {
+            String token = tokens.get(field.name);
+            if (token == null) throw new Inconsistent("missing field " + field.name);
+            out.put(field.name, element(field.javaType, token));
+        }
+        return out;
+    }
+
+    /** Trace class name for a JVM binary name of a traced class: Node, or Main.Node for Main$Node. */
+    private String classOf(String binary) throws Inconsistent {
+        String type = binary.startsWith("Main$") ? "Main." + binary.substring(5) : binary;
+        if (!classes.containsKey(type)) throw new Inconsistent("object of an untraced class " + binary);
+        return type;
+    }
+
+    /** The trace object of a known object, fields in declaration order. */
+    private Map<String, Object> objectValue(String id) {
+        List<Object> fields = new ArrayList<>();
+        Map<String, Map<String, Object>> values = objects.get(id);
+        for (Site field : classes.get(objectClasses.get(id)).fields)
+            fields.add(ordered("name", field.name, "javaType", field.javaType, "value", values.get(field.name)));
+        return ordered("objectId", id, "kind", "object", "className", objectClasses.get(id), "fields", fields);
     }
 
     /** {@code A<id> <class> <len> <values>}: a re-read after the open statement, or a first sight. */
@@ -292,13 +366,19 @@ final class TraceBuilder {
      * Typed re-read contents. Objects they reveal (created by the uncaptured statement) are
      * captured before that statement's step, so its data only references known objects.
      */
+    private interface Capture<T> { T get() throws Inconsistent; }
+
     private List<Map<String, Object>> beforeOpenRegion(String elementType, List<String> tokens) throws Inconsistent {
+        return beforeOpenRegion(() -> elements(elementType, tokens));
+    }
+
+    private <T> T beforeOpenRegion(Capture<T> capture) throws Inconsistent {
         int last = events.size() - 1;
         if (events.get(last) != openRegionEvent) throw new Inconsistent("array re-read after another event");
         events.remove(last);
         observableSeqs.remove(observableSeqs.size() - 1);
         try {
-            return elements(elementType, tokens);
+            return capture.get();
         } finally {
             openRegionEvent.put("seq", events.size() + 1);
             events.add(openRegionEvent);
@@ -307,13 +387,14 @@ final class TraceBuilder {
     }
 
     /** Trace elementType for a JVM array class name: {@code [I} int, {@code [[D} double[], {@code [Ljava.lang.String;} String. */
-    private static String elementTypeOf(String className) throws Inconsistent {
+    private String elementTypeOf(String className) throws Inconsistent {
         if (!className.startsWith("[")) throw new Inconsistent("array class");
         String c = className.substring(1);
         String type = switch (c) {
             case "I" -> "int"; case "J" -> "long"; case "F" -> "float"; case "D" -> "double"; case "Z" -> "boolean";
             case "B" -> "byte"; case "C" -> "char"; case "S" -> "short"; case "Ljava.lang.String;" -> "java.lang.String";
-            default -> c.startsWith("[") ? elementTypeOf(c) + "[]" : null;
+            default -> c.startsWith("[") ? elementTypeOf(c) + "[]"
+                    : c.startsWith("L") && c.endsWith(";") ? classOf(c.substring(1, c.length() - 1)) : null;
         };
         if (type == null) throw new Inconsistent("array element type " + c);
         return type;
@@ -324,6 +405,11 @@ final class TraceBuilder {
     private void closeRegion() {
         if (openRegion == null) return;
         for (String id : stale) {
+            if (objects.containsKey(id)) {
+                objects.get(id).replaceAll((name, value) -> unknown());
+                ((List<Object>) openRegion.get("unknownObjects")).add(id);
+                continue;
+            }
             List<Map<String, Object>> state = arrays.get(id);
             for (int i = 0; i < state.size(); i++) state.set(i, unknown());
             ((List<Object>) openRegion.get("unknownArrays")).add(id);
@@ -383,6 +469,11 @@ final class TraceBuilder {
         List<Map<String, Object>> values = pendingCall.values();
         if (site != pendingCall.method().params.get(values.size())) throw new Inconsistent("parameter record");
         expect(t, 2);
+        if (pendingCall.method().constructor && values.isEmpty()) { // Part 8e: the new object, allocated by this call
+            String id = object(t[1]);
+            if (knownObjects.contains(id) || !pendingObjects.containsKey(id)) throw new Inconsistent("constructor of a known object");
+            captureObject(id, pendingCall.call());
+        }
         values.add(typed(site.javaType, t[1]));
         if (values.size() == pendingCall.method().params.size()) enterCallee();
     }
@@ -487,6 +578,20 @@ final class TraceBuilder {
                 addObservable(site, "ARRAY_WRITE", ordered("objectId", object(t[1]), "index", index,
                         "previous", previous, "value", value));
             }
+            case FIELD_READ -> {
+                expect(t, 3);
+                Map<String, Map<String, Object>> state = object(t[1], site);
+                Map<String, Object> value = element(site.javaType, t[2]);
+                if (!state.get(site.name).equals(value)) throw new Inconsistent("field read disagrees with recorded state");
+                addObservable(site, "FIELD_READ", ordered("objectId", object(t[1]), "field", site.name, "value", value));
+            }
+            case FIELD_WRITE -> {
+                expect(t, 3);
+                Map<String, Map<String, Object>> state = object(t[1], site);
+                Map<String, Object> value = element(site.javaType, t[2]);
+                Map<String, Object> previous = state.put(site.name, value);
+                addObservable(site, "FIELD_WRITE", ordered("objectId", object(t[1]), "field", site.name, "previous", previous, "value", value));
+            }
             case SWITCH -> {
                 expect(t, 2);
                 Map<String, Object> value = scalar(site.javaType, t[1]);
@@ -547,7 +652,7 @@ final class TraceBuilder {
                 use(frames.peek());
             }
             case REGION -> throw new Inconsistent("operation record for an uncaptured statement");
-            case METHOD, PARAM, CALL -> throw new Inconsistent("call record out of place");
+            case METHOD, PARAM, CALL, CLASS, FIELD -> throw new Inconsistent("record for a declaration site");
         }
     }
 
@@ -692,7 +797,8 @@ final class TraceBuilder {
                 Map<String, Object> value = reference(token);
                 if (value.get("objectId") instanceof String id) {
                     boolean fits = type.endsWith("[]") ? Analyzer.component(type).equals(elementTypes.get(id))
-                            : type.equals("java.lang.String") && !arrays.containsKey(id);
+                            : type.equals("java.lang.String") ? !arrays.containsKey(id) && !objectClasses.containsKey(id)
+                            : type.equals(objectClasses.get(id));
                     if (!fits) throw new Inconsistent("reference of another type");
                 }
                 return value;
@@ -724,6 +830,7 @@ final class TraceBuilder {
         if (token.equals("n")) return ordered("kind", "null");
         String id = object(token);
         if (!knownObjects.contains(id) && pendingArrays.containsKey(id)) captureArray(id);
+        if (!knownObjects.contains(id) && pendingObjects.containsKey(id)) captureObject(id, null);
         if (!knownObjects.contains(id)) {
             String pending = pendingStrings.remove(id);
             if (pending == null) throw new Inconsistent("reference to an unrecorded object");
@@ -746,13 +853,37 @@ final class TraceBuilder {
      * covered code. The objects it references are captured first.
      */
     private void captureArray(String id) throws Inconsistent {
-        PendingArray pending = pendingArrays.remove(id); // removed first: a cycle finds no record and stops capture
-        List<Map<String, Object>> elements = elements(pending.elementType(), pending.tokens());
-        knownObjects.add(id);
-        arrays.put(id, elements);
+        PendingArray pending = pendingArrays.remove(id);
+        knownObjects.add(id); // known first: a reference back to it (a cycle) resolves within this step
         elementTypes.put(id, pending.elementType());
+        List<Map<String, Object>> elements = elements(pending.elementType(), pending.tokens());
+        arrays.put(id, elements);
         addBookkeeping("OBJECT_CAPTURE", Map.of("object", ordered("objectId", id, "kind", "array",
                 "elementType", pending.elementType(), "elements", new ArrayList<>(elements))));
+    }
+
+    /**
+     * An object first seen by covered code (Part 8e), with everything newly reachable from it, as
+     * OBJECT_CAPTURE bookkeeping; or, for a traced constructor ({@code allocation} is its call
+     * site), the ALLOCATE step of the new object, whose fields still hold their defaults.
+     */
+    private void captureObject(String id, Site allocation) throws Inconsistent {
+        PendingObject pending = pendingObjects.remove(id);
+        knownObjects.add(id); // known first: cycles resolve within this step
+        objectClasses.put(id, pending.className());
+        objects.put(id, new HashMap<>());
+        objects.put(id, fieldValues(pending.className(), pending.tokens()));
+        if (allocation == null) addBookkeeping("OBJECT_CAPTURE", Map.of("object", objectValue(id)));
+        else addObservable(allocation, "ALLOCATE", ordered("object", objectValue(id)));
+    }
+
+    private Map<String, Map<String, Object>> object(String token, Site site) throws Inconsistent {
+        String id = object(token);
+        if (!knownObjects.contains(id) && pendingObjects.containsKey(id)) captureObject(id, null);
+        Map<String, Map<String, Object>> state = objects.get(id);
+        if (state == null || !site.owner.equals(objectClasses.get(id))) throw new Inconsistent("field of an unknown object");
+        if (!state.containsKey(site.name)) throw new Inconsistent("unknown field " + site.name);
+        return state;
     }
 
     private List<Map<String, Object>> array(String token, Site site) throws Inconsistent {
@@ -850,7 +981,7 @@ final class TraceBuilder {
             diagnosticJson.add(map);
         }
         return Json.write(ordered(
-                "schemaVersion", "1.3.0",
+                "schemaVersion", "1.4.0",
                 "runId", runId,
                 "source", ordered("file", Analyzer.FILE, "text", source, "sha256", sha256(source)),
                 "execution", ordered("status", executionStatus, "reason", executionReason),

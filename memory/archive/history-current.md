@@ -157,3 +157,18 @@ not verbatim transcripts, unless quoted.
 - 0f5baec frontend call stack and descriptions; eb5fb0d browser test.
 - Final: 145 Java tests (tracer 59, backend 86) with live Docker, 56 contract,
   15 reducer, 6 browser tests; no containers left.
+
+## 2026-10-19 — Part 8e objects and fields (Claude Code)
+
+- User: "ok" to the 8e proposal. 55f713d: contract 1.4.0 (object values,
+  FIELD_READ/FIELD_WRITE, object re-reads in UNCAPTURED) and tracer for plain
+  classes of the file (top level or static members of Main, no inheritance):
+  new with ALLOCATE plus traced constructor (entered after super(), simple field
+  initializers), instance and static methods with this, field reads/writes
+  (compound and ++ too), objects first seen from uncaptured code captured
+  breadth-first with cycles within one step, recorder null checks for field
+  access, 1,024-identity limit (TRAVERSAL_LIMIT). Plan format 6.
+- 1ef0197 frontend Objects panel (columns by reference distance, SVG arrows),
+  field paths; aaca97d browser test.
+- Final: 149 Java tests (tracer 63, backend 86) with live Docker, 58 contract,
+  17 reducer, 7 browser tests; no containers left.

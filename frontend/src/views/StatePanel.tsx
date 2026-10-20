@@ -3,6 +3,7 @@
 import { arrayType, formatValue, methodName, namesOf, stringText } from '../trace/format.ts';
 import type { Focus, State, View } from '../trace/playback.ts';
 import type { TraceObject } from '../trace/types.ts';
+import { ObjectGraph } from './ObjectGraph.tsx';
 
 type ArrayObject = TraceObject & { kind: 'array' };
 
@@ -41,6 +42,7 @@ export function StatePanel({ view }: { view: View }) {
           </div>
         ))}
       </section>
+      <ObjectGraph view={view} />
       <section className="panel" aria-label="Arrays">
         <h2>Arrays</h2>
         {topLevel.length === 0 && <p className="muted">No arrays yet.</p>}

@@ -6,7 +6,13 @@ import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.IdentityHashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -71,26 +77,39 @@ public final class Recorder {
         synchronized (LOCK) {
             if (silent > 0) return;
             if (dirty) { dirty = false; resync(); }
+            drain(); // first sights referenced by this record come first
             write(record);
         }
     }
 
-    /** Contents of every known array, after an uncaptured statement that may have changed them. */
+    // ---- identities (Parts 8a, 8c, 8e) ---------------------------------------------------
+    // An object seen for the first time is registered at once (cycles end there) and queued; its
+    // record is written before the next record that may reference it. Records of first sights may
+    // reference each other in any order: the builder captures them when covered code uses them.
+
+    private static final ArrayDeque<Object> INTRODUCED = new ArrayDeque<>();
+    private static final Map<Class<?>, Field[]> FIELDS = new HashMap<>();
+    /** Captured identities per run (Part 4t budget); one more halts the run. */
+    static final int MAX_IDENTITIES = 1024;
+
+    /** Re-reads every known array and object after an uncaptured statement that may have changed them. */
     private static void resync() {
         Object[] byId = new Object[IDS.size() + 1];
         for (var entry : IDS.entrySet()) byId[entry.getValue()] = entry.getKey();
         for (int id = 1; id < byId.length; id++) {
-            if (byId[id] != null && byId[id].getClass().isArray()) {
-                String body = contents(byId[id]); // may first record element arrays and strings seen for the first time
-                write("A" + id + " " + body);
-            }
+            Object o = byId[id];
+            if (o == null || o instanceof String) continue;
+            String body = contents(o); // may introduce objects it now references
+            drain(); // their records come first: a re-read is applied at once
+            write((o.getClass().isArray() ? "A" : "O") + id + " " + body);
         }
     }
 
-    /** {@code <class> <len> <values...>}; references to objects not yet seen record those objects first. */
-    private static String contents(Object array) {
-        StringBuilder b = new StringBuilder().append(array.getClass().getName());
-        values(b, array);
+    /** {@code <class> <len> <values...>} for an array, {@code <class> <n> (<field> <value>)...} for an object. */
+    private static String contents(Object o) {
+        StringBuilder b = new StringBuilder().append(o.getClass().getName());
+        if (o.getClass().isArray()) values(b, o);
+        else fields(b, o);
         return b.toString();
     }
 
@@ -110,7 +129,69 @@ public final class Recorder {
         if (array instanceof byte[] a) return Integer.toString(a[i]);
         if (array instanceof short[] a) return Integer.toString(a[i]);
         if (array instanceof boolean[] a) return a[i] ? "1" : "0";
-        return ref(((Object[]) array)[i]);
+        return id(((Object[]) array)[i]);
+    }
+
+    /** Instance fields of a traced class, read without running any user code. */
+    private static void fields(StringBuilder b, Object o) {
+        Field[] fields = FIELDS.computeIfAbsent(o.getClass(), c -> {
+            List<Field> out = new ArrayList<>();
+            for (Field f : c.getDeclaredFields()) {
+                if (Modifier.isStatic(f.getModifiers()) || f.isSynthetic()) continue;
+                f.setAccessible(true);
+                out.add(f);
+            }
+            return out.toArray(new Field[0]);
+        });
+        b.append(' ').append(fields.length);
+        try {
+            for (Field f : fields) {
+                Class<?> t = f.getType();
+                String v = t == int.class || t == short.class || t == byte.class ? Integer.toString(f.getInt(o))
+                        : t == char.class ? Integer.toString(f.getChar(o))
+                        : t == boolean.class ? (f.getBoolean(o) ? "1" : "0")
+                        : t == long.class ? Long.toString(f.getLong(o))
+                        : t == float.class ? f(f.getFloat(o))
+                        : t == double.class ? d(f.getDouble(o))
+                        : id(f.get(o));
+                b.append(' ').append(f.getName()).append(' ').append(v);
+            }
+        } catch (IllegalAccessException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    /** Identity token; an object not seen before is registered and queued for its record. */
+    private static String id(Object o) {
+        if (o == null) return "n";
+        Integer known = IDS.get(o);
+        if (known != null) return "r" + known;
+        if (!(o instanceof String) && !o.getClass().isArray() && o.getClass().getName().startsWith("java.")) return "?";
+        int id = register(o);
+        INTRODUCED.add(o);
+        return "r" + id;
+    }
+
+    private static int register(Object o) {
+        if (IDS.size() >= MAX_IDENTITIES) {
+            try { OUT.write("T\n"); OUT.flush(); } catch (IOException ignored) { }
+            System.out.flush();
+            System.err.flush();
+            Runtime.getRuntime().halt(LIMIT_EXIT);
+        }
+        int id = IDS.size() + 1;
+        IDS.put(o, id);
+        return id;
+    }
+
+    /** Writes the records of every queued first sight; writing one may queue more. */
+    private static void drain() {
+        while (!INTRODUCED.isEmpty()) {
+            Object o = INTRODUCED.poll();
+            int id = IDS.get(o);
+            if (o instanceof String s) write("S" + id + " " + hex(s));
+            else write((o.getClass().isArray() ? "A" : "O") + id + " " + contents(o));
+        }
     }
 
     private static void write(String record) {
@@ -136,25 +217,18 @@ public final class Recorder {
         return b.toString();
     }
 
+    /** Reference token for a record; first sights are recorded before it (after any pending re-read). */
     private static String ref(Object o) {
         if (o == null) return "n";
         if (silent > 0) return "?"; // never written; silent code registers nothing
-        Integer id = IDS.get(o);
-        if (id == null) {
-            // Write before registering, so a pending re-read does not include this object twice.
-            if (o instanceof String s) {
-                id = IDS.size() + 1;
-                line("S" + id + " " + hex(s));
-            } else if (o.getClass().isArray()) { // created by uncaptured code, or an element of a new array
-                String body = contents(o); // element objects first, so every reference resolves earlier
-                id = IDS.size() + 1;
-                line("A" + id + " " + body);
-            } else {
-                return "?"; // not a traced type; the builder stops capture
-            }
-            IDS.put(o, id);
+        Integer known = IDS.get(o);
+        if (known != null) return "r" + known;
+        synchronized (LOCK) {
+            if (dirty) { dirty = false; resync(); } // re-reads first: they must not include the new objects
+            String token = id(o);
+            drain();
+            return token;
         }
-        return "r" + id;
     }
 
     private static void fail(int site, RuntimeException e) {
@@ -188,8 +262,7 @@ public final class Recorder {
             if (silent > 0) return "?";
             if (dirty) { dirty = false; resync(); } // the re-read must not include the new array
         }
-        Integer id = IDS.size() + 1;
-        IDS.put(o, id);
+        int id = register(o);
         return "r" + id;
     }
 
@@ -407,6 +480,29 @@ public final class Recorder {
         String value = ref(v);
         line(site + " " + r + " " + i + " " + value);
     }
+
+    // ---- fields of traced objects (Part 8e) --------------------------------------------
+    // The original getfield/putfield runs in user code; these record it. A null receiver fails
+    // here first, so the failure is recorded (its message names the field, not a helpful NPE).
+
+    public static void nn(Object o, String message, int site) {
+        if (o != null) return;
+        NullPointerException e = new NullPointerException(message);
+        fail(site, e);
+        throw e;
+    }
+
+    public static int rgI(Object o, int v, int site) { String r = ref(o); line(site + " " + r + " " + v); return v; }
+    public static long rgJ(Object o, long v, int site) { String r = ref(o); line(site + " " + r + " " + v); return v; }
+    public static float rgF(Object o, float v, int site) { String r = ref(o); line(site + " " + r + " " + f(v)); return v; }
+    public static double rgD(Object o, double v, int site) { String r = ref(o); line(site + " " + r + " " + d(v)); return v; }
+    public static Object rgA(Object o, Object v, int site) { String r = ref(o), t = ref(v); line(site + " " + r + " " + t); return v; }
+
+    public static void wpI(Object o, int v, int site) { String r = ref(o); line(site + " " + r + " " + v); }
+    public static void wpJ(Object o, long v, int site) { String r = ref(o); line(site + " " + r + " " + v); }
+    public static void wpF(Object o, float v, int site) { String r = ref(o); line(site + " " + r + " " + f(v)); }
+    public static void wpD(Object o, double v, int site) { String r = ref(o); line(site + " " + r + " " + d(v)); }
+    public static void wpA(Object o, Object v, int site) { String r = ref(o), t = ref(v); line(site + " " + r + " " + t); }
 
     /** A switch selector, recorded before the original tableswitch/lookupswitch uses it. */
     public static int sw(int value, int site) {

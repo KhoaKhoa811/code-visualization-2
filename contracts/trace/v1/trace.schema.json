@@ -1,12 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/KhoaKhoa811/code-visualization-2/contracts/trace/v1/trace.schema.json",
-  "title": "Recorded Java trace 1.3.0",
+  "title": "Recorded Java trace 1.4.0",
   "description": "Candidate contract. Structural validity is not proof of Java execution or semantic replay correctness.",
   "type": "object",
   "properties": {
     "schemaVersion": {
-      "const": "1.3.0"
+      "const": "1.4.0"
     },
     "runId": {
       "$ref": "#/$defs/id"
@@ -368,8 +368,8 @@
     },
     "javaType": {
       "type": "string",
-      "pattern": "^(byte|short|int|long|char|boolean|float|double|java.lang.String)([])*(?![sS])",
-      "description": "A primitive type, java.lang.String, or an array of those at any depth (1.3.0)."
+      "pattern": "^[A-Za-z_$][A-Za-z0-9_$]*(.[A-Za-z_$][A-Za-z0-9_$]*)*([])*(?![sS])",
+      "description": "A primitive type, java.lang.String, a traced class (1.4.0, for example Node or Main.Node), or an array of those at any depth."
     },
     "frame": {
       "type": "object",
@@ -473,8 +473,8 @@
         },
         "elementType": {
           "type": "string",
-          "pattern": "^(byte|short|int|long|char|boolean|float|double|java.lang.String)([])*(?![sS])",
-          "description": "Component type: a primitive, java.lang.String, or (1.3.0) an array type of those."
+          "pattern": "^[A-Za-z_$][A-Za-z0-9_$]*(.[A-Za-z_$][A-Za-z0-9_$]*)*([])*(?![sS])",
+          "description": "Component type: a primitive, java.lang.String, a traced class (1.4.0), or an array type of those."
         },
         "elements": {
           "type": "array",
@@ -516,6 +516,53 @@
       ],
       "additionalProperties": false
     },
+    "objectObject": {
+      "type": "object",
+      "description": "An instance of a traced class (1.4.0). Fields are in declaration order.",
+      "properties": {
+        "objectId": {
+          "$ref": "#/$defs/id"
+        },
+        "kind": {
+          "const": "object"
+        },
+        "className": {
+          "type": "string",
+          "pattern": "^[A-Za-z_$][A-Za-z0-9_$]*(.[A-Za-z_$][A-Za-z0-9_$]*)*(?![sS])"
+        },
+        "fields": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "javaType": {
+                "$ref": "#/$defs/javaType"
+              },
+              "value": {
+                "$ref": "#/$defs/stateValue"
+              }
+            },
+            "required": [
+              "name",
+              "javaType",
+              "value"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "objectId",
+        "kind",
+        "className",
+        "fields"
+      ],
+      "additionalProperties": false
+    },
     "object": {
       "oneOf": [
         {
@@ -523,6 +570,9 @@
         },
         {
           "$ref": "#/$defs/stringObject"
+        },
+        {
+          "$ref": "#/$defs/objectObject"
         }
       ]
     },
@@ -873,7 +923,14 @@
           "type": "object",
           "properties": {
             "object": {
-              "$ref": "#/$defs/arrayObject"
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/arrayObject"
+                },
+                {
+                  "$ref": "#/$defs/objectObject"
+                }
+              ]
             }
           },
           "required": [
@@ -1038,6 +1095,112 @@
         "data"
       ],
       "additionalProperties": false
+    },
+    "FIELD_READ": {
+      "type": "object",
+      "properties": {
+        "seq": {
+          "$ref": "#/$defs/positive"
+        },
+        "step": {
+          "$ref": "#/$defs/positive"
+        },
+        "source": {
+          "$ref": "#/$defs/sourceRange"
+        },
+        "frameId": {
+          "$ref": "#/$defs/id"
+        },
+        "kind": {
+          "const": "FIELD_READ"
+        },
+        "data": {
+          "type": "object",
+          "properties": {
+            "objectId": {
+              "$ref": "#/$defs/id"
+            },
+            "value": {
+              "$ref": "#/$defs/value"
+            },
+            "field": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "objectId",
+            "field",
+            "value"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "seq",
+        "step",
+        "source",
+        "frameId",
+        "kind",
+        "data"
+      ],
+      "additionalProperties": false,
+      "description": "A field of an object was read (1.4.0). No state change."
+    },
+    "FIELD_WRITE": {
+      "type": "object",
+      "properties": {
+        "seq": {
+          "$ref": "#/$defs/positive"
+        },
+        "step": {
+          "$ref": "#/$defs/positive"
+        },
+        "source": {
+          "$ref": "#/$defs/sourceRange"
+        },
+        "frameId": {
+          "$ref": "#/$defs/id"
+        },
+        "kind": {
+          "const": "FIELD_WRITE"
+        },
+        "data": {
+          "type": "object",
+          "properties": {
+            "objectId": {
+              "$ref": "#/$defs/id"
+            },
+            "previous": {
+              "$ref": "#/$defs/stateValue"
+            },
+            "value": {
+              "$ref": "#/$defs/value"
+            },
+            "field": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "objectId",
+            "field",
+            "previous",
+            "value"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "seq",
+        "step",
+        "source",
+        "frameId",
+        "kind",
+        "data"
+      ],
+      "additionalProperties": false,
+      "description": "One field of an object was assigned (1.4.0)."
     },
     "EXPRESSION": {
       "type": "object",
@@ -1493,6 +1656,12 @@
           "$ref": "#/$defs/ARRAY_WRITE"
         },
         {
+          "$ref": "#/$defs/FIELD_READ"
+        },
+        {
+          "$ref": "#/$defs/FIELD_WRITE"
+        },
+        {
           "$ref": "#/$defs/EXPRESSION"
         },
         {
@@ -1549,7 +1718,7 @@
     },
     "UNCAPTURED": {
       "type": "object",
-      "description": "A statement ran without capture (1.1.0). Applies its recorded effects: bindings it may have assigned become unknown, re-observed array contents replace state, arrays it may have changed but that were not re-observed become unknown.",
+      "description": "A statement ran without capture (1.1.0). Applies its recorded effects: bindings it may have assigned become unknown, re-observed array contents replace state, arrays it may have changed but that were not re-observed become unknown. Since 1.4.0 re-read object fields (objects) and objects not re-read (unknownObjects) are listed the same way.",
       "properties": {
         "seq": {
           "$ref": "#/$defs/positive"
@@ -1604,12 +1773,57 @@
               "items": {
                 "$ref": "#/$defs/id"
               }
+            },
+            "objects": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "objectId": {
+                    "$ref": "#/$defs/id"
+                  },
+                  "fields": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "value": {
+                          "$ref": "#/$defs/value"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "value"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "objectId",
+                  "fields"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "unknownObjects": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "$ref": "#/$defs/id"
+              }
             }
           },
           "required": [
             "unknownBindings",
             "arrays",
-            "unknownArrays"
+            "unknownArrays",
+            "objects",
+            "unknownObjects"
           ],
           "additionalProperties": false
         }

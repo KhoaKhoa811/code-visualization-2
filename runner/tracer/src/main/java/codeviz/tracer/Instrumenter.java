@@ -32,25 +32,35 @@ final class Instrumenter {
 
     private Instrumenter() { }
 
-    static final String MAIN = "main([Ljava/lang/String;)V";
+    static final String MAIN = "Main#main([Ljava/lang/String;)V";
+
+    /** Whether a class (JVM internal name) has any planned method. */
+    static boolean planned(String className, Map<String, List<Item>> plans) {
+        return plans.keySet().stream().anyMatch(k -> k.startsWith(className + "#"));
+    }
 
     static byte[] instrument(byte[] classFile, Map<String, List<Item>> plans, Map<Integer, Site> sites, Map<String, byte[]> program)
             throws MappingException {
         ClassNode cn = new ClassNode();
         new CrtReader(classFile).accept(cn, new Attribute[]{new Crt()}, ClassReader.SKIP_FRAMES);
         rejectRecorderReferences(cn);
-        if (cn.methods.stream().noneMatch(m -> (m.name + m.desc).equals(MAIN))) throw new MappingException("main not found");
+        if (cn.name.equals("Main") && cn.methods.stream().noneMatch(m -> (cn.name + "#" + m.name + m.desc).equals(MAIN)))
+            throw new MappingException("main not found");
         Map<String, Site> helpers = new HashMap<>();
         for (Site s : sites.values()) if (s.kind == Plan.Kind.METHOD) helpers.put(key(s), s);
         for (MethodNode method : cn.methods) {
-            String key = method.name + method.desc;
+            String key = cn.name + "#" + method.name + method.desc;
             List<Item> plan = plans.get(key);
             if (plan == null) continue; // untraced: runs as compiled
             Site helper = key.equals(MAIN) ? null : helpers.get(key);
             if (!key.equals(MAIN) && helper == null) throw new MappingException("no method site for " + key);
             Map<Site, Region> regions = regions(method, plan);
             List<Match> matches = match(method, plan, regions, helper);
-            for (Match m : matches) rewrite(method, m);
+            AbstractInsnNode anchor = null; // a constructor is entered after its super() call
+            for (Match m : matches) {
+                if (m.item().expect() == Expect.SUPER) anchor = m.insn();
+                rewrite(method, m);
+            }
             if (helper == null) {
                 InsnList entry = new InsnList();
                 entry.add(new VarInsnNode(Opcodes.ALOAD, 0));
@@ -59,7 +69,8 @@ final class Instrumenter {
                 for (AbstractInsnNode insn : method.instructions.toArray())
                     if (insn.getOpcode() == Opcodes.RETURN) method.instructions.insertBefore(insn, call("exit", "()V"));
             } else {
-                enterHelper(method, helper);
+                if (helper.constructor && anchor == null) throw new MappingException("constructor without super()");
+                enterHelper(method, helper, anchor);
             }
         }
         // The range table only served mapping; it is not written back.
@@ -74,19 +85,20 @@ final class Instrumenter {
 
     // ---- traced helpers (Part 8d) --------------------------------------------------------
 
-    /** Plan key of a METHOD site: name plus JVM descriptor. */
+    /** Plan key of a METHOD site: declaring class (internal name), #, name and JVM descriptor (this excluded). */
     static String key(Site method) {
-        StringBuilder b = new StringBuilder(method.name).append('(');
-        for (Site p : method.params) b.append(descriptorOf(p.javaType));
+        StringBuilder b = new StringBuilder(internal(method.owner)).append('#').append(method.name).append('(');
+        for (Site p : method.params.subList(method.instance ? 1 : 0, method.params.size())) b.append(descriptorOf(p.javaType));
         return b.append(')').append(method.javaType.equals("void") ? "V" : descriptorOf(method.javaType)).toString();
     }
 
     /**
      * Entry: {@code begin(method)} decides whether this invocation is traced, then one record per
      * parameter. A catch-all handler ends the invocation in the recorder when an exception leaves
-     * it and rethrows the same exception; earlier (user) handlers keep precedence.
+     * it and rethrows the same exception; earlier (user) handlers keep precedence. A constructor is
+     * entered after its super() call ({@code anchor}), once this is initialized (Part 8e).
      */
-    private static void enterHelper(MethodNode method, Site site) {
+    private static void enterHelper(MethodNode method, Site site, AbstractInsnNode anchor) {
         InsnList entry = new InsnList();
         entry.add(siteConstant(site));
         entry.add(call("begin", "(I)V"));
@@ -102,7 +114,8 @@ final class Instrumenter {
         }
         LabelNode start = new LabelNode(), end = new LabelNode(), handler = new LabelNode();
         entry.add(start);
-        method.instructions.insert(entry);
+        if (anchor == null) method.instructions.insert(entry);
+        else method.instructions.insert(anchor, entry);
         method.instructions.add(end);
         method.instructions.add(handler);
         method.instructions.add(call("unwind", "()V"));
@@ -273,7 +286,7 @@ final class Instrumenter {
         return switch (expect) {
             case NEWARRAY_LITERAL -> Expect.NEWARRAY;
             case LITERAL_STORE -> Expect.ASTORE;
-            case CALL -> Expect.INVOKE;
+            case CALL, SUPER, CTOR -> Expect.INVOKE;
             default -> expect;
         };
     }
@@ -296,6 +309,9 @@ final class Instrumenter {
             case Opcodes.ARRAYLENGTH -> Expect.ARRAYLENGTH;
             case Opcodes.NEWARRAY, Opcodes.ANEWARRAY, Opcodes.MULTIANEWARRAY -> Expect.NEWARRAY;
             case Opcodes.TABLESWITCH, Opcodes.LOOKUPSWITCH -> Expect.SWITCH;
+            case Opcodes.NEW -> Expect.NEW;
+            case Opcodes.GETFIELD -> Expect.FIELD_GET;
+            case Opcodes.PUTFIELD -> Expect.FIELD_PUT;
             case Opcodes.INEG, Opcodes.LNEG, Opcodes.FNEG, Opcodes.DNEG -> Expect.NEG;
             case Opcodes.LCMP, Opcodes.FCMPL, Opcodes.FCMPG, Opcodes.DCMPL, Opcodes.DCMPG -> Expect.CMP;
             case Opcodes.IFEQ, Opcodes.IFNE, Opcodes.IFLT, Opcodes.IFGE, Opcodes.IFGT, Opcodes.IFLE,
@@ -322,7 +338,7 @@ final class Instrumenter {
 
     private static void check(Item item, AbstractInsnNode insn, MethodNode main) throws MappingException {
         Site site = item.site();
-        if (site == null && item.expect() != Expect.GETSTATIC && item.expect() != Expect.INVOKE) {
+        if (site == null && !List.of(Expect.GETSTATIC, Expect.INVOKE, Expect.NEW, Expect.CTOR).contains(item.expect())) {
             // A hidden for-each step (copy, length, index) or a folded conversion: its family is enough.
             if (item.expect() == Expect.CONVERT) checkConversion(item, insn);
             return;
@@ -347,8 +363,25 @@ final class Instrumenter {
                 if (!ok) throw new MappingException("array creation mismatch");
             }
             case CALL -> {
-                if (!(insn instanceof MethodInsnNode m) || insn.getOpcode() != Opcodes.INVOKESTATIC || !m.owner.equals("Main")
-                        || !(m.name + m.desc).equals(item.member())) throw new MappingException("unexpected call");
+                Site callee = site.callee;
+                int opcode = callee.constructor ? Opcodes.INVOKESPECIAL : callee.instance ? Opcodes.INVOKEVIRTUAL : Opcodes.INVOKESTATIC;
+                if (!(insn instanceof MethodInsnNode m) || insn.getOpcode() != opcode
+                        || !(m.owner + "#" + m.name + m.desc).equals(item.member())) throw new MappingException("unexpected call");
+            }
+            case SUPER -> {
+                if (!(insn instanceof MethodInsnNode m) || insn.getOpcode() != Opcodes.INVOKESPECIAL
+                        || !(m.owner + "." + m.name + m.desc).equals(item.member())) throw new MappingException("expected super()");
+            }
+            case CTOR -> {
+                if (!(insn instanceof MethodInsnNode m) || insn.getOpcode() != Opcodes.INVOKESPECIAL
+                        || !(m.owner + "#" + m.name + m.desc).equals(item.member())) throw new MappingException("unexpected constructor");
+            }
+            case NEW -> {
+                if (!((TypeInsnNode) insn).desc.equals(item.member())) throw new MappingException("unexpected new");
+            }
+            case FIELD_GET, FIELD_PUT -> {
+                FieldInsnNode f = (FieldInsnNode) insn;
+                if (!f.owner.equals(internal(site.owner)) || !f.name.equals(site.name)) throw new MappingException("unexpected field " + f.name);
             }
             case SWITCH -> {
                 Set<Integer> keys = new HashSet<>();
@@ -442,13 +475,20 @@ final class Instrumenter {
         if (type.endsWith("[]")) return "[" + descriptorOf(Analyzer.component(type));
         return switch (type) {
             case "int" -> "I"; case "long" -> "J"; case "float" -> "F"; case "double" -> "D"; case "boolean" -> "Z";
-            case "byte" -> "B"; case "char" -> "C"; case "short" -> "S"; default -> "L" + type.replace('.', '/') + ";";
+            case "byte" -> "B"; case "char" -> "C"; case "short" -> "S"; default -> "L" + internal(type) + ";";
         };
     }
 
     /** Internal name of a reference type, as anewarray and checkcast use it. */
     private static String internalName(String type) {
-        return type.endsWith("[]") ? descriptorOf(type) : type.replace('.', '/');
+        return type.endsWith("[]") ? descriptorOf(type) : internal(type);
+    }
+
+    /** JVM internal name of a class type: java/lang/String, Node, or Main$Node for a member class of Main (Part 8e). */
+    static String internal(String type) {
+        if (type.equals("java.lang.String")) return "java/lang/String";
+        if (type.startsWith("Main.")) return "Main$" + type.substring(5);
+        return type.replace('.', '/');
     }
 
     /**
@@ -633,6 +673,44 @@ final class Instrumenter {
                 }
                 list.insertBefore(insn, before);
             }
+            case FIELD_GET -> {
+                // dup; null check (records the failure); dup; getfield; record the read and return the value.
+                char t = fieldKind(site.javaType);
+                InsnList before = new InsnList();
+                before.add(new InsnNode(Opcodes.DUP));
+                before.add(new LdcInsnNode("Cannot read field \"" + site.name + "\" because the object is null"));
+                before.add(siteConstant(site));
+                before.add(call("nn", "(Ljava/lang/Object;Ljava/lang/String;I)V"));
+                before.add(new InsnNode(Opcodes.DUP));
+                list.insertBefore(insn, before);
+                InsnList after = new InsnList();
+                after.add(siteConstant(site));
+                after.add(call("rg" + t, "(Ljava/lang/Object;" + (t == 'A' ? "Ljava/lang/Object;" : String.valueOf(t)) + "I)"
+                        + (t == 'A' ? "Ljava/lang/Object;" : String.valueOf(t))));
+                if (t == 'A') after.add(new TypeInsnNode(Opcodes.CHECKCAST, internalName(site.javaType)));
+                list.insert(insn, after);
+            }
+            case FIELD_PUT -> {
+                // Value to a spare local; null check; putfield; record the write with the stored value.
+                char t = fieldKind(site.javaType);
+                int store = switch (t) { case 'J' -> Opcodes.LSTORE; case 'F' -> Opcodes.FSTORE; case 'D' -> Opcodes.DSTORE; case 'A' -> Opcodes.ASTORE; default -> Opcodes.ISTORE; };
+                int load = store - (Opcodes.ISTORE - Opcodes.ILOAD);
+                int spare = m.maxLocals; // beyond every local of the method; frames are recomputed
+                InsnList before = new InsnList();
+                before.add(new VarInsnNode(store, spare));
+                before.add(new InsnNode(Opcodes.DUP));
+                before.add(new LdcInsnNode("Cannot assign field \"" + site.name + "\" because the object is null"));
+                before.add(siteConstant(site));
+                before.add(call("nn", "(Ljava/lang/Object;Ljava/lang/String;I)V"));
+                before.add(new InsnNode(Opcodes.DUP));
+                before.add(new VarInsnNode(load, spare));
+                list.insertBefore(insn, before);
+                InsnList after = new InsnList();
+                after.add(new VarInsnNode(load, spare));
+                after.add(siteConstant(site));
+                after.add(call("wp" + t, "(Ljava/lang/Object;" + (t == 'A' ? "Ljava/lang/Object;" : String.valueOf(t)) + "I)V"));
+                list.insert(insn, after);
+            }
             case SWITCH -> {
                 InsnList before = new InsnList();
                 before.add(siteConstant(site));
@@ -696,6 +774,13 @@ final class Instrumenter {
             }
             default -> { }
         }
+    }
+
+    /** Recorder helper suffix for a field type: I (int-sized), J, F, D or A (reference). */
+    private static char fieldKind(String type) {
+        return switch (Analyzer.stack(type)) {
+            case "int" -> 'I'; case "long" -> 'J'; case "float" -> 'F'; case "double" -> 'D'; default -> 'A';
+        };
     }
 
     /** Narrowing applied after an int-producing conversion: byte, short, char or none. */

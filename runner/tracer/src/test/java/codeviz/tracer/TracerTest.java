@@ -32,11 +32,16 @@ class TracerTest {
         HostRun.Result result = prepared.compiled() ? HostRun.run(prepared.classes(), prepared.traced(), temp)
                 : new HostRun.Result(-1, "", "", List.of());
         // A run halted at the raw or call-depth limit legitimately differs from the original.
-        if (prepared.traced() && !result.raw().contains("L") && !result.raw().contains("D")) {
+        if (prepared.traced() && !result.raw().contains("L") && !result.raw().contains("D") && !result.raw().contains("T")) {
             HostRun.Result original = HostRun.run(prepared.analysis().classes(), false, temp);
             assertEquals(original.stdout(), result.stdout(), "stdout must match the original program");
             assertEquals(original.exit(), result.exit(), "exit status must match the original program");
-            assertEquals(original.stderrFirstLine(), result.stderrFirstLine(), "uncaught exception must match");
+            String expected = original.stderrFirstLine(), actual = result.stderrFirstLine();
+            if (actual.contains("because the object is null")) { // Part 8e: the recorder names the field, not a helpful NPE
+                expected = expected.substring(0, expected.indexOf(" because ") + 1);
+                actual = actual.substring(0, actual.indexOf(" because ") + 1);
+            }
+            assertEquals(expected, actual, "uncaught exception must match");
         }
         String json = Tracer.trace(prepared, "test-" + name, result.raw(), result.exit());
         validate(name, json);
@@ -48,19 +53,24 @@ class TracerTest {
         return new Run(trace, result, prepared, json);
     }
 
-    /** Every reference in an event names an object captured by that point (Part 8c: nested arrays). */
+    /**
+     * Every reference names an object captured by the end of its step (Part 8c: nested arrays;
+     * Part 8e: objects captured in one step may refer to each other, cycles included).
+     */
     @SuppressWarnings("unchecked")
     private static void assertReferencesResolve(Map<String, Object> trace) {
         if (trace.get("initialState") == null) return;
         java.util.Set<Object> known = new java.util.HashSet<>();
         for (Object o : (List<Object>) map(trace.get("initialState")).get("objects")) known.add(map(o).get("objectId"));
+        List<Object> waiting = new ArrayList<>();
         for (Map<String, Object> e : events(trace)) {
             Map<String, Object> data = map(e.get("data"));
             Object created = data.get("object") instanceof Map<?, ?> object ? object.get("objectId") : null;
-            List<Object> refs = new ArrayList<>();
-            collectRefs(data, refs);
-            for (Object id : refs) assertTrue(known.contains(id), "event " + e.get("seq") + " references uncaptured " + id);
             if (created != null) assertTrue(known.add(created), "object captured twice: " + created);
+            collectRefs(data, waiting);
+            if (!e.containsKey("step")) continue;
+            for (Object id : waiting) assertTrue(known.contains(id), "step " + e.get("step") + " references uncaptured " + id);
+            waiting.clear();
         }
     }
 
@@ -130,8 +140,9 @@ class TracerTest {
                 case "ASSIGN" -> "ASSIGN " + names.get(d.get("bindingId")) + " " + value(d.get("previous")) + "->" + value(d.get("value"));
                 case "UPDATE" -> "UPDATE " + names.get(d.get("bindingId")) + " " + value(d.get("previous")) + "->"
                         + value(d.get("value")) + " =" + value(d.get("result"));
-                case "ALLOCATE" -> "ALLOCATE " + ((List<Object>) map(d.get("object")).get("elements")).stream()
-                        .map(TracerTest::value).toList().toString().replace(" ", "");
+                case "ALLOCATE" -> "ALLOCATE " + describeObject(map(d.get("object")));
+                case "FIELD_READ" -> "FREAD " + d.get("field") + "=" + value(d.get("value"));
+                case "FIELD_WRITE" -> "FWRITE " + d.get("field") + " " + value(d.get("previous")) + "->" + value(d.get("value"));
                 case "ARRAY_READ" -> "READ [" + d.get("index") + "]=" + value(d.get("value"));
                 case "ARRAY_WRITE" -> "WRITE [" + d.get("index") + "] " + value(d.get("previous")) + "->" + value(d.get("value"));
                 case "ARRAY_LENGTH" -> "LENGTH " + d.get("length");
@@ -151,13 +162,24 @@ class TracerTest {
                 case "UNCAPTURED" -> "UNCAPTURED" + ((List<Object>) d.get("unknownBindings")).stream().map(id -> " " + names.get(id) + "=?")
                         .reduce("", String::concat) + ((List<Object>) d.get("arrays")).stream().map(a -> " #" + map(a).get("objectId") + "="
                         + ((List<Object>) map(a).get("elements")).stream().map(TracerTest::value).toList().toString().replace(" ", ""))
-                        .reduce("", String::concat) + ((List<Object>) d.get("unknownArrays")).stream().map(id -> " #" + id + "=?").reduce("", String::concat);
+                        .reduce("", String::concat) + ((List<Object>) d.get("unknownArrays")).stream().map(id -> " #" + id + "=?").reduce("", String::concat)
+                        + ((List<Object>) d.getOrDefault("objects", List.of())).stream().map(o -> " #" + map(o).get("objectId") + ((List<Object>) map(o).get("fields")).stream()
+                                .map(f -> map(f).get("name") + "=" + value(map(f).get("value"))).toList().toString().replace(" ", "").replace("[", "{").replace("]", "}"))
+                        .reduce("", String::concat);
                 default -> e.get("kind").toString();
             };
             Map<String, Object> range = map(e.get("source"));
             out.add(fact + " @" + text.substring(((Long) range.get("start")).intValue(), ((Long) range.get("end")).intValue()));
         }
         return out;
+    }
+
+    /** An array as [elements], an object (Part 8e) as Class{field=value,...}. */
+    @SuppressWarnings("unchecked")
+    private static String describeObject(Map<String, Object> o) {
+        if ("object".equals(o.get("kind"))) return o.get("className") + ((List<Object>) o.get("fields")).stream()
+                .map(f -> map(f).get("name") + "=" + value(map(f).get("value"))).toList().toString().replace(" ", "").replace("[", "{").replace("]", "}");
+        return ((List<Object>) o.get("elements")).stream().map(TracerTest::value).toList().toString().replace(" ", "");
     }
 
     private static List<String> kinds(Map<String, Object> trace) {
@@ -790,13 +812,171 @@ class TracerTest {
         assertEquals(63, steps(over.trace()).stream().filter(s -> s.startsWith("CALL")).count());
     }
 
+    // ---- Part 8e: objects and fields ------------------------------------------------------
+
+    @Test void linkedListAndTreeObjects() throws Exception {
+        Run r = run("objects-list-tree", """
+                public class Main {
+                    static class Node {
+                        int val;
+                        Node next;
+                        Node(int v) { val = v; }
+                    }
+                    static class Tree {
+                        int key;
+                        Tree left, right;
+                        Tree(int k) { key = k; }
+                        void insert(int k) {
+                            if (k < key) { if (left == null) left = new Tree(k); else left.insert(k); }
+                            else { if (right == null) right = new Tree(k); else right.insert(k); }
+                        }
+                        int size() { return 1 + (left == null ? 0 : left.size()) + (right == null ? 0 : right.size()); }
+                    }
+                    public static void main(String[] args) {
+                        Node head = new Node(1);
+                        head.next = new Node(2);
+                        head.next.next = new Node(3);
+                        int sum = 0;
+                        for (Node n = head; n != null; n = n.next) sum += n.val;
+                        Tree root = new Tree(5);
+                        root.insert(3);
+                        root.insert(8);
+                        root.insert(4);
+                        System.out.println(sum);
+                        System.out.println(root.size());
+                        System.out.println(root.left.right.key);
+                    }
+                }
+                """);
+        assertComplete(r, "completed");
+        assertEquals("6\n4\n4\n", r.result().stdout());
+        List<String> steps = steps(r.trace());
+        assertInOrder(steps, "ALLOCATE Main.Node{val=0,next=null} @new Node(1)", "CALL Main.Node.<init>(int):void this=#o2 v=1 @new Node(1)",
+                "FWRITE val 0->1 @val = v", "RETURN void implicit @}", "DECLARE head=#o2 @Node head = new Node(1)",
+                "ALLOCATE Main.Node{val=0,next=null} @new Node(2)", "FWRITE next null->#o3 @head.next = new Node(2)",
+                "FREAD next=#o3 @head.next", "FWRITE next null->#o4 @head.next.next = new Node(3)",
+                "FREAD val=1 @n.val", "FREAD next=#o3 @n.next", "ASSIGN n #o2->#o3 @n = n.next", "ASSIGN sum 3->6 @sum += n.val",
+                "CALL Main.Tree.insert(int):void this=#o5 k=3 @root.insert(3)", "FREAD key=5 @key", "EXPR < 3 5 = true @k < key",
+                "FREAD left=null @left", "ALLOCATE Main.Tree{key=0,left=null,right=null} @new Tree(k)", "FWRITE left null->#o6 @left = new Tree(k)",
+                "CALL Main.Tree.insert(int):void this=#o6 k=4 @left.insert(k)", "CALL Main.Tree.size():int this=#o5 @root.size()");
+    }
+
+    @Test void fieldsOfEveryTypeWithInitializers() throws Exception {
+        Run r = run("objects-fields", """
+                public class Main {
+                    static class Box {
+                        int count;
+                        long total;
+                        double avg;
+                        boolean open;
+                        char tag;
+                        String name;
+                        int[] data = new int[3];
+                        Box self;
+                    }
+                    public static void main(String[] args) {
+                        Box b = new Box();
+                        b.count++;
+                        b.count += 5;
+                        b.total = 1L << 33;
+                        b.avg = b.total / 2.0;
+                        b.open = true;
+                        if (b.open) b.tag = 'x';
+                        b.name = "box";
+                        b.data[1] = 4;
+                        b.self = b;
+                        System.out.println(b.count);
+                        System.out.println(b.self.avg);
+                        System.out.println(b.tag);
+                        System.out.println(b.name == b.self.name);
+                    }
+                }
+                """);
+        assertComplete(r, "completed");
+        assertEquals("6\n4.294967296E9\nx\ntrue\n", r.result().stdout());
+        assertInOrder(steps(r.trace()), "ALLOCATE Main.Box{count=0,total=0,avg=0.0,open=false,tag=0,name=null,data=null,self=null} @new Box()",
+                "CALL Main.Box.<init>():void this=#o2 @new Box()", "ALLOCATE [0,0,0] @new int[3]", "FWRITE data null->#o3 @int[] data = new int[3]",
+                "RETURN void implicit @Box", "DECLARE b=#o2 @Box b = new Box()",
+                "FREAD count=0 @b.count", "EXPR + 0 1 = 1 @b.count++", "FWRITE count 0->1 @b.count++",
+                "FREAD count=1 @b.count", "EXPR + 1 5 = 6 @b.count += 5", "FWRITE count 1->6 @b.count += 5",
+                "FWRITE total 0->8589934592 @b.total = 1L << 33", "FWRITE avg 0.0->4.294967296E9 @b.avg = b.total / 2.0",
+                "FREAD open=true @b.open", "EXPR condition true = true @b.open", "FWRITE tag 0->120 @b.tag = 'x'",
+                "FREAD data=#o3 @b.data", "WRITE [1] 0->4 @b.data[1] = 4", "FWRITE self null->#o2 @b.self = b",
+                "FREAD name=#o4 @b.self.name", "EXPR == #o4 #o4 = true @b.name == b.self.name");
+    }
+
+    @Test void silentConstructorsAndObjectsFromUncapturedCodeWithCycles() throws Exception {
+        Run r = run("objects-uncaptured", """
+                class Pair {
+                    int id;
+                    Pair other;
+                    Pair(int id) { this(id, null); }
+                    Pair(int id, Pair o) { this.id = id; other = o; }
+                }
+                class Util<T> {
+                    static Pair make() { Pair x = new Pair(7, null); Pair y = new Pair(8, x); x.other = y; return x; }
+                    static void bump(Pair p) { p.id += 10; }
+                }
+                public class Main {
+                    public static void main(String[] args) {
+                        Pair a = new Pair(1);
+                        Pair b = new Pair(2, a);
+                        a.other = b;
+                        Pair c = null;
+                        c = Util.make();
+                        int k = c.other.other.id;
+                        Util.bump(b);
+                        int j = a.other.id;
+                        System.out.println(k);
+                        System.out.println(j);
+                    }
+                }
+                """);
+        assertComplete(r, "completed");
+        assertEquals("7\n12\n", r.result().stdout());
+        List<String> steps = steps(r.trace());
+        assertInOrder(steps, "DECLARE a=#o2 @Pair a = new Pair(1)", "CALL Pair.<init>(int,Pair):void this=#o3 id=2 o=#o2 @new Pair(2, a)",
+                "FWRITE other null->#o3 @a.other = b", "UNCAPTURED c=? @c = Util.make();", "FREAD other=#o5 @c.other",
+                "FREAD id=7 @c.other.other.id", "UNCAPTURED #o3{id=12} @Util.bump(b);", "FREAD id=12 @a.other.id");
+        assertFalse(steps.stream().anyMatch(s -> s.contains("@new Pair(1)") && s.startsWith("ALLOCATE")), "the this(...) constructor runs silently");
+        List<String> kinds = kinds(r.trace());
+        assertTrue(kinds.stream().filter("OBJECT_CAPTURE"::equals).count() >= 3, "a, then c and its partner (a cycle)");
+    }
+
+    @Test void nullReceiversFailAndTheObjectLimitStops() throws Exception {
+        Run npe = run("objects-null", """
+                public class Main {
+                    static class Node { int val; Node next; }
+                    public static void main(String[] args) {
+                        Node n = new Node();
+                        int x = n.next.val;
+                    }
+                }
+                """);
+        assertComplete(npe, "failed");
+        assertInOrder(steps(npe.trace()), "FREAD next=null @n.next", "EXCEPTION java.lang.NullPointerException @n.next.val");
+        Run many = run("objects-limit", """
+                public class Main {
+                    static class Node { int val; Node(int v) { val = v; } }
+                    public static void main(String[] args) {
+                        Node last = null;
+                        for (int i = 0; i < 2000; i++) last = new Node(i);
+                        System.out.println(last.val);
+                    }
+                }
+                """);
+        assertEquals(86, many.result().exit());
+        assertEquals("limited", status(many.trace(), "execution"));
+        assertTrue(many.json().contains("TRAVERSAL_LIMIT"));
+    }
+
     // ---- outside coverage -------------------------------------------------------
 
     // ---- Part 8a: uncaptured statements inside traced programs -----------------------
 
     @Test void unsupportedStatementsRunUncapturedWhileTheRestIsTraced() throws Exception {
         // Methods of other classes stay uncaptured (Part 8d traces only static methods of Main).
-        String helper = "class Util {\n    static int twice(int v) { return v * 2; }\n}\npublic class Main {\n"
+        String helper = "class Util<T> { // generic: stays untraced (Part 8e)\n    static int twice(int v) { return v * 2; }\n}\npublic class Main {\n"
                 + "    public static void main(String[] args) {\n        int n = 4;\n        System.out.println(Util.twice(n));\n    }\n}\n";
         Run h = run("uncaptured-helper", helper);
         assertComplete(h, "completed");
@@ -831,7 +1011,7 @@ class TracerTest {
         assertEquals("1\n", lib.result().stdout());
         assertInOrder(steps(lib.trace()), "ALLOCATE [2,1] @{2, 1}", "UNCAPTURED #o2=[1,2] @java.util.Arrays.sort(a);", "READ [0]=1 @a[0]");
 
-        String helper = "class Util {\n    static void bump(int[] a) { a[0]++; }\n}\npublic class Main {\n"
+        String helper = "class Util<T> { // generic: stays untraced (Part 8e)\n    static void bump(int[] a) { a[0]++; }\n}\npublic class Main {\n"
                 + "    public static void main(String[] args) {\n        int[] a = {1, 2};\n        Util.bump(a);\n        Util.bump(a);\n"
                 + "        int[] b = {7};\n        Util.bump(b);\n        int x = a[0] + b[0];\n    }\n}\n";
         Run h = run("uncaptured-mutating-helper", helper);

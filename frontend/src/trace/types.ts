@@ -16,7 +16,11 @@ export interface SourceRange { start: number; end: number }
 
 export type TraceObject =
   | { objectId: string; kind: 'array'; elementType: string; elements: Value[] }
-  | { objectId: string; kind: 'string'; utf16: number[] };
+  | { objectId: string; kind: 'string'; utf16: number[] }
+  // 1.4.0: an instance of a traced class, fields in declaration order.
+  | { objectId: string; kind: 'object'; className: string; fields: Field[] };
+
+export interface Field { name: string; javaType: string; value: Value }
 
 export interface Frame { frameId: string; methodId: string; callerFrameId: string | null }
 export interface Scope { scopeId: string; frameId: string; parentScopeId: string | null }
@@ -43,7 +47,10 @@ export type ObservableEvent = { seq: number; step: number; source: SourceRange; 
   | { kind: 'CALL'; data: { frame: Frame; scope: Scope; parameters: Binding[] } }
   | { kind: 'RETURN'; data: { result: Value | null; implicit: boolean } }
   | { kind: 'EXCEPTION'; data: { exceptionType: string; message: string } }
-  | { kind: 'UNCAPTURED'; data: { unknownBindings: string[]; arrays: { objectId: string; elements: Value[] }[]; unknownArrays: string[] } }
+  | { kind: 'UNCAPTURED'; data: { unknownBindings: string[]; arrays: { objectId: string; elements: Value[] }[]; unknownArrays: string[];
+      objects: { objectId: string; fields: { name: string; value: Value }[] }[]; unknownObjects: string[] } }
+  | { kind: 'FIELD_READ'; data: { objectId: string; field: string; value: Value } }
+  | { kind: 'FIELD_WRITE'; data: { objectId: string; field: string; previous: Value; value: Value } }
   // 1.3.0: a switch chose a branch; the source range is the chosen label.
   | { kind: 'SWITCH'; data: { value: Value; matched: 'case' | 'default' | 'none' } }
 );
@@ -66,7 +73,7 @@ export interface Diagnostic {
 }
 
 export interface Trace {
-  schemaVersion: '1.3.0';
+  schemaVersion: '1.4.0';
   runId: string;
   source: { file: 'Main.java'; text: string; sha256: string };
   execution: { status: ExecutionStatus; reason: string };
@@ -78,7 +85,7 @@ export interface Trace {
 }
 
 export const OBSERVABLE_KINDS = new Set(['DECLARE', 'ASSIGN', 'UPDATE', 'ALLOCATE', 'ARRAY_READ', 'ARRAY_LENGTH',
-  'ARRAY_WRITE', 'EXPRESSION', 'CALL', 'RETURN', 'EXCEPTION', 'UNCAPTURED', 'SWITCH']);
+  'ARRAY_WRITE', 'EXPRESSION', 'CALL', 'RETURN', 'EXCEPTION', 'UNCAPTURED', 'SWITCH', 'FIELD_READ', 'FIELD_WRITE']);
 export const BOOKKEEPING_KINDS = new Set(['SCOPE_ENTER', 'SCOPE_EXIT', 'FRAME_END', 'OBJECT_CAPTURE']);
 
 export function isObservable(event: TraceEvent): event is ObservableEvent {

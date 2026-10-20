@@ -35,9 +35,12 @@ public final class Tracer {
         if (!analysis.compileErrors().isEmpty()) return new Prepared(analysis, Map.of(), false);
         if (!analysis.unsupported().isEmpty()) return new Prepared(analysis, analysis.classes(), false);
         try {
-            byte[] main = Instrumenter.instrument(analysis.classes().get("Main"), analysis.plans(), analysis.sites(), analysis.classes());
-            Map<String, byte[]> classes = new java.util.HashMap<>(analysis.classes()); // helper classes run untraced (Part 8a)
-            classes.put("Main", main);
+            // Main and every traced class are instrumented (Part 8e); other classes run untraced (Part 8a).
+            Map<String, byte[]> classes = new java.util.HashMap<>(analysis.classes());
+            for (var entry : analysis.classes().entrySet()) {
+                if (Instrumenter.planned(entry.getKey(), analysis.plans()))
+                    classes.put(entry.getKey(), Instrumenter.instrument(entry.getValue(), analysis.plans(), analysis.sites(), analysis.classes()));
+            }
             return new Prepared(analysis, Map.copyOf(classes), true);
         } catch (Instrumenter.MappingException | RuntimeException e) {
             List<Diagnostic> unsupported = new ArrayList<>(analysis.unsupported());

@@ -15,7 +15,7 @@ import java.util.*;
  * source's SHA-256 so the reader can reject a plan for different text.
  */
 final class PlanCodec {
-    static final int VERSION = 5; // 2: regions (8a); 3: primitive types (8b); 4: switch and arrays (8c); 5: methods (8d)
+    static final int VERSION = 6; // 2: regions (8a); 3: primitives (8b); 4: switch, arrays (8c); 5: methods (8d); 6: objects (8e)
 
     private PlanCodec() { }
 
@@ -38,6 +38,10 @@ final class PlanCodec {
             if (s.callee != null) m.put("callee", s.callee.id);
             if (s.returnSite != null) m.put("returnSite", s.returnSite.id);
             if (s.implicit) m.put("implicit", true);
+            put(m, "owner", s.owner);
+            if (s.instance) m.put("instance", true);
+            if (s.constructor) m.put("constructor", true);
+            if (!s.fields.isEmpty()) m.put("fields", s.fields.stream().map(f -> (Object) f.id).toList());
             if (!s.cases.isEmpty()) m.put("cases", s.cases.stream().map(c -> (Object) TraceBuilder.ordered("values",
                     new ArrayList<Object>(c.values()), "default", c.isDefault(), "start", c.start(), "end", c.end())).toList());
             if (!s.declareBefore.isEmpty()) m.put("declareBefore", s.declareBefore.stream().map(d -> (Object) d.id).toList());
@@ -101,6 +105,9 @@ final class PlanCodec {
             if (m.containsKey("dims")) s.dims = integer(m, "dims");
             s.methodId = (String) m.get("methodId");
             s.implicit = Boolean.TRUE.equals(m.get("implicit"));
+            s.owner = (String) m.get("owner");
+            s.instance = Boolean.TRUE.equals(m.get("instance"));
+            s.constructor = Boolean.TRUE.equals(m.get("constructor"));
             if (m.containsKey("cases")) {
                 List<Plan.Case> cases = new ArrayList<>();
                 for (Object c : (List<Object>) m.get("cases")) {
@@ -141,6 +148,11 @@ final class PlanCodec {
                 List<Site> params = new ArrayList<>();
                 for (Object id : (List<Object>) raw.get("params")) params.add(require(sites, ((Long) id).intValue()));
                 site.params = List.copyOf(params);
+            }
+            if (raw.containsKey("fields")) {
+                List<Site> fields = new ArrayList<>();
+                for (Object id : (List<Object>) raw.get("fields")) fields.add(require(sites, ((Long) id).intValue()));
+                site.fields = List.copyOf(fields);
             }
             if (raw.containsKey("callee")) site.callee = require(sites, integer(raw, "callee"));
             if (raw.containsKey("returnSite")) site.returnSite = require(sites, integer(raw, "returnSite"));

@@ -1,0 +1,237 @@
+{
+  "schemaVersion": "1.4.0",
+  "runId": "example-object-cycle",
+  "source": {
+    "file": "Main.java",
+    "text": "public class Main { static class Node { int v; Node next; } public static void main(String[] args) { Node a = new Node(); a.v = 4; a.next = a; int x = a.next.v; } }\n",
+    "sha256": "ad77f9463ec8bb807d3e43123b830bb5d133ce9f24f4ab3ecb39ef9ed63b9b77"
+  },
+  "execution": {
+    "status": "completed",
+    "reason": "Normal return from main."
+  },
+  "capture": {
+    "status": "complete",
+    "reason": "Illustrative complete recording, not executed Java.",
+    "safeEventCount": 8
+  },
+  "diagnostics": [],
+  "initialState": {
+    "objects": [
+      {
+        "objectId": "args0",
+        "kind": "array",
+        "elementType": "java.lang.String",
+        "elements": []
+      }
+    ],
+    "frames": [
+      {
+        "frameId": "f0",
+        "methodId": "Main.main(java.lang.String[]):void",
+        "callerFrameId": null
+      }
+    ],
+    "scopes": [
+      {
+        "scopeId": "s0",
+        "frameId": "f0",
+        "parentScopeId": null
+      }
+    ],
+    "bindings": [
+      {
+        "bindingId": "args",
+        "declarationId": "Main:args",
+        "frameId": "f0",
+        "scopeId": "s0",
+        "name": "args",
+        "javaType": "java.lang.String[]",
+        "value": {
+          "kind": "ref",
+          "objectId": "args0"
+        }
+      }
+    ]
+  },
+  "events": [
+    {
+      "seq": 1,
+      "step": 1,
+      "source": {
+        "start": 110,
+        "end": 120
+      },
+      "frameId": "f0",
+      "kind": "ALLOCATE",
+      "data": {
+        "object": {
+          "objectId": "n1",
+          "kind": "object",
+          "className": "Main.Node",
+          "fields": [
+            {
+              "name": "v",
+              "javaType": "int",
+              "value": {
+                "kind": "int",
+                "value": "0"
+              }
+            },
+            {
+              "name": "next",
+              "javaType": "Main.Node",
+              "value": {
+                "kind": "null"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "seq": 2,
+      "step": 2,
+      "source": {
+        "start": 101,
+        "end": 120
+      },
+      "frameId": "f0",
+      "kind": "DECLARE",
+      "data": {
+        "binding": {
+          "bindingId": "ba",
+          "declarationId": "Main.main:a",
+          "frameId": "f0",
+          "scopeId": "s0",
+          "name": "a",
+          "javaType": "Main.Node",
+          "value": {
+            "kind": "ref",
+            "objectId": "n1"
+          }
+        }
+      }
+    },
+    {
+      "seq": 3,
+      "step": 3,
+      "source": {
+        "start": 122,
+        "end": 129
+      },
+      "frameId": "f0",
+      "kind": "FIELD_WRITE",
+      "data": {
+        "objectId": "n1",
+        "field": "v",
+        "previous": {
+          "kind": "int",
+          "value": "0"
+        },
+        "value": {
+          "kind": "int",
+          "value": "4"
+        }
+      }
+    },
+    {
+      "seq": 4,
+      "step": 4,
+      "source": {
+        "start": 131,
+        "end": 141
+      },
+      "frameId": "f0",
+      "kind": "FIELD_WRITE",
+      "data": {
+        "objectId": "n1",
+        "field": "next",
+        "previous": {
+          "kind": "null"
+        },
+        "value": {
+          "kind": "ref",
+          "objectId": "n1"
+        }
+      }
+    },
+    {
+      "seq": 5,
+      "step": 5,
+      "source": {
+        "start": 151,
+        "end": 157
+      },
+      "frameId": "f0",
+      "kind": "FIELD_READ",
+      "data": {
+        "objectId": "n1",
+        "field": "next",
+        "value": {
+          "kind": "ref",
+          "objectId": "n1"
+        }
+      }
+    },
+    {
+      "seq": 6,
+      "step": 6,
+      "source": {
+        "start": 151,
+        "end": 159
+      },
+      "frameId": "f0",
+      "kind": "FIELD_READ",
+      "data": {
+        "objectId": "n1",
+        "field": "v",
+        "value": {
+          "kind": "int",
+          "value": "4"
+        }
+      }
+    },
+    {
+      "seq": 7,
+      "step": 7,
+      "source": {
+        "start": 143,
+        "end": 159
+      },
+      "frameId": "f0",
+      "kind": "DECLARE",
+      "data": {
+        "binding": {
+          "bindingId": "bx",
+          "declarationId": "Main.main:x",
+          "frameId": "f0",
+          "scopeId": "s0",
+          "name": "x",
+          "javaType": "int",
+          "value": {
+            "kind": "int",
+            "value": "4"
+          }
+        }
+      }
+    },
+    {
+      "seq": 8,
+      "kind": "FRAME_END",
+      "data": {
+        "frameId": "f0",
+        "reason": "main_return"
+      }
+    }
+  ],
+  "stepEnds": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    8
+  ]
+}

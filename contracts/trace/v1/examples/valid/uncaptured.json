@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "1.3.0",
+  "schemaVersion": "1.4.0",
   "runId": "example-uncaptured",
   "source": {
     "file": "Main.java",
@@ -154,7 +154,9 @@
           "b2"
         ],
         "arrays": [],
-        "unknownArrays": []
+        "unknownArrays": [],
+        "objects": [],
+        "unknownObjects": []
       }
     },
     {
@@ -183,7 +185,9 @@
             ]
           }
         ],
-        "unknownArrays": []
+        "unknownArrays": [],
+        "objects": [],
+        "unknownObjects": []
       }
     },
     {
@@ -200,7 +204,9 @@
           "b1"
         ],
         "arrays": [],
-        "unknownArrays": []
+        "unknownArrays": [],
+        "objects": [],
+        "unknownObjects": []
       }
     },
     {
