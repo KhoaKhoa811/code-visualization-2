@@ -253,3 +253,6 @@ not verbatim transcripts, unless quoted.
   because Docker Desktop was stopped.
 - Final: 175 Java tests (tracer 78, backend 97) with live Docker, 62 contract,
   31 unit, 14 browser tests; no containers left.
+- 10b (user "ok"): list, array stack and circular queue mappings of user
+  classes, suggested from field types and confirmed; revisions per source;
+  renamed/retyped fields stop the view (AC-27, AC-30). 35 unit, 15 browser tests.

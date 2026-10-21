@@ -14,23 +14,25 @@
 
 ## Approved roadmap (2026-10-20, "I approve")
 
-9.0-9d done; V1.1: 10a separate test inputs (done), 10b custom mappings, 10c view rankings,
+9.0-9d done; V1.1: 10a separate test inputs (done), 10b custom mappings (done), 10c view rankings,
 10d broader problem suite. Order and AC mapping: [specs/v1-scope.md](../specs/v1-scope.md).
-User (2026-10-21): "continue implement next part" -> 10a. Ask before starting 10b.
+User (2026-10-21): "continue implement next part" -> 10a; "ok" -> 10b. Ask before starting 10c.
 
-## Last task: 10a separate test inputs (complete)
+## Last tasks: 10a separate test inputs, 10b custom mappings (complete)
 
 - [x] Run request 1.2.0 `inputMode: provided` + `input {text, sha256}`; snapshot 1.1.0 `input {mode, sha256}`
 - [x] Backend RunStdin (none/live/provided), RunInput.provided, admission codes, live + API tests
 - [x] Frontend "Use test input", run summary association, input-changed warning, AC-35 browser test
 - [x] specs/test-inputs.md, RUN_API.md, run-lifecycle.md, v1-scope AC-35 Done — 794bfc4
+- [x] 10b list / array stack / circular queue mappings, revisions, AC-27 and AC-30 — b70de5c
 - [x] memory (this commit)
 
 ## Git
 
-- Branch `feat/part-10a-test-inputs` on main 9309231.
+- Branch `feat/part-10a-test-inputs` on main 9309231; `feat/part-10b-custom-mappings` stacked on it.
 - PR (manual, `gh` unavailable):
   https://github.com/KhoaKhoa811/code-visualization-2/compare/main...feat/part-10a-test-inputs?expand=1
+  https://github.com/KhoaKhoa811/code-visualization-2/compare/feat/part-10a-test-inputs...feat/part-10b-custom-mappings?expand=1
 
 ## Verification (2026-10-21, Claude)
 
@@ -46,7 +48,10 @@ User (2026-10-21): "continue implement next part" -> 10a. Ask before starting 10
   refers to System.in. Bytes kept exactly (CR, no final LF, long lines chunked at 4 KiB).
 - Snapshot live input hash is the delivered transcript, published only once finished.
 - Editing test input after a run warns; playback stays valid (trace belongs to its input).
+- 10b (frontend only, 35 unit + 15 browser tests): suggestions from field types only; queue empty/full
+  without a size field is stated, not guessed; mapping revisions tied to source sha. The editor bundle
+  has no find/replace, so the browser test pastes edited source via the clipboard.
 
 ## Next action
 
-Wait for review/merge; then ask to start 10b (general custom mappings, revalidation).
+Wait for review/merge (10a then 10b); then ask to start 10c (evidence-based view rankings; rules spec first).

@@ -41,6 +41,7 @@ first frontend slice exist; live console input exists since 8g.
 | 9c | Heap view: array confirmed as heap, synchronized strip and tree, recorded boundary, heap-sort example ([heap view](../specs/heap-view.md)); 30 unit, 13 browser tests | Merged |
 | 9d | Deque/LinkedList shown as stack or queue by explicit choice; Core V1 parts complete; 31 unit, 13 browser tests | Merged (PRs #97-#100 for 9a-9d) |
 | 10a | Separate test inputs: run request 1.2.0 provided input, snapshot 1.1.0 input association ([test inputs](../specs/test-inputs.md)); 175 Java tests with live Docker, 14 browser tests | Done, pushed, awaiting review |
+| 10b | Custom mappings: list, array stack, circular queue views of user classes; revisions; revalidation ([custom mappings](../specs/custom-mappings.md)); 35 unit, 15 browser tests | Done, pushed, awaiting review (stacked on 10a) |
 
 ## Verified environment
 
