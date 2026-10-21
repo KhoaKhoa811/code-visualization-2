@@ -16,7 +16,8 @@
 
 9.0-9d done; V1.1: 10a separate test inputs (done), 10b custom mappings (done), 10c view rankings,
 10d broader problem suite. Order and AC mapping: [specs/v1-scope.md](../specs/v1-scope.md).
-User (2026-10-21): "continue implement next part" -> 10a; "ok" -> 10b. Ask before starting 10c.
+User (2026-10-21): "continue implement next part" -> 10a; "ok" -> 10b; "ok" -> 10c. 10c rules spec
+(specs/visualization-rules.md, rank-1) is a DRAFT awaiting the user's review; implement only after approval.
 
 ## Last tasks: 10a separate test inputs, 10b custom mappings (complete)
 
@@ -54,4 +55,5 @@ User (2026-10-21): "continue implement next part" -> 10a; "ok" -> 10b. Ask befor
 
 ## Next action
 
-Wait for review/merge (10a then 10b); then ask to start 10c (evidence-based view rankings; rules spec first).
+Wait for the user's review of specs/visualization-rules.md (branch feat/part-10c-view-rankings, stacked on 10b);
+implement 10c only after approval. Also awaiting merge: 10a, 10b.
