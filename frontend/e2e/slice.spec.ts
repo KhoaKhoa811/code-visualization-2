@@ -155,8 +155,9 @@ test('objects of user classes form a linked list and a tree in the object graph 
   await page.screenshot({ path: 'test-results/object-graph.png', fullPage: true });
 });
 
-/** Drags an element by its top-left area with the mouse. */
+/** Drags an element by its top-left area with the mouse, after scrolling it into view. */
 async function dragBy(page: Page, target: ReturnType<Page['locator']>, dx: number, dy: number) {
+  await target.scrollIntoViewIfNeeded();
   const box = (await target.boundingBox())!;
   await page.mouse.move(box.x + 12, box.y + 10);
   await page.mouse.down();
@@ -175,6 +176,7 @@ test('dragging diagram boxes and reordering panels changes layout only (9a, AC-1
   const count = await page.getByTestId('step-count').textContent();
 
   const head = page.getByTestId('object-head');
+  await head.scrollIntoViewIfNeeded(); // the cards above the grid can push it below the fold
   const before = (await head.boundingBox())!;
   const arrows = page.locator('.graph-arrows path:not(marker path)');
   const pathsBefore = await arrows.evaluateAll(paths => paths.map(p => p.getAttribute('d')));
@@ -481,6 +483,7 @@ test('a grid, for-each, switch and do-while play back (8c)', async ({ page }) =>
 
   // 9a, AC-23: an array of arrays moves as one group; its rows and values stay as they are.
   const grid = page.getByTestId('array-grid');
+  await grid.scrollIntoViewIfNeeded();
   const before = (await grid.getByTestId('row').nth(2).boundingBox())!;
   await dragBy(page, grid.locator('.array-label'), 60, 40);
   const after = (await grid.getByTestId('row').nth(2).boundingBox())!;
