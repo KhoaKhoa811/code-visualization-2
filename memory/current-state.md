@@ -39,6 +39,7 @@ first frontend slice exist; live console input exists since 8g.
 | 9.0, 9a | V1 scope checklist ([v1-scope](../specs/v1-scope.md)); grid of panels and layout-only dragging ([frontend design](../specs/frontend-design.md)); 23 unit, 11 browser tests | Done, pushed, awaiting review |
 | 9b | Tree view of user objects via a confirmed value/left/right mapping, tree-sort example ([tree view](../specs/tree-view.md)); 26 unit, 12 browser tests | Done, pushed, awaiting review (stacked on 9a) |
 | 9c | Heap view: array confirmed as heap, synchronized strip and tree, recorded boundary, heap-sort example ([heap view](../specs/heap-view.md)); 30 unit, 13 browser tests | Done, pushed, awaiting review (stacked on 9b) |
+| 9d | Deque/LinkedList shown as stack or queue by explicit choice; Core V1 parts complete; 31 unit, 13 browser tests | Done, pushed, awaiting review (stacked on 9c) |
 
 ## Verified environment
 

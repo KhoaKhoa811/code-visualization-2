@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { forNewRun, initialLayout, movePanel, panelOrder, setOffset } from './layout.ts';
+import { forNewRun, initialLayout, movePanel, panelOrder, setMode, setOffset } from './layout.ts';
 
 test('panels reorder by moving one to another one\'s place (9a)', () => {
   const start = initialLayout();
@@ -22,4 +22,14 @@ test('element offsets are layout only and end with the run (9a)', () => {
   const next = forNewRun(reordered);
   assert.deepEqual(next.offsets, {}, 'ids of an earlier run are never reused');
   assert.deepEqual(next.order, reordered.order, 'panel order is a preference that stays');
+});
+
+test('a deque view choice belongs to a variable and survives runs (9d)', () => {
+  const chosen = setMode(setOffset(initialLayout(), 'collection:o4', 5, 5), 'stack', 'stack');
+  assert.deepEqual(chosen.modes, { stack: 'stack' });
+  const next = forNewRun(chosen);
+  assert.deepEqual(next.modes, { stack: 'stack' }, 'names, unlike ids, mean the same in the next run');
+  assert.deepEqual(next.offsets, {});
+  assert.deepEqual(setMode(next, 'stack', null).modes, {}, 'Deque restores the class view');
+  assert.deepEqual(initialLayout().modes, {}, 'Reset layout clears choices');
 });

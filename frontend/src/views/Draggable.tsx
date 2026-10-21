@@ -8,7 +8,7 @@ interface LayoutApi { layout: Layout; update: (change: (layout: Layout) => Layou
 
 export const LayoutContext = createContext<LayoutApi | null>(null);
 
-function useLayout(): LayoutApi {
+export function useLayout(): LayoutApi {
   const api = useContext(LayoutContext);
   if (!api) throw new Error('LayoutContext missing');
   return api;
@@ -47,6 +47,8 @@ export function Draggable({ id, className, style, children, ...rest }: { id: str
          style={{ ...style, transform: offset.x || offset.y ? `translate(${offset.x}px, ${offset.y}px)` : undefined }}
          onPointerDown={e => {
            if (e.button !== 0) return;
+           // Controls inside a box (such as a view switch) keep their own clicks.
+           if ((e.target as HTMLElement).closest('button, select, input, a, label')) return;
            e.stopPropagation(); // the innermost element moves, not the one containing it
            e.currentTarget.setPointerCapture(e.pointerId);
            drag.current = { x: e.clientX, y: e.clientY, base: offset };

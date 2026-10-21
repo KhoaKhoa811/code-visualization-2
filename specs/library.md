@@ -29,6 +29,11 @@ a `String`). Boxing and unboxing are matched in bytecode but are not steps; boxe
 values are shown as values (their identity is not modeled, so `==` between two
 boxed values stays uncaptured).
 
+Since Part 9d an `ArrayDeque` or `LinkedList` can be shown as a stack (top = first
+element) or a queue (front = first, back = last) by the user's explicit choice
+([frontend design](frontend-design.md)). The recorded contents are the same; only the
+presentation changes.
+
 String concatenation (`a + b + c`, `s += x`) is one EXPRESSION `+` step with all
 operands of the flattened concatenation and the resulting string; operands must
 be primitives, boxed primitives, `String` or `null` (no `toString()` of user

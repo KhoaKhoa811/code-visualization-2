@@ -13,7 +13,8 @@ only. For the active task, [handoff.md](handoff.md) is authoritative. History:
 - Done, awaiting review: 9.0 + 9a (`feat/part-9a-grid-layout`, on main 78b331e).
 - Done, awaiting review: 9b tree view (`feat/part-9b-tree-view`, stacked on 9a).
 - Done, awaiting review: 9c heap view (`feat/part-9c-heap-view`, stacked on 9b).
-- Next in the approved roadmap: 9d Deque stack/queue mode; ask before starting each part. Input-wait detection via /proc is deferred to 6g. Propose each with a checklist and wait for approval.
+- Done, awaiting review: 9d Deque stack/queue mode (`feat/part-9d-deque-mode`, stacked on 9c).
+- Next in the approved roadmap: 10a separate test inputs (V1.1); ask before starting each part. Input-wait detection via /proc is deferred to 6g. Propose each with a checklist and wait for approval.
 - Never merge pull requests; the user merges.
 
 ## Part 7 roadmap (trace engine and first visible slice)

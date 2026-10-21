@@ -42,7 +42,7 @@ deployment.
 | AC-09 compile error / limitation | Done | 7c, 8a | compile-error and output-only tests |
 | AC-10 runtime error, no false write | Done | 7b, 8h | tracer `j06`, `j07` |
 | AC-11 limits | Done | 6d, 7c | timeout, output and trace-limit live tests |
-| AC-12 list/stack/queue/map | Partial | 8f, 9d | library tests; explicit Deque stack/queue mode in 9d |
+| AC-12 list/stack/queue/map | Done | 8f, 9d | library tests; ArrayDeque/LinkedList shown as a stack or queue by explicit choice (browser collections test) |
 | AC-13 BST sort tree | Done | 9b | browser tree-sort test: confirmed mapping, in-order positions, link write highlighted ([tree view](tree-view.md)) |
 | AC-14 heap sort | Done | 9c | browser heap-sort test: confirmed heap, synchronized strip and tree, boundary from end ([heap view](heap-view.md)) |
 | AC-15 edit after run | Done | 7e | browser source-edit check |
