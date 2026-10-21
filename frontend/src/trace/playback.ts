@@ -341,7 +341,9 @@ function focusOf(event: ObservableEvent | null): Focus {
     case 'ARRAY_WRITE': return { objectId: event.data.objectId, index: event.data.index, access: 'write' };
     case 'ARRAY_LENGTH': return { objectId: event.data.objectId, access: 'length' };
     case 'FIELD_READ': return { objectId: event.data.objectId, field: event.data.field, access: 'read' };
-    case 'LIBRARY': return event.data.objectId ? { objectId: event.data.objectId, access: event.data.after ? 'write' : 'read' } : {};
+    case 'LIBRARY': return event.data.objectId ? { objectId: event.data.objectId, access: event.data.after ? 'write' : 'read' }
+      // 10d: a static call that changed its argument (Arrays.sort, Collections.sort)
+      : event.data.after ? { objectId: event.data.after.objectId, access: 'write' } : {};
     case 'FIELD_WRITE': return { objectId: event.data.objectId, field: event.data.field, access: 'write' };
     case 'UNCAPTURED': return { touched: [...event.data.unknownBindings, ...event.data.arrays.map(a => a.objectId), ...event.data.unknownArrays,
       ...event.data.objects.map(o => o.objectId), ...event.data.unknownObjects,

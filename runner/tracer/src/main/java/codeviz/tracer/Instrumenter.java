@@ -157,6 +157,8 @@ final class Instrumenter {
 
     private record Region(LabelNode start, LabelNode end) { }
 
+    private static final int LOST_START = 1 << 10 | 1;
+
     /** Bytecode range of each uncaptured statement: the table entry with exactly its source range. */
     private static Map<Site, Region> regions(MethodNode main, List<Item> plan) throws MappingException {
         Crt crt = main.attrs == null ? null
@@ -168,6 +170,10 @@ final class Instrumenter {
             if (crt == null || s.crtStart < 0 || s.crtEnd < 0) throw new MappingException("no statement range table");
             List<Crt.Entry> found = crt.entries.stream()
                     .filter(e -> (e.flags() & Crt.STATEMENT) != 0 && e.charStart() == s.crtStart && e.charEnd() == s.crtEnd).toList();
+            // Part 10d: javac loses the start of a statement holding a capturing lambda (it becomes
+            // position 0, line 1 column 1); its end and bytecode range are still right.
+            if (found.isEmpty()) found = crt.entries.stream()
+                    .filter(e -> (e.flags() & Crt.STATEMENT) != 0 && e.charStart() == LOST_START && e.charEnd() == s.crtEnd).toList();
             if (found.isEmpty()) throw new MappingException("no bytecode range for an uncaptured statement");
             // Several entries share a range when javac lowers a statement (a for-each's hidden setup
             // carries the loop's range): the statement is the outermost one, all starting together.
@@ -348,7 +354,7 @@ final class Instrumenter {
 
     private static void check(Item item, AbstractInsnNode insn, MethodNode main) throws MappingException {
         Site site = item.site();
-        if (site == null && !List.of(Expect.GETSTATIC, Expect.INVOKE, Expect.NEW, Expect.CTOR, Expect.BOX, Expect.UNBOX).contains(item.expect())) {
+        if (site == null && !List.of(Expect.GETSTATIC, Expect.INVOKE, Expect.NEW, Expect.CTOR, Expect.BOX, Expect.UNBOX, Expect.LIB).contains(item.expect())) {
             // A hidden for-each step (copy, length, index) or a folded conversion: its family is enough.
             if (item.expect() == Expect.CONVERT) checkConversion(item, insn);
             return;
@@ -384,7 +390,7 @@ final class Instrumenter {
             }
             case LIB, LIBNEW, APPEND, TOSTRING, BOX, UNBOX -> {
                 int opcode = switch (item.expect()) {
-                    case LIB -> switch (site.operator) { case "static" -> Opcodes.INVOKESTATIC; case "interface" -> Opcodes.INVOKEINTERFACE; default -> Opcodes.INVOKEVIRTUAL; };
+                    case LIB -> site == null ? Opcodes.INVOKESTATIC : switch (site.operator) { case "static" -> Opcodes.INVOKESTATIC; case "interface" -> Opcodes.INVOKEINTERFACE; default -> Opcodes.INVOKEVIRTUAL; };
                     case LIBNEW -> Opcodes.INVOKESPECIAL;
                     case BOX -> Opcodes.INVOKESTATIC;
                     default -> Opcodes.INVOKEVIRTUAL;
@@ -717,6 +723,12 @@ final class Instrumenter {
                     before.add(new VarInsnNode(Opcodes.ALOAD, base));
                     before.add(call("libSee", "(Ljava/lang/Object;)V"));
                     before.add(new VarInsnNode(Opcodes.ALOAD, base));
+                }
+                // Part 10d: so are reference arguments, which a call may change too (Arrays.sort, Collections.sort).
+                for (int i = 0; i < args.length; i++) {
+                    if (args[i].getSort() != Type.OBJECT && args[i].getSort() != Type.ARRAY) continue;
+                    before.add(new VarInsnNode(Opcodes.ALOAD, slots[i]));
+                    before.add(call("libSee", "(Ljava/lang/Object;)V"));
                 }
                 for (int i = 0; i < args.length; i++) before.add(new VarInsnNode(args[i].getOpcode(Opcodes.ILOAD), slots[i]));
                 LabelNode start = new LabelNode(), end = new LabelNode(), handler = new LabelNode();

@@ -1,6 +1,7 @@
 # Broader problem suite (Part 10d)
 
-Status: **draft for review**, revision 2 (2026-10-22). Nothing below is implemented yet.
+Status: revision 2 **approved** by the user on 2026-10-22 (decisions 1 and 4 approved; 2 and 3
+as recommended). Implemented in increments 10d.1-10d.5, see the list below.
 Revision 1 decisions by the user: the suite should include lambdas and streams; G2 includes
 `entrySet()`; G5 stays limited to `Collections.reverseOrder()`.
 Requirements: section 6.5, AC-36 ("broader string/set/array/map/tree/heap problems,
@@ -194,6 +195,23 @@ sort is one step with its before and after contents, never invented comparisons 
 Each increment ends with its own verification (live Docker `clean verify` for Java
 changes, frontend unit, build and browser tests). AC-36 becomes **Done** when 10d.5
 passes all of them.
+
+## Progress
+
+**10d.1 (2026-10-22): done.** G1, G3, G4, G5 and the F1 bug ([library](library.md)).
+- G3 arrays returned by `toCharArray` and `split` are captured with their contents before
+  the LIBRARY step, as other new library results are. They are not a separate ALLOCATE.
+- G5 also covers `Comparator.reverseOrder()` (the same JDK comparator) and `TreeSet` and
+  `TreeMap` built with it, since the mechanism is the same. A sorted collection with any
+  other comparator stops capture before it would be shown in a guessed order.
+- F1: javac writes the start of a statement holding a capturing lambda as position 0 in
+  its range table. The instrumenter accepts that entry by its end, so the statement runs
+  uncaptured and the rest of the program is traced.
+- A static call that changes its argument reports it in `after` (no contract version
+  change: the 1.8.0 schema already allows it). The frontend focuses the changed object and
+  names array and collection arguments by their variables (`Arrays.sort(a)`).
+- Probe after 10d.1: every G1, G3, G4 and G5 gap is gone (A1, A7, S2-S5, M1b, T1, L2, R1,
+  R3, H3, H4 have no uncaptured statement). Left: G2 (M3, M4, T2, L1) and G6/G7.
 
 ## Decisions for review (revision 2)
 

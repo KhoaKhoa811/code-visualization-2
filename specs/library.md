@@ -11,14 +11,30 @@ Calls in traced code to these methods are steps (a LIBRARY event):
 
 | Receiver | Methods |
 | --- | --- |
-| `String` | `length`, `charAt`, `substring`, `indexOf`, `lastIndexOf`, `equals`, `compareTo`, `contains`, `startsWith`, `endsWith`, `isEmpty`, `toUpperCase`, `toLowerCase`, `trim` |
+| `String` | `length`, `charAt`, `substring`, `indexOf`, `lastIndexOf`, `equals`, `compareTo`, `contains`, `startsWith`, `endsWith`, `isEmpty`, `toUpperCase`, `toLowerCase`, `trim`; since 10d `toCharArray`, `split` |
 | `StringBuilder` | `new`, `append`, `insert`, `reverse`, `toString`, `length`, `charAt`, `setCharAt`, `deleteCharAt`, `setLength` |
 | `List` (`ArrayList`, `LinkedList`) | `new`, `add`, `add(i, e)`, `get`, `set`, `remove(int)`, `remove(Object)`, `size`, `isEmpty`, `contains`, `indexOf`, `clear` |
 | `Deque`/`Queue` (`ArrayDeque`, `LinkedList`), `Stack` | `new`, `push`, `pop`, `peek`, `offer`, `poll`, `add`, `remove()`, `addFirst`, `addLast`, `offerFirst`, `offerLast`, `pollFirst`, `pollLast`, `peekFirst`, `peekLast`, `removeFirst`, `removeLast`, `size`, `isEmpty`, `empty`, `clear` |
 | `Map` (`HashMap`, `TreeMap`, `LinkedHashMap`) | `new`, `put`, `get`, `getOrDefault`, `containsKey`, `remove(key)`, `size`, `isEmpty`, `clear` |
 | `Set` (`HashSet`, `TreeSet`, `LinkedHashSet`) | `new`, `add`, `contains`, `remove`, `size`, `isEmpty`, `clear` |
-| `PriorityQueue` (natural order) | `new`, `add`, `offer`, `poll`, `peek`, `remove()`, `size`, `isEmpty`, `clear` |
+| `PriorityQueue` (natural order, or since 10d the JDK's reverse order) | `new`, `add`, `offer`, `poll`, `peek`, `remove()`, `size`, `isEmpty`, `clear` |
 | static | `Math.max`, `Math.min`, `Math.abs`, `Math.sqrt`, `Integer.parseInt`, `String.valueOf` (primitives), `Character.isDigit`, `isLetter`, `isUpperCase`, `isLowerCase`, `toUpperCase`, `toLowerCase` |
+| static, since 10d | `Arrays.sort` (whole array or a range), `Arrays.toString`, `Arrays.equals` on one-dimensional primitive or `String` arrays; `Collections.sort(list)` of boxed values or strings (natural order) |
+| output, since 10d | `print`/`println(Object)` of a boxed value, `String`, `StringBuilder`, or a covered collection or map holding only those |
+
+Part 10d ([problem suite](problem-suite.md)):
+- A library sort is one LIBRARY step. For a static call that changes its argument,
+  `objectId` is null and `after` is the changed array or collection. No comparison or swap
+  is recorded or invented. The builder replays the call on a copy of the array's state.
+- `toCharArray` and `split` return new arrays, captured with their contents and checked
+  against the replayed call.
+- `new PriorityQueue<>(Collections.reverseOrder())`, and the same for `TreeSet` and
+  `TreeMap` (`Comparator.reverseOrder()` is the same JDK comparator), build a mirror in
+  reverse order. The recorder reads a sorted collection's comparator without calling it.
+  A collection ordered by any other comparator is user code: capture stops before it is
+  shown, so it is never shown in a guessed order.
+- Library-call arguments are recorded before the call, like receivers, so a collection or
+  array first seen by a sort shows its contents from before the sort.
 
 Element types: boxed primitives (`Integer`, `Long`, `Double`, `Character`,
 `Boolean`, ...), `String`, traced classes that do not declare `equals`,
@@ -41,10 +57,11 @@ objects). The program is compiled with javac's inline concatenation strategy, so
 concatenation uses `StringBuilder` calls that the tracer can match.
 
 Still uncaptured: other library methods and classes, iterators and enhanced
-`for` over collections, streams and lambdas, comparators, `Collections`/`Arrays`
-utilities, map views (`keySet`, `values`, `entrySet`), `split`, `format`,
-`Math.pow` (not exactly specified across JVMs), and user `toString` in
-concatenation.
+`for` over collections, streams and lambdas, comparators other than the JDK's reverse
+order, other `Collections`/`Arrays` utilities (`fill`, `reverse`, `addAll`, ...), map views
+(`keySet`, `values`, `entrySet`), `format`, `Math.pow` (not exactly specified across
+JVMs), and user `toString` in concatenation or output. Part 10d adds iteration, lambdas
+and streams in later increments ([problem suite](problem-suite.md)).
 
 ## Contract 1.5.0
 

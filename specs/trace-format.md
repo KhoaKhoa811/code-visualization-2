@@ -297,7 +297,7 @@ ranges follow sections 2–3 and the Java-support specification.
 | SWITCH | 1.3.0: value (byte, short, int or char), matched (case, default or none); a switch chose a branch; source is the chosen label, or the selector when nothing matched; no state change ([statements and arrays](statements.md)) |
 | FIELD_READ | 1.4.0: objectId, field, value; no mutation ([objects](objects.md)) |
 | FIELD_WRITE | 1.4.0: objectId, field, previous, value; commit exactly one field change |
-| LIBRARY | 1.5.0: objectId (receiver or null), method, arguments, result, after; one covered library call; after replaces the receiver's contents when it changed ([library](library.md)) |
+| LIBRARY | 1.5.0: objectId (receiver or null), method, arguments, result, after; one covered library call; after replaces the receiver's contents when it changed ([library](library.md)); since Part 10d (no version change, the schema already allows it) a static call with a null objectId may have an `after` that replaces the array or collection argument it changed (`Arrays.sort`, `Collections.sort`) |
 
 EXPRESSION operators are `+`, `-`, `*`, `/`, `%`, `!`, comparisons, `&&`, `||`,
 `condition`, and since 1.2.0 `&`, `|`, `^`, `~`, `<<`, `>>`, `>>>` and the primitive casts

@@ -116,7 +116,7 @@ public final class Recorder {
      * iteration, which runs no user code for the covered classes and element types (Part 8f).
      */
     private static String contents(Object o) {
-        StringBuilder b = new StringBuilder().append(o.getClass().getName());
+        StringBuilder b = new StringBuilder().append(o.getClass().getName()).append(order(o));
         if (o.getClass().isArray()) values(b, o);
         else if (o instanceof java.util.Scanner || o instanceof java.io.BufferedReader) b.append(" 0"); // Parts 8g, 8i: reads are replayed
         else if (o instanceof StringBuilder sb) b.append(' ').append(hex(sb.toString()));
@@ -130,7 +130,17 @@ public final class Recorder {
         return b.toString();
     }
 
-    private static final java.util.Set<Class<?>> LIBRARY = java.util.Set.of(java.util.ArrayList.class, java.util.LinkedList.class,
+    /**
+     * The comparator of a sorted collection, read without calling it (Part 10d): "" for natural
+     * order, "/r" for the JDK's reverse order, "/c" for any other (its order is user code).
+     */
+    private static String order(Object o) {
+        java.util.Comparator<?> c = o instanceof java.util.PriorityQueue<?> q ? q.comparator()
+                : o instanceof java.util.SortedMap<?, ?> m ? m.comparator() : o instanceof java.util.SortedSet<?> s ? s.comparator() : null;
+        return c == null ? "" : c == java.util.Collections.reverseOrder() ? "/r" : "/c";
+    }
+
+    private static final java.util.Set<Class<?>> LIBRARY =java.util.Set.of(java.util.ArrayList.class, java.util.LinkedList.class,
             java.util.ArrayDeque.class, java.util.Stack.class, java.util.HashMap.class, java.util.TreeMap.class, java.util.LinkedHashMap.class,
             java.util.HashSet.class, java.util.TreeSet.class, java.util.LinkedHashSet.class, java.util.PriorityQueue.class, StringBuilder.class,
             java.util.Scanner.class, java.io.BufferedReader.class);

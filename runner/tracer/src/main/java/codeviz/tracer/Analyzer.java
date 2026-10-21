@@ -1241,7 +1241,7 @@ final class Analyzer {
 
         private static final Map<String, Set<String>> FAMILY_METHODS = Map.ofEntries(
                 Map.entry("string", Set.of("length", "charAt", "substring", "indexOf", "lastIndexOf", "equals", "compareTo", "contains",
-                        "startsWith", "endsWith", "isEmpty", "toUpperCase", "toLowerCase", "trim")),
+                        "startsWith", "endsWith", "isEmpty", "toUpperCase", "toLowerCase", "trim", "toCharArray", "split")), // 10d: arrays
                 Map.entry("builder", Set.of("append", "insert", "reverse", "toString", "length", "charAt", "setCharAt", "deleteCharAt", "setLength")),
                 Map.entry("list", Set.of("add", "get", "set", "remove", "size", "isEmpty", "contains", "indexOf", "clear")),
                 Map.entry("deque", Set.of("push", "pop", "peek", "offer", "poll", "add", "remove", "addFirst", "addLast", "offerFirst", "offerLast",
@@ -1255,7 +1255,10 @@ final class Analyzer {
                 Map.entry("reader", Set.of("readLine", "read", "close")),
                 Map.entry("java.lang.Math", Set.of("max", "min", "abs", "sqrt")),
                 Map.entry("java.lang.Integer", Set.of("parseInt")),
-                Map.entry("java.lang.Character", Set.of("isDigit", "isLetter", "isUpperCase", "isLowerCase", "toUpperCase", "toLowerCase")));
+                Map.entry("java.lang.Character", Set.of("isDigit", "isLetter", "isUpperCase", "isLowerCase", "toUpperCase", "toLowerCase")),
+                // Part 10d: one step each, replayed on a copy; a sort shows only its before and after contents.
+                Map.entry("java.util.Arrays", Set.of("sort", "toString", "equals")),
+                Map.entry("java.util.Collections", Set.of("sort")));
 
         /** The library call a method invocation denotes, or null when it is not covered. */
         private ExecutableElement library(MethodInvocationTree call) {
@@ -1282,6 +1285,7 @@ final class Analyzer {
                 if (raw.equals("java.util.Stack")) names.addAll(FAMILY_METHODS.get("list"));
             }
             if (names == null || !names.contains(name)) return null;
+            if (isStatic && arrayUtility(owner.getQualifiedName().toString(), m, call)) return m; // Part 10d
             // No argument may make the library run user code (toString, equals, compareTo of user objects).
             for (VariableElement p : m.getParameters()) {
                 String t = types.erasure(p.asType()).toString();
@@ -1294,6 +1298,26 @@ final class Analyzer {
                 if (!SCALARS.contains(t) && !keyType(t) && !elementType(t) && !t.equals("<nulltype>") && !t.equals("<null>")) return null;
             }
             return m;
+        }
+
+        /**
+         * {@code Arrays.sort/toString/equals} over one-dimensional primitive or String arrays, and
+         * {@code Collections.sort} of a list of boxed values or strings (Part 10d). Natural order only,
+         * so no user code runs; other overloads (comparators, Object arrays of user types) are not covered.
+         */
+        private boolean arrayUtility(String owner, ExecutableElement m, MethodInvocationTree call) {
+            if (!owner.equals("java.util.Arrays") && !owner.equals("java.util.Collections")) return false;
+            for (VariableElement p : m.getParameters()) {
+                String t = types.erasure(p.asType()).toString();
+                if (!t.equals("int") && !(owner.equals("java.util.Arrays") ? t.endsWith("[]") && !t.endsWith("[][]") : t.equals("java.util.List"))) return false;
+            }
+            for (ExpressionTree a : call.getArguments()) {
+                String t = javaType(a);
+                if (t.equals("int")) continue;
+                if (owner.equals("java.util.Arrays") ? !array(t) || t.endsWith("[][]") || !(SCALARS.contains(component(t)) || component(t).equals("java.lang.String"))
+                        : !(LISTS.contains(erasure(t)) && libraryType(t) && keyType(typeArguments(t).get(0)))) return false;
+            }
+            return true;
         }
 
         /** A covered library call (Part 8f): receiver, arguments, one invocation; a LIBRARY step. */
@@ -1355,6 +1379,16 @@ final class Analyzer {
                 plan.add(new Item(Expect.LIBNEW, site, 0, "java/io/BufferedReader#<init>(Ljava/io/Reader;)V"));
                 return true;
             }
+            if (params.equals(List.of("java.util.Comparator"))) { // Part 10d: only the JDK's reverse natural order
+                String owner = reverseOrder(n.getArguments().get(0));
+                if (owner == null || !Library.REVERSIBLE.contains(raw)) return false;
+                plan.add(new Item(Expect.NEW, null, 0, Instrumenter.internal(raw)));
+                plan.add(new Item(Expect.LIB, null, 0, owner + "#reverseOrder()Ljava/util/Comparator;"));
+                Site site = site(Kind.ALLOCATE, n);
+                site.javaType = type;
+                plan.add(new Item(Expect.LIBNEW, site, 0, Instrumenter.internal(raw) + "#<init>(Ljava/util/Comparator;)V"));
+                return true;
+            }
             if (!params.isEmpty() && !params.equals(List.of("int")) && !(raw.equals(BUILDER) && params.equals(List.of("java.lang.String")))) return false;
             plan.add(new Item(Expect.NEW, null, 0, Instrumenter.internal(raw)));
             for (ExpressionTree a : n.getArguments()) value(a, params.get(0));
@@ -1362,6 +1396,15 @@ final class Analyzer {
             site.javaType = type;
             plan.add(new Item(Expect.LIBNEW, site, 0, Instrumenter.internal(raw) + "#<init>(" + (params.isEmpty() ? "" : Instrumenter.descriptorOf(params.get(0))) + ")V"));
             return true;
+        }
+
+        /** The internal owner of a {@code Collections.reverseOrder()} or {@code Comparator.reverseOrder()} call, else null. */
+        private String reverseOrder(ExpressionTree e) {
+            if (!(strip(e) instanceof MethodInvocationTree call) || !call.getArguments().isEmpty()
+                    || !(element(call) instanceof ExecutableElement m) || !m.getSimpleName().contentEquals("reverseOrder")
+                    || !(m.getEnclosingElement() instanceof TypeElement owner)) return null;
+            String o = owner.getQualifiedName().toString();
+            return o.equals("java.util.Collections") ? "java/util/Collections" : o.equals("java.util.Comparator") ? "java/util/Comparator" : null;
         }
 
         /** The expression {@code System.in}. */
@@ -1695,7 +1738,8 @@ final class Analyzer {
             }
             List<String> parameters = method.getParameters().stream().map(p -> p.asType().toString()).toList();
             if (!(parameters.isEmpty() || parameters.size() == 1 && (SCALARS.contains(parameters.get(0))
-                    || parameters.get(0).equals("java.lang.String")))) {
+                    || parameters.get(0).equals("java.lang.String")
+                    || parameters.get(0).equals("java.lang.Object") && printable(javaType(call.getArguments().get(0)))))) {
                 unsupported(call, "print/println(" + String.join(",", parameters) + ")");
                 return;
             }
@@ -1708,8 +1752,20 @@ final class Analyzer {
         private static String descriptor(String type) {
             return switch (type) {
                 case "int" -> "I"; case "boolean" -> "Z"; case "long" -> "J"; case "double" -> "D"; case "float" -> "F";
-                case "char" -> "C"; case "byte" -> "B"; case "short" -> "S"; default -> "Ljava/lang/String;";
+                case "char" -> "C"; case "byte" -> "B"; case "short" -> "S"; case "java.lang.Object" -> "Ljava/lang/Object;";
+                default -> "Ljava/lang/String;";
             };
+        }
+
+        /**
+         * Whether printing a value of this type runs only JDK code (Part 10d): boxed values, strings,
+         * builders, and covered collections and maps holding only those (no user toString).
+         */
+        private boolean printable(String t) {
+            if (keyType(t) || t.equals("<nulltype>") || t.equals("<null>") || t.equals(BUILDER)) return true;
+            if (!libraryType(t) || erasure(t).equals(SCANNER) || erasure(t).equals(READER)) return false;
+            for (String a : typeArguments(t)) if (!printable(a)) return false;
+            return true;
         }
 
         // ---- expressions in value context --------------------------------------

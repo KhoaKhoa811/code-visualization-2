@@ -312,6 +312,32 @@ test('library calls replace collection contents and read as calls (8f)', () => {
   assert.deepEqual(counts.entries.map(e => `${formatValue(e.key, end.objects)}=${formatValue(e.value)}`), ['"a"=2', '"b"=1', '"c"=1']);
 });
 
+test('library sorts change their argument in one step; reverse order shows poll order (10d)', () => {
+  const p = new Playback(fixture('array-utilities'));
+  const views = Array.from({ length: p.steps }, (_, k) => p.at(k + 1));
+  const calls = views.filter(v => v.event?.kind === 'LIBRARY').map(v => describeStep(v.event!, v.state));
+  assert.ok(calls.includes('Arrays.sort(a)'), calls.join('\n'));
+  assert.ok(calls.includes('Arrays.toString(a) → "[1, 2, 3]"'), calls.join('\n'));
+  assert.ok(calls.includes('Collections.sort(xs)'), calls.join('\n'));
+  const sort = views.find(v => v.event?.kind === 'LIBRARY' && describeStep(v.event, v.state) === 'Arrays.sort(a)')!;
+  const arrayId = sort.focus.objectId!;
+  assert.equal(sort.focus.access, 'write');
+  const before = p.at(sort.cursor - 1).state.objects.get(arrayId), after = sort.state.objects.get(arrayId);
+  assert.ok(before?.kind === 'array' && after?.kind === 'array');
+  assert.deepEqual(before.elements.map(v => formatValue(v)), ['3', '1', '2']); // backward restores the unsorted array
+  assert.deepEqual(after.elements.map(v => formatValue(v)), ['1', '2', '3']);
+  const split = views.find(v => v.event?.kind === 'LIBRARY' && v.event.data.method.endsWith('split(java.lang.String)'))!;
+  const words = split.state.objects.get((split.event!.data as { result: { objectId: string } }).result.objectId);
+  assert.ok(words?.kind === 'array');
+  assert.deepEqual(words.elements.map(v => formatValue(v, split.state.objects)), ['"y"', '"x"', '"y"']);
+
+  const r = new Playback(fixture('reverse-order'));
+  const end = r.at(r.steps).beforeEnd!;
+  const pq = [...end.objects.values()].find(o => o.kind === 'collection' && o.className === 'java.util.PriorityQueue');
+  assert.ok(pq?.kind === 'collection');
+  assert.deepEqual(pq.elements.map(v => formatValue(v)), ['3', '1']); // reverse order: the largest polls first
+});
+
 test('Scanner reads are recorded library steps over console input (8g)', () => {
   const p = new Playback(example('valid/scanner-read.json'));
   const created = p.at(1);

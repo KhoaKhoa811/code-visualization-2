@@ -157,7 +157,9 @@ export function describe(event: ObservableEvent, state: State, source?: string):
       const name = method.slice(method.lastIndexOf('.', open) + 1, open);
       const owner = method.slice(0, method.lastIndexOf('.', open));
       const target = event.data.objectId ? objectName(event.data.objectId) : shortName(owner);
-      const args = event.data.arguments.map(a => formatValue(a, objects)).join(', ');
+      // 10d: an array or collection argument held by a variable reads as its name (Arrays.sort(a)).
+      const args = event.data.arguments.map(a => a.kind === 'ref' && objects.get(a.objectId)?.kind !== 'string' && namesOf(state, a.objectId)[0]
+        || formatValue(a, objects)).join(', ');
       const call = `${target}.${name}(${args})`;
       const text = event.data.result ? `${call} → ${formatValue(event.data.result, objects)}` : call;
       // 1.6.0: a Scanner read consumed delivered console input.

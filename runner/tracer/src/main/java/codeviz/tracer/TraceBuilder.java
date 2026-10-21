@@ -1122,7 +1122,12 @@ final class TraceBuilder {
             knownObjects.add(id);
             return;
         }
-        try { mirror = Library.create(className); } catch (ReflectiveOperationException | RuntimeException e) { throw new Inconsistent("library class " + className); }
+        // Part 10d: "/r" marks a sorted collection in the JDK's reverse order; "/c" one ordered by user code.
+        if (className.endsWith("/c")) throw new Inconsistent("a collection ordered by a user comparator");
+        boolean reversed = className.endsWith("/r");
+        if (reversed) className = className.substring(0, className.length() - 2);
+        try { mirror = reversed ? Library.createReversed(className) : Library.create(className); }
+        catch (ReflectiveOperationException | RuntimeException e) { throw new Inconsistent("library class " + className); }
         Object old = mirrors.put(id, mirror);
         if (old != null) mirrorIds.remove(old);
         mirrorIds.put(mirror, id);
@@ -1223,7 +1228,8 @@ final class TraceBuilder {
             return ordered("objectId", id, "kind", "map", "className", className, "entries", out);
         }
         List<Object> elements = new ArrayList<>((java.util.Collection<Object>) mirror);
-        if (mirror instanceof java.util.PriorityQueue
+        if (mirror instanceof java.util.PriorityQueue<?> q && q.comparator() != null) elements.sort((java.util.Comparator<Object>) q.comparator()); // Part 10d
+        else if (mirror instanceof java.util.PriorityQueue
                 || mirror instanceof java.util.HashSet && !(mirror instanceof java.util.LinkedHashSet))
             elements.sort((a, b) -> ((Comparable<Object>) a).compareTo(b));
         List<Object> out = new ArrayList<>();
@@ -1260,15 +1266,21 @@ final class TraceBuilder {
         } else if (!t[1].equals("-")) throw new Inconsistent("static library receiver");
         Object[] args = new Object[n];
         List<Object> arguments = new ArrayList<>();
+        Map<String, Object> javaArrays = new LinkedHashMap<>(); // Part 10d: array arguments, replayed on copies of their state
+        String changedArgument = null; // Part 10d: a mirror argument a static call may change (Collections.sort)
         for (int i = 0; i < n; i++) {
             String token = t[3 + i];
             arguments.add(libraryValueOf(token));
             Object value = mirror(token);
             // A string argument of a String or StringBuilder method, or of a String/CharSequence parameter, is its text.
             if ((params[i] == String.class || params[i] == CharSequence.class || target instanceof String) && value instanceof Library.Str str) value = str.text();
+            if (params[i].isArray() && value instanceof Library.Ref r && arrays.containsKey(r.id()))
+                value = javaArrays.containsKey(r.id()) ? javaArrays.get(r.id()) : javaArray(r.id(), params[i], javaArrays);
+            if (!site.instance && value != null && mirrorIds.containsKey(value)) changedArgument = mirrorIds.get(value);
             args[i] = value;
         }
-        Map<String, Object> before = mirrors.containsKey(receiverId) ? libraryValue(receiverId) : null;
+        Map<String, Object> before = mirrors.containsKey(receiverId) ? libraryValue(receiverId)
+                : changedArgument != null ? libraryValue(changedArgument) : null;
         Object replayed;
         try { replayed = method.invoke(target, args); }
         catch (ReflectiveOperationException | RuntimeException e) { throw new Inconsistent("library replay of " + site.methodId); }
@@ -1280,12 +1292,80 @@ final class TraceBuilder {
         } else {
             result = libraryValueOf(token);
             boolean same = replayed instanceof String text ? text.equals(stringTexts.get((String) result.get("objectId")))
+                    : replayed != null && replayed.getClass().isArray() ? sameArray(replayed, result)
                     : traceValue(replayed).equals(result);
             if (!same) throw new Inconsistent("library result of " + site.methodId + ": recorded " + token + ", replayed " + replayed);
         }
-        Map<String, Object> after = before == null ? null : libraryValue(receiverId);
+        Map<String, Object> after = before == null ? null : libraryValue(receiverId != null ? receiverId : changedArgument);
+        if (after != null && after.equals(before)) after = null;
+        for (var e : javaArrays.entrySet()) { // Part 10d: an array the call changed (Arrays.sort) takes its replayed contents
+            List<Map<String, Object>> state = arrays.get(e.getKey()), replayedElements = arrayElements(e.getValue());
+            if (state.equals(replayedElements)) continue;
+            if (after != null) throw new Inconsistent("a library call changed two objects");
+            for (int i = 0; i < state.size(); i++) state.set(i, replayedElements.get(i));
+            after = ordered("objectId", e.getKey(), "kind", "array", "elementType", elementTypes.get(e.getKey()), "elements", new ArrayList<>(state));
+        }
         addObservable(site, "LIBRARY", ordered("objectId", receiverId, "method", site.methodId, "arguments", arguments,
-                "result", result, "after", after == null || after.equals(before) ? null : after));
+                "result", result, "after", after));
+    }
+
+    /** A Java array holding a copy of a traced array's state, for replay (Part 10d). Strings are {@link Library.Str}. */
+    private Object javaArray(String id, Class<?> param, Map<String, Object> made) throws Inconsistent {
+        String elementType = elementTypes.get(id);
+        List<Map<String, Object>> state = arrays.get(id);
+        Object out = switch (elementType) {
+            case "int" -> new int[state.size()]; case "long" -> new long[state.size()]; case "short" -> new short[state.size()];
+            case "byte" -> new byte[state.size()]; case "char" -> new char[state.size()]; case "boolean" -> new boolean[state.size()];
+            case "float" -> new float[state.size()]; case "double" -> new double[state.size()];
+            case "java.lang.String" -> new Object[state.size()];
+            default -> throw new Inconsistent("library call on an array of " + elementType);
+        };
+        if (!param.isInstance(out)) throw new Inconsistent("library array parameter");
+        for (int i = 0; i < state.size(); i++) {
+            Map<String, Object> v = state.get(i);
+            Object kind = v.get("kind"), value = v.get("value");
+            if ("unknown".equals(kind)) throw new Inconsistent("library call on an array with unknown elements");
+            switch (elementType) {
+                case "int" -> ((int[]) out)[i] = Integer.parseInt((String) value);
+                case "long" -> ((long[]) out)[i] = Long.parseLong((String) value);
+                case "short" -> ((short[]) out)[i] = Short.parseShort((String) value);
+                case "byte" -> ((byte[]) out)[i] = Byte.parseByte((String) value);
+                case "char" -> ((char[]) out)[i] = (char) ((Number) value).intValue();
+                case "boolean" -> ((boolean[]) out)[i] = (Boolean) value;
+                case "float" -> ((float[]) out)[i] = Values.f((String) v.get("bits"));
+                case "double" -> ((double[]) out)[i] = Values.d((String) v.get("bits"));
+                default -> {
+                    if ("null".equals(kind)) continue;
+                    String sid = (String) v.get("objectId");
+                    if (!stringTexts.containsKey(sid)) throw new Inconsistent("string array element");
+                    ((Object[]) out)[i] = new Library.Str(stringTexts.get(sid), sid);
+                }
+            }
+        }
+        made.put(id, out);
+        return out;
+    }
+
+    /** The trace values of a replayed Java array's elements. */
+    private List<Map<String, Object>> arrayElements(Object array) throws Inconsistent {
+        int n = java.lang.reflect.Array.getLength(array);
+        List<Map<String, Object>> out = new ArrayList<>(n);
+        for (int i = 0; i < n; i++) out.add(traceValue(java.lang.reflect.Array.get(array, i)));
+        return out;
+    }
+
+    /** Whether a recorded array result has the replayed array's type and contents (Part 10d). */
+    private boolean sameArray(Object replayed, Map<String, Object> result) throws Inconsistent {
+        String id = (String) result.get("objectId");
+        if (id == null || !arrays.containsKey(id)) return false;
+        List<Map<String, Object>> state = arrays.get(id);
+        if (replayed instanceof String[] texts) {
+            if (!"java.lang.String".equals(elementTypes.get(id)) || state.size() != texts.length) return false;
+            for (int i = 0; i < texts.length; i++)
+                if (!texts[i].equals(stringTexts.get((String) state.get(i).get("objectId")))) return false;
+            return true;
+        }
+        return replayed.getClass().getComponentType().getName().equals(elementTypes.get(id)) && state.equals(arrayElements(replayed));
     }
 
     /** {@code e.getMessage()} (Part 8h): the result must be the message recorded with the exception object. */
