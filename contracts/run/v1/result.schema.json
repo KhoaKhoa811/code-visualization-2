@@ -1,12 +1,22 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/KhoaKhoa811/code-visualization-2/contracts/run/v1/result.schema.json",
-  "title": "Run lifecycle snapshot 1.0.0",
+  "title": "Run lifecycle snapshot 1.1.0",
   "type": "object",
   "properties": {
-    "schemaVersion": { "const": "1.0.0" },
+    "schemaVersion": { "const": "1.1.0" },
     "runId": { "type": "string", "minLength": 1, "maxLength": 128 },
     "sourceSha256": { "type": "string", "pattern": "^[0-9a-f]{64}(?![\\s\\S])" },
+    "input": {
+      "type": "object",
+      "description": "Part 10a: the input associated with this run. provided: hash of the given input; live: hash of the input delivered, once finished (null before); none: null.",
+      "properties": {
+        "mode": { "enum": ["none", "live", "provided"] },
+        "sha256": { "oneOf": [{ "type": "null" }, { "type": "string", "pattern": "^[0-9a-f]{64}(?![\\s\\S])" }] }
+      },
+      "required": ["mode", "sha256"],
+      "additionalProperties": false
+    },
     "revision": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
     "phase": { "enum": ["queued", "preparing", "compiling", "executing", "stopping", "cleaning", "finished"] },
     "terminationConfirmed": { "type": "boolean" },
@@ -18,7 +28,7 @@
       "items": { "enum": ["SETUP_FAILED", "WORKER_FAILED", "TRANSPORT_FAILED", "TERMINATION_UNCONFIRMED", "CLEANUP_UNCONFIRMED"] }
     }
   },
-  "required": ["schemaVersion", "runId", "sourceSha256", "revision", "phase", "terminationConfirmed", "cleanupVerified", "slotHeld", "trace", "infrastructureFailures"],
+  "required": ["schemaVersion", "runId", "sourceSha256", "input", "revision", "phase", "terminationConfirmed", "cleanupVerified", "slotHeld", "trace", "infrastructureFailures"],
   "additionalProperties": false,
   "allOf": [
     {

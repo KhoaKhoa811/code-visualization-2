@@ -16,7 +16,8 @@ Dark theme. Toolbar on top (example picker, Run, Cancel, run status). Below it:
   highlighted. The editor scrolls it into view, from its line start when the whole
   range fits (Part 8i).
 - **Lower right: console.** Live output and the input line while a run executes
-  (Part 8g); the recorded output after it finishes.
+  (Part 8g); the recorded output after it finishes. "Use test input" (Part 10a) gives the
+  next run a fixed standard input instead of the live input line.
 
 ## Panel grid (Part 9a)
 

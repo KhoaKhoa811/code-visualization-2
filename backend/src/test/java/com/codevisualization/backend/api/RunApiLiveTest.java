@@ -202,6 +202,19 @@ class RunApiLiveTest {
         assertTrue(done.contains("\"status\":\"cancelled\"") && done.contains("INPUT_DISCONNECTED"), done);
     }
 
+    /** Part 10a, AC-35 through the API: test input with the request; run, input and result stay associated. */
+    @Test void providedInputRunsThroughTheApi() throws Exception {
+        String input = "21\n";
+        var accepted = send("POST", "/api/runs", RunControllerTest.providedRequest(DOUBLER, sha(DOUBLER), input, sha(input)));
+        assertEquals(202, accepted.statusCode(), accepted.body());
+        String id = accepted.headers().firstValue("Location").orElseThrow().substring("/api/runs/".length());
+        String done = await(id, "finished");
+        check("provided-input", done);
+        assertTrue(done.contains("\"input\":{\"mode\":\"provided\",\"sha256\":\"" + sha(input) + "\"}"), done.substring(0, 300));
+        assertTrue(done.contains("\"status\":\"completed\"") && done.contains("java.util.Scanner.nextInt()"));
+        assertEquals("{\"runId\":\"" + id + "\",\"stdout\":\"Enter n: 42\\n\",\"stderr\":\"\"}", send("GET", "/api/runs/" + id + "/output", null).body());
+    }
+
     @Test void queueBusyAndCancellationThroughTheApi() throws Exception {
         String active = submit(LOOP);
         String next = submit(BUBBLE_SORT);

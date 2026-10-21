@@ -6,7 +6,8 @@ import { useRef, useState } from 'react';
 import { LiveConsole } from './console.ts';
 import { ApiError, cancelRun, getOutput, getRun, submitRun, type Snapshot } from './runs.ts';
 
-export interface SubmittedRun { runId: string; source: string; console: LiveConsole }
+/** {@code input}: the test input the run was given (Part 10a), or null for the live console. */
+export interface SubmittedRun { runId: string; source: string; input: string | null; console: LiveConsole }
 
 export function useRun() {
   const client = useQueryClient();
@@ -14,14 +15,15 @@ export function useRun() {
   const live = useRef<LiveConsole | null>(null);
 
   const submit = useMutation({
-    mutationFn: (source: string) => submitRun(source).then(snapshot => ({ snapshot, source })),
-    onSuccess: ({ snapshot, source }) => {
+    mutationFn: ({ source, input }: { source: string; input: string | null }) =>
+      submitRun(source, input).then(snapshot => ({ snapshot, source, input })),
+    onSuccess: ({ snapshot, source, input }) => {
       client.setQueryData(['run', snapshot.runId], snapshot);
       // The live console opens here, once per accepted run (Part 8g); never in an
       // effect or state updater, which StrictMode runs twice.
       live.current?.close();
       live.current = new LiveConsole(snapshot.runId);
-      setRun({ runId: snapshot.runId, source, console: live.current });
+      setRun({ runId: snapshot.runId, source, input, console: live.current });
     },
   });
 

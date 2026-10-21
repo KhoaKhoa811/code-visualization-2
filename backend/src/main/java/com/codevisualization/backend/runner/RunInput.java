@@ -30,6 +30,20 @@ public final class RunInput {
     private long nextSequence = 1;
     private boolean open, eof, closed;
 
+    /**
+     * Part 10a: input given with the request. All of it is pending, in chunks of at most one line
+     * bound, followed by end of input; no live input is accepted. The caller has bounded its size.
+     */
+    static RunInput provided(byte[] bytes) {
+        RunInput input = new RunInput();
+        for (int at = 0; at < bytes.length; at += LINE_LIMIT) {
+            input.pending.addLast(java.util.Arrays.copyOfRange(bytes, at, Math.min(bytes.length, at + LINE_LIMIT)));
+        }
+        input.pendingBytes = input.acceptedBytes = bytes.length;
+        input.eof = true;
+        return input;
+    }
+
     /** The runtime phase started: input may be admitted from now on. */
     synchronized void open() { if (!closed) open = true; }
 

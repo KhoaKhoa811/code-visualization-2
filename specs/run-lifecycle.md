@@ -11,6 +11,10 @@ retired. A live request whose source refers to `System.in` runs interactively wi
 120 s execution deadline, and its input arrives over the
 [live console](live-console.md). Any other request closes stdin at once.
 
+Part 10a: request 1.2.0 (1.1.0 retired) adds `inputMode: provided` with test input text and
+its hash. The input is written as standard input, followed by end of input, with the normal
+5 s deadline. Snapshot 1.1.0 records the input association ([test inputs](test-inputs.md)).
+
 ## Request and ownership
 
 [Request schema](../contracts/run/v1/request.schema.json) reuses trace-v1 source:

@@ -1,13 +1,26 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/KhoaKhoa811/code-visualization-2/contracts/run/v1/request.schema.json",
-  "title": "Run request 1.1.0 (inputMode live allows console input, Part 8g)",
+  "title": "Run request 1.2.0 (inputMode live allows console input, Part 8g; provided carries test input, Part 10a)",
   "type": "object",
   "properties": {
-    "schemaVersion": { "const": "1.1.0" },
+    "schemaVersion": { "const": "1.2.0" },
     "source": { "$ref": "../../trace/v1/trace.schema.json#/$defs/source" },
-    "inputMode": { "enum": ["none", "live"] }
+    "inputMode": { "enum": ["none", "live", "provided"] },
+    "input": {
+      "type": "object",
+      "description": "Test input given with the request, delivered exactly as standard input and then closed. The backend checks the 65,536-byte UTF-8 bound, Unicode and SHA-256.",
+      "properties": {
+        "text": { "type": "string" },
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}(?![\\s\\S])" }
+      },
+      "required": ["text", "sha256"],
+      "additionalProperties": false
+    }
   },
   "required": ["schemaVersion", "source", "inputMode"],
-  "additionalProperties": false
+  "additionalProperties": false,
+  "if": { "properties": { "inputMode": { "const": "provided" } } },
+  "then": { "properties": { "input": {} }, "required": ["input"] },
+  "else": { "not": { "properties": { "input": {} }, "required": ["input"] } }
 }

@@ -17,6 +17,7 @@ to `127.0.0.1:8080` only. Submitted Java never runs in the backend JVM.
 | 7d.3 | `8cd5e4a` | `RunController`, strict request parser, `RunnerAccess`, server limits | 6 controller tests, 2 loopback HTTP tests |
 | 7d.4 | `593c6ce` | `contracts/run/check.cjs` and live API tests | Full live verify, 118 tests |
 | 7d.5 | docs commit | This guide, spec section and memory | Paths checked |
+| 10a | branch commit | Request 1.2.0 `inputMode: provided`, snapshot 1.1.0 input association | Full live verify, 175 tests (tracer 78, backend 97) |
 | 8g.2 | `d32776c` | Request 1.1.0 with `inputMode: live`, bounded input, interactive runs, live console WebSocket | Full live verify, 161 tests (tracer 69, backend 92) |
 
 ## Endpoints
@@ -32,11 +33,14 @@ to `127.0.0.1:8080` only. Submitted Java never runs in the backend JVM.
 The request body is [run request v1](../contracts/run/v1/request.schema.json):
 
 ```json
-{"schemaVersion":"1.1.0","source":{"file":"Main.java","text":"...","sha256":"<hex of UTF-8 text>"},"inputMode":"live"}
+{"schemaVersion":"1.2.0","source":{"file":"Main.java","text":"...","sha256":"<hex of UTF-8 text>"},"inputMode":"live"}
 ```
 
-`inputMode` is `none` (stdin closed at once) or `live` (Part 8g). A live run whose
-source refers to `System.in` is interactive: its console is the WebSocket below.
+`inputMode` is `none` (stdin closed at once), `live` (Part 8g) or `provided` (Part 10a,
+with `"input":{"text":"...","sha256":"<hex>"}`: test input written as stdin, then end of input;
+errors `400 INPUT_INVALID`, `400 INPUT_HASH_MISMATCH`, `413 INPUT_LIMIT` above 65,536 bytes). A live
+run whose source refers to `System.in` is interactive: its console is the WebSocket below.
+Snapshots (1.1.0) carry `input: {mode, sha256}` ([test inputs](../specs/test-inputs.md)).
 
 ## Live console (Part 8g)
 

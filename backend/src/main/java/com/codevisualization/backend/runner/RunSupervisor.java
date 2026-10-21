@@ -37,8 +37,10 @@ public final class RunSupervisor implements AutoCloseable {
     }
 
     /** One run-v1 lifecycle snapshot; {@code trace} is raw trace-v1 JSON or null. */
+    /** {@code inputSha256}: provided input as given, or a live run's delivered input once it finished (Part 10a). */
     public record Snapshot(String runId, String sourceSha256, long revision, Phase phase, boolean terminationConfirmed,
-                           boolean cleanupVerified, boolean slotHeld, String trace, List<String> infrastructureFailures) {
+                           boolean cleanupVerified, boolean slotHeld, String trace, List<String> infrastructureFailures,
+                           String inputMode, String inputSha256) {
         public Snapshot { infrastructureFailures = List.copyOf(infrastructureFailures); }
     }
 
@@ -53,7 +55,7 @@ public final class RunSupervisor implements AutoCloseable {
     public final class Run {
         private final String id = "run-" + UUID.randomUUID();
         private final String source, sha256;
-        private final boolean live;
+        private final RunStdin stdin;
         private final long accepted;
         private long ended;
         private State state = State.QUEUED;
@@ -63,8 +65,8 @@ public final class RunSupervisor implements AutoCloseable {
         private long revision = -1;
         private Object published;
 
-        private Run(String source, String sha256, boolean live) {
-            this.source = source; this.sha256 = sha256; this.live = live; accepted = clock.getAsLong();
+        private Run(String source, String sha256, RunStdin stdin) {
+            this.source = source; this.sha256 = sha256; this.stdin = stdin; accepted = clock.getAsLong();
         }
 
         public String id() { return id; }
@@ -105,11 +107,17 @@ public final class RunSupervisor implements AutoCloseable {
      */
     public synchronized Run submit(String source, String claimedSha256)
             throws TracedRunLifecycle.AdmissionException, BusyException {
-        return submit(source, claimedSha256, false);
+        return submit(source, claimedSha256, RunStdin.NONE);
     }
 
     /** {@code live}: a console may send input, so a program reading System.in runs interactively (Part 8g). */
     public synchronized Run submit(String source, String claimedSha256, boolean live)
+            throws TracedRunLifecycle.AdmissionException, BusyException {
+        return submit(source, claimedSha256, live ? RunStdin.LIVE : RunStdin.NONE);
+    }
+
+    /** Part 10a: standard input closed, live, or given with the request (already admitted). */
+    public synchronized Run submit(String source, String claimedSha256, RunStdin stdin)
             throws TracedRunLifecycle.AdmissionException, BusyException {
         byte[] bytes = TracedRunLifecycle.admit(source);
         String sha = sha256(bytes);
@@ -117,7 +125,7 @@ public final class RunSupervisor implements AutoCloseable {
         if (closed) throw new IllegalStateException("Supervisor closed");
         housekeeping();
         if (occupied != null && queue.size() == QUEUE_LIMIT) throw new BusyException();
-        Run run = new Run(source, sha, live);
+        Run run = new Run(source, sha, stdin);
         runs.put(run.id, run);
         if (occupied == null) start(run); else queue.addLast(run);
         return run;
@@ -203,7 +211,13 @@ public final class RunSupervisor implements AutoCloseable {
         }
         var key = List.of(phase, terminated, cleaned, held, trace != null, failures);
         if (!key.equals(run.published)) { run.published = key; run.revision++; }
-        return new Snapshot(run.id, run.sha256, run.revision, phase, terminated, cleaned, held, trace, failures);
+        String inputSha = switch (run.stdin.mode()) {
+            case PROVIDED -> sha256(run.stdin.provided());
+            case LIVE -> phase == Phase.FINISHED && run.lifecycle != null && run.lifecycle.input() != null
+                    ? sha256(run.lifecycle.input().transcript()) : null;
+            case NONE -> null;
+        };
+        return new Snapshot(run.id, run.sha256, run.revision, phase, terminated, cleaned, held, trace, failures, run.stdin.wire(), inputSha);
     }
 
     /**
@@ -254,7 +268,7 @@ public final class RunSupervisor implements AutoCloseable {
             run.lifecycle = factory.get();
             worker.execute(() -> {
                 try {
-                    var result = run.lifecycle.runReserved(run.source, run.id, preparationDeadline, run.live);
+                    var result = run.lifecycle.runReserved(run.source, run.id, preparationDeadline, run.stdin);
                     synchronized (this) {
                         run.result = result;
                         if (result.terminationConfirmed() && result.cleanupVerified()) release(run);
@@ -283,7 +297,7 @@ public final class RunSupervisor implements AutoCloseable {
         expiry.shutdown(); worker.shutdown();
     }
 
-    static String sha256(byte[] bytes) {
+    public static String sha256(byte[] bytes) {
         try { return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes)); }
         catch (NoSuchAlgorithmException impossible) { throw new IllegalStateException(impossible); }
     }

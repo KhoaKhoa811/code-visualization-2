@@ -431,6 +431,42 @@ test('a program reads live console input and playback shows the read (8g, AC-19)
   await expect(page.getByTestId('var-n')).toContainText('21');
 });
 
+test('test input given with the run replaces the live console and stays tied to its run (10a, AC-35)', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.monaco-editor')).toBeVisible();
+  await page.getByLabel('Example').selectOption('Read input');
+  await page.getByLabel('Use test input').check();
+  await page.getByLabel('Test input', { exact: true }).fill('21\n');
+  await run(page);
+  // No console input was typed: the program read the given text, then end of input.
+  await expect(page.getByTestId('run-summary')).toContainText('completed');
+  await expect(page.getByTestId('console-output')).toHaveText('Enter n: 42\n');
+  await expect(page.getByTestId('run-input')).toContainText('Input: test input, 3 bytes (SHA-256 ');
+  await expect(page.getByLabel('Console input')).toHaveCount(0);
+
+  // Replay reads the recorded input; it never sends it again.
+  const forward = page.getByRole('button', { name: 'Step forward' });
+  for (let i = 0; i < 20; i++) {
+    if ((await page.getByTestId('step-detail').textContent())?.includes('Read input')) break;
+    await forward.click();
+  }
+  await expect(page.getByTestId('step-detail')).toContainText('Read input: in.nextInt() → 21');
+
+  // Editing the test input afterwards keeps this playback tied to the input it was given.
+  await page.getByLabel('Test input', { exact: true }).fill('5\n');
+  await expect(page.getByTestId('input-changed')).toContainText('This playback used the input it was given');
+  await expect(page.getByTestId('step-detail')).toContainText('in.nextInt() → 21');
+  await run(page);
+  await expect(page.getByTestId('console-output')).toHaveText('Enter n: 10\n');
+  await expect(page.getByTestId('input-changed')).toHaveCount(0);
+
+  // Too little input: Java's own end-of-input failure, recorded like any other.
+  await page.getByLabel('Test input', { exact: true }).fill('');
+  await run(page);
+  await expect(page.getByTestId('run-summary')).toContainText('failed');
+  await expect(page.getByTestId('run-summary')).toContainText('NoSuchElementException');
+});
+
 test('a helper throws, its frame unwinds, and main catches with finally on every path (8h)', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('.monaco-editor')).toBeVisible();

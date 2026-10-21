@@ -19,13 +19,19 @@ class RunControllerTest {
     @AfterEach void close() { runs.release.countDown(); access.close(); }
 
     static String request(String text, String sha) {
-        return "{\"schemaVersion\":\"1.1.0\",\"source\":{\"file\":\"Main.java\",\"text\":"
+        return "{\"schemaVersion\":\"1.2.0\",\"source\":{\"file\":\"Main.java\",\"text\":"
                 + quote(text) + ",\"sha256\":\"" + sha + "\"},\"inputMode\":\"none\"}";
     }
 
     /** Part 8g: a request whose console may send input. */
     static String liveRequest(String text, String sha) {
         return request(text, sha).replace("\"inputMode\":\"none\"", "\"inputMode\":\"live\"");
+    }
+
+    /** Part 10a: a request carrying test input and its SHA-256. */
+    static String providedRequest(String text, String sha, String input, String inputSha) {
+        return request(text, sha).replace("\"inputMode\":\"none\"", "\"inputMode\":\"provided\",\"input\":{\"text\":"
+                + quote(input) + ",\"sha256\":\"" + inputSha + "\"}");
     }
 
     static String quote(String s) {
@@ -59,7 +65,7 @@ class RunControllerTest {
         var accepted = post(request(TestRuns.SOURCE, TestRuns.SHA), "application/json");
         assertEquals(202, accepted.getStatusCode().value());
         String id = id(accepted);
-        assertTrue(body(accepted).startsWith("{\"schemaVersion\":\"1.0.0\",\"runId\":\"" + id + "\""), body(accepted));
+        assertTrue(body(accepted).startsWith("{\"schemaVersion\":\"1.1.0\",\"runId\":\"" + id + "\""), body(accepted));
         assertEquals(409, controller.output(id).getStatusCode().value());
         assertEquals("{\"error\":\"RECOVERY_NOT_APPLICABLE\"}", body(controller.recover(id)));
         awaitPhase(id, "executing");
@@ -72,6 +78,25 @@ class RunControllerTest {
         var output = controller.output(id);
         assertEquals(200, output.getStatusCode().value());
         assertEquals("{\"runId\":\"" + id + "\",\"stdout\":\"\",\"stderr\":\"\"}", body(output));
+    }
+
+    /** Part 10a: test input is admitted with its own bound, Unicode and hash, and its hash is in the snapshot. */
+    @Test void providedInputIsAdmittedAndAssociatedWithTheRun() {
+        String input = "3\n1 2 3\n";
+        String inputSha = com.codevisualization.backend.runner.RunSupervisor.sha256(input.getBytes(StandardCharsets.UTF_8));
+        var accepted = post(providedRequest(TestRuns.SOURCE, TestRuns.SHA, input, inputSha), "application/json");
+        assertEquals(202, accepted.getStatusCode().value(), body(accepted));
+        assertTrue(body(accepted).contains(",\"input\":{\"mode\":\"provided\",\"sha256\":\"" + inputSha + "\"},"), body(accepted));
+        assertFalse(body(accepted).contains("1 2 3"), "input text is never echoed");
+        assertEquals("{\"error\":\"INPUT_HASH_MISMATCH\"}",
+                body(post(providedRequest(TestRuns.SOURCE, TestRuns.SHA, input, "0".repeat(64)), "application/json")));
+        var tooLarge = post(providedRequest(TestRuns.SOURCE, TestRuns.SHA, "x".repeat(65_537), "0".repeat(64)), "application/json");
+        assertEquals(413, tooLarge.getStatusCode().value());
+        assertEquals("{\"error\":\"INPUT_LIMIT\"}", body(tooLarge));
+        String lone = providedRequest(TestRuns.SOURCE, TestRuns.SHA, "x", "0".repeat(64)).replace("\"text\":\"x\"", "\"text\":\"\\ud800\"");
+        assertEquals("{\"error\":\"INPUT_INVALID\"}", body(post(lone, "application/json")));
+        var none = post(request(TestRuns.SOURCE, TestRuns.SHA), "application/json");
+        assertTrue(body(none).contains(",\"input\":{\"mode\":\"none\",\"sha256\":null},"), body(none));
     }
 
     @Test void requestErrorsAreFixedCodesWithoutEcho() {
@@ -134,15 +159,19 @@ class RunControllerTest {
         assertDoesNotThrow(() -> RunRequest.parse(valid.getBytes(StandardCharsets.UTF_8)));
         for (String bad : new String[]{
                 valid.replace("\"inputMode\":\"none\"", "\"inputMode\":\"tty\""),
-                valid.replace("1.1.0", "1.0.0"),
+                valid.replace("1.2.0", "1.1.0"),
+                valid.replace("\"inputMode\":\"none\"", "\"inputMode\":\"provided\""), // provided needs input
+                valid.replace("\"inputMode\":\"none\"", "\"inputMode\":\"none\",\"input\":{\"text\":\"x\",\"sha256\":\"" + TestRuns.SHA + "\"}"),
+                providedRequest(TestRuns.SOURCE, TestRuns.SHA, "x", "short"),
+                providedRequest(TestRuns.SOURCE, TestRuns.SHA, "x", TestRuns.SHA).replace("\"text\":\"x\",", ""),
                 valid.replace("\"inputMode\":\"none\"", "\"inputMode\":\"none\",\"inputMode\":\"none\""),
                 valid.replace("\"inputMode\":\"none\"", "\"inputMode\":\"none\",\"command\":\"java\""),
                 valid.replace("Main.java", "../Main.java"),
-                valid.replace("1.1.0", "2.0.0"),
+                valid.replace("1.2.0", "2.0.0"),
                 valid + " {}",
                 valid.replace(TestRuns.SHA, TestRuns.SHA.toUpperCase()),
                 "[" .repeat(40) + "]".repeat(40),
-                "{\"schemaVersion\":\"1.1.0\"}"}) {
+                "{\"schemaVersion\":\"1.2.0\"}"}) {
             assertThrows(RunRequest.Invalid.class, () -> RunRequest.parse(bad.getBytes(StandardCharsets.UTF_8)), bad);
         }
         byte[] malformed = valid.getBytes(StandardCharsets.UTF_8);

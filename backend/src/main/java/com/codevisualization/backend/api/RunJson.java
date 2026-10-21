@@ -10,11 +10,13 @@ final class RunJson {
 
     static byte[] snapshot(RunSupervisor.Snapshot s) {
         var b = new StringBuilder(s.trace() == null ? 512 : s.trace().length() + 512);
-        b.append("{\"schemaVersion\":\"1.0.0\",\"runId\":");
+        b.append("{\"schemaVersion\":\"1.1.0\",\"runId\":");
         quote(b, s.runId());
         b.append(",\"sourceSha256\":");
         quote(b, s.sourceSha256());
-        b.append(",\"revision\":").append(s.revision())
+        b.append(",\"input\":{\"mode\":\"").append(s.inputMode()).append("\",\"sha256\":"); // Part 10a
+        if (s.inputSha256() == null) b.append("null"); else quote(b, s.inputSha256());
+        b.append("},\"revision\":").append(s.revision())
                 .append(",\"phase\":\"").append(s.phase().wire()).append('"')
                 .append(",\"terminationConfirmed\":").append(s.terminationConfirmed())
                 .append(",\"cleanupVerified\":").append(s.cleanupVerified())

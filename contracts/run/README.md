@@ -1,7 +1,8 @@
 # Run contracts (Part 6b)
 
-- [Request v1](v1/request.schema.json): exact source association; version 1.1.0
-  (Part 8g) selects `inputMode` `none` or `live`.
+- [Request v1](v1/request.schema.json): exact source association; version 1.2.0
+  (Parts 8g, 10a) selects `inputMode` `none`, `live` or `provided` (with `input` text and hash).
+- Result 1.1.0 (Part 10a) adds the `input` association (mode and hash).
 - [Result v1](v1/result.schema.json): lifecycle snapshot, termination/cleanup proof
   flags, slot ownership, retained infrastructure failures, optional trace-v1 result.
 - [Lifecycle rules](../../specs/run-lifecycle.md): ownership, phases, failure and
