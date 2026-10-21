@@ -28,7 +28,7 @@ only. For the active task, [handoff.md](handoff.md) is authoritative. History:
 6. Part 8 (replaces the old 7f+): 8a graceful partial coverage (merged), 8b primitive (merged)
    types and operators, 8c statements, 8d methods/recursion, 8e objects and fields
    with the object-graph view (moved into Core V1), 8f strings and
-   collections (8c-8f merged), 8g live Scanner console, 8h exceptions (merged), 8i hardening (done, awaiting review). See the coverage roadmap.
+   collections (8c-8f merged), 8g live Scanner console, 8h exceptions, 8i hardening (merged); then Core V1 completion 9a-9d (merged) and V1.1 10a-10d. See the coverage roadmap and V1 scope.
 
 Then V1.1: custom mappings, view rankings, separate test inputs, broader coverage.
 6g isolation-gap review is deferred until before any public deployment.
