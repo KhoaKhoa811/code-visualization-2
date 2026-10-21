@@ -8,6 +8,8 @@ import { describe } from './trace/format.ts';
 import { Playback, TraceError } from './trace/playback.ts';
 import { Controls } from './views/Controls.tsx';
 import { StatePanel } from './views/StatePanel.tsx';
+import { LayoutContext } from './views/Draggable.tsx';
+import { forNewRun, initialLayout } from './views/layout.ts';
 
 const PHASE_TEXT: Record<Snapshot['phase'], string> = {
   queued: 'Queued', preparing: 'Preparing container', compiling: 'Compiling', executing: 'Running',
@@ -36,6 +38,10 @@ export function App() {
   const [cursor, setCursor] = useState(0);
   const [playing, setPlaying] = useState(false);
   useEffect(() => { setCursor(0); setPlaying(false); }, [playback]);
+  // Part 9a: layout is presentation only. Element offsets belong to one run's ids; panel order stays.
+  const [layout, setLayout] = useState(initialLayout);
+  useEffect(() => { setLayout(forNewRun); }, [playback]);
+  const layoutApi = useMemo(() => ({ layout, update: setLayout }), [layout]);
 
   const usable = playback instanceof Playback && playback.available && !stale ? playback : null;
   const steps = usable?.steps ?? 0;
@@ -77,7 +83,15 @@ export function App() {
               {view.terminal && view.cursor > 0 && <span className="muted"> (end of recording)</span>}
             </div>
           )}
-          {view && <StatePanel view={view} />}
+          {view && (
+            <LayoutContext.Provider value={layoutApi}>
+              <div className="layout-bar">
+                <span className="muted">Drag panels by their title and diagram boxes anywhere; layout never changes the recording.</span>
+                <button onClick={() => setLayout(initialLayout())}>Reset layout</button>
+              </div>
+              <StatePanel view={view} />
+            </LayoutContext.Provider>
+          )}
           {!snap && !submit.isPending && <p className="muted hint">Write Java in the editor and press Run.</p>}
         </section>
         <section className="editor">

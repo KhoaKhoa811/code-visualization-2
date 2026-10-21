@@ -5,6 +5,7 @@ import type { Focus, State, View } from '../trace/playback.ts';
 import type { TraceObject } from '../trace/types.ts';
 import { ObjectGraph } from './ObjectGraph.tsx';
 import { LibraryPanel } from './LibraryPanel.tsx';
+import { Draggable, Panel } from './Draggable.tsx';
 
 type ArrayObject = TraceObject & { kind: 'array' };
 
@@ -19,8 +20,7 @@ export function StatePanel({ view }: { view: View }) {
   const topLevel = arrays.filter(a => bound.has(a.objectId) || !nested.has(a.objectId));
   return (
     <div className="state">
-      <section className="panel" aria-label="Call stack">
-        <h2>{state.frames.length > 1 ? `Call stack (${state.frames.length} frames)` : 'Variables'}</h2>
+      <Panel id="variables" label="Call stack" title={state.frames.length > 1 ? `Call stack (${state.frames.length} frames)` : 'Variables'}>
         {view.beforeEnd && <p className="muted" data-testid="ended-note">main has returned; showing the values it ended with.</p>}
         {state.frames.length === 0 && <p className="muted">No active frame.</p>}
         {/* Innermost (running) frame first; each invocation has its own variables, even with the same names. */}
@@ -42,27 +42,26 @@ export function StatePanel({ view }: { view: View }) {
             </table>
           </div>
         ))}
-      </section>
+      </Panel>
       <LibraryPanel view={view} />
       <ObjectGraph view={view} />
-      <section className="panel" aria-label="Arrays">
-        <h2>Arrays</h2>
+      <Panel id="arrays" label="Arrays" title="Arrays">
         {topLevel.length === 0 && <p className="muted">No arrays yet.</p>}
         {topLevel.map(array => {
           const names = namesOf(state, array.objectId);
           const active = focus.objectId === array.objectId;
           return (
-            <div className={`array${active && focus.access === 'allocate' || focus.touched?.includes(array.objectId) ? ' allocated' : ''}`} key={array.objectId}
+            <Draggable id={`array:${array.objectId}`} className={`array${active && focus.access === 'allocate' || focus.touched?.includes(array.objectId) ? ' allocated' : ''}`} key={array.objectId}
                  data-testid={`array-${names[0] ?? array.objectId}`}>
               <div className="array-label">
                 {names.length ? names.join(' = ') : '(temporary)'} <span className="muted">{arrayType(array)}</span>
                 {active && focus.access === 'length' && <span className="badge">length</span>}
               </div>
               <ArrayBody array={array} state={state} focus={focus} depth={0} />
-            </div>
+            </Draggable>
           );
         })}
-      </section>
+      </Panel>
       <StringsPanel view={view} />
     </div>
   );
@@ -118,13 +117,12 @@ function StringsPanel({ view }: { view: View }) {
     .filter(o => namesOf(state, o.objectId).length > 0);
   if (strings.length === 0) return null;
   return (
-    <section className="panel" aria-label="Strings">
-      <h2>Strings</h2>
+    <Panel id="strings" label="Strings" title="Strings">
       {strings.map(s => (
         <div key={s.objectId} className="string-row">
           <span className="name">{namesOf(state, s.objectId).join(' = ')}</span> {JSON.stringify(stringText(s))}
         </div>
       ))}
-    </section>
+    </Panel>
   );
 }

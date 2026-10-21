@@ -225,3 +225,12 @@ not verbatim transcripts, unless quoted.
   without it).
 - Final: 171 Java tests (tracer 78, backend 93) with live Docker, 62 contract,
   21 reducer, 10 browser tests; no containers left.
+
+## 2026-10-20 — Part 9.0 and 9a (Claude Code)
+
+- User merged 8i and asked to start V1.1; Claude found Core V1 gaps (tree,
+  heap, grid/dragging, Deque mode) and proposed Part 9 (Core V1 completion)
+  then Part 10 (V1.1). User: "I approve".
+- c2b1fd0: specs/v1-scope.md maps every acceptance case to status and part.
+- dd459be: grid of panels, panel reorder, layout-only dragging (arrows follow),
+  specs/frontend-design.md. 23 unit, 11 browser tests.

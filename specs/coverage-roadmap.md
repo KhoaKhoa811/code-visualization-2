@@ -56,7 +56,8 @@ Yes in architecture; not yet in breadth.
 | 8g | Live `Scanner` console (WebSocket, ADR 0001 to be written) | Interactive programs |
 | 8h | Exceptions: `throw`, `try/catch/finally` | Defensive code |
 | 8i | Hardening: program-only stack traces, `BufferedReader` input ([live console](live-console.md)), editor scrolls to each step | Common input style, faithful errors |
-| Then | V1.1 items: custom mappings, view rankings, separate test inputs, grid refinements, broader acceptance cases | Remaining V1 |
+| 9a–9d | Core V1 completion: grid and dragging, tree view (BST sort), heap view (heap sort), Deque stack/queue mode ([V1 scope](v1-scope.md)) | AC-12, 13, 14, 18, 23, 26, 31 |
+| 10a–10d | V1.1: separate test inputs, custom mappings, view rankings, broader problem suite ([V1 scope](v1-scope.md)) | Remaining V1 |
 
 The 6g isolation-gap review stays deferred until before any public deployment.
 
