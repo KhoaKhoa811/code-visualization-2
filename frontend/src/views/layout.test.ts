@@ -4,14 +4,14 @@ import { forNewRun, initialLayout, movePanel, panelOrder, setOffset } from './la
 
 test('panels reorder by moving one to another one\'s place (9a)', () => {
   const start = initialLayout();
-  assert.deepEqual(start.order, ['variables', 'collections', 'trees', 'objects', 'arrays', 'strings']);
+  assert.deepEqual(start.order, ['variables', 'collections', 'trees', 'heaps', 'objects', 'arrays', 'strings']);
   const moved = movePanel(start, 'arrays', 'variables');
-  assert.deepEqual(moved.order, ['arrays', 'variables', 'collections', 'trees', 'objects', 'strings']);
-  assert.deepEqual(movePanel(moved, 'arrays', 'strings').order, ['variables', 'collections', 'trees', 'objects', 'strings', 'arrays']);
+  assert.deepEqual(moved.order, ['arrays', 'variables', 'collections', 'trees', 'heaps', 'objects', 'strings']);
+  assert.deepEqual(movePanel(moved, 'arrays', 'strings').order, ['variables', 'collections', 'trees', 'heaps', 'objects', 'strings', 'arrays']);
   assert.equal(movePanel(start, 'arrays', 'arrays'), start, 'dropping on itself changes nothing');
   assert.equal(movePanel(start, 'unknown', 'arrays'), start);
   assert.equal(panelOrder(moved, 'arrays'), 0);
-  assert.equal(panelOrder(moved, 'not-a-panel'), 6, 'unknown panels go last');
+  assert.equal(panelOrder(moved, 'not-a-panel'), 7, 'unknown panels go last');
 });
 
 test('element offsets are layout only and end with the run (9a)', () => {

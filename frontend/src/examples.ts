@@ -135,6 +135,33 @@ public class Main {
     }
 }
 `,
+  'Heap sort': `public class Main {
+    static void siftDown(int[] a, int i, int n) {
+        while (2 * i + 1 < n) {
+            int child = 2 * i + 1;
+            if (child + 1 < n && a[child + 1] > a[child]) child++;
+            if (a[i] >= a[child]) return;
+            int t = a[i];
+            a[i] = a[child];
+            a[child] = t;
+            i = child;
+        }
+    }
+
+    public static void main(String[] args) {
+        int[] a = {4, 10, 3, 5, 1, 8};
+        for (int i = a.length / 2 - 1; i >= 0; i--) siftDown(a, i, a.length);
+        for (int end = a.length - 1; end > 0; end--) {
+            int t = a[0];
+            a[0] = a[end];
+            a[end] = t;
+            siftDown(a, 0, end);
+        }
+        for (int v : a) System.out.print(v + " ");
+        System.out.println();
+    }
+}
+`,
   'Recursion and helpers': `public class Main {
     static int factorial(int n) {
         if (n <= 1) return 1;

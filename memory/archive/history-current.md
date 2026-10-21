@@ -237,3 +237,7 @@ not verbatim transcripts, unless quoted.
 - 9b (user "ok"): tree view through a suggested-then-confirmed value/left/right
   mapping, Trees panel (in-order layout, dashed conflict links), tree-sort
   example, specs/tree-view.md. 26 unit, 12 browser tests.
+- 9c (user "ok"): heap view of an array through a confirmed mapping (array,
+  indexing, size variable, order); synchronized strip and tree, recorded
+  boundary, observed order violations; heap-sort example, specs/heap-view.md.
+  30 unit, 13 browser tests.
