@@ -9,7 +9,7 @@
 
 - Updated: 2026-10-22 (Asia/Saigon)
 - Owner: Claude Code
-- Status: 10d started; suite draft awaits the user's review. No code changed yet.
+- Status: 10d started; suite draft revision 2 awaits the user's review. No code changed yet.
 - Milestone: V1.1 (Part 10). 10a, 10b, 10c done and awaiting merge. Full isolation (6g) deferred.
 
 ## Approved roadmap (2026-10-20, "I approve")
@@ -22,15 +22,21 @@ implementation, so 10d.0 is a draft: [specs/problem-suite.md](../specs/problem-s
 ## Current task: 10d broader problem suite (AC-36)
 
 - [x] 10d.0 probe of 32 candidate programs through the real tracer; draft suite + gaps G1-G5 (this commit)
-- [ ] user review of the draft (3 decisions listed at its end)
+- [x] user review of revision 1 (2026-10-22): include lambdas and streams; entrySet yes; G5 only reverseOrder
+- [x] revision 2: G6 lambdas/method references, G7 sequential streams, F1-F11 programs, 5 increments;
+      probe found bug F1 (List.forEach with a lambda makes the whole program output-only, TRACE_MAPPING)
+- [ ] user review of revision 2 (4 decisions listed at its end)
 - [ ] 10d.1 G1 println(Object) for library values, G3 toCharArray/split/Arrays.toString/equals,
       G4 Arrays.sort/Collections.sort as one step, G5 PriorityQueue(Collections.reverseOrder())
+- [ ] 10d.1 also fixes bug F1
 - [ ] 10d.2 G2 enhanced for over List/Set/Deque, keySet/values/entrySet (trace contract 1.9.0)
-- [ ] 10d.3 ProblemSuiteTest (zero uncaptured statements), two frontend examples, browser test, AC-36 Done
+- [ ] 10d.3 G6 lambdas (callback frames via the library call, replay with recorded callback results)
+- [ ] 10d.4 G7 sequential streams (contract 1.10.0 with 10d.3)
+- [ ] 10d.5 ProblemSuiteTest (zero uncaptured statements), three frontend examples, browser test, AC-36 Done
 
 Probe tool: `runner/tracer/src/test/java/codeviz/tracer/ProbeTest.java` is a local, **uncommitted**
 scratch test (prints a report). Run with `-pl runner/tracer -Dtest=ProbeTest`; output in `.tools/probe.log`.
-It becomes the basis of ProblemSuiteTest in 10d.3; do not commit it as is.
+It becomes the basis of ProblemSuiteTest in 10d.5; do not commit it as is.
 
 ## Git
 
@@ -49,4 +55,4 @@ It becomes the basis of ProblemSuiteTest in 10d.3; do not commit it as is.
 
 ## Next action
 
-Wait for the user's review of specs/problem-suite.md; then implement 10d.1.
+Wait for the user's review of specs/problem-suite.md revision 2; then implement 10d.1.
