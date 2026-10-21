@@ -10,6 +10,8 @@ import { Controls } from './views/Controls.tsx';
 import { StatePanel } from './views/StatePanel.tsx';
 import { LayoutContext } from './views/Draggable.tsx';
 import { forNewRun, initialLayout } from './views/layout.ts';
+import { TreeMappings } from './views/TreeMappings.tsx';
+import { classFields, mappingProblem, type TreeMapping } from './trace/tree.ts';
 
 const PHASE_TEXT: Record<Snapshot['phase'], string> = {
   queued: 'Queued', preparing: 'Preparing container', compiling: 'Compiling', executing: 'Running',
@@ -42,8 +44,13 @@ export function App() {
   const [layout, setLayout] = useState(initialLayout);
   useEffect(() => { setLayout(forNewRun); }, [playback]);
   const layoutApi = useMemo(() => ({ layout, update: setLayout }), [layout]);
+  // Part 9b: confirmed tree mappings last for the page session and are checked against every run.
+  const [treeMappings, setTreeMappings] = useState<TreeMapping[]>([]);
+  const [notTrees, setNotTrees] = useState<string[]>([]);
 
   const usable = playback instanceof Playback && playback.available && !stale ? playback : null;
+  const fields = useMemo(() => usable ? classFields(usable.trace) : new Map(), [usable]);
+  const fittingTrees = useMemo(() => treeMappings.filter(m => mappingProblem(m, fields) === null), [treeMappings, fields]);
   const steps = usable?.steps ?? 0;
   const view = useMemo(() => usable ? usable.at(cursor) : null, [usable, cursor]);
 
@@ -89,7 +96,11 @@ export function App() {
                 <span className="muted">Drag panels by their title and diagram boxes anywhere; layout never changes the recording.</span>
                 <button onClick={() => setLayout(initialLayout())}>Reset layout</button>
               </div>
-              <StatePanel view={view} />
+              <TreeMappings fields={fields} mappings={treeMappings} dismissed={notTrees}
+                onConfirm={m => setTreeMappings(list => [...list.filter(x => x.className !== m.className), m])}
+                onRemove={c => setTreeMappings(list => list.filter(x => x.className !== c))}
+                onDismiss={c => setNotTrees(list => [...list, c])} />
+              <StatePanel view={view} trees={fittingTrees} />
             </LayoutContext.Provider>
           )}
           {!snap && !submit.isPending && <p className="muted hint">Write Java in the editor and press Run.</p>}

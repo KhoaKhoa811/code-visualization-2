@@ -102,6 +102,39 @@ public class Main {
     }
 }
 `,
+  'Tree sort': `public class Main {
+    static class Node {
+        int key;
+        Node left, right;
+        Node(int key) { this.key = key; }
+    }
+
+    static Node insert(Node root, int key) {
+        if (root == null) return new Node(key);
+        if (key < root.key) root.left = insert(root.left, key);
+        else root.right = insert(root.right, key);
+        return root;
+    }
+
+    static int inorder(Node node, int[] out, int i) {
+        if (node == null) return i;
+        i = inorder(node.left, out, i);
+        out[i] = node.key;
+        i++;
+        return inorder(node.right, out, i);
+    }
+
+    public static void main(String[] args) {
+        int[] values = {5, 2, 8, 6, 1};
+        Node root = null;
+        for (int v : values) root = insert(root, v);
+        int[] sorted = new int[values.length];
+        inorder(root, sorted, 0);
+        for (int s : sorted) System.out.print(s + " ");
+        System.out.println();
+    }
+}
+`,
   'Recursion and helpers': `public class Main {
     static int factorial(int n) {
         if (n <= 1) return 1;

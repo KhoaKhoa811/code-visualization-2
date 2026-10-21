@@ -31,9 +31,11 @@ reruns Java.
 | Objects | the factual object graph: boxes and reference arrows, by reference distance |
 | Arrays | named or reachable arrays; arrays of arrays as rows |
 | Strings | strings that a variable refers to |
+| Trees | confirmed binary-tree views of user objects ([tree view](tree-view.md), 9b) |
 
 The grid fills columns at least 280 px wide. The object graph and the arrays panel span
-the full width. Later parts add panels: tree (9b), heap (9c).
+the full width. The heap view comes in 9c. Above the grid, a card suggests tree views and
+lists confirmed ones (Show as tree, Choose fields, Not a tree, Change, Remove).
 
 ## Layout interactions
 
@@ -50,4 +52,4 @@ playback cursor (AC-18, AC-23).
   never reused (requirements 6.1). Nothing is stored after the page closes. Saving
   layouts is not required for V1.
 
-Tree and heap node dragging comes with their views (9b, 9c).
+Tree nodes drag too (9b); heap nodes come with their view (9c).

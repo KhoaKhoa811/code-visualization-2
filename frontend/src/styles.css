@@ -74,7 +74,7 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 .panel-handle { cursor: grab; user-select: none; }
 .draggable { touch-action: none; user-select: none; cursor: grab; }
 .draggable:active { cursor: grabbing; }
-.draggable[style*="translate"] { position: relative; z-index: 2; }
+.draggable:not(.tree-node)[style*="translate"] { position: relative; z-index: 2; }
 .layout-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; font-size: 12px; }
 .layout-bar button { padding: 2px 10px; }
 .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 10px; }
@@ -147,3 +147,25 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 .map-table td { padding: 2px 8px; border-bottom: 1px solid var(--border); }
 .map-key { color: var(--accent); }
 .map-table .unknown { color: var(--muted); font-style: italic; }
+
+/* Part 9b: confirmed tree views and their mapping card. */
+.mappings { display: grid; gap: 6px; margin-bottom: 10px; }
+.mapping { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; }
+.mapping.suggestion { border-color: var(--accent); }
+.mapping button { padding: 2px 10px; }
+.mapping-editor { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.mapping-field select { padding: 2px 6px; }
+.tree-block { margin-bottom: 12px; }
+.tree { position: relative; margin: 22px 0 10px; }
+.tree-edges { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+.tree-edges line { stroke: var(--accent); stroke-width: 1.5; }
+.tree-edges line.repeat { stroke: var(--warning); stroke-dasharray: 5 4; }
+.tree-node { position: absolute; min-width: 40px; height: 40px; padding: 0 8px; border: 1px solid var(--border); border-radius: 20px; background: var(--panel-2); display: flex; align-items: center; justify-content: center; font-family: Consolas, monospace; z-index: 1; }
+.tree-node[style*="translate"] { z-index: 2; }
+.tree-node.read { background: var(--read); }
+.tree-node.write { background: var(--write); }
+.tree-node.allocate { outline: 2px solid var(--accent); outline-offset: 2px; }
+.tree-node.unknown .tree-value { color: var(--muted); font-style: italic; }
+.tree-field { position: absolute; top: -16px; font-size: 11px; color: var(--warning); }
+.tree-names { position: absolute; left: 100%; top: -10px; margin-left: 2px; font-size: 11px; color: var(--muted); white-space: nowrap; }
+.tree-stub { position: absolute; top: 56px; font-size: 10px; color: var(--muted); }
