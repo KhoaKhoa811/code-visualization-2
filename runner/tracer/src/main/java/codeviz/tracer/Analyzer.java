@@ -722,7 +722,7 @@ final class Analyzer {
             String arrayType = javaType(f.getExpression());
             VariableTree v = f.getVariable();
             String type = javaType(v);
-            if (!array(arrayType)) { unsupported(f.getExpression(), "for-each over " + arrayType + " (only arrays are traced)"); return; }
+            if (!array(arrayType)) { iterableForEach(f); return; } // Part 10d
             if (!localType(type)) { unsupported(v, "local variables of type " + type); return; }
             scopes.push("f" + start(f));
             value(f.getExpression(), null);
@@ -742,6 +742,64 @@ final class Analyzer {
             exits.push(f);
             try { statement(f.getStatement()); } finally { exits.pop(); }
             plan.add(new Item(Expect.IINC, null, 0, "index++"));
+            scopes.pop();
+        }
+
+        /**
+         * Part 10d. javac Lower.visitIterableForeachLoop: {@code for (Iterator i = c.iterator(); i.hasNext(); ) { V v = (V) i.next(); body }}
+         * over a covered list, set or deque, or a map's keySet(), values() or entrySet(). The ITERATE site records
+         * the collection before iterator() (or before the view call); each next() is a NEXT step with the element,
+         * then the loop variable's declaration. The iterator itself is never shown.
+         */
+        private void iterableForEach(EnhancedForLoopTree f) {
+            ExpressionTree e = strip(f.getExpression());
+            VariableTree v = f.getVariable();
+            String type = javaType(v), collection = javaType(e), view = "elements", element;
+            ExpressionTree source = e;
+            if (e instanceof MethodInvocationTree call && call.getArguments().isEmpty() && call.getMethodSelect() instanceof MemberSelectTree select
+                    && MAPS.contains(erasure(javaType(select.getExpression()))) && libraryType(javaType(select.getExpression()))
+                    && Set.of("keySet", "values", "entrySet").contains(select.getIdentifier().toString())) {
+                source = select.getExpression();
+                collection = javaType(source);
+                List<String> kv = typeArguments(collection);
+                view = switch (select.getIdentifier().toString()) { case "keySet" -> "keys"; case "values" -> "values"; default -> "entries"; };
+                element = switch (view) { case "keys" -> kv.get(0); case "values" -> kv.get(1); default -> ENTRY + "<" + kv.get(0) + "," + kv.get(1) + ">"; };
+            } else if ((LISTS.contains(erasure(collection)) || SETS.contains(erasure(collection)) || DEQUES.contains(erasure(collection)))
+                    && libraryType(collection)) {
+                element = typeArguments(collection).get(0);
+            } else {
+                unsupported(f.getExpression(), "for-each over " + collection + " (only arrays, lists, sets, deques and map views are traced)");
+                return;
+            }
+            if (!localType(type)) { unsupported(v, "local variables of type " + type); return; }
+            scopes.push("f" + start(f));
+            value(source, null);
+            String raw = erasure(collection), owner = Instrumenter.internal(raw);
+            TypeElement ownerType = elements.getTypeElement(raw);
+            Site iterate = site(Kind.ITERATE, f.getExpression());
+            iterate.name = view;
+            iterate.javaType = collection;
+            iterate.operator = ownerType != null && ownerType.getKind() == ElementKind.INTERFACE ? "interface" : "virtual";
+            if (view.equals("elements")) {
+                plan.add(new Item(Expect.ITER, iterate, 0, owner + "#iterator()Ljava/util/Iterator;"));
+            } else {
+                String call = view.equals("keys") ? "keySet()Ljava/util/Set;" : view.equals("values") ? "values()Ljava/util/Collection;" : "entrySet()Ljava/util/Set;";
+                plan.add(new Item(Expect.ITER, iterate, 0, owner + "#" + call));
+                plan.add(new Item(Expect.LIB, null, 0, (view.equals("values") ? "java/util/Collection" : "java/util/Set") + "#iterator()Ljava/util/Iterator;"));
+            }
+            plan.add(new Item(Expect.STORE, null, 0, "iterator"));
+            plan.add(new Item(Expect.LIB, null, 0, "java/util/Iterator#hasNext()Z"));
+            plan.add(new Item(Expect.JUMP, null, 0, "hasNext"));
+            Site next = site(Kind.NEXT, f.getExpression());
+            next.callee = iterate;
+            next.name = view;
+            next.javaType = element;
+            plan.add(new Item(Expect.NEXT, next, 0, "java/util/Iterator#next()Ljava/lang/Object;"));
+            coerce(element, type);
+            Site declare = declareSite(v, type);
+            plan.add(Item.of(Expect.STORE, declare));
+            exits.push(f);
+            try { statement(f.getStatement()); } finally { exits.pop(); }
             scopes.pop();
         }
 
@@ -1221,13 +1279,15 @@ final class Analyzer {
         private static final Set<String> MAPS = Set.of("java.util.Map", "java.util.HashMap", "java.util.TreeMap", "java.util.LinkedHashMap");
         private static final Set<String> SETS = Set.of("java.util.Set", "java.util.HashSet", "java.util.TreeSet", "java.util.LinkedHashSet");
         private static final String PQ = "java.util.PriorityQueue", BUILDER = "java.lang.StringBuilder", SCANNER = "java.util.Scanner",
-                READER = "java.io.BufferedReader"; // Part 8i
+                READER = "java.io.BufferedReader", // Part 8i
+                ENTRY = "java.util.Map.Entry"; // Part 10d: a map entry seen by iterating entrySet()
 
         /** A covered library type with covered type arguments (Part 8f). */
         private boolean libraryType(String t) {
             String raw = erasure(t);
             if (raw.equals(BUILDER) || raw.equals(SCANNER) || raw.equals(READER)) return t.equals(raw);
             List<String> args = typeArguments(t);
+            if (raw.equals(ENTRY)) return args.size() == 2 && keyType(args.get(0)) && elementType(args.get(1)); // Part 10d
             if (MAPS.contains(raw)) return args.size() == 2 && keyType(args.get(0)) && elementType(args.get(1));
             if (SETS.contains(raw) || raw.equals(PQ)) return args.size() == 1 && keyType(args.get(0));
             if (LISTS.contains(raw) || DEQUES.contains(raw)) return args.size() == 1 && elementType(args.get(0));
@@ -1249,6 +1309,7 @@ final class Analyzer {
                 Map.entry("map", Set.of("put", "get", "getOrDefault", "containsKey", "remove", "size", "isEmpty", "clear")),
                 Map.entry("set", Set.of("add", "contains", "remove", "size", "isEmpty", "clear")),
                 Map.entry("pq", Set.of("add", "offer", "poll", "peek", "remove", "size", "isEmpty", "clear")),
+                Map.entry("entry", Set.of("getKey", "getValue")), // Part 10d; setValue is not covered
                 Map.entry("scanner", Set.of("nextInt", "nextLong", "nextDouble", "nextBoolean", "next", "nextLine", "hasNext", "hasNextInt",
                         "hasNextLine", "close")),
                 // Part 8i: ready() is left out, its answer depends on when input arrives, not on the input.
@@ -1277,7 +1338,7 @@ final class Analyzer {
                 if (exceptionElement(receiver) != null && name.equals("getMessage") && m.getParameters().isEmpty()) return m;
                 if (!raw.equals("java.lang.String") && !libraryType(receiver)) return null;
                 String family = raw.equals("java.lang.String") ? "string" : raw.equals(BUILDER) ? "builder" : raw.equals(SCANNER) ? "scanner"
-                        : raw.equals(READER) ? "reader"
+                        : raw.equals(READER) ? "reader" : raw.equals(ENTRY) ? "entry"
                         : LISTS.contains(raw) ? "list"
                         : DEQUES.contains(raw) ? "deque" : MAPS.contains(raw) ? "map" : SETS.contains(raw) ? "set" : "pq";
                 names = new HashSet<>(FAMILY_METHODS.get(family));
@@ -1652,6 +1713,7 @@ final class Analyzer {
                 unsupported(c, "this compound assignment");
                 return;
             }
+            if (BOXES.containsKey(rhsType)) rhsType = BOXES.get(rhsType); // Part 10d: total += map.get(k) unboxes the right side
             if (rhsType.equals("java.lang.String") || !SCALARS.contains(rhsType)) { unsupported(c, "this compound assignment"); return; }
             boolean shift = op.startsWith("<") || op.startsWith(">");
             String opType = type.equals("boolean") ? "boolean" : shift ? promote(type) : promote(type, rhsType);

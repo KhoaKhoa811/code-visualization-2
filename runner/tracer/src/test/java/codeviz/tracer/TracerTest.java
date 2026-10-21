@@ -1231,6 +1231,53 @@ class TracerTest {
         assertFalse(uncaptured(user).isEmpty());
     }
 
+    @Test void forEachOverCollectionsAndMapViewsStepsThroughEachElement() throws Exception {
+        Run r = main("for-each-collections", """
+                java.util.List<Integer> xs = new java.util.ArrayList<>();
+                xs.add(3); xs.add(4);
+                int sum = 0;
+                for (int x : xs) sum += x;
+                java.util.Set<String> seen = new java.util.TreeSet<>();
+                seen.add("b"); seen.add("a");
+                String all = "";
+                for (String s : seen) all += s;
+                java.util.Map<Character, Integer> m = new java.util.TreeMap<>();
+                m.put('x', 1); m.put('y', 2);
+                int total = 0;
+                for (char k : m.keySet()) total += m.get(k);
+                for (int v : m.values()) total += v;
+                for (java.util.Map.Entry<Character, Integer> e : m.entrySet()) System.out.println(e.getKey() + "=" + e.getValue());
+                java.util.Deque<Integer> d = new java.util.ArrayDeque<>();
+                d.push(1); d.push(2);
+                for (Integer y : d) System.out.print(y);
+                System.out.println(sum + all + total);""");
+        assertComplete(r, "completed");
+        assertEquals("x=1\ny=2\n217ab6\n", r.result().stdout());
+        assertEquals(List.of(), uncaptured(r));
+        assertInOrder(textSteps(r.trace()), "LIB next() = 3 @xs", "DECLARE x=3 @int x", "LIB next() = 4 @xs",
+                "LIB next() = \"a\" @seen", "DECLARE s=\"a\" @String s", "LIB next() = \"b\" @seen",
+                "LIB next() = 120 @m.keySet()", "LIB get(120) = 1 @m.get(k)", "LIB next() = 2 @m.values()");
+        List<Map<String, Object>> entries = events(r.trace()).stream().filter(e -> "OBJECT_CAPTURE".equals(e.get("kind")))
+                .map(e -> map(map(e.get("data")).get("object"))).filter(o -> "entry".equals(o.get("kind"))).toList();
+        assertEquals(2, entries.size(), "each entry is captured once, with its key and value");
+        assertEquals("1", map(entries.get(0).get("value")).get("value"));
+        // A change to the collection inside the loop fails next() exactly as in Java.
+        Run cme = main("for-each-modified", """
+                java.util.List<Integer> xs = new java.util.ArrayList<>();
+                xs.add(1); xs.add(2);
+                for (int x : xs) if (x == 1) xs.add(3);""");
+        assertComplete(cme, "failed");
+        assertInOrder(steps(cme.trace()), "LIB add(3) = true -> [1,2,3] @xs.add(3)", "EXCEPTION java.util.ConcurrentModificationException @xs");
+        // An entry changed through put while shown cannot be followed: capture stops before it would be wrong.
+        Run stale = main("for-each-entry-put", """
+                java.util.Map<String, Integer> m = new java.util.HashMap<>();
+                m.put("a", 1);
+                for (java.util.Map.Entry<String, Integer> e : m.entrySet()) m.put(e.getKey(), e.getValue() + 1);
+                System.out.println(m.get("a"));""");
+        assertEquals("2\n", stale.result().stdout());
+        assertEquals("partial", status(stale.trace(), "capture"));
+    }
+
     @Test void aStatementWithACapturingLambdaRunsUncapturedInsteadOfFailingTheProgram() throws Exception {
         Run r = main("capturing-lambda", """
                 java.util.List<Integer> xs = new java.util.ArrayList<>();

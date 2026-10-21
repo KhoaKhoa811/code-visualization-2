@@ -60,7 +60,9 @@ final class Library {
         Class<?>[] types = params.isEmpty() ? new Class<?>[0] : java.util.Arrays.stream(params.split(","))
                 .map(p -> { try { return type(p); } catch (ClassNotFoundException e) { throw new IllegalArgumentException(p); } })
                 .toArray(Class<?>[]::new);
-        Method method = Class.forName(owner).getMethod(name, types);
+        // Part 10d: a nested owner (java.util.Map.Entry) has a binary name with '$'.
+        Class<?> ownerClass = owner.equals("java.util.Map.Entry") ? java.util.Map.Entry.class : Class.forName(owner);
+        Method method = ownerClass.getMethod(name, types);
         METHODS.put(methodId, method);
         return method;
     }

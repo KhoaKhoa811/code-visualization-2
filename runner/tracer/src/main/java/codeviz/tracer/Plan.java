@@ -14,11 +14,11 @@ final class Plan {
     /** Relevant bytecode instruction families, in javac code-layout order. */
     enum Expect { STORE, IINC, ALOAD, ASTORE, ARRAYLENGTH, NEWARRAY, NEWARRAY_LITERAL, LITERAL_STORE, ARITH, NEG, CONVERT, CMP, JUMP,
         CALL, RETURN, NEW, SUPER, CTOR, FIELD_GET, FIELD_PUT, LIB, LIBNEW, APPEND, TOSTRING, BOX, UNBOX,
-        SWITCH, GETSTATIC, INVOKE, REGION, THROW }
+        SWITCH, GETSTATIC, INVOKE, REGION, THROW, ITER, NEXT }
 
     enum Kind { DECLARE, ASSIGN, UPDATE, ALLOCATE, ARRAY_READ, ARRAY_LENGTH, ARRAY_WRITE, ARITHMETIC, CAST, LEAF, SWITCH, REGION,
         METHOD, PARAM, CALL, RETURN, CLASS, FIELD, FIELD_READ, FIELD_WRITE, LIBRARY, CONCAT, CONCAT_ARG,
-        THROW, CATCH, FINALLY, EXCEPTION_CLASS }
+        THROW, CATCH, FINALLY, EXCEPTION_CLASS, ITERATE, NEXT }
 
     /** One instrumented operation site. Fields not relevant to a kind stay null. */
     static final class Site {
@@ -66,6 +66,9 @@ final class Plan {
         // in flight at the start of a finally handler. EXCEPTION_CLASS: a Throwable class of the source,
         // name its binary name and owner its superclass's binary name.
         List<String> caught = List.of();
+        // Part 10d. ITERATE: a for-each over a collection (javaType) or a map view; name is the view
+        // (elements, keys, values, entries), operator interface/virtual for the call it records before.
+        // NEXT: one next() of that loop; callee is its ITERATE site, javaType the element's static type.
 
         Site(int id, Kind kind, int start, int end, List<String> scopes) {
             this.id = id; this.kind = kind; this.start = start; this.end = end;

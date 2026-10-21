@@ -35,6 +35,16 @@ Part 10d ([problem suite](problem-suite.md)):
   shown, so it is never shown in a guessed order.
 - Library-call arguments are recorded before the call, like receivers, so a collection or
   array first seen by a sort shows its contents from before the sort.
+- 10d.2, trace 1.9.0: `for (T x : c)` over a covered list, set or deque, or over a map's
+  `keySet()`, `values()` or `entrySet()`. Each `next()` is one LIBRARY step
+  (`java.util.Iterator.next()` on the collection, with `view` for a map view), checked
+  against the builder's own iteration of its mirror, then the loop variable's declaration.
+  `hasNext` and the iterator are not shown. A `ConcurrentModificationException` is the
+  failure of that step, as in Java. Map entries are `entry` objects with their key and
+  value; `getKey()` and `getValue()` are covered, `setValue` is not, and a covered call that
+  changes a shown entry (`put` of an iterated key) stops capture instead of showing a stale
+  value. Iterating a `PriorityQueue` stays uncaptured.
+- 10d.2: a compound assignment may unbox its right side (`total += map.get(k)`).
 
 Element types: boxed primitives (`Integer`, `Long`, `Double`, `Character`,
 `Boolean`, ...), `String`, traced classes that do not declare `equals`,
@@ -56,10 +66,10 @@ be primitives, boxed primitives, `String` or `null` (no `toString()` of user
 objects). The program is compiled with javac's inline concatenation strategy, so
 concatenation uses `StringBuilder` calls that the tracer can match.
 
-Still uncaptured: other library methods and classes, iterators and enhanced
-`for` over collections, streams and lambdas, comparators other than the JDK's reverse
+Still uncaptured: other library methods and classes, iterators used directly,
+`for` over a `PriorityQueue`, streams and lambdas, comparators other than the JDK's reverse
 order, other `Collections`/`Arrays` utilities (`fill`, `reverse`, `addAll`, ...), map views
-(`keySet`, `values`, `entrySet`), `format`, `Math.pow` (not exactly specified across
+used other than by a for-each, `format`, `Math.pow` (not exactly specified across
 JVMs), and user `toString` in concatenation or output. Part 10d adds iteration, lambdas
 and streams in later increments ([problem suite](problem-suite.md)).
 

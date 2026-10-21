@@ -213,6 +213,18 @@ passes all of them.
 - Probe after 10d.1: every G1, G3, G4 and G5 gap is gone (A1, A7, S2-S5, M1b, T1, L2, R1,
   R3, H3, H4 have no uncaptured statement). Left: G2 (M3, M4, T2, L1) and G6/G7.
 
+**10d.2 (2026-10-22): done.** G2, trace contract **1.9.0** ([library](library.md),
+[trace format](trace-format.md)).
+- Plan kinds ITERATE (the collection or map, recorded before `iterator()` or the view call)
+  and NEXT (each element, recorded after `next()`); plan format 9. The builder iterates its
+  own mirror and checks every element.
+- `entry` objects for `entrySet()`, with `getKey`/`getValue`. A covered call that changes a
+  shown entry, or a change by uncaptured code, stops capture (partial) instead of showing a
+  stale value.
+- Found while testing M4: `total += m.get(k)` (a compound assignment with a boxed right side)
+  ran uncaptured. It is now covered (unboxing, then the arithmetic).
+- Probe after 10d.2: M3, M4, T2 and L1 have no uncaptured statement. Left: G6/G7 (M5, F1-F11).
+
 ## Decisions for review (revision 2)
 
 1. The added F1–F11 programs and the G6/G7 operation lists above.

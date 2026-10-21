@@ -338,6 +338,18 @@ test('library sorts change their argument in one step; reverse order shows poll 
   assert.deepEqual(pq.elements.map(v => formatValue(v)), ['3', '1']); // reverse order: the largest polls first
 });
 
+test('for-each over collections and map views reads as next-element steps; entries keep key and value (1.9.0)', () => {
+  const p = new Playback(fixture('for-each'));
+  const views = Array.from({ length: p.steps }, (_, k) => p.at(k + 1));
+  const texts = views.filter(v => v.event?.kind === 'LIBRARY').map(v => describeStep(v.event!, v.state));
+  for (const want of ['Next element of xs: 3', 'Next element of seen: "a"', "Next key of m: 'x'", 'Next value of m: 2', "Next entry of m: 'y'=2", 'Next element of d: 2'])
+    assert.ok(texts.includes(want), `${want}\n${texts.join('\n')}`);
+  const entry = views.find(v => v.event?.kind === 'DECLARE' && v.event.data.binding.name === 'e')!;
+  assert.equal(formatValue(entry.state.bindings.find(b => b.name === 'e')!.value, entry.state.objects), "'x'=1");
+  const next = views.find(v => v.event?.kind === 'LIBRARY' && describeStep(v.event, v.state) === 'Next element of xs: 3')!;
+  assert.deepEqual(next.focus, { objectId: (next.event!.data as { objectId: string }).objectId, access: 'read' });
+});
+
 test('Scanner reads are recorded library steps over console input (8g)', () => {
   const p = new Playback(example('valid/scanner-read.json'));
   const created = p.at(1);
@@ -348,7 +360,7 @@ test('Scanner reads are recorded library steps over console input (8g)', () => {
   assert.equal(describeStep(read.event!, read.state), 'Read input: in.nextInt() → 21');
   assert.deepEqual(read.focus, { objectId: 'in1', access: 'read' });
   assert.equal(formatValue(p.at(4).beforeEnd!.bindings.find(b => b.name === 'n')!.value), '21');
-  assert.throws(() => new Playback({ ...example('valid/scanner-read.json'), schemaVersion: '1.5.0' as '1.8.0' }), TraceError);
+  assert.throws(() => new Playback({ ...example('valid/scanner-read.json'), schemaVersion: '1.5.0' as '1.9.0' }), TraceError);
   // 1.8.0: a BufferedReader over System.in is the same kind of input object.
   const reader = structuredClone(example('valid/scanner-read.json'));
   const allocate = reader.events[0];

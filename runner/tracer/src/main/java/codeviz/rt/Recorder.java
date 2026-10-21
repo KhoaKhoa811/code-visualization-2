@@ -120,6 +120,7 @@ public final class Recorder {
         if (o.getClass().isArray()) values(b, o);
         else if (o instanceof java.util.Scanner || o instanceof java.io.BufferedReader) b.append(" 0"); // Parts 8g, 8i: reads are replayed
         else if (o instanceof StringBuilder sb) b.append(' ').append(hex(sb.toString()));
+        else if (o instanceof java.util.Map.Entry<?, ?> e) b.append(' ').append(id(e.getKey())).append(' ').append(id(e.getValue())); // Part 10d
         else if (o instanceof java.util.Map<?, ?> map) {
             b.append(' ').append(map.size());
             for (var e : map.entrySet()) b.append(' ').append(id(e.getKey())).append(' ').append(id(e.getValue()));
@@ -147,7 +148,7 @@ public final class Recorder {
 
     /** Record prefix of a first sight or re-read: array, library collection, map, builder or object. */
     private static String prefix(Object o) {
-        return o.getClass().isArray() ? "A" : o instanceof StringBuilder ? "B" : o instanceof java.util.Map ? "M"
+        return o.getClass().isArray() ? "A" : o instanceof StringBuilder ? "B" : o instanceof java.util.Map ? "M" : o instanceof java.util.Map.Entry ? "Y"
                 : o instanceof java.util.Collection || o instanceof java.util.Scanner || o instanceof java.io.BufferedReader ? "C" : "O";
     }
 
@@ -220,7 +221,7 @@ public final class Recorder {
         Integer known = IDS.get(o);
         if (known != null) return "r" + known;
         if (!(o instanceof String) && !(o instanceof Throwable) && !o.getClass().isArray() && !LIBRARY.contains(o.getClass())
-                && o.getClass().getName().startsWith("java.")) return "?";
+                && !(o instanceof java.util.Map.Entry) && o.getClass().getName().startsWith("java.")) return "?"; // Part 10d: entries
         int id = register(o);
         INTRODUCED.add(o);
         return "r" + id;
@@ -627,6 +628,12 @@ public final class Recorder {
     }
 
     public static void libFail(Throwable e, int site) { fail(site, e); }
+
+    /** Part 10d: the collection (or map) a for-each iterates, before its iterator() (or view) call. */
+    public static void iter(Object collection, int site) { String r = ref(collection); line(site + " " + r); }
+
+    /** Part 10d: one element a for-each's next() returned. */
+    public static void iterNext(Object element, int site) { String r = ref(element); line(site + " " + r); }
 
     /** The receiver of a library call, before the call: a first sight records its contents as they were. */
     public static void libSee(Object receiver) { if (receiver != null) ref(receiver); }

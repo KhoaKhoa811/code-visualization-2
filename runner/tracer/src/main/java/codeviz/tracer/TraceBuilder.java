@@ -173,6 +173,7 @@ final class TraceBuilder {
                     if (line.startsWith("O")) { objectContents(line); continue; }
                     if (line.startsWith("C") || line.startsWith("M") || line.startsWith("B")) { libraryContents(line); continue; }
                     if (line.startsWith("E")) { exceptionSight(line); continue; }
+                    if (line.startsWith("Y")) { entryContents(line); continue; } // Part 10d
                     closeRegion();
                     if (line.equals("R")) {
                         if (frames.size() != 1 || pendingCall != null) throw new Inconsistent("main returned inside a call");
@@ -740,6 +741,8 @@ final class TraceBuilder {
                         "previous", previous, "value", value));
             }
             case LIBRARY -> libraryCall(site, t);
+            case ITERATE -> iterate(site, t);
+            case NEXT -> next(site, t);
             case CONCAT_ARG -> {
                 expect(t, 2);
                 Deque<Concat> concats = frames.peek().concats();
@@ -1219,6 +1222,8 @@ final class TraceBuilder {
             for (int i = 0; i < sb.length(); i++) units.add((int) sb.charAt(i));
             return ordered("objectId", id, "kind", "builder", "className", className, "utf16", units);
         }
+        if (mirror instanceof Map.Entry<?, ?> e) // Part 10d
+            return ordered("objectId", id, "kind", "entry", "mapId", entryMaps.get(id), "key", traceValue(e.getKey()), "value", traceValue(e.getValue()));
         if (mirror instanceof Map<?, ?> map) {
             List<Map.Entry<Object, Object>> entries = new ArrayList<>(((Map<Object, Object>) map).entrySet());
             if (mirror instanceof java.util.HashMap && !(mirror instanceof java.util.LinkedHashMap))
@@ -1239,6 +1244,7 @@ final class TraceBuilder {
 
     private static boolean libraryFits(String type, Object mirror) {
         String raw = Analyzer.erasure(type);
+        if (raw.equals("java.util.Map.Entry")) return mirror instanceof Map.Entry; // Part 10d: a nested type's binary name differs
         try { return Class.forName(raw).isInstance(mirror); } catch (ClassNotFoundException e) { return false; }
     }
 
@@ -1298,6 +1304,7 @@ final class TraceBuilder {
         }
         Map<String, Object> after = before == null ? null : libraryValue(receiverId != null ? receiverId : changedArgument);
         if (after != null && after.equals(before)) after = null;
+        if (after != null && "map".equals(after.get("kind"))) checkEntries((String) after.get("objectId")); // Part 10d
         for (var e : javaArrays.entrySet()) { // Part 10d: an array the call changed (Arrays.sort) takes its replayed contents
             List<Map<String, Object>> state = arrays.get(e.getKey()), replayedElements = arrayElements(e.getValue());
             if (state.equals(replayedElements)) continue;
@@ -1366,6 +1373,101 @@ final class TraceBuilder {
             return true;
         }
         return replayed.getClass().getComponentType().getName().equals(elementTypes.get(id)) && state.equals(arrayElements(replayed));
+    }
+
+    // ---- Part 10d: for-each over collections and map views ------------------------------------
+
+    private record Iteration(String collectionId, Iterator<?> iterator) { }
+
+    private final Map<String, Iteration> iterations = new HashMap<>(); // frame id + "/" + ITERATE site id
+    private final Map<String, List<String>> pendingEntries = new HashMap<>();
+    private final Map<String, String> entryMaps = new HashMap<>(); // entry id -> its map's id
+    private final Map<String, Map<String, Object>> entryStates = new HashMap<>(); // as last shown
+
+    /** {@code <site> <collection>}: a for-each starts; the builder iterates its own mirror alongside. */
+    @SuppressWarnings("unchecked")
+    private void iterate(Site site, String[] t) throws Inconsistent {
+        expect(t, 2);
+        String id = (String) reference(t[1]).get("objectId");
+        if (id == null) return; // a null collection: its failure record follows
+        Object mirror = mirrors.get(id);
+        Iterator<?> iterator;
+        if (site.name.equals("elements")) {
+            if (!(mirror instanceof java.util.Collection<?> c) || mirror instanceof java.util.PriorityQueue) throw new Inconsistent("iterated object");
+            iterator = c.iterator();
+        } else {
+            if (!(mirror instanceof Map<?, ?> m)) throw new Inconsistent("iterated map");
+            iterator = switch (site.name) {
+                case "keys" -> m.keySet().iterator();
+                case "values" -> m.values().iterator();
+                default -> m.entrySet().iterator();
+            };
+        }
+        iterations.put(frames.peek().id() + "/" + site.id, new Iteration(id, iterator));
+    }
+
+    /** {@code <site> <element>}: one next() of a for-each, checked against the mirror's own next element. */
+    private void next(Site site, String[] t) throws Inconsistent {
+        expect(t, 2);
+        Iteration iteration = iterations.get(frames.peek().id() + "/" + site.callee.id);
+        if (iteration == null) throw new Inconsistent("next() without its for-each");
+        Object element;
+        try { element = iteration.iterator().next(); } catch (RuntimeException e) { throw new Inconsistent("for-each replay"); }
+        Map<String, Object> result;
+        if (site.name.equals("entries")) result = entry(t[1], (Map.Entry<?, ?>) element, iteration.collectionId());
+        else {
+            result = libraryValueOf(t[1]);
+            if (!traceValue(element).equals(result)) throw new Inconsistent("next element: recorded " + t[1] + ", replayed " + element);
+        }
+        Map<String, Object> data = ordered("objectId", iteration.collectionId(), "method", "java.util.Iterator.next()",
+                "arguments", List.of(), "result", result, "after", null);
+        if (!site.name.equals("elements")) data.put("view", site.name);
+        addObservable(site, "LIBRARY", data);
+    }
+
+    /** A map entry returned by next() over entrySet(): captured when first seen, checked against the mirror's entry. */
+    private Map<String, Object> entry(String token, Map.Entry<?, ?> mirrorEntry, String mapId) throws Inconsistent {
+        String id = object(token);
+        if (knownObjects.contains(id)) {
+            if (mirrors.get(id) != mirrorEntry) throw new Inconsistent("map entry identity");
+            return ref(id);
+        }
+        List<String> body = pendingEntries.remove(id);
+        if (body == null || body.size() != 3) throw new Inconsistent("unrecorded map entry");
+        Map<String, Object> key = libraryValueOf(body.get(1)), value = libraryValueOf(body.get(2));
+        if (!traceValue(mirrorEntry.getKey()).equals(key) || !traceValue(mirrorEntry.getValue()).equals(value))
+            throw new Inconsistent("map entry contents");
+        knownObjects.add(id);
+        mirrors.put(id, mirrorEntry);
+        mirrorIds.put(mirrorEntry, id);
+        entryMaps.put(id, mapId);
+        Map<String, Object> shown = libraryValue(id);
+        entryStates.put(id, shown);
+        addBookkeeping("OBJECT_CAPTURE", Map.of("object", shown));
+        return ref(id);
+    }
+
+    /** {@code Y<id> <class> <key> <value>}: a map entry first seen, or re-read after uncaptured code. */
+    private void entryContents(String line) throws Inconsistent {
+        String[] t = line.split(" ");
+        if (t.length != 4) throw new Inconsistent("map entry record");
+        String id = "o" + Integer.parseInt(t[0].substring(1));
+        List<String> body = List.of(t).subList(1, 4);
+        if (!knownObjects.contains(id)) {
+            if (pendingEntries.putIfAbsent(id, body) != null) throw new Inconsistent("map entry seen twice");
+            return;
+        }
+        // An entry is shown as it was when obtained; a change the builder cannot follow stops capture.
+        if (!libraryValueOf(body.get(1)).equals(entryStates.get(id).get("key"))
+                || !libraryValueOf(body.get(2)).equals(entryStates.get(id).get("value"))) throw new Inconsistent("a map entry changed without capture");
+    }
+
+    /** After a covered call changed a map: an entry it changed (put of an iterated key) cannot be shown faithfully. */
+    private void checkEntries(String mapId) throws Inconsistent {
+        for (var e : entryMaps.entrySet()) {
+            if (e.getValue().equals(mapId) && !libraryValue(e.getKey()).equals(entryStates.get(e.getKey())))
+                throw new Inconsistent("a map entry changed while shown");
+        }
     }
 
     /** {@code e.getMessage()} (Part 8h): the result must be the message recorded with the exception object. */
@@ -1474,7 +1576,7 @@ final class TraceBuilder {
             diagnosticJson.add(map);
         }
         return Json.write(ordered(
-                "schemaVersion", "1.8.0",
+                "schemaVersion", "1.9.0",
                 "runId", runId,
                 "source", ordered("file", Analyzer.FILE, "text", source, "sha256", sha256(source)),
                 "execution", ordered("status", executionStatus, "reason", executionReason),

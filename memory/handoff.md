@@ -33,7 +33,9 @@ implementation, so 10d.0 is a draft: [specs/problem-suite.md](../specs/problem-s
       Recorder marks sorted collections' comparator ("/r", "/c"); args recorded before the call;
       static call's changed argument in `after` (schema already allowed it, no version bump);
       3 tracer tests, 1 frontend test, fixtures array-utilities.json and reverse-order.json.
-- [ ] 10d.2 G2 enhanced for over List/Set/Deque, keySet/values/entrySet (trace contract 1.9.0)
+- [x] 10d.2 G2 enhanced for over List/Set/Deque, keySet/values/entrySet (trace contract 1.9.0, plan format 9):
+      ITERATE/NEXT sites, builder iterates its mirror; `entry` objects (stale entry -> partial);
+      also `total += map.get(k)` (boxed right side of a compound assignment)
 - [ ] 10d.3 G6 lambdas (callback frames via the library call, replay with recorded callback results)
 - [ ] 10d.4 G7 sequential streams (contract 1.10.0 with 10d.3)
 - [ ] 10d.5 ProblemSuiteTest (zero uncaptured statements), three frontend examples, browser test, AC-36 Done
@@ -54,6 +56,9 @@ It becomes the basis of ProblemSuiteTest in 10d.5; do not commit it as is.
 ## Verification
 
 - Last full Java live verify: 2026-10-21 (10a), 175 tests. Frontend after 10c: 41 unit, build, 16 Playwright.
+- 10d.2 (2026-10-22, Claude): root `clean verify` live Docker: tracer 83 (82 committed + ProbeTest),
+  backend 97, 0 failures (`.tools/part-10d2-verify.log`). Contracts 63; frontend 43 unit, build,
+  16 Playwright passed.
 - 10d.1 (2026-10-22, Claude): root `clean verify` with live Docker: tracer 82 (incl. the uncommitted
   ProbeTest: 81 committed), backend 97, 0 failures. Log `.tools/part-10d1-verify.log`. First attempt
   failed one live test that used Arrays.sort as its uncaptured example (now Arrays.fill). Contracts 62;

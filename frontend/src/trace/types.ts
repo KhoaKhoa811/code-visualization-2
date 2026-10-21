@@ -26,7 +26,9 @@ export type TraceObject =
   // 1.6.0: a Scanner reading standard input. Its reads are LIBRARY steps; it has no other state.
   | { objectId: string; kind: 'input'; className: 'java.util.Scanner' | 'java.io.BufferedReader' } // 1.8.0: BufferedReader
   // 1.7.0: a thrown exception: its class (binary name) and message when first seen.
-  | { objectId: string; kind: 'exception'; className: string; message: string | null };
+  | { objectId: string; kind: 'exception'; className: string; message: string | null }
+  // 1.9.0: a map entry from a for-each over entrySet(), with the key and value it had when obtained.
+  | { objectId: string; kind: 'entry'; mapId: string; key: Value; value: Value };
 
 export interface Field { name: string; javaType: string; value: Value }
 
@@ -60,7 +62,8 @@ export type ObservableEvent = { seq: number; step: number; source: SourceRange; 
   | { kind: 'UNCAPTURED'; data: { unknownBindings: string[]; arrays: { objectId: string; elements: Value[] }[]; unknownArrays: string[];
       objects: { objectId: string; fields: { name: string; value: Value }[] }[]; unknownObjects: string[];
       collections: TraceObject[]; unknownCollections: string[] } }
-  | { kind: 'LIBRARY'; data: { objectId: string | null; method: string; arguments: Value[]; result: Value | null; after: TraceObject | null } }
+  // 1.9.0: java.util.Iterator.next() is one for-each element of objectId; view names a map view.
+  | { kind: 'LIBRARY'; data: { objectId: string | null; method: string; arguments: Value[]; result: Value | null; after: TraceObject | null; view?: 'keys' | 'values' | 'entries' } }
   | { kind: 'FIELD_READ'; data: { objectId: string; field: string; value: Value } }
   | { kind: 'FIELD_WRITE'; data: { objectId: string; field: string; previous: Value; value: Value } }
   // 1.3.0: a switch chose a branch; the source range is the chosen label.
@@ -85,7 +88,7 @@ export interface Diagnostic {
 }
 
 export interface Trace {
-  schemaVersion: '1.8.0';
+  schemaVersion: '1.9.0';
   runId: string;
   source: { file: 'Main.java'; text: string; sha256: string };
   execution: { status: ExecutionStatus; reason: string };

@@ -1,12 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/KhoaKhoa811/code-visualization-2/contracts/trace/v1/trace.schema.json",
-  "title": "Recorded Java trace 1.8.0",
+  "title": "Recorded Java trace 1.9.0",
   "description": "Candidate contract. Structural validity is not proof of Java execution or semantic replay correctness.",
   "type": "object",
   "properties": {
     "schemaVersion": {
-      "const": "1.8.0"
+      "const": "1.9.0"
     },
     "runId": {
       "$ref": "#/$defs/id"
@@ -690,8 +690,40 @@
       ],
       "additionalProperties": false
     },
+    "entryObject": {
+      "type": "object",
+      "description": "1.9.0: a map entry returned by a for-each over entrySet(), shown with the key and value it had when obtained.",
+      "properties": {
+        "objectId": {
+          "$ref": "#/$defs/id"
+        },
+        "kind": {
+          "const": "entry"
+        },
+        "mapId": {
+          "$ref": "#/$defs/id"
+        },
+        "key": {
+          "$ref": "#/$defs/value"
+        },
+        "value": {
+          "$ref": "#/$defs/value"
+        }
+      },
+      "required": [
+        "objectId",
+        "kind",
+        "mapId",
+        "key",
+        "value"
+      ],
+      "additionalProperties": false
+    },
     "object": {
       "oneOf": [
+        {
+          "$ref": "#/$defs/entryObject"
+        },
         {
           "$ref": "#/$defs/arrayObject"
         },
@@ -1397,6 +1429,14 @@
                   "type": "null"
                 }
               ]
+            },
+            "view": {
+              "description": "1.9.0: a for-each step over a map view (method java.util.Iterator.next()); absent for the elements of a collection.",
+              "enum": [
+                "keys",
+                "values",
+                "entries"
+              ]
             }
           },
           "required": [
@@ -1418,7 +1458,7 @@
         "data"
       ],
       "additionalProperties": false,
-      "description": "One call of a covered library method (1.5.0). after is the new contents of the receiver when the call changed it."
+      "description": "One call of a covered library method (1.5.0). after is the new contents of the receiver when the call changed it, or (Part 10d) of the argument a static call changed. 1.9.0: java.util.Iterator.next() is one element of a for-each over objectId, with view for a map view."
     },
     "EXPRESSION": {
       "type": "object",

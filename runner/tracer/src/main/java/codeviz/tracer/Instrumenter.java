@@ -300,7 +300,7 @@ final class Instrumenter {
         return switch (expect) {
             case NEWARRAY_LITERAL -> Expect.NEWARRAY;
             case LITERAL_STORE -> Expect.ASTORE;
-            case CALL, SUPER, CTOR, LIB, LIBNEW, APPEND, TOSTRING, BOX, UNBOX -> Expect.INVOKE;
+            case CALL, SUPER, CTOR, LIB, LIBNEW, APPEND, TOSTRING, BOX, UNBOX, ITER, NEXT -> Expect.INVOKE;
             default -> expect;
         };
     }
@@ -390,13 +390,18 @@ final class Instrumenter {
             }
             case LIB, LIBNEW, APPEND, TOSTRING, BOX, UNBOX -> {
                 int opcode = switch (item.expect()) {
-                    case LIB -> site == null ? Opcodes.INVOKESTATIC : switch (site.operator) { case "static" -> Opcodes.INVOKESTATIC; case "interface" -> Opcodes.INVOKEINTERFACE; default -> Opcodes.INVOKEVIRTUAL; };
+                    case LIB -> site == null ? insn.getOpcode() : switch (site.operator) { case "static" -> Opcodes.INVOKESTATIC; case "interface" -> Opcodes.INVOKEINTERFACE; default -> Opcodes.INVOKEVIRTUAL; };
                     case LIBNEW -> Opcodes.INVOKESPECIAL;
                     case BOX -> Opcodes.INVOKESTATIC;
                     default -> Opcodes.INVOKEVIRTUAL;
                 };
                 if (!(insn instanceof MethodInsnNode m) || insn.getOpcode() != opcode
                         || !(m.owner + "#" + m.name + m.desc).equals(item.member())) throw new MappingException("unexpected library call");
+            }
+            case ITER, NEXT -> { // Part 10d: the call a for-each over a collection starts with, and each next()
+                int opcode = item.expect() == Expect.NEXT || site.operator.equals("interface") ? Opcodes.INVOKEINTERFACE : Opcodes.INVOKEVIRTUAL;
+                if (!(insn instanceof MethodInsnNode m) || insn.getOpcode() != opcode
+                        || !(m.owner + "#" + m.name + m.desc).equals(item.member())) throw new MappingException("unexpected iteration call");
             }
             case CTOR -> {
                 if (!(insn instanceof MethodInsnNode m) || insn.getOpcode() != Opcodes.INVOKESPECIAL
@@ -520,6 +525,7 @@ final class Instrumenter {
         type = Analyzer.erasure(type); // Part 8f: generic arguments do not reach the JVM
         if (type.equals("java.lang.String")) return "java/lang/String";
         if (type.startsWith("Main.")) return "Main$" + type.substring(5);
+        if (type.equals("java.util.Map.Entry")) return "java/util/Map$Entry"; // Part 10d
         return type.replace('.', '/');
     }
 
@@ -772,6 +778,36 @@ final class Instrumenter {
                 after.add(siteConstant(site));
                 after.add(call("libNew", "(Ljava/lang/Object;I)V"));
                 list.insert(insn, after);
+            }
+            case ITER, NEXT -> {
+                // Part 10d: ITER records the iterated collection (or map) before the call; NEXT records the
+                // element after next(). Either call's failure (a null collection, a concurrent modification)
+                // is recorded and rethrown like a library call's.
+                LabelNode start = new LabelNode(), end = new LabelNode(), handler = new LabelNode(), resume = new LabelNode();
+                InsnList before = new InsnList();
+                if (match.item().expect() == Expect.ITER) {
+                    before.add(new InsnNode(Opcodes.DUP));
+                    before.add(siteConstant(site));
+                    before.add(call("iter", "(Ljava/lang/Object;I)V"));
+                }
+                before.add(start);
+                list.insertBefore(insn, before);
+                InsnList after = new InsnList();
+                after.add(end);
+                if (match.item().expect() == Expect.NEXT) {
+                    after.add(new InsnNode(Opcodes.DUP));
+                    after.add(siteConstant(site));
+                    after.add(call("iterNext", "(Ljava/lang/Object;I)V"));
+                }
+                after.add(new JumpInsnNode(Opcodes.GOTO, resume));
+                after.add(handler);
+                after.add(new InsnNode(Opcodes.DUP));
+                after.add(siteConstant(site));
+                after.add(call("libFail", "(Ljava/lang/Throwable;I)V"));
+                after.add(new InsnNode(Opcodes.ATHROW));
+                after.add(resume);
+                list.insert(insn, after);
+                m.tryCatchBlocks.add(0, new TryCatchBlockNode(start, end, handler, null));
             }
             case APPEND -> { // the operand of a concatenation, recorded as it is appended
                 char t = Type.getArgumentTypes(((MethodInsnNode) insn).desc)[0].getDescriptor().charAt(0);
