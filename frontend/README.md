@@ -29,6 +29,7 @@ from algorithm or example recognition ([coverage roadmap](../specs/coverage-road
 | 9c | Heap view: an array confirmed as a heap (indexing, size variable, order) as a synchronized strip and tree; recorded boundary, sorted suffix, observed order violations; heap-sort example ([heap view](../specs/heap-view.md)) | 30 unit tests, 13 browser tests |
 | 9d | ArrayDeque/LinkedList view switch: Deque (List) / Stack / Queue by explicit choice, kept per variable across steps and runs; controls inside draggable boxes keep their clicks | 31 unit tests, 13 browser tests |
 | 10a | "Use test input": test input sent with the run (request 1.2.0) instead of the live console; run summary shows the input and its hash; editing it after the run warns without breaking playback ([test inputs](../specs/test-inputs.md)) | 31 unit tests, 14 browser tests |
+| 10b | Custom mappings: list, array stack and circular queue views of user classes suggested from field types and confirmed; revisions per source; renamed or retyped fields stop the view and ask again ([custom mappings](../specs/custom-mappings.md)) | 35 unit tests, 15 browser tests |
 
 ## Stack and pins
 

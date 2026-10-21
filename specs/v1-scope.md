@@ -57,10 +57,10 @@ deployment.
 | AC-24 output-only fallback | Done | 7c | output-only tests |
 | AC-25 safe boundary | Done | 7b, 8a | partial-capture tests |
 | AC-26 grid of synchronized panels | Done | 9a | panel grid on one cursor, reorderable ([frontend design](frontend-design.md)) |
-| AC-27 custom field mappings | Partial | 9b, 10b | tree value/left/right mapping suggested and confirmed (9b); list, stack, queue conventions in 10b |
+| AC-27 custom field mappings | Done | 9b, 10b | tree (9b), list, array stack and circular queue (10b) mappings suggested from types and confirmed ([custom mappings](custom-mappings.md)) |
 | AC-28 object-graph fallback | Done | 8e | tracer objects tests; browser object graph |
 | AC-29 missing or truncated capture | Done | 8a, 8e | unknown values, traversal limit |
-| AC-30 mapping revalidation | Planned | 10b | — |
+| AC-30 mapping revalidation | Done | 10b | renamed field: the view stops, the card says why, a new revision is confirmed (browser test) |
 | AC-31 array used as heap | Done | 9c | heap strip equals the Arrays panel's array; confirmed indexing and recorded boundary |
 | AC-32 view rankings | Planned | 10c | — |
 | AC-33 rankings on rewind | Planned | 10c | — |

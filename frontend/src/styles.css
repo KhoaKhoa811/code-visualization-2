@@ -74,7 +74,7 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 .panel-handle { cursor: grab; user-select: none; }
 .draggable { touch-action: none; user-select: none; cursor: grab; }
 .draggable:active { cursor: grabbing; }
-.draggable:not(.tree-node)[style*="translate"] { position: relative; z-index: 2; }
+.draggable:not(.tree-node):not(.list-node)[style*="translate"] { position: relative; z-index: 2; }
 .layout-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; font-size: 12px; }
 .layout-bar button { padding: 2px 10px; }
 .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 10px; }
@@ -188,3 +188,18 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 .test-input { margin-bottom: 8px; }
 .test-input textarea { display: block; width: 100%; margin-top: 4px; background: var(--panel-2); color: var(--text); border: 1px solid var(--border); border-radius: 6px; font-family: Consolas, monospace; padding: 4px 6px; }
 .test-input p { margin: 2px 0 0; font-size: 12px; }
+
+/* Part 10b: confirmed linked lists, stacks and queues of user classes. */
+.struct-block { margin-bottom: 14px; }
+.list-chains { margin-top: 18px; }
+.list-chains .graph-arrows path.repeat { stroke: var(--warning); stroke-dasharray: 5 4; }
+.list-node { position: absolute; min-width: 54px; height: 38px; padding: 0 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--panel-2); display: flex; align-items: center; justify-content: center; font-family: Consolas, monospace; z-index: 1; }
+.list-node[style*="translate"] { z-index: 2; }
+.list-node.read { background: var(--read); }
+.list-node.write { background: var(--write); }
+.list-node.allocate { outline: 2px solid var(--accent); outline-offset: 2px; }
+.list-names { position: absolute; top: -16px; left: 0; font-size: 11px; color: var(--muted); white-space: nowrap; }
+.list-end { position: absolute; left: 100%; margin-left: 10px; font-size: 11px; color: var(--muted); }
+.list-end.unknown { font-style: italic; }
+.struct-block .cell.in-heap { border-color: var(--accent); }
+.struct-block .cell.outside { opacity: .55; border-style: dashed; }

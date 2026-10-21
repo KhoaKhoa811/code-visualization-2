@@ -34,6 +34,7 @@ reruns Java.
 | Strings | strings that a variable refers to |
 | Trees | confirmed binary-tree views of user objects ([tree view](tree-view.md), 9b) |
 | Heaps | arrays confirmed as heaps: strip and tree of one array ([heap view](heap-view.md), 9c) |
+| Structures | confirmed linked lists, array stacks and circular queues of user classes ([custom mappings](custom-mappings.md), 10b) |
 
 The grid fills columns at least 280 px wide. The object graph and the arrays panel span
 the full width. Above the grid, cards suggest tree views and list confirmed tree and heap
