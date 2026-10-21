@@ -1,8 +1,8 @@
 # View-ranking rules (Part 10c)
 
-Status: **draft for review**. The user approved starting 10c on 2026-10-21 ("ok"); the
-rules below must be reviewed before implementation (requirements 6.4: "Define and
-test exact rules before implementing them"). Rule set version: **`rank-1`**.
+Status: reviewed and approved by the user on 2026-10-22 ("ok, please implement it"),
+implemented in Part 10c (`frontend/src/trace/rankings.ts`). Rule set version: **`rank-1`**.
+Any change to a rule or threshold needs a new rule-set version.
 Requirements: section 6.4, AC-32, AC-33, AC-34.
 
 ## What a ranking is, and is not
@@ -138,7 +138,7 @@ show why one fits better.
 - Invariant observations stay with their view (tree, heap). They are labeled
   "observed", never "correct".
 
-## Tests required before release
+## Tests (all implemented: `rankings.test.ts`, browser test 10c)
 
 1. Every rule threshold, below and at the boundary, on handwritten states.
 2. **Determinism:** every cursor of a real trace assessed twice (forward, then

@@ -62,9 +62,9 @@ deployment.
 | AC-29 missing or truncated capture | Done | 8a, 8e | unknown values, traversal limit |
 | AC-30 mapping revalidation | Done | 10b | renamed field: the view stops, the card says why, a new revision is confirmed (browser test) |
 | AC-31 array used as heap | Done | 9c | heap strip equals the Arrays panel's array; confirmed indexing and recorded boundary |
-| AC-32 view rankings | Planned | 10c | — |
-| AC-33 rankings on rewind | Planned | 10c | — |
-| AC-34 invariant vs fit vs correctness | Partial | 9b, 9c, 10c | conflicting tree links dashed (9b); heap-order violations observed, not repaired (9c); rankings (10c) |
+| AC-32 view rankings | Done | 10c | rank-1 Strong/Possible/Weak with reasons, ties, Unknown and Incompatible ([rules](visualization-rules.md)) |
+| AC-33 rankings on rewind | Done | 10c | determinism and cut-trace (no leakage) unit tests; browser rewind restores the same text |
+| AC-34 invariant vs fit vs correctness | Done | 9b, 9c, 10c | conflicting tree links dashed (9b); heap order observed, not repaired (9c); rankings keep fit, observations and correctness apart (10c) |
 | AC-35 separate test inputs | Done | 10a | provided input through the API and the browser; snapshot input hash; replay without resubmission ([test inputs](test-inputs.md)) |
 | AC-36 broader problems | Partial | 8b–8i, 10d | capabilities exist; agreed problem suite in 10d |
 

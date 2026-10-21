@@ -39,6 +39,8 @@ reruns Java.
 The grid fills columns at least 280 px wide. The object graph and the arrays panel span
 the full width. Above the grid, cards suggest tree views and list confirmed tree and heap
 views (Show as tree, Choose fields, Not a tree, Show an array as a heap…, Change, Remove).
+A "Suggested views" card (Part 10c) ranks the candidate views of each class and variable at the
+cursor by the [rank-1 rules](visualization-rules.md); it never switches or confirms a view.
 
 ## Layout interactions
 

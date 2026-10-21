@@ -361,6 +361,45 @@ test('custom field names map to a list and a circular queue, and a renamed field
   await expect(nodes).toHaveCount(3);
 });
 
+test('suggested views are ranked from the facts so far, restored on rewind, and never switch the view (10c, AC-32, AC-33)', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.monaco-editor')).toBeVisible();
+  await page.getByLabel('Example').selectOption('Tree sort');
+  await run(page);
+  await expect(page.getByTestId('run-summary')).toContainText('capture complete');
+  const rankings = page.getByTestId('rankings');
+  const tree = page.getByTestId('ranking-Main.Node-tree');
+
+  // Step until the first node exists: one node is only Weak evidence for a tree.
+  const forward = page.getByRole('button', { name: 'Step forward' });
+  for (let i = 0; i < 40 && (await tree.count()) === 0; i++) await forward.click();
+  await expect(tree.locator('.rank-level')).toHaveText('Weak');
+  const early = await page.getByTestId('step-count').textContent();
+  const earlyText = await rankings.textContent();
+
+  await page.getByTitle('End').click();
+  await expect(tree.locator('.rank-level')).toHaveText('Strong');
+  await expect(tree).toContainText('5 nodes, 4 links');
+  await expect(tree).toContainText('observed: search-tree order holds');
+  await expect(rankings).toContainText('rank-1, steps 1–');
+  await expect(page.getByRole('region', { name: 'Trees' })).toHaveCount(0); // a ranking never switches the view on
+
+  // Back to the same cursor: the same assessment (no later facts leak into it).
+  await page.getByTitle('Restart').click();
+  while ((await page.getByTestId('step-count').textContent()) !== early) await forward.click();
+  await expect(rankings).toHaveText(earlyText!);
+
+  // The heap-sort array: swaps between parent and child indices rank it, and order is only observed.
+  await page.getByLabel('Example').selectOption('Heap sort');
+  await run(page);
+  await expect(page.getByTestId('run-summary')).toContainText('capture complete');
+  await page.getByTitle('End').click();
+  await expect(page.getByTestId('ranking-a-max-heap').locator('.rank-level')).toHaveText('Strong');
+  await expect(page.getByTestId('ranking-a-max-heap')).toContainText('observed: max-heap order fails'); // sorted ascending at the end
+  await expect(page.getByRole('region', { name: 'Heaps' })).toHaveCount(0);
+  await page.screenshot({ path: 'test-results/rankings.png' });
+});
+
 test('recursive calls get their own frames and returns restore the caller (8d)', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('.monaco-editor')).toBeVisible();

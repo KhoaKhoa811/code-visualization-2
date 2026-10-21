@@ -16,6 +16,8 @@ import { HeapMappings } from './views/HeapMappings.tsx';
 import { heapProblem, type HeapMapping } from './trace/heap.ts';
 import { StructMappings } from './views/StructMappings.tsx';
 import { structProblem, type Confirmed, type StructMapping } from './trace/structures.ts';
+import { assess } from './trace/rankings.ts';
+import { SuggestedViews } from './views/SuggestedViews.tsx';
 
 const PHASE_TEXT: Record<Snapshot['phase'], string> = {
   queued: 'Queued', preparing: 'Preparing container', compiling: 'Compiling', executing: 'Running',
@@ -69,6 +71,9 @@ export function App() {
   const fittingStructs = useMemo(() => structMappings.filter(m => structProblem(m, fields) === null), [structMappings, fields]);
   const steps = usable?.steps ?? 0;
   const view = useMemo(() => usable ? usable.at(cursor) : null, [usable, cursor]);
+  // Part 10c: rankings from the facts up to the cursor only; confirmed mappings give the field roles.
+  const assessments = useMemo(() => usable && view ? assess(usable, view.cursor, { trees: treeMappings, structs: structMappings }) : [],
+    [usable, view, treeMappings, structMappings]);
 
   useEffect(() => {
     if (!playing || !usable) return;
@@ -112,6 +117,7 @@ export function App() {
                 <span className="muted">Drag panels by their title and diagram boxes anywhere; layout never changes the recording.</span>
                 <button onClick={() => setLayout(initialLayout())}>Reset layout</button>
               </div>
+              <SuggestedViews assessments={assessments} cursor={view.cursor} />
               <TreeMappings fields={fields} mappings={treeMappings} dismissed={notTrees}
                 onConfirm={m => setTreeMappings(list => [...list.filter(x => x.className !== m.className), m])}
                 onRemove={c => setTreeMappings(list => list.filter(x => x.className !== c))}

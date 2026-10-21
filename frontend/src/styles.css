@@ -203,3 +203,17 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 .list-end.unknown { font-style: italic; }
 .struct-block .cell.in-heap { border-color: var(--accent); }
 .struct-block .cell.outside { opacity: .55; border-style: dashed; }
+
+/* Part 10c: suggested-view rankings (rank-1). */
+.rankings { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; margin-bottom: 10px; font-size: 13px; }
+.rankings summary { cursor: pointer; }
+.ranking-subject { margin-top: 6px; }
+.ranking-name { font-family: Consolas, monospace; }
+.ranking { display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline; padding-left: 10px; }
+.rank-level { font-size: 11px; border-radius: 8px; padding: 0 7px; background: var(--panel-2); min-width: 64px; text-align: center; }
+.rank-level.strong { background: #1f5a3e; }
+.rank-level.possible { background: #6b5320; }
+.rank-level.weak, .rank-level.unknown { background: var(--panel-2); color: var(--muted); }
+.rank-level.incompatible { background: #6b2a2a; }
+.rank-view { font-family: Consolas, monospace; min-width: 90px; }
+.rank-observation { color: var(--muted); font-style: italic; }
