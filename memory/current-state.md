@@ -1,6 +1,6 @@
 # Current state
 
-Last updated: 2026-10-20 (Asia/Saigon). Short summary only; keep it under about
+Last updated: 2026-10-21 (Asia/Saigon). Short summary only; keep it under about
 120 lines. For the active task, [handoff.md](handoff.md) is authoritative.
 History: [archive/](archive/README.md).
 
@@ -36,10 +36,11 @@ first frontend slice exist; live console input exists since 8g.
 | 8g | Live console over WebSocket (ADR 0001), bounded ordered input, interactive runs, Scanner reads replayed over delivered input; run request 1.1.0, trace contract 1.6.0 ([spec](../specs/live-console.md)); 161 Java tests with live Docker, 9 browser tests | Merged (PR #94) |
 | 8h | Exceptions: throw, try/catch (multi-catch), finally on every path, mid-trace unwinding, exception objects and getMessage; trace contract 1.7.0 ([spec](../specs/exceptions.md)); 170 Java tests with live Docker, 10 browser tests | Merged (PR #95) |
 | 8i | Hardening: program-only stack traces, BufferedReader input object (trace contract 1.8.0), editor scrolls each step into view ([live console](../specs/live-console.md)); 171 Java tests with live Docker, 10 browser tests | Merged (PR #96) |
-| 9.0, 9a | V1 scope checklist ([v1-scope](../specs/v1-scope.md)); grid of panels and layout-only dragging ([frontend design](../specs/frontend-design.md)); 23 unit, 11 browser tests | Done, pushed, awaiting review |
-| 9b | Tree view of user objects via a confirmed value/left/right mapping, tree-sort example ([tree view](../specs/tree-view.md)); 26 unit, 12 browser tests | Done, pushed, awaiting review (stacked on 9a) |
-| 9c | Heap view: array confirmed as heap, synchronized strip and tree, recorded boundary, heap-sort example ([heap view](../specs/heap-view.md)); 30 unit, 13 browser tests | Done, pushed, awaiting review (stacked on 9b) |
-| 9d | Deque/LinkedList shown as stack or queue by explicit choice; Core V1 parts complete; 31 unit, 13 browser tests | Done, pushed, awaiting review (stacked on 9c) |
+| 9.0, 9a | V1 scope checklist ([v1-scope](../specs/v1-scope.md)); grid of panels and layout-only dragging ([frontend design](../specs/frontend-design.md)); 23 unit, 11 browser tests | Merged |
+| 9b | Tree view of user objects via a confirmed value/left/right mapping, tree-sort example ([tree view](../specs/tree-view.md)); 26 unit, 12 browser tests | Merged |
+| 9c | Heap view: array confirmed as heap, synchronized strip and tree, recorded boundary, heap-sort example ([heap view](../specs/heap-view.md)); 30 unit, 13 browser tests | Merged |
+| 9d | Deque/LinkedList shown as stack or queue by explicit choice; Core V1 parts complete; 31 unit, 13 browser tests | Merged (PRs #97-#100 for 9a-9d) |
+| 10a | Separate test inputs: run request 1.2.0 provided input, snapshot 1.1.0 input association ([test inputs](../specs/test-inputs.md)); 175 Java tests with live Docker, 14 browser tests | Done, pushed, awaiting review |
 
 ## Verified environment
 
