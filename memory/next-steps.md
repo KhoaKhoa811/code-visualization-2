@@ -11,8 +11,8 @@ only. For the active task, [handoff.md](handoff.md) is authoritative. History:
 - Approved 2026-10-18: revised [coverage roadmap](../specs/coverage-roadmap.md).
 - Approved 2026-10-20: Part 9/10 roadmap in [V1 scope](../specs/v1-scope.md).
 - Merged: 10a-10c and 10d.0-10d.2 (PRs #101-#104).
-- 10d approved (specs/problem-suite.md revision 2, five increments). Done, awaiting review: 10d.3 lambdas
-  (`feat/part-10d3-lambdas`). Remaining: 10d.4 streams, 10d.5 suite test and examples (AC-36). Input-wait detection via /proc is deferred to 6g. Propose each with a checklist and wait for approval.
+- 10d approved (specs/problem-suite.md revision 2, five increments). Done, awaiting review: 10d.3 lambdas,
+  10d.4 streams, 10d.5 suite test and examples (AC-36 Done), stacked in that order. Input-wait detection via /proc is deferred to 6g. Propose each with a checklist and wait for approval.
 - Never merge pull requests; the user merges.
 
 ## Part 7 roadmap (trace engine and first visible slice)

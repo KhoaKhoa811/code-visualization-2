@@ -1746,7 +1746,7 @@ final class Analyzer {
         private void concat(Tree whole, List<ExpressionTree> leaves) {
             for (ExpressionTree leaf : leaves) {
                 String t = javaType(leaf);
-                if (!SCALARS.contains(t) && !keyType(t) && !t.equals("<nulltype>") && !t.equals("<null>")) {
+                if (!SCALARS.contains(t) && !keyType(t) && !printable(t) && !t.equals("<nulltype>") && !t.equals("<null>")) { // 10d: library values
                     unsupported(leaf, "concatenating " + t + " (its toString() is not traced)");
                     return;
                 }
@@ -1761,6 +1761,7 @@ final class Analyzer {
                 String arg = switch (t) {
                     case "int", "short", "byte" -> "I"; case "long" -> "J"; case "float" -> "F"; case "double" -> "D";
                     case "char" -> "C"; case "boolean" -> "Z"; case "java.lang.String" -> "Ljava/lang/String;";
+                    case BUILDER -> "Ljava/lang/CharSequence;"; // javac picks append(CharSequence) for a builder
                     default -> "Ljava/lang/Object;";
                 };
                 Site a = site(Kind.CONCAT_ARG, leaf);

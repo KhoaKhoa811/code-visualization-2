@@ -1240,7 +1240,10 @@ final class TraceBuilder {
     private String text(String token, Map<String, Object> value) throws Inconsistent {
         if (token.equals("n")) return "null";
         if (token.startsWith("r")) {
-            String text = stringTexts.get((String) value.get("objectId"));
+            String id = (String) value.get("objectId"), text = stringTexts.get(id);
+            // Part 10d: a library value (a list, map, builder) reads as the JDK's own toString of its mirror.
+            if (text == null && mirrors.containsKey(id) && !(mirrors.get(id) instanceof java.util.Scanner)
+                    && !(mirrors.get(id) instanceof java.io.BufferedReader)) return String.valueOf(mirrors.get(id));
             if (text == null) throw new Inconsistent("concatenated a non-string object");
             return text;
         }

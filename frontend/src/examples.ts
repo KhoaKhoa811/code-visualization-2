@@ -283,6 +283,47 @@ public class Main {
     }
 }
 `,
+  'Word count (map)': `import java.util.*;
+
+public class Main {
+    public static void main(String[] args) {
+        String text = "the cat and the hat";
+        Map<String, Integer> counts = new TreeMap<>();
+        for (String word : text.split(" ")) {
+            counts.merge(word, 1, Integer::sum);
+        }
+        for (Map.Entry<String, Integer> e : counts.entrySet()) {
+            System.out.println(e.getKey() + ": " + e.getValue());
+        }
+    }
+}
+`,
+  'Anagram check': `import java.util.Arrays;
+
+public class Main {
+    public static void main(String[] args) {
+        char[] a = "listen".toCharArray();
+        char[] b = "silent".toCharArray();
+        Arrays.sort(a);
+        Arrays.sort(b);
+        System.out.println(Arrays.equals(a, b) ? "anagrams" : "different");
+    }
+}
+`,
+  'Stream pipeline': `import java.util.*;
+
+public class Main {
+    public static void main(String[] args) {
+        List<Integer> scores = new ArrayList<>();
+        scores.add(72);
+        scores.add(45);
+        scores.add(90);
+        scores.add(61);
+        int total = scores.stream().filter(s -> s >= 60).mapToInt(s -> s / 10).sum();
+        System.out.println(total);
+    }
+}
+`,
   'Read input': `import java.util.Scanner;
 
 public class Main {

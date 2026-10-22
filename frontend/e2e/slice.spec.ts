@@ -436,6 +436,36 @@ test('recursive calls get their own frames and returns restore the caller (8d)',
   await expect(cells(page, 'a')).toHaveText(['2', '1', '3']);
 });
 
+test('a stream pipeline runs its lambdas in frames via the terminal call, and stepping back leaves them (10d, AC-36)', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.monaco-editor')).toBeVisible();
+  await page.getByLabel('Example').selectOption('Stream pipeline');
+  await run(page);
+  const summary = page.getByTestId('run-summary');
+  await expect(summary).toContainText('capture complete');
+  await expect(summary).not.toContainText('without capture');
+  await expect(page.getByTestId('console-output')).toHaveText('22\n');
+
+  const forward = page.getByRole('button', { name: 'Step forward' });
+  for (let i = 0; i < 40; i++) {
+    if ((await page.getByTestId('step-detail').textContent())?.includes('via sum')) break;
+    await forward.click();
+  }
+  // Lazy: nothing ran while filter and mapToInt were built; sum runs the first filter call.
+  await expect(page.getByTestId('step-detail')).toContainText('Call lambda at 10:44 via sum(s = 72)');
+  await expect(page.getByTestId('frame')).toHaveCount(2);
+  await expect(page.getByTestId('frame').first()).toContainText('via sum');
+  await expect(page.getByTestId('frame').first().getByTestId('var-s')).toContainText('72');
+  await page.screenshot({ path: 'test-results/stream-lambda.png' });
+
+  await page.getByRole('button', { name: 'Step back' }).click();
+  await expect(page.getByTestId('frame')).toHaveCount(1); // before the callback: only main
+  await expect(page.getByTestId('step-detail')).toContainText('mapToInt');
+
+  await page.getByTitle('End').click();
+  await expect(page.getByTestId('var-total')).toContainText('22');
+});
+
 test('long, double and char values are traced exactly (8b)', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('.monaco-editor')).toBeVisible();
