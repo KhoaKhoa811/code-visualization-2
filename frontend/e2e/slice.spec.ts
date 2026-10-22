@@ -466,6 +466,42 @@ test('a stream pipeline runs its lambdas in frames via the terminal call, and st
   await expect(page.getByTestId('var-total')).toContainText('22');
 });
 
+test('steps move: a stored value flies to its cell, a comparison shows its verdict, and motion can be switched off (11a)', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.monaco-editor')).toBeVisible();
+  await page.getByLabel('Example').selectOption('Running total');
+  await run(page);
+  await expect(page.getByTestId('run-summary')).toContainText('capture complete');
+  const motion = page.getByLabel('Motion');
+  await motion.check();
+  const forward = page.getByRole('button', { name: 'Step forward' });
+
+  // A comparison pops up its operands and verdict at the code.
+  for (let i = 0; i < 10 && !(await page.getByTestId('step-detail').textContent())?.includes('<'); i++) await forward.click();
+  await expect(page.locator('.motion-badge')).toContainText(/\d+ < \d+ ✓/);
+
+  // A write carries the value from the highlighted code into the array cell.
+  for (let i = 0; i < 20 && !(await page.getByTestId('step-detail').textContent())?.includes('Write values['); i++) await forward.click();
+  await expect(page.locator('.motion-chip').first()).toBeVisible();
+  await page.screenshot({ path: 'test-results/motion-write.png' });
+
+  // Motion off: steps change state with no chips or badges.
+  await motion.uncheck();
+  await forward.click();
+  await forward.click();
+  await expect(page.locator('#motion-layer > *')).toHaveCount(0);
+  // No value is left hidden by an interrupted landing.
+  const opacities = await page.locator('.bindings .value').evaluateAll(cells => cells.map(c => getComputedStyle(c).opacity));
+  expect(opacities.every(o => o === '1')).toBe(true);
+
+  // Speed drives Play: at 4x the cursor advances on its own.
+  await page.getByLabel('Speed').selectOption('4');
+  const before = Number((await page.getByTestId('step-count').textContent())!.match(/Step (\d+)/)![1]);
+  await page.getByRole('button', { name: 'Play' }).click();
+  await expect.poll(async () => Number((await page.getByTestId('step-count').textContent())!.match(/Step (\d+)/)![1])).toBeGreaterThan(before + 2);
+  await page.getByRole('button', { name: 'Pause' }).click();
+});
+
 test('long, double and char values are traced exactly (8b)', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('.monaco-editor')).toBeVisible();

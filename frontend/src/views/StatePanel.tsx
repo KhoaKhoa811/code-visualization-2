@@ -39,7 +39,7 @@ export function StatePanel({ view, trees = [], heaps = [], structs = [] }: { vie
             <table className="bindings">
               <tbody>
                 {state.bindings.filter(b => b.frameId === frame.frameId).map(b => (
-                  <tr key={b.bindingId} className={focus.bindingId === b.bindingId || focus.touched?.includes(b.bindingId) ? 'changed' : undefined} data-testid={`var-${b.name}`}>
+                  <tr key={b.bindingId} className={focus.bindingId === b.bindingId || focus.touched?.includes(b.bindingId) ? 'changed' : undefined} data-testid={`var-${b.name}`} data-binding={b.bindingId}>
                     <td className="type" title={b.javaType}>{b.javaType.replace(/\b(java\.lang|java\.util)\./g, '').replace(/\bMain\./g, '')}</td>
                     <td className="name">{b.name}</td>
                     <td className="value">{formatValue(b.value, state.objects)}</td>
@@ -87,7 +87,8 @@ function ArrayBody({ array, state, focus, depth }: { array: ArrayObject; state: 
         {array.elements.map((element, index) => {
           const hit = active && focus.index === index ? ` ${focus.access}` : '';
           return (
-            <div className={`cell${hit}${element.kind === 'unknown' ? ' unknown' : ''}`} key={index} data-testid="cell">
+            <div className={`cell${hit}${element.kind === 'unknown' ? ' unknown' : ''}`} key={index} data-testid="cell"
+              data-object={array.objectId} data-index={index}>
               <div className="cell-value">{formatValue(element, state.objects)}</div>
               <div className="cell-index">{index}</div>
             </div>

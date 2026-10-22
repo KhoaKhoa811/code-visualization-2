@@ -220,3 +220,21 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 
 /* 6g: a verified blocked read of standard input */
 .waiting { color: var(--accent, inherit); font-weight: 600; margin: 4px 0; }
+
+/* Part 11a: motion. Chips and badges live in a fixed layer above the page and never take input. */
+#motion-layer { position: fixed; inset: 0; pointer-events: none; z-index: 1000; }
+.motion-chip {
+  position: fixed; transform: translate(-50%, -50%); padding: 2px 8px; border-radius: 6px;
+  background: var(--accent); color: #fff; font: 600 13px/1.4 ui-monospace, Consolas, monospace;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .45); white-space: nowrap;
+}
+.motion-chip.leaving { background: var(--panel-2); color: var(--muted); box-shadow: none; text-decoration: line-through; }
+.motion-badge {
+  position: fixed; padding: 2px 8px; border-radius: 10px; background: var(--panel-2); color: var(--text);
+  border: 1px solid var(--border); font: 600 12px/1.4 ui-monospace, Consolas, monospace; white-space: nowrap;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .4);
+}
+.motion-badge.yes { border-color: #3fb37f; color: #7ee2b0; }
+.motion-badge.no { border-color: var(--error); color: #ff9c9c; }
+.controls select { margin-left: 8px; }
+.motion-toggle { margin-left: 8px; color: var(--muted); font-size: 13px; white-space: nowrap; }
