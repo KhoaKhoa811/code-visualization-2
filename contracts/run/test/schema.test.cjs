@@ -11,17 +11,22 @@ const request = ajv.compile(read('run/v1/request.schema.json'));
 const result = ajv.compile(read('run/v1/result.schema.json'));
 const trace = read('trace/v1/examples/valid/output-only.json');
 const snapshot = (phase, overrides = {}) => ({
-  schemaVersion: '1.0.0', runId: trace.runId, sourceSha256: trace.source.sha256,
+  schemaVersion: '1.1.0', runId: trace.runId, sourceSha256: trace.source.sha256, input: { mode: 'none', sha256: null },
   revision: 0, phase, terminationConfirmed: ['cleaning', 'finished'].includes(phase),
   cleanupVerified: phase === 'finished', slotHeld: !['queued', 'finished'].includes(phase),
   trace: null, infrastructureFailures: [], ...overrides
 });
 
 test('request preserves trace source shape and excludes caller execution controls', () => {
-  const valid = { schemaVersion: '1.1.0', source: trace.source, inputMode: 'none' };
+  const valid = { schemaVersion: '1.2.0', source: trace.source, inputMode: 'none' };
   assert.equal(request(valid), true);
   assert.equal(request({ ...valid, inputMode: 'live' }), true); // Part 8g: a live console may send input
-  for (const change of [{ schemaVersion: '1.0.0' }, { schemaVersion: '2.0.0' }, { inputMode: 'tty' },
+  const given = { text: '3\n1 2 3\n', sha256: 'a'.repeat(64) };
+  assert.equal(request({ ...valid, inputMode: 'provided', input: given }), true); // Part 10a: test input with the request
+  assert.equal(request({ ...valid, inputMode: 'provided' }), false, 'provided needs its input');
+  assert.equal(request({ ...valid, input: given }), false, 'only provided carries input');
+  assert.equal(request({ ...valid, inputMode: 'provided', input: { text: 'x' } }), false, 'input needs its hash');
+  for (const change of [{ schemaVersion: '1.0.0' }, { schemaVersion: '1.1.0' }, { schemaVersion: '2.0.0' }, { inputMode: 'tty' },
     { command: 'java Main' }, { runId: 'caller' }, { image: 'caller-image' },
     { source: { ...trace.source, file: '../Main.java' } }]) {
     assert.equal(request({ ...valid, ...change }), false, JSON.stringify(change));
@@ -59,7 +64,9 @@ test('cleanup failure preserves valid terminal trace and retained slot; recovery
 test('infrastructure-only completion does not invent Java status; nested trace remains v1', () => {
   assert.equal(result(snapshot('finished', { infrastructureFailures: ['SETUP_FAILED'] })), true);
   assert.equal(result(snapshot('finished', { trace: { ...trace, execution: { status: 'infrastructure_failure', reason: 'bad' } } })), false);
-  for (const change of [{ revision: -1 }, { schemaVersion: '2.0.0' }, { hostPath: 'C:/secret' },
+  assert.equal(result(snapshot('finished', { input: { mode: 'provided', sha256: 'b'.repeat(64) } })), true); // Part 10a
+  for (const change of [{ revision: -1 }, { schemaVersion: '2.0.0' }, { schemaVersion: '1.0.0' }, { hostPath: 'C:/secret' },
+    { input: { mode: 'tty', sha256: null } }, { input: { mode: 'none' } }, { input: undefined },
     { infrastructureFailures: ['UNKNOWN'] }, { infrastructureFailures: ['SETUP_FAILED', 'SETUP_FAILED'] }]) {
     assert.equal(result(snapshot('finished', change)), false);
   }

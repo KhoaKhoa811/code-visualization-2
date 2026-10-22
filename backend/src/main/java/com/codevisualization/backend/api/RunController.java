@@ -1,5 +1,6 @@
 package com.codevisualization.backend.api;
 
+import com.codevisualization.backend.runner.RunStdin;
 import com.codevisualization.backend.runner.RunSupervisor;
 import com.codevisualization.backend.runner.TracedRunLifecycle;
 import jakarta.servlet.http.HttpServletRequest;
@@ -50,11 +51,22 @@ public class RunController {
         try { supervisor = runner.openOrGet(); }
         catch (IOException | RuntimeException unavailable) { return error(HttpStatus.SERVICE_UNAVAILABLE, "RUNNER_UNAVAILABLE"); }
         try {
-            var run = supervisor.submit(parsed.text(), parsed.sha256(), parsed.live());
+            RunStdin stdin = switch (parsed.inputMode()) {
+                case "live" -> RunStdin.LIVE;
+                case "provided" -> {
+                    RunStdin given = RunStdin.provided(parsed.inputText());
+                    if (!RunSupervisor.sha256(given.provided()).equals(parsed.inputSha256()))
+                        throw new TracedRunLifecycle.AdmissionException("INPUT_HASH_MISMATCH", "Input hash mismatch");
+                    yield given;
+                }
+                default -> RunStdin.NONE;
+            };
+            var run = supervisor.submit(parsed.text(), parsed.sha256(), stdin);
             return ResponseEntity.accepted().location(URI.create("/api/runs/" + run.id()))
                     .contentType(MediaType.APPLICATION_JSON).body(RunJson.snapshot(supervisor.snapshot(run)));
         } catch (TracedRunLifecycle.AdmissionException rejected) {
-            return error(rejected.code().equals("SOURCE_LIMIT") ? HttpStatus.CONTENT_TOO_LARGE : HttpStatus.BAD_REQUEST, rejected.code());
+            boolean tooLarge = rejected.code().equals("SOURCE_LIMIT") || rejected.code().equals("INPUT_LIMIT");
+            return error(tooLarge ? HttpStatus.CONTENT_TOO_LARGE : HttpStatus.BAD_REQUEST, rejected.code());
         } catch (RunSupervisor.BusyException busy) {
             return error(HttpStatus.SERVICE_UNAVAILABLE, "RUNNER_BUSY");
         } catch (IllegalStateException closed) {

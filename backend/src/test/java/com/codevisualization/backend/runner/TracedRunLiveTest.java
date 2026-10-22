@@ -199,6 +199,32 @@ class TracedRunLiveTest {
         assertTrue(closed.trace().contains("\"status\":\"failed\"") && closed.trace().contains("java.util.NoSuchElementException"));
     }
 
+    /** Part 10a inside the container: test input given with the request is the program's standard input. */
+    @Test void providedInputIsStandardInputWithTheNormalDeadline() throws Exception {
+        String summer = """
+                import java.util.Scanner;
+
+                public class Main {
+                    public static void main(String[] args) {
+                        Scanner in = new Scanner(System.in);
+                        int n = in.nextInt();
+                        int sum = 0;
+                        for (int i = 0; i < n; i++) sum += in.nextInt();
+                        System.out.println("sum " + sum);
+                    }
+                }
+                """;
+        var r = new TracedRunLifecycle(docker()).run(summer, RunStdin.provided("3\n1 2 3\n"));
+        assertTrue(r.terminationConfirmed() && r.cleanupVerified(), r.infrastructureFailures().toString());
+        check("provided-input", r.trace());
+        assertEquals("sum 6\n", stdout(r));
+        assertTrue(r.trace().contains("\"status\":\"completed\"") && r.trace().contains("\"status\":\"complete\""), r.trace());
+        assertTrue(r.trace().contains("java.util.Scanner.nextInt()"));
+        // Too little input: Java's own end-of-input failure, recorded like any other.
+        var shortInput = new TracedRunLifecycle(docker()).run(summer, RunStdin.provided("3\n1 2\n"));
+        assertTrue(shortInput.trace().contains("\"status\":\"failed\"") && shortInput.trace().contains("java.util.NoSuchElementException"));
+    }
+
     /** Part 8h inside the container: a helper throws, main catches, finally runs on both paths. */
     @Test void exceptionsAreThrownCaughtAndUnwoundInTheContainer() throws Exception {
         var r = run("exceptions", """

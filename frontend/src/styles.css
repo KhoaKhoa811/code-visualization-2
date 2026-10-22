@@ -183,3 +183,8 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 .mode-switch button:first-child { border-radius: 6px 0 0 6px; }
 .mode-switch button:last-child { border-radius: 0 6px 6px 0; }
 .mode-switch button.selected { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+/* Part 10a: test input given with the run. */
+.test-input { margin-bottom: 8px; }
+.test-input textarea { display: block; width: 100%; margin-top: 4px; background: var(--panel-2); color: var(--text); border: 1px solid var(--border); border-radius: 6px; font-family: Consolas, monospace; padding: 4px 6px; }
+.test-input p { margin: 2px 0 0; font-size: 12px; }

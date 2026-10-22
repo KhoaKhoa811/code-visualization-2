@@ -65,7 +65,7 @@ deployment.
 | AC-32 view rankings | Planned | 10c | — |
 | AC-33 rankings on rewind | Planned | 10c | — |
 | AC-34 invariant vs fit vs correctness | Partial | 9b, 9c, 10c | conflicting tree links dashed (9b); heap-order violations observed, not repaired (9c); rankings (10c) |
-| AC-35 separate test inputs | Planned | 10a | — |
+| AC-35 separate test inputs | Done | 10a | provided input through the API and the browser; snapshot input hash; replay without resubmission ([test inputs](test-inputs.md)) |
 | AC-36 broader problems | Partial | 8b–8i, 10d | capabilities exist; agreed problem suite in 10d |
 
 Update this table in the same commit that changes a case's status.

@@ -34,6 +34,11 @@ export function App() {
   const running = submit.isPending || (snap !== undefined && !finished && !snapshot.error);
   const trace = finished ? snap.trace : null;
   const stale = run !== null && source !== run.source;
+  // Part 10a: test input given with the run instead of the live console. The playback stays tied to
+  // the input that run was given; changing the text afterwards only warns.
+  const [useTestInput, setUseTestInput] = useState(false);
+  const [testInput, setTestInput] = useState('');
+  const inputChanged = run !== null && run.input !== null && (!useTestInput || testInput !== run.input);
 
   const playback = useMemo(() => {
     if (!trace) return null;
@@ -79,7 +84,7 @@ export function App() {
           <option value="">Load example…</option>
           {Object.keys(EXAMPLES).map(name => <option key={name} value={name}>{name}</option>)}
         </select>
-        <button className="primary" onClick={() => submit.mutate(source)} disabled={running}>Run</button>
+        <button className="primary" onClick={() => submit.mutate({ source, input: useTestInput ? testInput : null })} disabled={running}>Run</button>
         <button onClick={() => cancel.mutate()} disabled={!running || run === null}>Cancel</button>
         <span className="status" data-testid="run-status">
           {submit.isPending ? 'Submitting…' : snap && !finished ? `${PHASE_TEXT[snap.phase]}…` : ''}
@@ -88,7 +93,7 @@ export function App() {
       <main className="layout">
         <section className="visual">
           <Controls cursor={view?.cursor ?? 0} steps={steps} playing={playing} onCursor={go} onPlaying={setPlaying} />
-          <RunSummary snapshot={finished ? snap : undefined} playback={playback} stale={stale} />
+          <RunSummary snapshot={finished ? snap : undefined} playback={playback} stale={stale} given={run?.input ?? null} inputChanged={inputChanged} />
           {view && (
             <div className={`step-detail${view.event?.kind === 'UNCAPTURED' ? ' uncaptured' : ''}`} data-testid="step-detail">
               {view.event ? <><b>Step {view.cursor}:</b> {describe(view.event, view.beforeEnd ?? view.state, usable?.trace.source.text)}</> : 'Initial state (before the first operation).'}
@@ -121,6 +126,16 @@ export function App() {
           {submit.error && <p className="error">{errorText(submit.error)}</p>}
           {snapshot.error && <p className="error">{errorText(snapshot.error)}</p>}
           {cancel.error && <p className="error">{errorText(cancel.error)}</p>}
+          <div className="test-input">
+            <label><input type="checkbox" checked={useTestInput} disabled={running} onChange={e => setUseTestInput(e.target.checked)} /> Use test input</label>
+            {useTestInput && (
+              <>
+                <textarea aria-label="Test input" value={testInput} disabled={running} rows={3} spellCheck={false}
+                  placeholder="Standard input for the next run, exactly as typed (end of input after it)" onChange={e => setTestInput(e.target.value)} />
+                <p className="muted">The program reads this text as standard input; no live input is asked for.</p>
+              </>
+            )}
+          </div>
           {!finished && live.transcript.length > 0 && (
             <pre data-testid="console-live">
               {live.transcript.map((piece, i) => <span key={i} className={piece.stream === 'stdout' ? undefined : piece.stream}>{piece.text}</span>)}
@@ -159,7 +174,10 @@ function ConsoleInput({ run, view }: { run: SubmittedRun | null; view: ConsoleVi
   );
 }
 
-function RunSummary({ snapshot, playback, stale }: { snapshot?: Snapshot; playback: Playback | TraceError | null; stale: boolean }) {
+/** {@code given}: the test input this run was given (Part 10a), shown with the hash the backend recorded. */
+function RunSummary({ snapshot, playback, stale, given, inputChanged }: {
+  snapshot?: Snapshot; playback: Playback | TraceError | null; stale: boolean; given: string | null; inputChanged: boolean;
+}) {
   if (!snapshot) return null;
   const trace = snapshot.trace;
   return (
@@ -174,6 +192,15 @@ function RunSummary({ snapshot, playback, stale }: { snapshot?: Snapshot; playba
       {snapshot.infrastructureFailures.length > 0 && <div className="error">Infrastructure: {snapshot.infrastructureFailures.join(', ')}</div>}
       {playback instanceof TraceError && <div className="error">Trace rejected: {playback.message}</div>}
       {stale && <div className="warning">The source changed after this run. Run again to visualize the current text.</div>}
+      {snapshot.input.mode === 'provided' && (
+        <div className="muted" data-testid="run-input">
+          Input: test input, {new TextEncoder().encode(given ?? '').length} bytes (SHA-256 {snapshot.input.sha256?.slice(0, 12)}…)
+        </div>
+      )}
+      {snapshot.input.mode === 'live' && snapshot.input.sha256 && given === null && (
+        <div className="muted" data-testid="run-input">Input: live console (SHA-256 of the delivered input {snapshot.input.sha256.slice(0, 12)}…)</div>
+      )}
+      {inputChanged && <div className="warning" data-testid="input-changed">The test input changed after this run. This playback used the input it was given; run again to use the current input.</div>}
     </div>
   );
 }

@@ -43,7 +43,7 @@ public final class TracedRunLifecycle {
     /** Rejected before any container work (execution-isolation Part 4h). */
     public static final class AdmissionException extends Exception {
         private final String code;
-        AdmissionException(String code, String message) { super(message); this.code = code; }
+        public AdmissionException(String code, String message) { super(message); this.code = code; }
         public String code() { return code; }
     }
 
@@ -120,7 +120,7 @@ public final class TracedRunLifecycle {
 
     public boolean interactive() { return interactive; }
 
-    /** Live input of the executing interactive run, or null. */
+    /** Standard input of the executing run: live (interactive), provided (Part 10a), or null when closed. */
     public RunInput input() { return input; }
 
     /** Console bytes accepted so far, in arrival order, from chunk {@code index} on. */
@@ -145,19 +145,22 @@ public final class TracedRunLifecycle {
         }
     }
 
-    public Result run(String source) throws AdmissionException { return run(source, false); }
+    public Result run(String source) throws AdmissionException { return run(source, RunStdin.NONE); }
 
     /** {@code live}: input may arrive through {@link #input()} while an interactive program executes (Part 8g). */
-    public Result run(String source, boolean live) throws AdmissionException {
-        return runReserved(source, "run-" + control.identity().owner(), System.nanoTime() + Duration.ofSeconds(10).toNanos(), live);
+    public Result run(String source, boolean live) throws AdmissionException { return run(source, live ? RunStdin.LIVE : RunStdin.NONE); }
+
+    /** Part 10a: standard input closed, live, or given with the request. */
+    public Result run(String source, RunStdin stdin) throws AdmissionException {
+        return runReserved(source, "run-" + control.identity().owner(), System.nanoTime() + Duration.ofSeconds(10).toNanos(), stdin);
     }
 
     /** Runs with a run ID and a preparation deadline that started when the slot was reserved. */
     Result runReserved(String source, String runId, long preparationDeadline) throws AdmissionException {
-        return runReserved(source, runId, preparationDeadline, false);
+        return runReserved(source, runId, preparationDeadline, RunStdin.NONE);
     }
 
-    Result runReserved(String source, String runId, long preparationDeadline, boolean live) throws AdmissionException {
+    Result runReserved(String source, String runId, long preparationDeadline, RunStdin stdin) throws AdmissionException {
         byte[] sourceBytes = admit(source);
         if (!used.compareAndSet(false, true)) throw new IllegalStateException("Lifecycle is one-shot");
         List<Failure> failures = new ArrayList<>();
@@ -195,12 +198,16 @@ public final class TracedRunLifecycle {
                         } else if (cancellation.requested()) {
                             trace = stopped(source, runId, Tracer.Cause.CANCELLED);
                         } else {
-                            interactive = live && plan.interactive();
+                            // Interactive: a live console may send input (120 s deadline). Provided input (Part 10a) is
+                            // written at once and then closed; nobody waits for it, so the normal deadline applies.
+                            interactive = stdin.mode() == RunStdin.Mode.LIVE && plan.interactive();
+                            boolean attached = plan.interactive() && stdin.mode() != RunStdin.Mode.NONE;
                             if (interactive) input = new RunInput();
-                            List<String> command = control.workspaceCommand(plan.traced() ? RUN_TRACED : RUN_PLAIN, interactive);
+                            else if (attached) input = RunInput.provided(stdin.provided());
+                            List<String> command = control.workspaceCommand(plan.traced() ? RUN_TRACED : RUN_PLAIN, attached);
                             phase = "executing";
                             runtimePhase = true;
-                            if (interactive) input.open();
+                            if (input != null) input.open();
                             var runtime = phases.execute(command, output, interactive ? INTERACTIVE_RUNTIME : RUNTIME);
                             Tracer.Outcome outcome = runtimeOutcome(runtime);
                             if (outcome == null) {
@@ -215,7 +222,7 @@ public final class TracedRunLifecycle {
                                     }
                                 }
                                 String records = raw;
-                                byte[] delivered = interactive ? input.transcript() : new byte[0];
+                                byte[] delivered = input != null ? input.transcript() : new byte[0];
                                 trace = () -> Tracer.trace(plan, runId, records, outcome, delivered);
                             }
                         }

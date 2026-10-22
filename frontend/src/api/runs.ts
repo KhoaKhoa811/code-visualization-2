@@ -5,9 +5,11 @@ import type { Trace } from '../trace/types.ts';
 export type Phase = 'queued' | 'preparing' | 'compiling' | 'executing' | 'stopping' | 'cleaning' | 'finished';
 
 export interface Snapshot {
-  schemaVersion: '1.0.0';
+  schemaVersion: '1.1.0';
   runId: string;
   sourceSha256: string;
+  /** Part 10a: provided: hash of the given input; live: hash of the input delivered (once finished). */
+  input: { mode: 'none' | 'live' | 'provided'; sha256: string | null };
   revision: number;
   phase: Phase;
   terminationConfirmed: boolean;
@@ -43,11 +45,14 @@ export async function sha256Hex(text: string): Promise<string> {
   return Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, '0')).join('');
 }
 
-export async function submitRun(text: string): Promise<Snapshot> {
+/** {@code input}: test input given with the request (Part 10a); null keeps the live console (Part 8g). */
+export async function submitRun(text: string, input: string | null = null): Promise<Snapshot> {
   const sha256 = await sha256Hex(text);
-  return call(http.post<Snapshot>('/runs', {
-    schemaVersion: '1.1.0', source: { file: 'Main.java', text, sha256 }, inputMode: 'live',
-  }));
+  const source = { file: 'Main.java', text, sha256 };
+  const body = input === null
+    ? { schemaVersion: '1.2.0', source, inputMode: 'live' }
+    : { schemaVersion: '1.2.0', source, inputMode: 'provided', input: { text: input, sha256: await sha256Hex(input) } };
+  return call(http.post<Snapshot>('/runs', body));
 }
 
 export const getRun = (runId: string) => call(http.get<Snapshot>(`/runs/${encodeURIComponent(runId)}`));
@@ -59,6 +64,9 @@ export const ERROR_TEXT: Record<string, string> = {
   SOURCE_INVALID: 'The source is not well-formed Unicode text.',
   SOURCE_LIMIT: 'The source is larger than 256 KiB.',
   SOURCE_HASH_MISMATCH: 'The source changed while it was being sent.',
+  INPUT_LIMIT: 'The test input is larger than 64 KiB.',
+  INPUT_INVALID: 'The test input is not well-formed Unicode text.',
+  INPUT_HASH_MISMATCH: 'The test input changed while it was being sent.',
   REQUEST_TOO_LARGE: 'The request is larger than 2 MiB.',
   RUNNER_BUSY: 'The runner is busy (one run and two queued). Try again shortly.',
   RUNNER_UNAVAILABLE: 'The runner is unavailable. Check that Docker Desktop is running.',

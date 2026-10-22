@@ -42,6 +42,20 @@ class RunInputTest {
         assertEquals(0, input.transcript().length, "nothing was written yet");
     }
 
+    /** Part 10a: provided input is written exactly as given (CR and long lines included), then closed. */
+    @Test void providedInputIsWrittenAsGivenThenClosed() throws Exception {
+        String text = "a\r\n" + "x".repeat(RunInput.LINE_LIMIT + 10) + "\nlast without LF";
+        var input = RunInput.provided(text.getBytes(StandardCharsets.UTF_8));
+        input.open();
+        assertFalse(input.accepting(), "no live input next to provided input");
+        assertEquals(RunInput.Outcome.INPUT_CLOSED, input.offer(1, "more"));
+        assertEquals(text, drain(input));
+        assertEquals(text, new String(input.transcript(), StandardCharsets.UTF_8));
+        var empty = RunInput.provided(new byte[0]);
+        empty.open();
+        assertNull(empty.next(), "empty input is end of input at once");
+    }
+
     @Test void totalInputIsBoundedAndStoppingDiscardsPendingInput() throws Exception {
         var input = open();
         long seq = 1;

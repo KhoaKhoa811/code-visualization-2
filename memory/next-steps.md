@@ -1,20 +1,17 @@
 # Next steps
 
-Last updated: 2026-10-20 (Asia/Saigon). Short roadmap and approval boundaries
+Last updated: 2026-10-21 (Asia/Saigon). Short roadmap and approval boundaries
 only. For the active task, [handoff.md](handoff.md) is authoritative. History:
 [archive/](archive/README.md).
 
 ## Approval boundaries
 
 - Merged: 6e (PR #82), 7a (PR #83), 7b (PR #84), 7c (PR #85), 7d (PR #86), 7e (PR #87), 8a (PR #88), 8b (PR #89),
-  8c (PR #90), 8d (PR #91), 8e (PR #92), 8f (PR #93), 8g (PR #94), 8h (PR #95), 8i (PR #96). ADR 0004 accepted.
+  8c (PR #90), 8d (PR #91), 8e (PR #92), 8f (PR #93), 8g (PR #94), 8h (PR #95), 8i (PR #96), 9a-9d (PRs #97-#100). ADR 0004 accepted.
 - Approved 2026-10-18: revised [coverage roadmap](../specs/coverage-roadmap.md).
 - Approved 2026-10-20: Part 9/10 roadmap in [V1 scope](../specs/v1-scope.md).
-- Done, awaiting review: 9.0 + 9a (`feat/part-9a-grid-layout`, on main 78b331e).
-- Done, awaiting review: 9b tree view (`feat/part-9b-tree-view`, stacked on 9a).
-- Done, awaiting review: 9c heap view (`feat/part-9c-heap-view`, stacked on 9b).
-- Done, awaiting review: 9d Deque stack/queue mode (`feat/part-9d-deque-mode`, stacked on 9c).
-- Next in the approved roadmap: 10a separate test inputs (V1.1); ask before starting each part. Input-wait detection via /proc is deferred to 6g. Propose each with a checklist and wait for approval.
+- Done, awaiting review: 10a separate test inputs (`feat/part-10a-test-inputs`, on main 9309231).
+- Next in the approved roadmap: 10b custom mappings; ask before starting each part. Input-wait detection via /proc is deferred to 6g. Propose each with a checklist and wait for approval.
 - Never merge pull requests; the user merges.
 
 ## Part 7 roadmap (trace engine and first visible slice)
@@ -31,7 +28,7 @@ only. For the active task, [handoff.md](handoff.md) is authoritative. History:
 6. Part 8 (replaces the old 7f+): 8a graceful partial coverage (merged), 8b primitive (merged)
    types and operators, 8c statements, 8d methods/recursion, 8e objects and fields
    with the object-graph view (moved into Core V1), 8f strings and
-   collections (8c-8f merged), 8g live Scanner console, 8h exceptions (merged), 8i hardening (done, awaiting review). See the coverage roadmap.
+   collections (8c-8f merged), 8g live Scanner console, 8h exceptions, 8i hardening (merged); then Core V1 completion 9a-9d (merged) and V1.1 10a-10d. See the coverage roadmap and V1 scope.
 
 Then V1.1: custom mappings, view rankings, separate test inputs, broader coverage.
 6g isolation-gap review is deferred until before any public deployment.

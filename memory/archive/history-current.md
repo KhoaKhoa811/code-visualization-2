@@ -243,3 +243,13 @@ not verbatim transcripts, unless quoted.
   30 unit, 13 browser tests.
 - 9d (user "ok"): ArrayDeque/LinkedList Deque/Stack/Queue view switch per
   variable; AC-12 done; Core V1 parts 9a-9d complete. 31 unit, 13 browser tests.
+
+## 2026-10-21 — Part 10a separate test inputs (Claude Code)
+
+- User merged 9a-9d and asked to continue with the next part.
+- 794bfc4: run request 1.2.0 (inputMode provided with input text and hash),
+  snapshot 1.1.0 input association, RunStdin/RunInput.provided in the
+  backend, "Use test input" in the frontend. First live verify failed only
+  because Docker Desktop was stopped.
+- Final: 175 Java tests (tracer 78, backend 97) with live Docker, 62 contract,
+  31 unit, 14 browser tests; no containers left.
