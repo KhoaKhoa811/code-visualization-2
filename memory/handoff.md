@@ -26,7 +26,8 @@ Please complete the rest")
       (auth/quotas/TLS, no `--cpus`, startup sweep of orphaned containers, shared-kernel sandbox and
       /dev/mqueue, single slot and in-memory state, re-verify on the deployment host).
 - [x] specs/v1-support-matrix.md: draft for the user's agreement (java-support section 7).
-- [ ] user agreement on the matrix; review/merge of 6g
+- [x] user agreed the V1 support matrix (2026-10-23: "1. I agree"). V1 functionally complete.
+- [ ] review/merge of 6g. Public-deployment items on hold (user: "Hold this step, run local first").
 
 ## Git
 
@@ -42,5 +43,5 @@ Please complete the rest")
 
 ## Next action
 
-Ask the user to agree the V1 support matrix (or name changes) and to choose whether to start any
-public-deployment item from the isolation review. Do not start them without approval.
+User is testing the app locally (backend jar + Vite dev server). Wait for their findings.
+Public-deployment items stay on hold until the user asks.

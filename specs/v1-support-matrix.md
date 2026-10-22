@@ -1,6 +1,6 @@
 # V1 support matrix
 
-Status: **draft for the user's agreement** (2026-10-23). [Java support](java-support.md)
+Status: **agreed** by the user on 2026-10-23 ("1. I agree"). V1 is functionally complete for local use. [Java support](java-support.md)
 section 7 requires this matrix to be agreed before V1 is declared finished. It records what
 V1 visualizes step by step, what runs without step-by-step capture, and what never runs.
 Nothing here is recognized by algorithm or by name: every row is a language or library
