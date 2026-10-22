@@ -11,7 +11,8 @@ only. For the active task, [handoff.md](handoff.md) is authoritative. History:
 - Approved 2026-10-18: revised [coverage roadmap](../specs/coverage-roadmap.md).
 - Approved 2026-10-20: Part 9/10 roadmap in [V1 scope](../specs/v1-scope.md).
 - Done, awaiting review: 10a separate test inputs (`feat/part-10a-test-inputs`, on main 9309231).
-- Next in the approved roadmap: 10b custom mappings; ask before starting each part. Input-wait detection via /proc is deferred to 6g. Propose each with a checklist and wait for approval.
+- Done, awaiting review: 10b custom mappings (`feat/part-10b-custom-mappings`, stacked on 10a).
+- Next in the approved roadmap: 10c view rankings; ask before starting each part. Input-wait detection via /proc is deferred to 6g. Propose each with a checklist and wait for approval.
 - Never merge pull requests; the user merges.
 
 ## Part 7 roadmap (trace engine and first visible slice)

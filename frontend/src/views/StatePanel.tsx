@@ -10,11 +10,13 @@ import { TreePanel } from './TreePanel.tsx';
 import type { TreeMapping } from '../trace/tree.ts';
 import { HeapPanel } from './HeapPanel.tsx';
 import type { HeapMapping } from '../trace/heap.ts';
+import { StructPanel } from './StructPanel.tsx';
+import type { StructMapping } from '../trace/structures.ts';
 
 type ArrayObject = TraceObject & { kind: 'array' };
 
-/** Confirmed tree (Part 9b) and heap (Part 9c) mappings that fit this run. */
-export function StatePanel({ view, trees = [], heaps = [] }: { view: View; trees?: TreeMapping[]; heaps?: HeapMapping[] }) {
+/** Confirmed tree (Part 9b), heap (Part 9c) and list/stack/queue (Part 10b) mappings that fit this run. */
+export function StatePanel({ view, trees = [], heaps = [], structs = [] }: { view: View; trees?: TreeMapping[]; heaps?: HeapMapping[]; structs?: StructMapping[] }) {
   // After main returns, show the recorded values it ended with, labelled as such.
   const state = view.beforeEnd ?? view.state;
   const focus = view.focus;
@@ -50,6 +52,7 @@ export function StatePanel({ view, trees = [], heaps = [] }: { view: View; trees
       </Panel>
       <LibraryPanel view={view} />
       <TreePanel view={view} mappings={trees} />
+      <StructPanel view={view} mappings={structs} />
       <HeapPanel view={view} mappings={heaps} />
       <ObjectGraph view={view} />
       <Panel id="arrays" label="Arrays" title="Arrays">

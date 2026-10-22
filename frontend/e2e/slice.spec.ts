@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { EXAMPLES } from '../src/examples.ts';
 
 const cells = (page: Page, name: string) => page.getByTestId(`array-${name}`).getByTestId('cell').locator('.cell-value');
 
@@ -198,7 +199,7 @@ test('dragging diagram boxes and reordering panels changes layout only (9a, AC-1
   await expect(page.getByRole('region', { name: 'Call stack' })).toHaveCSS('order', '1');
 
   await page.getByRole('button', { name: 'Reset layout' }).click();
-  await expect(objects).toHaveCSS('order', '4');
+  await expect(objects).toHaveCSS('order', '5');
   expect(Math.round((await head.boundingBox())!.x - before.x)).toBe(0);
 });
 
@@ -310,6 +311,54 @@ test('an array confirmed as a heap shows synchronized array and tree views of he
 
   await page.getByTitle('End').click();
   await expect(heap.locator('.heap-strip .cell-value')).toHaveText(['1', '3', '4', '5', '8', '10']);
+});
+
+test('custom field names map to a list and a circular queue, and a renamed field asks again (10b, AC-27, AC-30)', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.monaco-editor')).toBeVisible();
+  await page.getByLabel('Example').selectOption('Custom list and ring buffer');
+  await run(page);
+  await expect(page.getByTestId('run-summary')).toContainText('capture complete');
+  await expect(page.getByTestId('console-output')).toHaveText('30 1 2 3\n');
+
+  // Suggestions from field types; nothing is drawn until confirmed.
+  await expect(page.getByTestId('struct-suggestion-Cell')).toContainText('it may be a linked list node (value item, next after)');
+  await expect(page.getByTestId('struct-suggestion-Ring')).toContainText('it may be a stack or a queue');
+  await page.getByTestId('struct-suggestion-Cell').getByRole('button', { name: 'Show as list' }).click();
+  await page.getByTestId('struct-suggestion-Ring').getByRole('button', { name: 'Show as queue' }).click();
+  await expect(page.getByTestId('struct-mapping-Cell')).toContainText('(revision 1, confirmed for this source)');
+  await expect(page.getByTestId('struct-mapping-Ring')).toContainText('front head, rear tail (next free slot), size count');
+
+  await page.getByTitle('End').click();
+  const nodes = page.getByTestId('list-Cell').getByTestId('list-node');
+  await expect(nodes).toHaveCount(3);
+  const byX = await nodes.evaluateAll(els => els.map(e => ({ x: e.getBoundingClientRect().x, text: e.querySelector('.tree-value')!.textContent }))
+    .sort((a, b) => a.x - b.x).map(n => n.text));
+  expect(byX).toEqual(['30', '20', '10']); // first -> ... -> null
+  await expect(page.getByTestId('list-Cell').locator('.list-end')).toHaveText('null');
+  // The ring buffer wrapped around: slots [5, 2, 3, 4], head 2, tail 1, count 3.
+  const ring = page.getByTestId('queue-ring');
+  await expect(ring.getByTestId('struct-logical')).toHaveText('front → rear: 3, 4, 5');
+  await expect(ring.getByTestId('struct-cell').locator('.cell-index')).toHaveText(['0', '1 rear (next free)', '2 front', '3']);
+  await page.screenshot({ path: 'test-results/custom-structures.png', fullPage: true });
+
+  // Rename the link field everywhere: the confirmed list view no longer fits and asks again.
+  // Pasted, not typed: typing would add the editor's auto-closed brackets.
+  await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+  await page.evaluate(text => navigator.clipboard.writeText(text), EXAMPLES['Custom list and ring buffer'].replaceAll('after', 'link'));
+  await page.locator('.monaco-editor').click();
+  await page.keyboard.press('Control+A');
+  await page.keyboard.press('Control+V');
+  await run(page);
+  await expect(page.getByTestId('console-output')).toHaveText('30 1 2 3\n');
+  await expect(page.getByTestId('struct-mapping-Cell')).toContainText('does not fit this run: Main.Cell has no field after');
+  await expect(page.getByTestId('list-Cell')).toHaveCount(0);
+  await page.getByTestId('struct-mapping-Cell').getByRole('button', { name: 'Change' }).click();
+  await page.getByLabel('Cell next').selectOption('link');
+  await page.getByTestId('struct-editor-Cell').getByRole('button', { name: 'Confirm' }).click();
+  await expect(page.getByTestId('struct-mapping-Cell')).toContainText('(revision 2, confirmed for this source)');
+  await page.getByTitle('End').click();
+  await expect(nodes).toHaveCount(3);
 });
 
 test('recursive calls get their own frames and returns restore the caller (8d)', async ({ page }) => {

@@ -162,6 +162,35 @@ public class Main {
     }
 }
 `,
+  'Custom list and ring buffer': `public class Main {
+    static class Cell {
+        int item;
+        Cell after;
+        Cell(int item, Cell after) { this.item = item; this.after = after; }
+    }
+
+    static class Ring {
+        int[] slots = new int[4];
+        int head, tail, count;
+        void put(int v) { slots[tail] = v; tail = (tail + 1) % slots.length; count++; }
+        int take() { int v = slots[head]; head = (head + 1) % slots.length; count--; return v; }
+    }
+
+    public static void main(String[] args) {
+        Cell first = null;
+        for (int i = 1; i <= 3; i++) first = new Cell(i * 10, first);
+        Ring ring = new Ring();
+        ring.put(1);
+        ring.put(2);
+        ring.put(3);
+        int a = ring.take();
+        int b = ring.take();
+        ring.put(4);
+        ring.put(5);
+        System.out.println(first.item + " " + a + " " + b + " " + ring.count);
+    }
+}
+`,
   'Recursion and helpers': `public class Main {
     static int factorial(int n) {
         if (n <= 1) return 1;
