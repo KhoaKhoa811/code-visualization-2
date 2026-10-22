@@ -249,6 +249,25 @@ passes all of them.
 - `Stream.of(...)` (varargs) is left out. F11 uses `w -> w.toUpperCase()` (see 10d.3).
 - Probe after 10d.4: F2, F4, F6, F9 and F11 have no uncaptured statement.
 
+**10d.5 (2026-10-23): done.** The suite is a permanent test and AC-36 is Done.
+- `runner/tracer/src/test/java/codeviz/tracer/ProblemSuiteTest.java` holds 51 programs. Each
+  must compile and trace, match the original program's output and exit status, and give
+  its expected output. It must also have complete capture, no uncaptured statement and no
+  diagnostic, pass the shared trace-v1 checker, and survive the plan round trip.
+  - The 32 programs of the probe table, plus A1b and F12 (extra probe programs).
+  - F1–F11 (F5 is M5).
+  - Renamed and reformatted variants of A1, R1, M1 and F2.
+  - The three frontend examples (E1–E3), exactly as offered in the editor.
+- A second test checks that the out-of-scope forms still run, with their statement
+  uncaptured and diagnosed: a user comparator in a priority queue, `Stream.of`,
+  `String::toUpperCase` and a parallel stream.
+- Added at the user's request: `"text" + list` (concatenating a printable library value).
+  The step reads the JDK's own `toString` of the trusted mirror. A builder operand uses
+  `append(CharSequence)`, as javac emits it.
+- Frontend examples: "Word count (map)", "Anagram check" and "Stream pipeline". A browser
+  test runs the stream pipeline in Docker, steps into the first lambda frame "via sum",
+  steps back out, and checks the result.
+
 ## Decisions for review (revision 2)
 
 1. The added F1–F11 programs and the G6/G7 operation lists above.

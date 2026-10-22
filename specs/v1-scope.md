@@ -21,7 +21,7 @@ Status words: **Done** (implemented and verified by the named tests), **Partial*
 | 10a | V1.1 | Separate test inputs next to `Main.java`, replay without resubmission | AC-35 |
 | 10b | V1.1 | General custom mappings (list, tree, stack, queue conventions), revalidation after edits | AC-27, AC-30 |
 | 10c | V1.1 | Evidence-based view rankings (Strong / Possible / Weak), rules specified first | AC-32, AC-33, AC-34 |
-| 10d | V1.1 | Broader problem suite across arrays, strings, maps, sets, trees, heaps ([draft](problem-suite.md)) | AC-36 |
+| 10d | V1.1 | Broader problem suite across arrays, strings, maps, sets, trees, heaps ([problem suite](problem-suite.md)) | AC-36 |
 
 The mapping model of 9b and 9c is the first piece of 10b. The input-wait limit of
 Part 4r (part of AC-20) is deferred to the 6g isolation review before any public
@@ -66,6 +66,6 @@ deployment.
 | AC-33 rankings on rewind | Done | 10c | determinism and cut-trace (no leakage) unit tests; browser rewind restores the same text |
 | AC-34 invariant vs fit vs correctness | Done | 9b, 9c, 10c | conflicting tree links dashed (9b); heap order observed, not repaired (9c); rankings keep fit, observations and correctness apart (10c) |
 | AC-35 separate test inputs | Done | 10a | provided input through the API and the browser; snapshot input hash; replay without resubmission ([test inputs](test-inputs.md)) |
-| AC-36 broader problems | Partial | 8b–8i, 10d | capabilities exist; agreed problem suite in 10d |
+| AC-36 broader problems | Done | 8b–8i, 10d | agreed suite of 51 differently written programs (arrays, strings, maps, sets, lists, trees, heaps, lambdas, streams) traced completely with no uncaptured statement, original-matching; out-of-scope forms stay uncaptured with a diagnostic ([problem suite](problem-suite.md)) |
 
 Update this table in the same commit that changes a case's status.

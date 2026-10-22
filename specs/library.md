@@ -90,6 +90,9 @@ Part 10d ([problem suite](problem-suite.md)):
     the same order. A collected list or map is checked against the twin, nested lists
     included, and the twin becomes its mirror. A stream used twice fails as in Java.
   - `Stream.of(...)` (varargs) is not covered.
+- 10d.5: string concatenation may include a printable library value (`"in order: " + list`):
+  the operand reads as the JDK's own `toString` of the trusted mirror, checked against the
+  recorded result.
 
 Element types: boxed primitives (`Integer`, `Long`, `Double`, `Character`,
 `Boolean`, ...), `String`, traced classes that do not declare `equals`,
@@ -115,7 +118,8 @@ Still uncaptured: other library methods and classes, iterators used directly,
 `for` over a `PriorityQueue`, parallel streams and stream operations not listed below, lambdas outside the calls listed below, comparators other than the JDK's reverse
 order, other `Collections`/`Arrays` utilities (`fill`, `reverse`, `addAll`, ...), map views
 used other than by a for-each, `format`, `Math.pow` (not exactly specified across
-JVMs), and user `toString` in concatenation or output. Part 10d adds iteration, lambdas
+JVMs), and user `toString` in concatenation or output (library values may be
+concatenated since 10d.5). Part 10d adds iteration, lambdas
 and streams in later increments ([problem suite](problem-suite.md)).
 
 ## Contract 1.5.0

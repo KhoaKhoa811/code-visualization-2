@@ -11,7 +11,7 @@
 - Owner: Claude Code
 - Status: 10d in progress. 10d.0-10d.2 merged (PRs #101-#104 include 10a-10c and 10d.0-10d.2).
   10d.3 lambdas (`feat/part-10d3-lambdas`) and 10d.4 streams (`feat/part-10d4-streams`, stacked on it)
-  done, awaiting review. Next: 10d.5 suite test, examples, browser test, AC-36.
+  done, awaiting review. 10d.5 (`feat/part-10d5-suite`, stacked on 10d.4) done: AC-36 Done. Part 10d complete.
 - Milestone: V1.1 (Part 10). Full isolation (6g) deferred.
 
 ## Approved scope
@@ -35,18 +35,19 @@ five increments. User 2026-10-23: "continue implement" after merging.
       terminal ops run callbacks via their site (lazy order shown); collected results adopt the twin
       after a contents check (nested lists too); Library.Str is a CharSequence (joining); Stream.toList.
       Value kinds `stream`, `optional` added to 1.10.0 (not yet merged). Stream.of (varargs) left out.
-- [ ] 10d.5 ProblemSuiteTest (zero uncaptured statements), three frontend examples, browser test, AC-36 Done
+- [x] 10d.5 ProblemSuiteTest: 51 programs (complete capture, zero uncaptured, original-matching, expected
+      output, schema check, plan round trip) + out-of-scope check; "text" + list concatenation (user "ok");
+      examples Word count (map), Anagram check, Stream pipeline; browser test steps into a lambda via sum.
 
-Probe tool: `runner/tracer/src/test/java/codeviz/tracer/ProbeTest.java` is a local, **uncommitted**
-scratch test (prints a report). Run with `-pl runner/tracer -Dtest=ProbeTest`; output in `.tools/probe.log`.
-It becomes the basis of ProblemSuiteTest in 10d.5; do not commit it as is.
+The probe became `ProblemSuiteTest` (committed); ProbeTest.java was deleted.
 
 ## Git
 
-- Branch `feat/part-10d3-lambdas` on main efb198d; `feat/part-10d4-streams` stacked on it.
+- Branch `feat/part-10d3-lambdas` on main efb198d; `feat/part-10d4-streams` and `feat/part-10d5-suite` stacked.
 - PRs (manual, `gh` unavailable), merge in order:
   https://github.com/KhoaKhoa811/code-visualization-2/compare/main...feat/part-10d3-lambdas?expand=1
   https://github.com/KhoaKhoa811/code-visualization-2/compare/feat/part-10d3-lambdas...feat/part-10d4-streams?expand=1
+  https://github.com/KhoaKhoa811/code-visualization-2/compare/feat/part-10d4-streams...feat/part-10d5-suite?expand=1
 
 ## Verification (10d.3, 2026-10-23, Claude)
 
@@ -58,6 +59,13 @@ It becomes the basis of ProblemSuiteTest in 10d.5; do not commit it as is.
   (`.tools/part-10d4-verify.log`). Contracts 65; frontend 45 unit, build, 16 Playwright passed.
   Probe: every suite program, including all stream programs, has no uncaptured statement.
 
+- 10d.5 (2026-10-23): live `clean verify` tracer 136 (incl. 52 ProblemSuiteTest), backend 97, 0 failures
+  (`.tools/part-10d5-verify.log`). Frontend 45 unit, build, 17 Playwright passed (`.tools/pw-10d5.log`).
+  Mistake: a Playwright run started inside a 600 s foreground command timed out; killing it orphaned a
+  `codeviz-run-*` container that held run capacity, so the next suite runs failed (no run summary). Fixed by
+  `docker rm -f` of that container; then 17 passed. Run Playwright with run_in_background and a long timeout.
+
 ## Next action
 
-Ask before starting 10d.5 (ProblemSuiteTest, three frontend examples, browser test, AC-36 Done).
+All V1 acceptance cases are Done except AC-20's input-wait limit, deferred to the 6g isolation review. Wait for review/merge of
+10d.3, 10d.4, 10d.5 (in order); then ask what comes next.
