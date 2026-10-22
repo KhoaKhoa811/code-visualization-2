@@ -1,6 +1,6 @@
 # Next steps
 
-Last updated: 2026-10-21 (Asia/Saigon). Short roadmap and approval boundaries
+Last updated: 2026-10-22 (Asia/Saigon). Short roadmap and approval boundaries
 only. For the active task, [handoff.md](handoff.md) is authoritative. History:
 [archive/](archive/README.md).
 
@@ -12,7 +12,8 @@ only. For the active task, [handoff.md](handoff.md) is authoritative. History:
 - Approved 2026-10-20: Part 9/10 roadmap in [V1 scope](../specs/v1-scope.md).
 - Done, awaiting review: 10a separate test inputs (`feat/part-10a-test-inputs`, on main 9309231).
 - Done, awaiting review: 10b custom mappings (`feat/part-10b-custom-mappings`, stacked on 10a).
-- Next in the approved roadmap: 10c view rankings; ask before starting each part. Input-wait detection via /proc is deferred to 6g. Propose each with a checklist and wait for approval.
+- Done, awaiting review: 10c view rankings (`feat/part-10c-view-rankings`, stacked on 10b).
+- Next in the approved roadmap: 10d broader problem suite (the last V1 part); ask before starting. Input-wait detection via /proc is deferred to 6g. Propose each with a checklist and wait for approval.
 - Never merge pull requests; the user merges.
 
 ## Part 7 roadmap (trace engine and first visible slice)

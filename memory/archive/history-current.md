@@ -256,3 +256,12 @@ not verbatim transcripts, unless quoted.
 - 10b (user "ok"): list, array stack and circular queue mappings of user
   classes, suggested from field types and confirmed; revisions per source;
   renamed/retyped fields stop the view (AC-27, AC-30). 35 unit, 15 browser tests.
+
+## 2026-10-22 — Part 10c view rankings (Claude Code)
+
+- User: "ok" to 10c (2026-10-21); the rank-1 rules draft was reviewed and
+  approved ("ok, please implement it", 2026-10-22).
+- 716026e: rankings.ts (pure, prefix-only), Suggested views card; AC-32..34 done.
+  Committed before the full browser run by mistake; two drag tests failed
+  (boxes below the fold) and a follow-up commit scrolls targets into view.
+- Final: 41 unit, 16 browser tests; Java unchanged since 10a's 175-test verify.
