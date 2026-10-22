@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { describe as describeStep, formatValue, fromBits, methodName, namesOf } from './format.ts';
 import { Playback, TraceError, type State } from './playback.ts';
-import type { Trace } from './types.ts';
+import type { Trace, Value } from './types.ts';
 
 const fixture = (name: string): Trace => JSON.parse(readFileSync(new URL(`./fixtures/${name}.json`, import.meta.url), 'utf8'));
 const examples = new URL('../../../contracts/trace/v1/examples/', import.meta.url);
@@ -363,6 +363,17 @@ test('lambdas run by library calls are frames via the call; functions are values
   const after = views.find(v => v.event?.kind === 'LIBRARY' && v.event.data.method.startsWith('java.util.List.forEach'))!;
   assert.equal(after.state.frames.length, 1); // the callbacks ended before their library call's step
   assert.equal(formatValue(after.state.bindings.find(b => b.name === 'total')!.value, after.state.objects), 'int[1]');
+});
+
+test('stream pipelines run their lambdas via the terminal call; streams and optionals are values (1.10.0)', () => {
+  const p = new Playback(fixture('streams'));
+  const views = Array.from({ length: p.steps }, (_, k) => p.at(k + 1));
+  const texts = views.map(v => describeStep(v.event!, v.state));
+  for (const want of ['Call lambda at 5:28 via sum(x = 1)', 'Call lambda at 5:54 via sum(x = 2)',
+    'IntStream.sum() → 20', 'Declare java.util.OptionalInt top = OptionalInt[30]'])
+    assert.ok(texts.includes(want), `${want}\n${texts.join('\n')}`);
+  const filter = views.find(v => v.event?.kind === 'LIBRARY' && v.event.data.method.startsWith('java.util.stream.Stream.filter'))!;
+  assert.equal(formatValue(filter.event!.data.result as Value), 'ArrayList.stream().filter(lambda at 5:28)'); // lazy: nothing ran yet
 });
 
 test('Scanner reads are recorded library steps over console input (8g)', () => {

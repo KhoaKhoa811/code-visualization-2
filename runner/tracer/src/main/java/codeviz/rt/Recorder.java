@@ -221,7 +221,7 @@ public final class Recorder {
         Integer known = IDS.get(o);
         if (known != null) return "r" + known;
         if (!(o instanceof String) && !(o instanceof Throwable) && !o.getClass().isArray() && !LIBRARY.contains(o.getClass())
-                && !(o instanceof java.util.Map.Entry) && o.getClass().getName().startsWith("java.")) return "?"; // Part 10d: entries
+                && !(o instanceof java.util.Map.Entry) && !immutableList(o) && o.getClass().getName().startsWith("java.")) return "?"; // Part 10d: entries
         int id = register(o);
         INTRODUCED.add(o);
         return "r" + id;
@@ -444,10 +444,22 @@ public final class Recorder {
     private static String function(Object o) {
         String known = FUNCS.get(o);
         if (known != null) return known;
-        if (!functional(o.getClass())) return null;
+        // Streams and their optionals are values the builder replays too: s<n>.
+        if (o instanceof java.util.stream.BaseStream || o instanceof java.util.Optional || o instanceof java.util.OptionalInt
+                || o instanceof java.util.OptionalDouble) {
+            String token = "s" + (++producedFunctions);
+            FUNCS.put(o, token);
+            return token;
+        }
+        if (!functional(o.getClass()) && !(o instanceof java.util.stream.Collector)) return null;
         String token = "g" + (++producedFunctions);
         FUNCS.put(o, token);
         return token;
+    }
+
+    /** Part 10d: the unmodifiable list Stream.toList() returns, recorded like a list. */
+    private static boolean immutableList(Object o) {
+        return o instanceof java.util.List && o.getClass().getName().startsWith("java.util.ImmutableCollections$");
     }
 
     private static boolean functional(Class<?> c) {

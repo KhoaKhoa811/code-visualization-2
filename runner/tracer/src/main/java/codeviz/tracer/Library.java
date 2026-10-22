@@ -16,11 +16,15 @@ final class Library {
     private Library() { }
 
     /** A string inside a mirror: equal, hashed and ordered by its text, like String. */
-    record Str(String text, String id) implements Comparable<Str> {
+    record Str(String text, String id) implements Comparable<Str>, CharSequence {
         @Override public boolean equals(Object o) { return o instanceof Str s && s.text.equals(text); }
         @Override public int hashCode() { return text.hashCode(); }
         @Override public int compareTo(Str o) { return text.compareTo(o.text); }
         @Override public String toString() { return text; }
+        // Part 10d: Collectors.joining appends its elements as character sequences.
+        @Override public int length() { return text.length(); }
+        @Override public char charAt(int index) { return text.charAt(index); }
+        @Override public CharSequence subSequence(int start, int end) { return text.subSequence(start, end); }
     }
 
     /** A traced object or array inside a mirror: equal only to itself (classes without equals). */

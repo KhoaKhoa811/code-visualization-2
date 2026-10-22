@@ -14,7 +14,7 @@ export function formatValue(value: Value, objects?: Map<string, TraceObject>): s
     case 'null': return 'null';
     case 'unassigned': return '(unassigned)';
     case 'unknown': return '?';
-    case 'function': return value.label; // 1.10.0
+    case 'function': case 'stream': case 'optional': return value.label; // 1.10.0
     case 'ref': {
       const object = objects?.get(value.objectId);
       if (object?.kind === 'string') return JSON.stringify(stringText(object));

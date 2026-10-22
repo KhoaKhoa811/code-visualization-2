@@ -9,7 +9,7 @@ export type Value =
   | { kind: 'ref'; objectId: string }
   | { kind: 'null' }
   // 1.10.0: a lambda, method reference or library-made function, shown by its label
-  | { kind: 'function'; label: string }
+  | { kind: 'function' | 'stream' | 'optional'; label: string }
   | { kind: 'unassigned' }
   // 1.1.0: state that uncaptured code may have changed and nothing has observed since.
   | { kind: 'unknown' };

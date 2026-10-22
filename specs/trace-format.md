@@ -291,6 +291,7 @@ ranges follow sections 2–3 and the Java-support specification.
 | EXPRESSION | operator, operands, result; no persistent mutation |
 | CALL | frame, scope, parameters; push new frame and its root scope and parameter bindings; 1.10.0: `frame.via` names the library method that ran this function (a lambda body, methodId `Main.lambda@line:column(...)`, or a helper of Main named by a method reference); such frames come before the LIBRARY step of their call |
 | function value | 1.10.0: `kind: function`, `label` (`lambda at 6:12`, `Integer::sum`, `Comparator.comparing(String::length)`); a value without identity |
+| stream and optional values | 1.10.0: `kind: stream` with `label`, the calls that made it (`ArrayList.stream().filter(lambda at 5:28)`); `kind: optional` with `label`, its contents (`OptionalInt[30]`); values without identity |
 | RETURN | result, implicit; pop this frame and remove its scopes/bindings; result is JSON null for void, otherwise a typed value |
 | EXCEPTION | exceptionType, message, and since 1.7.0 objectId (the exception object); no successful mutation or result for the failing operation; the exception is in flight until a CATCH |
 | CATCH | 1.7.0: binding; a catch clause received the exception in flight: add the binding, whose value refers to the exception object (same effect as DECLARE) ([exceptions](exceptions.md)) |

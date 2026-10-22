@@ -1462,7 +1462,7 @@ final class Analyzer {
         private boolean localType(String t) {
             return SCALARS.contains(t) || t.equals("java.lang.String") || classes.containsKey(t) || array(t)
                     || BOXES.containsKey(t) || libraryType(t) // Part 8f
-                    || functionalType(t); // Part 10d
+                    || functionalType(t) || streamType(t); // Part 10d
         }
 
         // ---- Part 8f: boxed values, strings and library collections --------------------------
@@ -1518,18 +1518,36 @@ final class Analyzer {
 
         private boolean elementType(String t) { return keyType(t) || plainClasses.contains(t) || array(t) || libraryType(t); }
 
+        /** Part 10d: sequential streams and the optionals their terminal operations return (values without contents). */
+        private static final Set<String> STREAMS = Set.of("java.util.stream.Stream", "java.util.stream.IntStream",
+                "java.util.Optional", "java.util.OptionalInt", "java.util.OptionalDouble");
+
+        private boolean streamType(String t) {
+            String raw = erasure(t);
+            if (!STREAMS.contains(raw)) return false;
+            List<String> args = typeArguments(t);
+            return raw.equals("java.util.stream.Stream") || raw.equals("java.util.Optional") ? args.size() == 1 && elementType(args.get(0)) : args.isEmpty();
+        }
+
         private static final Map<String, Set<String>> FAMILY_METHODS = Map.ofEntries(
                 Map.entry("string", Set.of("length", "charAt", "substring", "indexOf", "lastIndexOf", "equals", "compareTo", "contains",
-                        "startsWith", "endsWith", "isEmpty", "toUpperCase", "toLowerCase", "trim", "toCharArray", "split")), // 10d: arrays
+                        "startsWith", "endsWith", "isEmpty", "toUpperCase", "toLowerCase", "trim", "toCharArray", "split", "chars")), // 10d: arrays, streams
                 Map.entry("builder", Set.of("append", "insert", "reverse", "toString", "length", "charAt", "setCharAt", "deleteCharAt", "setLength")),
                 Map.entry("list", Set.of("add", "get", "set", "remove", "size", "isEmpty", "contains", "indexOf", "clear",
-                        "forEach", "removeIf", "replaceAll", "sort")), // 10d: calls that run functions
+                        "forEach", "removeIf", "replaceAll", "sort", "stream")), // 10d: calls that run functions
                 Map.entry("deque", Set.of("push", "pop", "peek", "offer", "poll", "add", "remove", "addFirst", "addLast", "offerFirst", "offerLast",
                         "pollFirst", "pollLast", "peekFirst", "peekLast", "removeFirst", "removeLast", "size", "isEmpty", "empty", "clear",
-                        "forEach", "removeIf")),
+                        "forEach", "removeIf", "stream")),
                 Map.entry("map", Set.of("put", "get", "getOrDefault", "containsKey", "remove", "size", "isEmpty", "clear",
                         "forEach", "merge", "computeIfAbsent", "computeIfPresent", "compute")),
-                Map.entry("set", Set.of("add", "contains", "remove", "size", "isEmpty", "clear", "forEach", "removeIf")),
+                Map.entry("set", Set.of("add", "contains", "remove", "size", "isEmpty", "clear", "forEach", "removeIf", "stream")),
+                // Part 10d: sequential streams; a terminal operation runs the pipeline's functions.
+                Map.entry("stream", Set.of("filter", "map", "mapToInt", "mapToObj", "boxed", "sorted", "distinct", "limit", "skip", "peek",
+                        "sum", "count", "min", "max", "average", "reduce", "anyMatch", "allMatch", "noneMatch", "findFirst", "forEach",
+                        "toList", "collect")),
+                Map.entry("optional", Set.of("getAsInt", "getAsDouble", "get", "orElse", "isPresent", "isEmpty")),
+                Map.entry("java.util.stream.IntStream", Set.of("range", "rangeClosed")),
+                Map.entry("java.util.stream.Collectors", Set.of("toList", "toSet", "joining", "groupingBy", "counting", "toMap")),
                 // Part 10d: calling a function value, or composing functions.
                 Map.entry("function", Set.of("apply", "test", "accept", "get", "applyAsInt", "compare", "run",
                         "andThen", "compose", "negate", "and", "or", "reversed", "thenComparing")),
@@ -1544,7 +1562,7 @@ final class Analyzer {
                 Map.entry("java.lang.Integer", Set.of("parseInt")),
                 Map.entry("java.lang.Character", Set.of("isDigit", "isLetter", "isUpperCase", "isLowerCase", "toUpperCase", "toLowerCase")),
                 // Part 10d: one step each, replayed on a copy; a sort shows only its before and after contents.
-                Map.entry("java.util.Arrays", Set.of("sort", "toString", "equals")),
+                Map.entry("java.util.Arrays", Set.of("sort", "toString", "equals", "stream")),
                 Map.entry("java.util.Collections", Set.of("sort")));
 
         /** The library call a method invocation denotes, or null when it is not covered. */
@@ -1562,8 +1580,9 @@ final class Analyzer {
                 String raw = erasure(receiver);
                 // Part 8h: the message of a caught exception, replayed from the recorded exception object.
                 if (exceptionElement(receiver) != null && name.equals("getMessage") && m.getParameters().isEmpty()) return m;
-                if (!raw.equals("java.lang.String") && !libraryType(receiver) && !functionalType(receiver)) return null;
-                String family = functionalType(receiver) ? "function" : raw.equals("java.lang.String") ? "string" : raw.equals(BUILDER) ? "builder" : raw.equals(SCANNER) ? "scanner"
+                if (!raw.equals("java.lang.String") && !libraryType(receiver) && !functionalType(receiver) && !streamType(receiver)) return null;
+                String family = streamType(receiver) ? (raw.startsWith("java.util.stream.") ? "stream" : "optional")
+                        : functionalType(receiver) ? "function" : raw.equals("java.lang.String") ? "string" : raw.equals(BUILDER) ? "builder" : raw.equals(SCANNER) ? "scanner"
                         : raw.equals(READER) ? "reader" : raw.equals(ENTRY) ? "entry"
                         : LISTS.contains(raw) ? "list"
                         : DEQUES.contains(raw) ? "deque" : MAPS.contains(raw) ? "map" : SETS.contains(raw) ? "set" : "pq";
@@ -1576,14 +1595,15 @@ final class Analyzer {
             // No argument may make the library run user code (toString, equals, compareTo of user objects).
             for (VariableElement p : m.getParameters()) {
                 String t = types.erasure(p.asType()).toString();
-                if (FUNCTIONAL.contains(t)) continue; // Part 10d: a function the call runs, traced as callbacks
+                if (FUNCTIONAL.contains(t) || t.equals("java.util.stream.Collector")) continue; // Part 10d: a function (or collector) the call runs
                 if (!SCALARS.contains(t) && !t.equals("java.lang.String") && !t.equals("java.lang.Object") && !t.equals("java.lang.CharSequence")) return null;
                 if (t.equals("java.lang.Object") && !name.equals("equals") // String.equals(Object) runs no user code
                         && (owner.getQualifiedName().contentEquals("java.lang.String") || owner.getQualifiedName().contentEquals(BUILDER))) return null;
             }
             for (ExpressionTree a : call.getArguments()) {
                 String t = javaType(a);
-                if (!SCALARS.contains(t) && !keyType(t) && !elementType(t) && !functionalType(t) && !t.equals("<nulltype>") && !t.equals("<null>")) return null;
+                if (!SCALARS.contains(t) && !keyType(t) && !elementType(t) && !functionalType(t) && !erasure(t).equals("java.util.stream.Collector")
+                        && !t.equals("<nulltype>") && !t.equals("<null>")) return null;
             }
             return m;
         }
@@ -1598,6 +1618,7 @@ final class Analyzer {
             for (VariableElement p : m.getParameters()) {
                 String t = types.erasure(p.asType()).toString();
                 if (t.equals("java.util.Comparator")) continue; // Part 10d: a comparator the sort runs
+                if (m.getSimpleName().contentEquals("stream") && m.getParameters().size() != 1) return false; // Arrays.stream(a) only
                 if (!t.equals("int") && !(owner.equals("java.util.Arrays") ? t.endsWith("[]") && !t.endsWith("[][]") : t.equals("java.util.List"))) return false;
             }
             for (ExpressionTree a : call.getArguments()) {
@@ -1630,7 +1651,8 @@ final class Analyzer {
             TypeElement owner = elements.getTypeElement(qualifying);
             site.operator = isStatic ? "static" : owner != null && owner.getKind() == ElementKind.INTERFACE ? "interface" : "virtual";
             // Part 10d: a call that may run a function (an argument, or a function receiver) announces its callbacks.
-            site.callbacks = erased.stream().anyMatch(FUNCTIONAL::contains) || FUNCTIONAL.contains(qualifying);
+            site.callbacks = erased.stream().anyMatch(FUNCTIONAL::contains) || FUNCTIONAL.contains(qualifying)
+                    || qualifying.startsWith("java.util.stream.") || erased.contains("java.util.stream.Collector");
             StringBuilder desc = new StringBuilder("(");
             for (String p : erased) desc.append(Instrumenter.descriptorOf(p));
             desc.append(')').append(result.equals("void") ? "V" : Instrumenter.descriptorOf(result));
