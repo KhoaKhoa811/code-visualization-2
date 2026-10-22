@@ -1020,6 +1020,7 @@ final class TraceBuilder {
             }
             default -> {
                 if (function(token)) return functionValue(token); // Part 10d: a lambda, method reference or library-made function
+                if (stream(token)) return streamValue(token);
                 Map<String, Object> value = reference(token);
                 if (value.get("objectId") instanceof String id) {
                     boolean fits = type.endsWith("[]") ? Analyzer.component(type).equals(elementTypes.get(id))
@@ -1159,6 +1160,7 @@ final class TraceBuilder {
         }
         // Part 10d: "/r" marks a sorted collection in the JDK's reverse order; "/c" one ordered by user code.
         if (className.endsWith("/c")) throw new Inconsistent("a collection ordered by a user comparator");
+        if (className.startsWith("java.util.ImmutableCollections$")) className = "java.util.ArrayList"; // Part 10d: Stream.toList(), adopted from the replay
         boolean reversed = className.endsWith("/r");
         if (reversed) className = className.substring(0, className.length() - 2);
         try { mirror = reversed ? Library.createReversed(className) : Library.create(className); }
@@ -1210,6 +1212,7 @@ final class TraceBuilder {
     private Map<String, Object> libraryValueOf(String token) throws Inconsistent {
         if (token.equals("n")) return ordered("kind", "null");
         if (function(token)) return functionValue(token); // Part 10d
+        if (stream(token)) return streamValue(token);
         if (token.startsWith("r")) return reference(token);
         return traceValue(box(token));
     }
@@ -1298,6 +1301,9 @@ final class TraceBuilder {
         Object target = null;
         if (site.instance && function(t[1])) { // Part 10d: calling a function value (f.apply(x)), replayed by its stand-in
             target = functionMirror(t[1], method.getDeclaringClass());
+        } else if (site.instance && stream(t[1])) { // Part 10d: a stream or optional, replayed on its twin
+            target = streamTwins.get(t[1]);
+            if (target == null) throw new Inconsistent("a stream made by code that was not recorded");
         } else if (site.instance) {
             Map<String, Object> receiver = reference(t[1]);
             receiverId = (String) receiver.get("objectId");
@@ -1344,6 +1350,13 @@ final class TraceBuilder {
         if (method.getReturnType() == void.class) {
             if (!token.equals("v")) throw new Inconsistent("void library result");
             result = null;
+        } else if (stream(token)) { // Part 10d: a stream or optional the call made: its replayed twin
+            if (replayed == null || streamTwins.containsKey(token)) throw new Inconsistent("library stream result");
+            streamTwins.put(token, replayed);
+            String base = !site.instance ? site.owner.substring(site.owner.lastIndexOf('.') + 1)
+                    : stream(t[1]) ? streamLabels.get(t[1]) : target instanceof String ? "String" : target.getClass().getSimpleName();
+            streamLabels.put(token, base + "." + site.name + "(" + arguments.stream().map(a -> label((Map<?, ?>) a)).reduce((a, b) -> a + ", " + b).orElse("") + ")");
+            result = streamValue(token);
         } else if (function(token)) { // Part 10d: a function the library made (Comparator.comparing, andThen): its replayed twin
             if (replayed == null || !token.startsWith("g") || funcMirrors.containsKey(token)) throw new Inconsistent("library function result");
             funcMirrors.put(token, replayed);
@@ -1352,6 +1365,9 @@ final class TraceBuilder {
             result = functionValue(token);
         } else {
             result = libraryValueOf(token);
+            // Part 10d: a collection a stream collected is the replayed twin, checked against the recorded contents.
+            if ((replayed instanceof java.util.Collection || replayed instanceof Map) && !mirrorIds.containsKey(replayed)
+                    && result.get("objectId") instanceof String collected && mirrors.containsKey(collected)) adopt(replayed, collected);
             boolean same = replayed instanceof String text ? text.equals(stringTexts.get((String) result.get("objectId")))
                     : replayed != null && replayed.getClass().isArray() ? sameArray(replayed, result)
                     : traceValue(replayed).equals(result);
@@ -1533,6 +1549,66 @@ final class TraceBuilder {
                 default -> function(token) ? functionMirror(token, Object.class) : mirror(token);
             };
         } catch (RuntimeException e) { throw new Inconsistent("callback result " + token); }
+    }
+
+    // ---- Part 10d: sequential streams ------------------------------------------------------------
+
+    private final Map<String, Object> streamTwins = new HashMap<>(); // s<n> -> the replayed stream or optional
+    private final Map<String, String> streamLabels = new HashMap<>();
+
+    /** Whether a record token is a stream or optional: s<n>. */
+    private static boolean stream(String token) { return token.length() > 1 && token.charAt(0) == 's'; }
+
+    /** A stream is shown by the calls that made it; an optional by its contents (OptionalInt[9], Optional.empty). */
+    private Map<String, Object> streamValue(String token) throws Inconsistent {
+        Object twin = streamTwins.get(token);
+        if (twin == null) throw new Inconsistent("a stream made by code that was not recorded");
+        if (twin instanceof java.util.Optional<?> || twin instanceof java.util.OptionalInt || twin instanceof java.util.OptionalDouble)
+            return ordered("kind", "optional", "label", twin.toString());
+        return ordered("kind", "stream", "label", streamLabels.get(token));
+    }
+
+    /** Short text of an argument inside a stream's label. */
+    private String label(Map<?, ?> value) {
+        Object kind = value.get("kind");
+        if ("function".equals(kind) || "stream".equals(kind) || "optional".equals(kind)) return (String) value.get("label");
+        if ("ref".equals(kind)) {
+            String text = stringTexts.get((String) value.get("objectId"));
+            return text == null ? "…" : '"' + text + '"';
+        }
+        if ("char".equals(kind)) return "'" + (char) ((Number) value.get("value")).intValue() + "'";
+        return value.containsKey("value") ? String.valueOf(value.get("value")) : "…";
+    }
+
+    /**
+     * A collection a stream's terminal operation made: the recorded object (captured with its contents)
+     * takes the replayed twin as its mirror, after checking the twin holds the same contents, nested
+     * collections (groupingBy) included.
+     */
+    @SuppressWarnings("unchecked")
+    private void adopt(Object twin, String id) throws Inconsistent {
+        Object mirror = mirrors.get(id);
+        Map<String, Object> recorded = libraryValue(id);
+        if (twin instanceof Map<?, ?> t && mirror instanceof Map<?, ?> m) {
+            if (t.size() != m.size()) throw new Inconsistent("collected map size");
+            for (var e : ((Map<Object, Object>) m).entrySet()) {
+                Object nested = t.get(e.getKey());
+                if (mirrorIds.containsKey(e.getValue()) && (nested instanceof java.util.Collection || nested instanceof Map))
+                    adopt(nested, mirrorIds.get(e.getValue()));
+            }
+        } else if (twin instanceof java.util.Collection<?> t && mirror instanceof java.util.Collection<?> m) {
+            if (t.size() != m.size()) throw new Inconsistent("collected size");
+            var ti = t.iterator();
+            for (Object e : m) {
+                Object nested = ti.next();
+                if (mirrorIds.containsKey(e) && (nested instanceof java.util.Collection || nested instanceof Map)) adopt(nested, mirrorIds.get(e));
+            }
+        } else throw new Inconsistent("collected another kind of object");
+        mirrorIds.remove(mirror);
+        mirrors.put(id, twin);
+        mirrorIds.put(twin, id);
+        if (!libraryValue(id).get(twin instanceof Map ? "entries" : "elements").equals(recorded.get(twin instanceof Map ? "entries" : "elements")))
+            throw new Inconsistent("collected contents differ from the replay");
     }
 
     // ---- Part 10d: for-each over collections and map views ------------------------------------

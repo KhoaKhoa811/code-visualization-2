@@ -10,7 +10,8 @@
 - Updated: 2026-10-23 (Asia/Saigon)
 - Owner: Claude Code
 - Status: 10d in progress. 10d.0-10d.2 merged (PRs #101-#104 include 10a-10c and 10d.0-10d.2).
-  10d.3 lambdas done on `feat/part-10d3-lambdas`, awaiting review. Next: 10d.4 streams.
+  10d.3 lambdas (`feat/part-10d3-lambdas`) and 10d.4 streams (`feat/part-10d4-streams`, stacked on it)
+  done, awaiting review. Next: 10d.5 suite test, examples, browser test, AC-36.
 - Milestone: V1.1 (Part 10). Full isolation (6g) deferred.
 
 ## Approved scope
@@ -30,7 +31,10 @@ five increments. User 2026-10-23: "continue implement" after merging.
       params by the LVT; recorder f<site>/g<n> tokens, cbEnter/cbExit, callback entry `c<m> v<site>`;
       builder callback logs, Proxy stand-ins replaying recorded results; frontend `function` values,
       frames `via`. JDK method refs only with value results (String::toUpperCase not covered).
-- [ ] 10d.4 G7 sequential streams (reuse callbacks; stream values; terminal ops run the pipeline)
+- [x] 10d.4 G7 sequential streams: s<n> tokens for streams/optionals, g<n> for collectors, twins replayed;
+      terminal ops run callbacks via their site (lazy order shown); collected results adopt the twin
+      after a contents check (nested lists too); Library.Str is a CharSequence (joining); Stream.toList.
+      Value kinds `stream`, `optional` added to 1.10.0 (not yet merged). Stream.of (varargs) left out.
 - [ ] 10d.5 ProblemSuiteTest (zero uncaptured statements), three frontend examples, browser test, AC-36 Done
 
 Probe tool: `runner/tracer/src/test/java/codeviz/tracer/ProbeTest.java` is a local, **uncommitted**
@@ -39,9 +43,10 @@ It becomes the basis of ProblemSuiteTest in 10d.5; do not commit it as is.
 
 ## Git
 
-- Branch `feat/part-10d3-lambdas` on main efb198d.
-- PR (manual, `gh` unavailable):
+- Branch `feat/part-10d3-lambdas` on main efb198d; `feat/part-10d4-streams` stacked on it.
+- PRs (manual, `gh` unavailable), merge in order:
   https://github.com/KhoaKhoa811/code-visualization-2/compare/main...feat/part-10d3-lambdas?expand=1
+  https://github.com/KhoaKhoa811/code-visualization-2/compare/feat/part-10d3-lambdas...feat/part-10d4-streams?expand=1
 
 ## Verification (10d.3, 2026-10-23, Claude)
 
@@ -49,6 +54,10 @@ It becomes the basis of ProblemSuiteTest in 10d.5; do not commit it as is.
   (`.tools/part-10d3-verify.log`). Contracts 64; frontend 44 unit, build, 16 Playwright passed.
 - Probe: M5, F1, F3 now have no uncaptured statement; streams (F2, F4, F6, F9, F11) remain.
 
+- 10d.4 (2026-10-23): live `clean verify` tracer 85 (84 committed + ProbeTest), backend 97, 0 failures
+  (`.tools/part-10d4-verify.log`). Contracts 65; frontend 45 unit, build, 16 Playwright passed.
+  Probe: every suite program, including all stream programs, has no uncaptured statement.
+
 ## Next action
 
-Wait for review/merge of 10d.3, or continue with 10d.4 streams if the user asks.
+Ask before starting 10d.5 (ProblemSuiteTest, three frontend examples, browser test, AC-36 Done).

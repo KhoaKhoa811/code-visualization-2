@@ -71,6 +71,25 @@ Part 10d ([problem suite](problem-suite.md)):
   - Not covered: comparators kept inside a `PriorityQueue`, `TreeMap` or `TreeSet` (their
     order is user code), user functional interfaces, and JDK method references returning
     new objects (`String::toUpperCase`; a lambda `s -> s.toUpperCase()` is covered).
+- 10d.4, sequential streams (trace 1.10.0 value kinds `stream` and `optional`):
+  - Sources: `stream()` of a list, set or deque, `Arrays.stream(a)`,
+    `IntStream.range`/`rangeClosed`, `String.chars()`.
+  - Intermediate operations: `filter`, `map`, `mapToInt`, `mapToObj`, `boxed`, `sorted`,
+    `distinct`, `limit`, `skip`, `peek`. Each is one step whose result is a stream value
+    labelled by the calls that made it (`ArrayList.stream().filter(lambda at 5:28)`).
+    Nothing runs yet.
+  - Terminal operations: `sum`, `count`, `min`, `max`, `average`, `reduce`, `anyMatch`,
+    `allMatch`, `noneMatch`, `findFirst`, `forEach`, `toList`, and `collect` with
+    `Collectors.toList`, `toSet`, `joining`, `groupingBy`, `counting`, `toMap`. Each runs the
+    pipeline: its lambdas are frames via the terminal call, in the JDK's real
+    element-by-element order, and then comes its step with the result.
+  - Optionals (`getAsInt`, `getAsDouble`, `get`, `orElse`, `isPresent`, `isEmpty`) show
+    their contents (`OptionalInt[30]`).
+  - The recorder gives streams and optionals `s<n>` tokens and collectors `g<n>`. The
+    builder replays every call on a twin, so a terminal replay makes the same callbacks in
+    the same order. A collected list or map is checked against the twin, nested lists
+    included, and the twin becomes its mirror. A stream used twice fails as in Java.
+  - `Stream.of(...)` (varargs) is not covered.
 
 Element types: boxed primitives (`Integer`, `Long`, `Double`, `Character`,
 `Boolean`, ...), `String`, traced classes that do not declare `equals`,
@@ -93,7 +112,7 @@ objects). The program is compiled with javac's inline concatenation strategy, so
 concatenation uses `StringBuilder` calls that the tracer can match.
 
 Still uncaptured: other library methods and classes, iterators used directly,
-`for` over a `PriorityQueue`, streams (10d.4), lambdas outside the calls listed below, comparators other than the JDK's reverse
+`for` over a `PriorityQueue`, parallel streams and stream operations not listed below, lambdas outside the calls listed below, comparators other than the JDK's reverse
 order, other `Collections`/`Arrays` utilities (`fill`, `reverse`, `addAll`, ...), map views
 used other than by a for-each, `format`, `Math.pow` (not exactly specified across
 JVMs), and user `toString` in concatenation or output. Part 10d adds iteration, lambdas

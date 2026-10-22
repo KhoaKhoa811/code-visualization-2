@@ -240,6 +240,15 @@ passes all of them.
 - Probe after 10d.3: M5, F1 and F3 have no uncaptured statement. Left: G7 streams (F2, F4,
   F6, F9, F11).
 
+**10d.4 (2026-10-23): done.** G7, with the same trace contract 1.10.0 (value kinds `stream` and
+`optional` added before 1.10.0 was merged) ([library](library.md)).
+- Streams reuse the callback replay: every call on a stream announces callbacks, so the
+  lambdas a terminal operation runs are frames via that call, element by element.
+- Collected results adopt the replayed twin after a contents check. The string stand-in
+  became a `CharSequence` so `Collectors.joining` replays.
+- `Stream.of(...)` (varargs) is left out. F11 uses `w -> w.toUpperCase()` (see 10d.3).
+- Probe after 10d.4: F2, F4, F6, F9 and F11 have no uncaptured statement.
+
 ## Decisions for review (revision 2)
 
 1. The added F1–F11 programs and the G6/G7 operation lists above.

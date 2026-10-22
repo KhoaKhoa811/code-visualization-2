@@ -1314,6 +1314,38 @@ class TracerTest {
         assertTrue(vias.contains("java.util.List.forEach(java.util.function.Consumer)"), vias.toString());
     }
 
+    @Test void streamsRunTheirLambdasElementByElementInTheTerminalOperation() throws Exception {
+        Run r = main("streams", """
+                java.util.List<Integer> xs = new java.util.ArrayList<>();
+                xs.add(1); xs.add(2); xs.add(4);
+                int s = xs.stream().filter(x -> x % 2 == 0).mapToInt(x -> x * x).sum();
+                String[] words = {"bb", "a", "cc"};
+                java.util.Map<Integer, java.util.List<String>> byLength = java.util.Arrays.stream(words)
+                        .collect(java.util.stream.Collectors.groupingBy(String::length));
+                java.util.OptionalInt top = java.util.stream.IntStream.rangeClosed(1, 3).map(v -> v * 10).max();
+                java.util.stream.Stream<Integer> once = xs.stream();
+                long n = once.count();
+                System.out.println(s + " " + top.getAsInt() + " " + n);
+                System.out.println(byLength);
+                once.count();""");
+        assertComplete(r, "failed");
+        assertEquals("20 30 3\n{1=[a], 2=[bb, cc]}\n", r.result().stdout());
+        assertEquals(List.of(), uncaptured(r));
+        // Lazy order: each element goes through filter, then (if kept) mapToInt, before the next one.
+        List<String> calls = steps(r.trace()).stream().filter(x -> x.startsWith("CALL Main.lambda@5:")).toList();
+        assertEquals(List.of("CALL Main.lambda@5:28(java.lang.Integer):boolean x=1 @x -> x % 2 == 0",
+                "CALL Main.lambda@5:28(java.lang.Integer):boolean x=2 @x -> x % 2 == 0",
+                "CALL Main.lambda@5:54(java.lang.Integer):int x=2 @x -> x * x",
+                "CALL Main.lambda@5:28(java.lang.Integer):boolean x=4 @x -> x % 2 == 0",
+                "CALL Main.lambda@5:54(java.lang.Integer):int x=4 @x -> x * x"), calls);
+        assertInOrder(steps(r.trace()), "LIB sum() = 20 @xs.stream().filter(x -> x % 2 == 0).mapToInt(x -> x * x).sum()",
+                "LIB getAsInt() = 30 @top.getAsInt()", "EXCEPTION java.lang.IllegalStateException @once.count()");
+        @SuppressWarnings("unchecked")
+        List<Object> vias = events(r.trace()).stream().filter(e -> "CALL".equals(e.get("kind")))
+                .map(e -> map(map(e.get("data")).get("frame")).get("via")).distinct().toList();
+        assertTrue(vias.contains("java.util.stream.IntStream.sum()"), vias.toString());
+    }
+
     @Test void helpersAsMethodReferencesComparatorsAndAThrowingLambda() throws Exception {
         Run r = run("method-references", """
                 public class Main {

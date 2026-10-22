@@ -344,10 +344,14 @@
         },
         {
           "type": "object",
-          "description": "1.10.0: a lambda, method reference or library-made function (Comparator.comparing). A value: its identity is not shown.",
+          "description": "1.10.0: a lambda, method reference or library-made function (Comparator.comparing), a stream (shown by the calls that made it) or an optional (shown by its contents). A value: its identity is not shown.",
           "properties": {
             "kind": {
-              "const": "function"
+              "enum": [
+                "function",
+                "stream",
+                "optional"
+              ]
             },
             "label": {
               "type": "string",
