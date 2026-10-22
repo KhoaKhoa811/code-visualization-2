@@ -57,4 +57,10 @@ dependency. Ask before starting 11b.
 
 ## Next action
 
-Report 11c; ask before 11d (structure, tree and heap motion).
+11c reported. User asked to continue with 11d; not started (session limit). Start 11d from
+`feat/part-11c-calls` (or main once 11a-11c are merged). Plan: in `views/motion.ts` add plans for
+LIBRARY steps from their own `after` (push/pop/offer/poll: element enters/leaves the collection box;
+map put: entry appears or value pulses; tree node appears; heap swap = its two recorded writes along
+the edge in HeapPanel); add data attributes to LibraryPanel, TreePanel and HeapPanel items; unit tests
+in motion.test.ts (library fixture); one browser test; run Playwright in the background (stop the
+local app first: it uses 8080/5173), then restart the local app for the user.
