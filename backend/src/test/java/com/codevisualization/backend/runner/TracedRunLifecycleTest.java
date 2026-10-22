@@ -114,6 +114,63 @@ class TracedRunLifecycleTest {
         assertTrue(result.trace().contains("\"status\":\"cancelled\"") && result.trace().contains("RUN_CANCELLED"));
     }
 
+    // ---- Part 6g: input-wait limit -------------------------------------------------------------
+
+    private static final String READS = "import java.util.Scanner;\npublic class Main {\n    public static void main(String[] args) {\n"
+            + "        Scanner in = new Scanner(System.in);\n        int n = in.nextInt();\n    }\n}\n";
+
+    /** A workspace whose kernel view answers stdinWaiting from a fixed sequence (the last answer repeats). */
+    static final class WaitingWorkspace extends Workspace {
+        final List<Boolean> answers;
+        int asked;
+        WaitingWorkspace(List<Boolean> answers) { this.answers = answers; }
+        @Override public synchronized Boolean stdinWaiting(Duration remaining) {
+            return answers.get(Math.min(asked++, answers.size() - 1));
+        }
+    }
+
+    /** The runtime phase runs until the lifecycle cancels it, or {@code exitAfter} passes. */
+    private static FixedFixtureLifecycle.PhaseExecutor untilCancelled(TracedRunLifecycle[] holder, Duration exitAfter) {
+        return (command, output, budget) -> {
+            if (command == TracedRunLifecycle.PREPARE) return exit(0);
+            long end = System.nanoTime() + exitAfter.toNanos();
+            while (System.nanoTime() < end) {
+                if (holder[0].cancellationRequested()) return new PhaseProcess.Result(PhaseGate.Cause.CANCELLED, null);
+                try { Thread.sleep(20); } catch (InterruptedException e) { throw new IllegalStateException(e); }
+            }
+            return exit(0);
+        };
+    }
+
+    @Test void aReadBlockedLongerThanTheInputWaitLimitStopsTheRun() throws Exception {
+        var w = new WaitingWorkspace(List.of(true));
+        w.plan = Tracer.plan(Tracer.prepare(READS));
+        var holder = new TracedRunLifecycle[1];
+        holder[0] = new TracedRunLifecycle(w, untilCancelled(holder, Duration.ofSeconds(20)), new byte[]{1});
+        holder[0].inputWait(Duration.ofMillis(1500));
+        long start = System.nanoTime();
+        var result = holder[0].run(READS, true);
+        long elapsed = Duration.ofNanos(System.nanoTime() - start).toMillis();
+        assertTrue(result.trace().contains("\"status\":\"limited\"") && result.trace().contains("INPUT_WAIT_TIMEOUT"), result.trace());
+        assertTrue(result.trace().contains("Input wait exceeded 30000 ms"));
+        assertTrue(elapsed >= 1500 && elapsed < 10_000, "stopped after the limit: " + elapsed + " ms");
+        assertNull(holder[0].waiting(), "no waiting state after the runtime phase");
+    }
+
+    @Test void onlyUnbrokenWaitingCountsAndUnknownNeverStopsTheRun() throws Exception {
+        List<List<Boolean>> cases = List.of(List.of(true, false, true, false, true, false), java.util.Arrays.asList((Boolean) null, null));
+        for (List<Boolean> answers : cases) {
+            var w = new WaitingWorkspace(answers);
+            w.plan = Tracer.plan(Tracer.prepare(READS));
+            var holder = new TracedRunLifecycle[1];
+            holder[0] = new TracedRunLifecycle(w, untilCancelled(holder, Duration.ofMillis(3500)), new byte[]{1});
+            holder[0].inputWait(Duration.ofMillis(1500));
+            var result = holder[0].run(READS, true);
+            assertFalse(result.trace().contains("INPUT_WAIT_TIMEOUT"), answers + ": " + result.trace());
+            assertTrue(w.asked >= 3, "the kernel was asked about once a second");
+        }
+    }
+
     @Test void unconfirmedTerminationWithholdsTheTrace() throws Exception {
         var w = workspace(SOURCE);
         w.raw = "M r1 0\n1 5\nR\n";

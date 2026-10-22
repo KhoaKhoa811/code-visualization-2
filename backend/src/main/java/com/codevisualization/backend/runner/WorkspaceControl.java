@@ -29,6 +29,13 @@ interface WorkspaceControl {
      */
     String readFile(String path, int limit, Duration remaining, boolean killFirst) throws IOException;
 
+    /**
+     * Part 6g: whether a thread of the program whose standard input is a pipe is blocked reading a
+     * pipe, from the kernel's own view (/proc wchan); null when this cannot be told. Read-only:
+     * failure never quarantines the container.
+     */
+    default Boolean stdinWaiting(Duration remaining) throws IOException { return null; }
+
     void stop() throws IOException;
     void remove() throws IOException;
 

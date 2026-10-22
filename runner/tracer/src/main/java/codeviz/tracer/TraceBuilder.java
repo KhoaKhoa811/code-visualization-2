@@ -43,6 +43,8 @@ final class TraceBuilder {
             case OUTPUT_LIMIT -> new Execution("limited", "Program output exceeded 1048576 bytes", "OUTPUT_LIMIT", outputPhase);
             case CANCELLED -> new Execution("cancelled", "Run cancelled by user", "RUN_CANCELLED", "execution");
             case INPUT_DISCONNECTED -> new Execution("cancelled", "Input controller disconnected", "INPUT_DISCONNECTED", "execution");
+            // Part 6g: a standard-input read blocked for 30 s (verified from the kernel, Part 4r).
+            case INPUT_WAIT_TIMEOUT -> new Execution("limited", "Input wait exceeded 30000 ms", "INPUT_WAIT_TIMEOUT", "execution");
         };
     }
 

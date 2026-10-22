@@ -70,6 +70,11 @@ public final class TracedRunLifecycle {
     // Part 8g: live standard input of an interactive run, and whether the controller disconnected.
     private volatile RunInput input;
     private volatile boolean interactive, disconnected;
+    // Part 6g: verified waiting for input (null: not known), and whether the input-wait limit stopped the run.
+    private volatile Boolean waiting;
+    private volatile boolean inputWaitExpired;
+    private Duration inputWait = INPUT_WAIT;
+    static final Duration INPUT_WAIT = Duration.ofSeconds(30), WAIT_POLL = Duration.ofSeconds(1);
     static final Duration RUNTIME = Duration.ofSeconds(5), INTERACTIVE_RUNTIME = Duration.ofSeconds(120);
     private volatile String phase = "not_started";
     private volatile Result latest;
@@ -119,6 +124,12 @@ public final class TracedRunLifecycle {
     }
 
     public boolean interactive() { return interactive; }
+
+    /** Part 6g: whether the executing interactive program is blocked reading standard input; null when not known. */
+    public Boolean waiting() { return waiting; }
+
+    /** Tests only: a shorter input-wait limit. */
+    void inputWait(Duration limit) { inputWait = limit; }
 
     /** Standard input of the executing run: live (interactive), provided (Part 10a), or null when closed. */
     public RunInput input() { return input; }
@@ -208,7 +219,17 @@ public final class TracedRunLifecycle {
                             phase = "executing";
                             runtimePhase = true;
                             if (input != null) input.open();
-                            var runtime = phases.execute(command, output, interactive ? INTERACTIVE_RUNTIME : RUNTIME);
+                            Thread watch = interactive ? Thread.ofPlatform().daemon().name("input-wait").start(this::watchInput) : null;
+                            PhaseProcess.Result runtime;
+                            try {
+                                runtime = phases.execute(command, output, interactive ? INTERACTIVE_RUNTIME : RUNTIME);
+                            } finally {
+                                if (watch != null) {
+                                    watch.interrupt();
+                                    try { watch.join(Duration.ofSeconds(3)); } catch (InterruptedException stop) { Thread.currentThread().interrupt(); }
+                                }
+                                waiting = null;
+                            }
                             Tracer.Outcome outcome = runtimeOutcome(runtime);
                             if (outcome == null) {
                                 failures.add(Failure.TRANSPORT_FAILED);
@@ -283,6 +304,34 @@ public final class TracedRunLifecycle {
         return latest;
     }
 
+    /**
+     * Part 6g (execution-isolation Part 4r): while an interactive program executes, the kernel is asked
+     * once a second whether it is blocked reading its standard input. Only an unbroken run of such
+     * observations counts; a running or unknown answer starts over. After the input-wait limit of
+     * continuous waiting the run stops (a cancellation whose cause is INPUT_WAIT_TIMEOUT), unless
+     * another stop cause came first. Without evidence only the overall 120 s deadline applies.
+     */
+    private void watchInput() {
+        long since = -1;
+        while (!Thread.currentThread().isInterrupted() && !cancellation.requested()) {
+            Boolean blocked;
+            try { blocked = control.stdinWaiting(Duration.ofSeconds(2)); }
+            catch (IOException | RuntimeException unknown) { blocked = null; }
+            waiting = blocked;
+            long now = System.nanoTime();
+            if (Boolean.TRUE.equals(blocked)) {
+                if (since < 0) since = now;
+                if (now - since >= inputWait.toNanos()) {
+                    if (cancellation.request()) inputWaitExpired = true;
+                    return;
+                }
+            } else {
+                since = -1;
+            }
+            try { Thread.sleep(WAIT_POLL); } catch (InterruptedException stop) { return; }
+        }
+    }
+
     private Tracer.Prepared readPlan(String source, List<Failure> failures) {
         String json;
         try {
@@ -317,7 +366,8 @@ public final class TracedRunLifecycle {
             case EXIT -> Tracer.Outcome.exited(result.exitCode());
             case TIMEOUT -> new Tracer.Outcome(interactive ? Tracer.Cause.INTERACTIVE_TIMEOUT : Tracer.Cause.EXECUTION_TIMEOUT, 0);
             case OUTPUT_LIMIT -> new Tracer.Outcome(Tracer.Cause.OUTPUT_LIMIT, 0);
-            case CANCELLED -> new Tracer.Outcome(disconnected ? Tracer.Cause.INPUT_DISCONNECTED : Tracer.Cause.CANCELLED, 0);
+            case CANCELLED -> new Tracer.Outcome(inputWaitExpired ? Tracer.Cause.INPUT_WAIT_TIMEOUT
+                    : disconnected ? Tracer.Cause.INPUT_DISCONNECTED : Tracer.Cause.CANCELLED, 0);
             case TRANSPORT_FAILURE -> null;
         };
     }

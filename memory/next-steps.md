@@ -32,7 +32,7 @@ only. For the active task, [handoff.md](handoff.md) is authoritative. History:
    collections (8c-8f merged), 8g live Scanner console, 8h exceptions, 8i hardening (merged); then Core V1 completion 9a-9d (merged) and V1.1 10a-10d. See the coverage roadmap and V1 scope.
 
 Then V1.1: custom mappings, view rankings, separate test inputs, broader coverage.
-6g isolation-gap review is deferred until before any public deployment.
+6g isolation-gap review done 2026-10-23 (specs/isolation-review.md, input-wait limit, AC-20 Done); public deployment needs the listed gaps closed, each with its own approval. V1 support matrix (specs/v1-support-matrix.md) awaits agreement.
 
 ## Part 6 (backend run orchestration)
 

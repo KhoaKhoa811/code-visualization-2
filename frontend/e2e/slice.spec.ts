@@ -531,6 +531,8 @@ test('a program reads live console input and playback shows the read (8g, AC-19)
   await expect(page.getByTestId('console-live')).toHaveText('Enter n: ');
   const input = page.getByLabel('Console input');
   await expect(input).toBeEnabled();
+  // 6g: the kernel shows the blocked Scanner read, so the console says it waits (polled about once a second).
+  await expect(page.getByTestId('console-waiting')).toContainText('Waiting for input', { timeout: 15_000 });
   await page.screenshot({ path: 'test-results/live-console-prompt.png' });
   await input.fill('21');
   await input.press('Enter');

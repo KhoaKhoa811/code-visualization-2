@@ -24,8 +24,9 @@ Status words: **Done** (implemented and verified by the named tests), **Partial*
 | 10d | V1.1 | Broader problem suite across arrays, strings, maps, sets, trees, heaps ([problem suite](problem-suite.md)) | AC-36 |
 
 The mapping model of 9b and 9c is the first piece of 10b. The input-wait limit of
-Part 4r (part of AC-20) is deferred to the 6g isolation review before any public
-deployment.
+Part 4r (part of AC-20) was implemented in the 6g isolation review
+([isolation review](isolation-review.md)); the V1 coverage is summarized in the
+[V1 support matrix](v1-support-matrix.md).
 
 ## Acceptance cases
 
@@ -50,7 +51,7 @@ deployment.
 | AC-17 several steps on one line | Done | 7b | tracer `ac17` |
 | AC-18 drag a node | Done | 9a | browser layout test: box moves, arrows follow, values and cursor unchanged |
 | AC-19 Scanner prompt and input | Done | 8g | browser AC-19 test |
-| AC-20 wait, cancel, disconnect, EOF | Partial | 8g, 6g | cancel, disconnect, EOF and invalid tokens done; input-wait limit deferred to 6g |
+| AC-20 wait, cancel, disconnect, EOF | Done | 8g, 6g | cancel, disconnect, EOF and invalid tokens (8g); verified waiting state and the 30 s input-wait limit (6g, [isolation review](isolation-review.md)) |
 | AC-21 replay without resubmission | Done | 8g | browser AC-19 test (replay step) |
 | AC-22 only present structures | Done | 7e, 8e, 8f | views render from reconstructed state only |
 | AC-23 drag arrays and nodes | Done | 9a, 9b, 9c | arrays as groups, graph and collection boxes (9a), tree nodes (9b), heap nodes (9c) |

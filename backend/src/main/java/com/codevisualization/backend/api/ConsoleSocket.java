@@ -121,7 +121,8 @@ public class ConsoleSocket implements WebSocketConfigurer {
             try {
                 var console = c.supervisor.console(c.run);
                 String state = "{\"type\":\"state\",\"phase\":\"" + console.phase().wire() + "\",\"interactive\":" + console.interactive()
-                        + ",\"controller\":" + c.controller + ",\"inputOpen\":" + (console.input() != null && console.input().accepting()) + "}";
+                        + ",\"controller\":" + c.controller + ",\"inputOpen\":" + (console.input() != null && console.input().accepting())
+                        + ",\"waiting\":" + console.waiting() + "}"; // Part 6g: true, false or null (unknown)
                 if (!state.equals(c.state)) { c.state = state; send(c, state); }
                 var chunks = c.supervisor.outputSince(c.run, c.sent);
                 for (RunOutput.Chunk chunk : chunks) {

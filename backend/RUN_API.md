@@ -49,6 +49,9 @@ run, and accepts ordered input lines and EOF from the first connection (the
 controller). Messages and bounds are in [live-console.md](../specs/live-console.md)
 and [ADR 0001](../specs/decisions/0001-live-console-websocket.md). Closing the
 controller while an interactive run executes cancels it with `INPUT_DISCONNECTED`.
+Since Part 6g the `state` message carries `waiting` (`true`, `false` or `null`). A
+standard-input read observed blocked for 30 s stops the run, which then ends `limited`
+with execution diagnostic `INPUT_WAIT_TIMEOUT` ([isolation review](../specs/isolation-review.md)).
 Only `http://localhost:*` and `http://127.0.0.1:*` origins may connect.
 
 Errors are `{"error":"CODE"}` and never echo request content. Poll the snapshot

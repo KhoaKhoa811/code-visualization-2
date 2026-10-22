@@ -203,6 +203,10 @@ capture truncation, and method/argument exceptions need additional future cases.
 
 ## 7. Remaining required V1 coverage
 
+Update 2026-10-23: all the work below was built in Parts 8b–10d. The complete V1
+support matrix is drafted in [V1 support matrix](v1-support-matrix.md) for the
+user's agreement. The rest of this section is the original plan.
+
 Strings and broader arrays; lists, stacks, queues, maps, sets; custom object
 allocation/field mutation and factual bounded graphs; tree and heap operations;
 methods/recursion; live Scanner and separate test inputs; mappings, synchronized
