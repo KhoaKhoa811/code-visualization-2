@@ -41,6 +41,14 @@ dependency. Ask before starting 11b.
       build, 19 Playwright passed (`.tools/pw-11b.log`); Java unchanged. Branch `feat/part-11b-pointers`
       stacked on 11a.
 
+## Task 11c call and return motion + user-reported fixes (user: "ok, and fix the bug ...")
+
+- [x] CALL: frame card slides in, arguments fly into parameters; RETURN: result flies to the caller frame
+- [x] fix: "Load example" picker shows the chosen example (was hard-wired to "")
+- [x] fix: playback icons are one SVG set (|◀◀ |◀ ▶ ▶| ▶▶|) instead of mixed glyphs
+- [x] tests: motion.test.ts (11c), browser test "the chosen example stays selected ..."; frontend 48 unit,
+      build, 20 Playwright passed (`.tools/pw-11c.log`). Branch `feat/part-11c-calls` stacked on 11b.
+
 ## Notes
 
 - The local app (backend jar + Vite dev server) was stopped to run Playwright (both use 8080/5173);
@@ -49,4 +57,4 @@ dependency. Ask before starting 11b.
 
 ## Next action
 
-Report 11b; ask before 11c (call and return motion).
+Report 11c; ask before 11d (structure, tree and heap motion).

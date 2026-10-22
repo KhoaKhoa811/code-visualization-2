@@ -529,6 +529,24 @@ test('an index variable becomes an arrow under its array once the code indexes w
   await page.getByTestId('array-a').screenshot({ path: 'test-results/pointers.png' });
 });
 
+test('the chosen example stays selected, and calls and returns move between frames (11c)', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.monaco-editor')).toBeVisible();
+  const example = page.getByLabel('Example');
+  await example.selectOption('Recursion and helpers');
+  await expect(example).toHaveValue('Recursion and helpers'); // the picker shows what was loaded
+  for (const name of ['Restart', 'Step back', 'Play', 'Step forward', 'End']) await expect(page.getByRole('button', { name, exact: true }).locator('svg')).toHaveCount(1);
+  await run(page);
+  await page.getByLabel('Motion').check();
+  const forward = page.getByRole('button', { name: 'Step forward' });
+  await forward.click();
+  await expect(page.getByTestId('step-detail')).toContainText('Call factorial(n = 4)');
+  await expect(page.locator('.motion-chip').first()).toHaveText('4'); // the argument flies into n
+  for (let i = 0; i < 60 && !(await page.getByTestId('step-detail').textContent())?.includes('Return 1'); i++) await forward.click();
+  await expect(page.locator('.motion-chip').first()).toHaveText('1'); // the result flies back to the caller
+  await page.screenshot({ path: 'test-results/call-return.png' });
+});
+
 test('long, double and char values are traced exactly (8b)', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('.monaco-editor')).toBeVisible();

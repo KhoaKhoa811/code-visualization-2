@@ -7,13 +7,16 @@ import type { State } from '../trace/playback.ts';
 import type { ObservableEvent } from '../trace/types.ts';
 
 /** Where a motion starts or ends: the highlighted code, a variable's value, or an array cell. */
-export type Anchor = { code: true } | { binding: string } | { cell: { objectId: string; index: number } };
+export type Anchor = { code: true } | { binding: string } | { cell: { objectId: string; index: number } }
+  | { frame: string }; // 11c: a frame card of the call stack
 
 export type Motion =
   // A value travels from one place to another; `leaving` is the value it replaces, dropping away.
   | { kind: 'flight'; text: string; from: Anchor; to: Anchor; leaving?: string }
   // A computed result pops up at the code: 4 > 2 ✓, 3 + 4 = 7.
-  | { kind: 'badge'; text: string; at: Anchor; verdict?: boolean };
+  | { kind: 'badge'; text: string; at: Anchor; verdict?: boolean }
+  // 11c: a new frame card slides onto the call stack.
+  | { kind: 'enter'; frame: string };
 
 const CODE: Anchor = { code: true };
 const COMPARISONS = new Set(['<', '<=', '>', '>=', '==', '!=']);
@@ -43,6 +46,15 @@ export function motionFor(event: ObservableEvent | null, before: State, after: S
     case 'ARRAY_READ': {
       const read: Motion = { kind: 'flight', text: value(event.data.value, after), from: { cell: { objectId: event.data.objectId, index: event.data.index } }, to: CODE };
       return forward ? [read] : [];
+    }
+    case 'CALL': { // 11c: the frame slides in, each argument flies into its parameter
+      const params = event.data.parameters.flatMap(p => flight(value(p.value, after), CODE, { binding: p.bindingId }));
+      return forward ? [{ kind: 'enter', frame: event.data.frame.frameId }, ...params] : params;
+    }
+    case 'RETURN': { // 11c: the result travels back to the caller's frame
+      const caller = after.frames.at(-1); // `after` is the state once the frame returned, both ways
+      if (!event.data.result || !caller) return [];
+      return flight(value(event.data.result, after), CODE, { frame: caller.frameId });
     }
     case 'EXPRESSION': {
       if (!forward) return [];
@@ -75,6 +87,7 @@ function place(anchor: Anchor): DOMRect | null {
   let element: Element | null;
   if ('code' in anchor) element = document.querySelector('.step-highlight-text');
   else if ('binding' in anchor) element = document.querySelector(`[data-binding="${CSS.escape(anchor.binding)}"] .value`);
+  else if ('frame' in anchor) element = document.querySelector(`[data-frame="${CSS.escape(anchor.frame)}"] .frame-name`);
   else element = document.querySelector(`[data-object="${CSS.escape(anchor.cell.objectId)}"][data-index="${anchor.cell.index}"] .cell-value`);
   if (!element) return null;
   const rect = element.getBoundingClientRect();
@@ -115,6 +128,15 @@ export function clearMotion(): void {
 export function playMotion(motions: Motion[], duration: number): void {
   clearMotion();
   for (const m of motions) {
+    if (m.kind === 'enter') {
+      const card = document.querySelector(`[data-frame="${CSS.escape(m.frame)}"]`);
+      const slide = card?.animate([
+        { opacity: 0, transform: 'translateY(-14px) scale(0.97)' },
+        { opacity: 1, transform: 'translateY(0) scale(1)' },
+      ], { duration, easing: 'ease-out' });
+      if (slide) running.push(slide);
+      continue;
+    }
     if (m.kind === 'badge') {
       const at = place(m.at);
       if (!at) continue;

@@ -57,6 +57,22 @@ playback cursor.
 - **Limits:** only one-dimensional arrays shown at the top level get arrows; rows of a grid
   do not.
 
+## Calls and returns (Part 11c, 2026-10-23, user: "ok")
+
+| Event | Forward | Backward |
+| --- | --- | --- |
+| CALL (a helper, or a lambda via its library call) | the new frame card slides onto the call stack; each argument flies from the call in the code into its parameter | the arguments fly back to the code |
+| RETURN with a result | the result flies from the `return` in the code to the caller's frame card | it flies back to the code |
+
+The next step (for example `int max = findMax(a)`) then carries the value into the variable,
+as in 11a. A frame that returns simply leaves the stack; no picture of it is kept.
+
+Fixed with 11c, from the user's testing:
+- **Example picker:** "Load example" now shows the chosen example, until the code is edited
+  away from it. Before, it always reset to "Load example…".
+- **Playback icons:** they are one drawn SVG set instead of mixed text glyphs, following the
+  media convention: |◀◀ restart, |◀ one step back, ▶ play, ▶| one step forward, ▶▶| end.
+
 ## Later parts (approved as a roadmap, not yet built)
-- **11c:** call and return motion (frames slide, return values fly back to the caller).
+
 - **11d:** structure, tree and heap motion.
