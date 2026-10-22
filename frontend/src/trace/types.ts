@@ -8,6 +8,8 @@ export type Value =
   | { kind: 'float' | 'double'; bits: string }
   | { kind: 'ref'; objectId: string }
   | { kind: 'null' }
+  // 1.10.0: a lambda, method reference or library-made function, shown by its label
+  | { kind: 'function'; label: string }
   | { kind: 'unassigned' }
   // 1.1.0: state that uncaptured code may have changed and nothing has observed since.
   | { kind: 'unknown' };
@@ -32,7 +34,8 @@ export type TraceObject =
 
 export interface Field { name: string; javaType: string; value: Value }
 
-export interface Frame { frameId: string; methodId: string; callerFrameId: string | null }
+// 1.10.0: via is the library method that ran this frame's function (a lambda body or Main::helper).
+export interface Frame { frameId: string; methodId: string; callerFrameId: string | null; via?: string }
 export interface Scope { scopeId: string; frameId: string; parentScopeId: string | null }
 export interface Binding {
   bindingId: string; declarationId: string; frameId: string; scopeId: string;
@@ -88,7 +91,7 @@ export interface Diagnostic {
 }
 
 export interface Trace {
-  schemaVersion: '1.9.0';
+  schemaVersion: '1.10.0';
   runId: string;
   source: { file: 'Main.java'; text: string; sha256: string };
   execution: { status: ExecutionStatus; reason: string };

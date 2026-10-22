@@ -60,6 +60,11 @@
     "reason": "A helper throws, its frame unwinds mid-trace, and main catches the exception object (1.7.0)."
   },
   {
+    "file": "valid/lambdas.json",
+    "schemaValid": true,
+    "reason": "Lambdas run by forEach, removeIf, sort and Function.apply are frames via their library call; function values and Integer::sum (1.10.0)."
+  },
+  {
     "file": "valid/for-each.json",
     "schemaValid": true,
     "reason": "For-each over a list, a set, a deque and a map's keys, values and entries: one next() step per element, entries captured with their key and value (1.9.0)."

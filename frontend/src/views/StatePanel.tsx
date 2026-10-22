@@ -34,7 +34,7 @@ export function StatePanel({ view, trees = [], heaps = [], structs = [] }: { vie
         {[...state.frames].reverse().map((frame, depth) => (
           <div className={`frame${depth === 0 ? ' active' : ''}`} key={frame.frameId} data-testid="frame">
             <div className="frame-name" title={frame.methodId}>
-              {methodName(frame.methodId)}{depth === 0 && state.frames.length > 1 && <span className="badge">running</span>}
+              {methodName(frame.methodId)}{frame.via && <span className="muted"> via {methodName(frame.via)}</span>}{depth === 0 && state.frames.length > 1 && <span className="badge">running</span>}
             </div>
             <table className="bindings">
               <tbody>

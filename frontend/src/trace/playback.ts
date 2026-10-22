@@ -49,7 +49,7 @@ export class Playback {
 
   constructor(trace: Trace, checkpointEvery = 256) {
     this.every = checkpointEvery;
-    if (trace.schemaVersion !== '1.9.0') throw new TraceError(`Unsupported trace version ${String(trace.schemaVersion)}`);
+    if (trace.schemaVersion !== '1.10.0') throw new TraceError(`Unsupported trace version ${String(trace.schemaVersion)}`);
     this.trace = trace;
     this.steps = trace.stepEnds.length;
     if (trace.initialState === null) {

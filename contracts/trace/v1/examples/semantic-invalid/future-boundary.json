@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "1.9.0",
+  "schemaVersion": "1.10.0",
   "runId": "example-array-alias",
   "source": {
     "file": "Main.java",

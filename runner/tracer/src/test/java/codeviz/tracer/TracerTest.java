@@ -127,6 +127,7 @@ class TracerTest {
             case "null" -> "null";
             case "unknown" -> "?";
             case "unassigned" -> "_";
+            case "function" -> (String) v.get("label"); // Part 10d
             case "float" -> String.valueOf(Float.intBitsToFloat(Integer.parseUnsignedInt((String) v.get("bits"), 16)));
             case "double" -> String.valueOf(Double.longBitsToDouble(Long.parseUnsignedLong((String) v.get("bits"), 16)));
             default -> String.valueOf(v.get("value"));
@@ -1278,16 +1279,76 @@ class TracerTest {
         assertEquals("partial", status(stale.trace(), "capture"));
     }
 
-    @Test void aStatementWithACapturingLambdaRunsUncapturedInsteadOfFailingTheProgram() throws Exception {
-        Run r = main("capturing-lambda", """
+    @Test void lambdasRunByLibraryCallsAreFramesAndTheCallIsReplayedWithTheirResults() throws Exception {
+        Run r = main("lambdas", """
                 java.util.List<Integer> xs = new java.util.ArrayList<>();
-                xs.add(1); xs.add(2);
+                xs.add(3); xs.add(-1); xs.add(2);
                 int[] total = {0};
                 xs.forEach(x -> total[0] += x);
-                System.out.println(total[0]);""");
+                xs.removeIf(x -> x < 0);
+                xs.sort((p, q) -> q - p);
+                java.util.Map<String, Integer> counts = new java.util.TreeMap<>();
+                String[] words = {"b", "a", "b"};
+                for (String w : words) counts.merge(w, 1, Integer::sum);
+                java.util.Function<Integer, Integer> twice = v -> { int d = v * 2; return d; };
+                int four = twice.apply(2);
+                System.out.println(total[0] + " " + four);
+                System.out.println(xs);
+                System.out.println(counts);""".replace("java.util.Function", "java.util.function.Function"));
         assertComplete(r, "completed");
-        assertEquals("3\n", r.result().stdout());
-        assertInOrder(steps(r.trace()), "UNCAPTURED #o3=[3] @xs.forEach(x -> total[0] += x);", "READ [0]=3 @total[0]");
+        assertEquals("4 4\n[3, 2]\n{a=1, b=2}\n", r.result().stdout());
+        assertEquals(List.of(), uncaptured(r));
+        assertInOrder(steps(r.trace()), "CALL Main.lambda@6:12(java.lang.Integer):void total=#o3 x=3 @x -> total[0] += x",
+                "WRITE [0] 0->3 @total[0] += x", "RETURN void implicit @total[0] += x", "WRITE [0] 2->4 @total[0] += x",
+                "LIB forEach(lambdaat6:12) @xs.forEach(x -> total[0] += x)", "RETURN true @x < 0",
+                "LIB removeIf(lambdaat7:13) = true -> [3,2] @xs.removeIf(x -> x < 0)",
+                "CALL Main.lambda@8:9(java.lang.Integer,java.lang.Integer):int p=2 q=3 @(p, q) -> q - p", "RETURN 1 @q - p",
+                "LIB sort(lambdaat8:9) @xs.sort((p, q) -> q - p)",
+                "LIB merge(#o6,1,Integer::sum) = 2 -> {#o7=1,#o6=2} @counts.merge(w, 1, Integer::sum)",
+                "DECLARE twice=lambda at 12:55 @java.util.function.Function<Integer, Integer> twice = v -> { int d = v * 2; return d; }",
+                "CALL Main.lambda@12:55(java.lang.Integer):java.lang.Integer v=2 @v -> { int d = v * 2; return d; }",
+                "DECLARE d=4 @int d = v * 2", "RETURN 4 @return d;", "LIB apply(2) = 4 @twice.apply(2)");
+        @SuppressWarnings("unchecked")
+        List<Object> vias = events(r.trace()).stream().filter(e -> "CALL".equals(e.get("kind")))
+                .map(e -> map(map(e.get("data")).get("frame")).get("via")).toList();
+        assertTrue(vias.contains("java.util.List.forEach(java.util.function.Consumer)"), vias.toString());
+    }
+
+    @Test void helpersAsMethodReferencesComparatorsAndAThrowingLambda() throws Exception {
+        Run r = run("method-references", """
+                public class Main {
+                    static boolean even(int n) {
+                        return n % 2 == 0;
+                    }
+                    public static void main(String[] args) {
+                java.util.List<String> ws = new java.util.ArrayList<>();
+                ws.add("ccc"); ws.add("a"); ws.add("bb");
+                ws.sort(java.util.Comparator.comparing(String::length));
+                java.util.List<Integer> ns = new java.util.ArrayList<>();
+                ns.add(4); ns.add(7); ns.add(9);
+                ns.removeIf(Main::even);
+                java.util.Map<Integer, java.util.List<Integer>> g = new java.util.HashMap<>();
+                g.computeIfAbsent(1, k -> new java.util.ArrayList<>()).add(2);
+                ns.forEach(System.out::println);
+                System.out.println(ws);
+                System.out.println(g);
+                ns.forEach(n -> { if (n > 8) throw new IllegalStateException("big"); });
+                    }
+                }
+                """);
+        // A lambda whose expression body is not covered leaves only its statement uncaptured.
+        Run fallback = main("lambda-uncovered", "java.util.List<Integer> xs = new java.util.ArrayList<>();\nxs.add(1);\n"
+                + "xs.forEach(x -> System.out.printf(\"%d%n\", x));\nint y = xs.get(0);");
+        assertComplete(fallback, "completed");
+        assertEquals(List.of("UNCAPTURED @xs.forEach(x -> System.out.printf(\"%d%n\", x));"), uncaptured(fallback));
+        assertComplete(r, "failed");
+        assertEquals("7\n9\n[a, bb, ccc]\n{1=[2]}\n", r.result().stdout());
+        assertEquals(List.of(), uncaptured(r));
+        assertInOrder(textSteps(r.trace()), "LIB sort(Comparator.comparing(String::length)) -> [\"a\",\"bb\",\"ccc\"] @ws.sort(java.util.Comparator.comparing(String::length))",
+                "CALL Main.even(int):boolean n=4 @ns.removeIf(Main::even)", "RETURN true @return n % 2 == 0;",
+                "LIB removeIf(Main::even) = true -> [7,9] @ns.removeIf(Main::even)",
+                "EXCEPTION java.lang.IllegalStateException @throw new IllegalStateException(\"big\");",
+                "EXCEPTION java.lang.IllegalStateException @ns.forEach(n -> { if (n > 8) throw new IllegalStateException(\"big\"); })");
     }
 
     // ---- Part 8g: Scanner input ---------------------------------------------------------------

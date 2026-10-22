@@ -45,6 +45,32 @@ Part 10d ([problem suite](problem-suite.md)):
   changes a shown entry (`put` of an iterated key) stops capture instead of showing a stale
   value. Iterating a `PriorityQueue` stays uncaptured.
 - 10d.2: a compound assignment may unbox its right side (`total += map.get(k)`).
+- 10d.3, trace 1.10.0, lambdas and method references:
+  - Calls that run functions: `forEach` (lists, sets, deques, maps), `removeIf`,
+    `replaceAll`, `List.sort(cmp)`, `Collections.sort(list, cmp)`, `Arrays.sort(T[], cmp)`,
+    `Map.merge`, `computeIfAbsent`, `computeIfPresent`, `compute`, `Comparator.comparing`,
+    `comparingInt`, `naturalOrder`, `reverseOrder`, and on a function value `apply`, `test`,
+    `accept`, `get`, `applyAsInt`, `compare`, `run`, `andThen`, `compose`, `negate`, `and`,
+    `or`, `reversed`, `thenComparing`.
+  - A lambda body is traced like a helper of Main. When a covered call runs it, it gets
+    its own frame (`via` the call), with its captured locals and parameters as bindings.
+    The call's LIBRARY step follows its callbacks.
+  - A method reference to a static helper of Main (`Main::even`) is a helper frame the
+    same way. A reference to a covered pure JDK method (`Integer::sum`, `String::length`,
+    ...) or to `System.out::println` has no frame.
+  - Replay: the builder replays the call on its mirror with stand-in functions. A stand-in
+    for a lambda or helper returns the recorded result after checking that it is the next
+    recorded callback, of the same function, with the same arguments. A stand-in for a JDK
+    reference runs that pure method; printing does nothing, since its output was already
+    written. Any difference stops capture. Functions a library call makes
+    (`Comparator.comparing`) are replayed too, so their own calls are checked the same way.
+  - Function values have no identity (`==` on them is not covered). Lambdas are covered
+    only in static code of Main.
+  - A lambda whose expression body is not covered leaves its whole statement uncaptured.
+    A block body may have uncaptured statements, like a helper.
+  - Not covered: comparators kept inside a `PriorityQueue`, `TreeMap` or `TreeSet` (their
+    order is user code), user functional interfaces, and JDK method references returning
+    new objects (`String::toUpperCase`; a lambda `s -> s.toUpperCase()` is covered).
 
 Element types: boxed primitives (`Integer`, `Long`, `Double`, `Character`,
 `Boolean`, ...), `String`, traced classes that do not declare `equals`,
@@ -67,7 +93,7 @@ objects). The program is compiled with javac's inline concatenation strategy, so
 concatenation uses `StringBuilder` calls that the tracer can match.
 
 Still uncaptured: other library methods and classes, iterators used directly,
-`for` over a `PriorityQueue`, streams and lambdas, comparators other than the JDK's reverse
+`for` over a `PriorityQueue`, streams (10d.4), lambdas outside the calls listed below, comparators other than the JDK's reverse
 order, other `Collections`/`Arrays` utilities (`fill`, `reverse`, `addAll`, ...), map views
 used other than by a for-each, `format`, `Math.pow` (not exactly specified across
 JVMs), and user `toString` in concatenation or output. Part 10d adds iteration, lambdas

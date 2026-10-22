@@ -139,7 +139,7 @@ final class Analyzer {
         private final Map<Element, Site> fieldSites = new HashMap<>();
         private final Set<String> plainClasses = new HashSet<>(); // traced classes usable as collection elements (Part 8f)
         final Map<Integer, Site> sites = new LinkedHashMap<>();
-        private final Deque<String> scopes = new ArrayDeque<>();
+        private Deque<String> scopes = new ArrayDeque<>(); // swapped while planning a lambda body (Part 10d)
         private final Map<Element, Site> declarations = new HashMap<>();
         private final List<Element> declared = new ArrayList<>(); // insertion order, for rollback
         // Per block: declarations without initializer not yet attached to a following operation (Part 8b).
@@ -147,7 +147,7 @@ final class Analyzer {
         // Part 8h: statements a jump can leave (loops, switch statements, labeled statements, switch
         // expressions) and enclosing finally blocks, innermost first; Throwable classes of the source
         // (javaType -> binary name) and those simple enough to be created by traced code.
-        private final Deque<Object> exits = new ArrayDeque<>();
+        private Deque<Object> exits = new ArrayDeque<>();
         private record Finalizer(List<Item> items) { }
         private final Map<String, String> exceptionClasses = new HashMap<>();
         private final Set<String> simpleExceptions = new HashSet<>();
@@ -466,6 +466,7 @@ final class Analyzer {
             if (!found.isEmpty()) {
                 plan.subList(planMark, plan.size()).clear();
                 sites.keySet().removeIf(id -> id > siteMark);
+                plans.keySet().removeIf(k -> k.startsWith("lambda:") && Integer.parseInt(k.substring(7)) > siteMark); // Part 10d
                 uncaptured.subList(uncapturedMark, uncaptured.size()).clear();
                 while (declared.size() > declaredMark) declarations.remove(declared.remove(declared.size() - 1));
                 for (List<Site> waiting : pending) waiting.removeIf(d -> d.id > siteMark);
@@ -801,6 +802,223 @@ final class Analyzer {
             exits.push(f);
             try { statement(f.getStatement()); } finally { exits.pop(); }
             scopes.pop();
+        }
+
+        // ---- Part 10d: lambdas and method references ------------------------------------------
+
+        /** Functional interfaces a traced program may use; their functions are recorded, never guessed. */
+        static final Set<String> FUNCTIONAL = Set.of("java.util.function.Function", "java.util.function.BiFunction",
+                "java.util.function.UnaryOperator", "java.util.function.BinaryOperator", "java.util.function.Predicate",
+                "java.util.function.BiPredicate", "java.util.function.Consumer", "java.util.function.BiConsumer",
+                "java.util.function.Supplier", "java.util.function.IntPredicate", "java.util.function.IntFunction",
+                "java.util.function.IntUnaryOperator", "java.util.function.IntBinaryOperator", "java.util.function.ToIntFunction",
+                "java.util.function.ToIntBiFunction", "java.util.function.IntConsumer", "java.util.Comparator", "java.lang.Runnable");
+
+        /** A covered functional interface type whose type arguments are traced types. */
+        private boolean functionalType(String t) {
+            if (!FUNCTIONAL.contains(erasure(t))) return false;
+            for (String a : typeArguments(t)) {
+                String bound = a.startsWith("? super ") ? a.substring(8) : a.startsWith("? extends ") ? a.substring(10) : a;
+                if (!elementType(bound) && !functionalType(bound)) return false;
+            }
+            return true;
+        }
+
+        /** JDK methods a method reference may name: pure, with value results, or System.out/err printing. */
+        private static final Set<String> JDK_REFERENCES = Set.of("java.lang.Integer.sum", "java.lang.Integer.max", "java.lang.Integer.min",
+                "java.lang.Integer.compare", "java.lang.Integer.intValue", "java.lang.Integer.parseInt", "java.lang.Math.max", "java.lang.Math.min",
+                "java.lang.Math.abs", "java.lang.String.length", "java.lang.String.isEmpty", "java.lang.String.compareTo",
+                "java.lang.Character.isDigit", "java.lang.Character.isLetter", "java.io.PrintStream.println", "java.io.PrintStream.print");
+
+        /**
+         * A lambda or method reference in value context: one invokedynamic, matched as a LAMBDA item
+         * whose site names the function. A lambda's body is planned as its own method; the instrumenter
+         * learns its synthetic name from the invokedynamic. Only static code of Main creates functions.
+         */
+        private void function(ExpressionTree e) {
+            String type = javaType(e);
+            if (!functionalType(type)) { unsupported(e, "a lambda or method reference of type " + type); return; }
+            if (currentMethod != null && (currentMethod.instance || !currentMethod.owner.equals("Main"))) {
+                unsupported(e, "lambdas outside the static methods of Main");
+                return;
+            }
+            Site site = site(Kind.LAMBDA, e);
+            site.javaType = type;
+            if (e instanceof LambdaExpressionTree l) {
+                Site body = lambdaBody(l);
+                if (body == null) return;
+                site.callee = body;
+                site.name = "lambda at " + body.methodId.substring("Main.lambda@".length(), body.methodId.indexOf('('));
+                plan.add(Item.of(Expect.LAMBDA, site));
+                return;
+            }
+            MemberReferenceTree r = (MemberReferenceTree) e;
+            site.name = sourceText(r);
+            if (r.getMode() != MemberReferenceTree.ReferenceMode.INVOKE || !(element(r) instanceof ExecutableElement m)
+                    || !(m.getEnclosingElement() instanceof TypeElement owner)) { unsupported(r, "this method reference"); return; }
+            Site helper = helpers.get(m);
+            if (helper != null && !helper.instance && helper.owner.equals("Main")) { // Main::isPrime: a traced helper called through the library
+                site.callee = helper;
+                plan.add(new Item(Expect.LAMBDA, site, 0, key(helper)));
+                return;
+            }
+            String qualified = owner.getQualifiedName() + "." + m.getSimpleName();
+            if (!JDK_REFERENCES.contains(qualified)) { unsupported(r, "a reference to " + qualified); return; }
+            boolean printing = owner.getQualifiedName().contentEquals("java.io.PrintStream");
+            if (printing) { // System.out::println: the bound receiver is checked for null before the invokedynamic
+                if (!(strip(r.getQualifierExpression()) instanceof MemberSelectTree out) || !(element(out) instanceof VariableElement stream)
+                        || !(stream.getEnclosingElement() instanceof TypeElement system) || !system.getQualifiedName().contentEquals("java.lang.System")) {
+                    unsupported(r, "a method reference bound to this receiver");
+                    return;
+                }
+                plan.add(new Item(Expect.GETSTATIC, null, 0, stream.getSimpleName().toString()));
+                plan.add(new Item(Expect.LIB, null, 0, "java/util/Objects#requireNonNull(Ljava/lang/Object;)Ljava/lang/Object;"));
+            }
+            List<String> erased = m.getParameters().stream().map(p -> types.erasure(p.asType()).toString()).toList();
+            site.methodId = owner.getQualifiedName() + "." + m.getSimpleName() + "(" + String.join(",", erased) + ")";
+            site.operator = printing ? "print" : m.getModifiers().contains(Modifier.STATIC) ? "static" : "instance";
+            StringBuilder desc = new StringBuilder("(");
+            for (String p : erased) desc.append(Instrumenter.descriptorOf(p));
+            String result = types.erasure(m.getReturnType()).toString();
+            desc.append(')').append(result.equals("void") ? "V" : Instrumenter.descriptorOf(result));
+            plan.add(new Item(Expect.LAMBDA, site, 0, Instrumenter.internal(owner.getQualifiedName().toString()) + "#" + m.getSimpleName() + desc));
+        }
+
+        private String sourceText(Tree t) {
+            try { return unit.getSourceFile().getCharContent(true).subSequence(start(t), end(t)).toString(); }
+            catch (IOException e) { return ""; }
+        }
+
+        /** The single abstract method of a functional interface type, or null. */
+        private ExecutableElement functionalMethod(javax.lang.model.type.TypeMirror type) {
+            if (!(types.asElement(type) instanceof TypeElement iface)) return null;
+            ExecutableElement found = null;
+            for (Element member : elements.getAllMembers(iface)) {
+                if (!(member instanceof ExecutableElement m) || !m.getModifiers().contains(Modifier.ABSTRACT)) continue;
+                if (m.getEnclosingElement() instanceof TypeElement o && o.getQualifiedName().contentEquals("java.lang.Object")) continue;
+                if (List.of("equals", "hashCode", "toString").contains(m.getSimpleName().toString())) continue; // Comparator redeclares equals
+                if (found != null) return null;
+                found = m;
+            }
+            return found;
+        }
+
+        /**
+         * Plans a lambda body as a method (Part 10d): its METHOD site lists the captured locals and then
+         * the lambda's parameters (the instrumenter orders them by the synthetic method's local variable
+         * table), its result is the instantiated functional descriptor's. Returns null when not covered.
+         */
+        private Site lambdaBody(LambdaExpressionTree l) {
+            javax.lang.model.type.TypeMirror target = trees.getTypeMirror(TreePath.getPath(unit, l));
+            ExecutableElement sam = functionalMethod(target);
+            if (sam == null || !(target instanceof javax.lang.model.type.DeclaredType declared)) { unsupported(l, "this lambda's target type"); return null; }
+            var descriptor = (javax.lang.model.type.ExecutableType) types.asMemberOf(declared, sam);
+            String result = descriptor.getReturnType().toString();
+            if (!result.equals("void") && !localType(result)) { unsupported(l, "lambdas returning " + result); return null; }
+            // Captured locals: names of the enclosing method used in the body, in order of first use.
+            Map<Element, String> captured = new LinkedHashMap<>();
+            Set<Element> own = new HashSet<>();
+            new TreeScanner<Void, Void>() {
+                @Override public Void visitVariable(VariableTree v, Void p) { own.add(element(v)); return super.visitVariable(v, p); }
+                @Override public Void visitIdentifier(IdentifierTree i, Void p) {
+                    if (element(i) instanceof VariableElement v && !own.contains(v) && declarations.containsKey(v)
+                            && (v.getKind() == ElementKind.LOCAL_VARIABLE || v.getKind() == ElementKind.PARAMETER || v.getKind() == ElementKind.EXCEPTION_PARAMETER))
+                        captured.putIfAbsent(v, v.getSimpleName().toString());
+                    return super.visitIdentifier(i, p);
+                }
+            }.scan(l, null);
+            for (Element v : captured.keySet()) {
+                if (!localType(v.asType().toString())) { unsupported(l, "lambdas capturing a " + v.asType()); return null; }
+            }
+            for (VariableTree p : l.getParameters()) if (!localType(javaType(p))) { unsupported(p, "lambda parameters of type " + javaType(p)); return null; }
+            // A new planning context: the lambda's own plan, scopes, exits and pending declarations.
+            List<Item> outerPlan = plan;
+            Site outerMethod = currentMethod;
+            Deque<String> outerScopes = scopes;
+            Deque<Object> outerExits = exits;
+            Deque<List<Site>> outerPending = pending;
+            Map<Element, Site> shadowed = new HashMap<>();
+            Tree body = l.getBody();
+            String root = (body instanceof BlockTree ? "b" : "l") + start(body);
+            scopes = new ArrayDeque<>();
+            scopes.push(root);
+            Site method = site(Kind.METHOD, l);
+            long line = unit.getLineMap().getLineNumber(start(l)), column = unit.getLineMap().getColumnNumber(start(l));
+            List<String> declaredTypes = l.getParameters().stream().map(this::javaType).toList();
+            method.methodId = "Main.lambda@" + line + ":" + column + "(" + String.join(",", declaredTypes) + "):" + result;
+            method.owner = "Main";
+            method.javaType = result;
+            method.lambda = true;
+            List<Site> params = new ArrayList<>();
+            for (var c : captured.entrySet()) {
+                Site param = site(Kind.PARAM, l);
+                param.name = c.getValue();
+                param.javaType = c.getKey().asType().toString();
+                param.declarationId = method.methodId + ":" + param.name + "@captured";
+                shadowed.put(c.getKey(), declarations.put(c.getKey(), param));
+                params.add(param);
+            }
+            for (VariableTree p : l.getParameters()) {
+                Site param = site(Kind.PARAM, p);
+                param.name = p.getName().toString();
+                param.javaType = javaType(p);
+                param.declarationId = method.methodId + ":" + param.name + "@" + start(p);
+                declarations.put(element(p), param);
+                params.add(param);
+            }
+            method.params = List.copyOf(params);
+            plan = new ArrayList<>();
+            plans.put("lambda:" + method.id, plan);
+            currentMethod = method;
+            exits = new ArrayDeque<>();
+            pending = new ArrayDeque<>();
+            pending.push(new ArrayList<>());
+            boolean covered = true;
+            try {
+                if (body instanceof BlockTree block) {
+                    for (StatementTree s : block.getStatements()) statement(s);
+                    if (result.equals("void")) {
+                        Site implicit = site(Kind.RETURN, block);
+                        implicit.javaType = "void";
+                        implicit.implicit = true;
+                        method.returnSite = implicit;
+                    }
+                } else {
+                    List<Diagnostic> outer = current;
+                    current = new ArrayList<>();
+                    ExpressionTree e = (ExpressionTree) body;
+                    if (result.equals("void")) {
+                        expressionStatement(e);
+                        Site implicit = site(Kind.RETURN, e);
+                        implicit.javaType = "void";
+                        implicit.implicit = true;
+                        method.returnSite = implicit;
+                    } else {
+                        value(e, result);
+                        Site ret = site(Kind.RETURN, e);
+                        ret.javaType = result;
+                        plan.add(Item.of(Expect.RETURN, ret));
+                    }
+                    attachPending();
+                    List<Diagnostic> found = current;
+                    current = outer;
+                    if (!found.isEmpty()) { // an expression body cannot run partly uncaptured: the enclosing statement does
+                        covered = false;
+                        if (current != null) current.addAll(found);
+                        else unsupported.addAll(found);
+                    }
+                }
+            } finally {
+                plan = outerPlan;
+                currentMethod = outerMethod;
+                scopes = outerScopes;
+                exits = outerExits;
+                pending = outerPending;
+                for (var s : shadowed.entrySet()) {
+                    if (s.getValue() == null) declarations.remove(s.getKey()); else declarations.put(s.getKey(), s.getValue());
+                }
+            }
+            return covered ? method : null;
         }
 
         // ---- Part 8h: exceptions ------------------------------------------------------------
@@ -1243,7 +1461,8 @@ final class Analyzer {
         /** Traced local types: primitives, String, and arrays of those at any depth (Part 8c). */
         private boolean localType(String t) {
             return SCALARS.contains(t) || t.equals("java.lang.String") || classes.containsKey(t) || array(t)
-                    || BOXES.containsKey(t) || libraryType(t); // Part 8f
+                    || BOXES.containsKey(t) || libraryType(t) // Part 8f
+                    || functionalType(t); // Part 10d
         }
 
         // ---- Part 8f: boxed values, strings and library collections --------------------------
@@ -1303,11 +1522,18 @@ final class Analyzer {
                 Map.entry("string", Set.of("length", "charAt", "substring", "indexOf", "lastIndexOf", "equals", "compareTo", "contains",
                         "startsWith", "endsWith", "isEmpty", "toUpperCase", "toLowerCase", "trim", "toCharArray", "split")), // 10d: arrays
                 Map.entry("builder", Set.of("append", "insert", "reverse", "toString", "length", "charAt", "setCharAt", "deleteCharAt", "setLength")),
-                Map.entry("list", Set.of("add", "get", "set", "remove", "size", "isEmpty", "contains", "indexOf", "clear")),
+                Map.entry("list", Set.of("add", "get", "set", "remove", "size", "isEmpty", "contains", "indexOf", "clear",
+                        "forEach", "removeIf", "replaceAll", "sort")), // 10d: calls that run functions
                 Map.entry("deque", Set.of("push", "pop", "peek", "offer", "poll", "add", "remove", "addFirst", "addLast", "offerFirst", "offerLast",
-                        "pollFirst", "pollLast", "peekFirst", "peekLast", "removeFirst", "removeLast", "size", "isEmpty", "empty", "clear")),
-                Map.entry("map", Set.of("put", "get", "getOrDefault", "containsKey", "remove", "size", "isEmpty", "clear")),
-                Map.entry("set", Set.of("add", "contains", "remove", "size", "isEmpty", "clear")),
+                        "pollFirst", "pollLast", "peekFirst", "peekLast", "removeFirst", "removeLast", "size", "isEmpty", "empty", "clear",
+                        "forEach", "removeIf")),
+                Map.entry("map", Set.of("put", "get", "getOrDefault", "containsKey", "remove", "size", "isEmpty", "clear",
+                        "forEach", "merge", "computeIfAbsent", "computeIfPresent", "compute")),
+                Map.entry("set", Set.of("add", "contains", "remove", "size", "isEmpty", "clear", "forEach", "removeIf")),
+                // Part 10d: calling a function value, or composing functions.
+                Map.entry("function", Set.of("apply", "test", "accept", "get", "applyAsInt", "compare", "run",
+                        "andThen", "compose", "negate", "and", "or", "reversed", "thenComparing")),
+                Map.entry("java.util.Comparator", Set.of("comparing", "comparingInt", "naturalOrder", "reverseOrder")),
                 Map.entry("pq", Set.of("add", "offer", "poll", "peek", "remove", "size", "isEmpty", "clear")),
                 Map.entry("entry", Set.of("getKey", "getValue")), // Part 10d; setValue is not covered
                 Map.entry("scanner", Set.of("nextInt", "nextLong", "nextDouble", "nextBoolean", "next", "nextLine", "hasNext", "hasNextInt",
@@ -1336,8 +1562,8 @@ final class Analyzer {
                 String raw = erasure(receiver);
                 // Part 8h: the message of a caught exception, replayed from the recorded exception object.
                 if (exceptionElement(receiver) != null && name.equals("getMessage") && m.getParameters().isEmpty()) return m;
-                if (!raw.equals("java.lang.String") && !libraryType(receiver)) return null;
-                String family = raw.equals("java.lang.String") ? "string" : raw.equals(BUILDER) ? "builder" : raw.equals(SCANNER) ? "scanner"
+                if (!raw.equals("java.lang.String") && !libraryType(receiver) && !functionalType(receiver)) return null;
+                String family = functionalType(receiver) ? "function" : raw.equals("java.lang.String") ? "string" : raw.equals(BUILDER) ? "builder" : raw.equals(SCANNER) ? "scanner"
                         : raw.equals(READER) ? "reader" : raw.equals(ENTRY) ? "entry"
                         : LISTS.contains(raw) ? "list"
                         : DEQUES.contains(raw) ? "deque" : MAPS.contains(raw) ? "map" : SETS.contains(raw) ? "set" : "pq";
@@ -1350,13 +1576,14 @@ final class Analyzer {
             // No argument may make the library run user code (toString, equals, compareTo of user objects).
             for (VariableElement p : m.getParameters()) {
                 String t = types.erasure(p.asType()).toString();
+                if (FUNCTIONAL.contains(t)) continue; // Part 10d: a function the call runs, traced as callbacks
                 if (!SCALARS.contains(t) && !t.equals("java.lang.String") && !t.equals("java.lang.Object") && !t.equals("java.lang.CharSequence")) return null;
                 if (t.equals("java.lang.Object") && !name.equals("equals") // String.equals(Object) runs no user code
                         && (owner.getQualifiedName().contentEquals("java.lang.String") || owner.getQualifiedName().contentEquals(BUILDER))) return null;
             }
             for (ExpressionTree a : call.getArguments()) {
                 String t = javaType(a);
-                if (!SCALARS.contains(t) && !keyType(t) && !elementType(t) && !t.equals("<nulltype>") && !t.equals("<null>")) return null;
+                if (!SCALARS.contains(t) && !keyType(t) && !elementType(t) && !functionalType(t) && !t.equals("<nulltype>") && !t.equals("<null>")) return null;
             }
             return m;
         }
@@ -1370,13 +1597,15 @@ final class Analyzer {
             if (!owner.equals("java.util.Arrays") && !owner.equals("java.util.Collections")) return false;
             for (VariableElement p : m.getParameters()) {
                 String t = types.erasure(p.asType()).toString();
+                if (t.equals("java.util.Comparator")) continue; // Part 10d: a comparator the sort runs
                 if (!t.equals("int") && !(owner.equals("java.util.Arrays") ? t.endsWith("[]") && !t.endsWith("[][]") : t.equals("java.util.List"))) return false;
             }
             for (ExpressionTree a : call.getArguments()) {
                 String t = javaType(a);
-                if (t.equals("int")) continue;
+                if (t.equals("int") || functionalType(t)) continue;
                 if (owner.equals("java.util.Arrays") ? !array(t) || t.endsWith("[][]") || !(SCALARS.contains(component(t)) || component(t).equals("java.lang.String"))
-                        : !(LISTS.contains(erasure(t)) && libraryType(t) && keyType(typeArguments(t).get(0)))) return false;
+                        : !(LISTS.contains(erasure(t)) && libraryType(t) && (keyType(typeArguments(t).get(0)) // natural order, or a comparator (10d)
+                                || m.getParameters().size() == 2 && elementType(typeArguments(t).get(0))))) return false;
             }
             return true;
         }
@@ -1400,6 +1629,8 @@ final class Analyzer {
             site.javaType = javaType(call);
             TypeElement owner = elements.getTypeElement(qualifying);
             site.operator = isStatic ? "static" : owner != null && owner.getKind() == ElementKind.INTERFACE ? "interface" : "virtual";
+            // Part 10d: a call that may run a function (an argument, or a function receiver) announces its callbacks.
+            site.callbacks = erased.stream().anyMatch(FUNCTIONAL::contains) || FUNCTIONAL.contains(qualifying);
             StringBuilder desc = new StringBuilder("(");
             for (String p : erased) desc.append(Instrumenter.descriptorOf(p));
             desc.append(')').append(result.equals("void") ? "V" : Instrumenter.descriptorOf(result));
@@ -1904,6 +2135,7 @@ final class Analyzer {
                     SwitchExpressionTree w = (SwitchExpressionTree) e;
                     switchBlock(w, w.getExpression(), w.getCases(), type);
                 }
+                case LAMBDA_EXPRESSION, MEMBER_REFERENCE -> function(e); // Part 10d
                 case METHOD_INVOCATION -> {
                     ExecutableElement library = library((MethodInvocationTree) e);
                     if (library != null) libraryCall((MethodInvocationTree) e, library);

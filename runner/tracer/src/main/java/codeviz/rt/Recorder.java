@@ -279,6 +279,8 @@ public final class Recorder {
         if (silent > 0) return "?"; // never written; silent code registers nothing
         String box = boxed(o);
         if (box != null) return box;
+        String fn = function(o); // Part 10d
+        if (fn != null) return fn;
         Integer known = IDS.get(o);
         if (known != null) return "r" + known;
         synchronized (LOCK) {
@@ -384,6 +386,21 @@ public final class Recorder {
         synchronized (LOCK) {
             int site = pendingCall;
             pendingCall = 0;
+            // Part 10d: called by a covered library call that runs functions (a lambda or Main::helper).
+            int via = site == 0 && silent == 0 && !CALLBACKS.isEmpty() ? CALLBACKS.peek() : 0;
+            if (via != 0) {
+                if (depth >= MAX_DEPTH) {
+                    try { OUT.write("D\n"); OUT.flush(); } catch (IOException ignored) { }
+                    System.out.flush();
+                    System.err.flush();
+                    Runtime.getRuntime().halt(LIMIT_EXIT);
+                }
+                depth++;
+                CALLBACK_FRAMES.push(true);
+                CALLBACKS.push(0); // its own code calls functions only through its own library calls
+                line("c" + method + " v" + via);
+                return;
+            }
             if (silent > 0 || site == 0) { silent++; return; }
             if (depth >= MAX_DEPTH) {
                 try { OUT.write("D\n"); OUT.flush(); } catch (IOException ignored) { }
@@ -392,14 +409,59 @@ public final class Recorder {
                 Runtime.getRuntime().halt(LIMIT_EXIT);
             }
             depth++;
+            CALLBACK_FRAMES.push(false);
             line("c" + method + " " + site);
         }
+    }
+
+    // ---- Part 10d: functions --------------------------------------------------------------
+
+    private static final java.util.Map<Object, String> FUNCS = new java.util.IdentityHashMap<>();
+    private static int producedFunctions;
+    /** Library call sites currently running JDK code that may call functions; 0 while a callback runs its own code. */
+    private static final java.util.ArrayDeque<Integer> CALLBACKS = new java.util.ArrayDeque<>();
+    /** Per traced invocation (not main): whether it is a callback. */
+    private static final java.util.ArrayDeque<Boolean> CALLBACK_FRAMES = new java.util.ArrayDeque<>();
+
+    /** A lambda or method reference just created at a LAMBDA site: its token names the site. */
+    public static void fn(Object function, int site) {
+        synchronized (LOCK) {
+            if (FUNCS.size() >= MAX_IDENTITIES) {
+                try { OUT.write("T\n"); OUT.flush(); } catch (IOException ignored) { }
+                System.out.flush();
+                System.err.flush();
+                Runtime.getRuntime().halt(LIMIT_EXIT);
+            }
+            FUNCS.put(function, "f" + site);
+        }
+    }
+
+    public static void cbEnter(int site) { synchronized (LOCK) { CALLBACKS.push(silent > 0 ? 0 : site); } }
+
+    public static void cbExit() { synchronized (LOCK) { CALLBACKS.pop(); } }
+
+    /** The token of a function: f<site> for one traced code created, g<n> for one a library call made. */
+    private static String function(Object o) {
+        String known = FUNCS.get(o);
+        if (known != null) return known;
+        if (!functional(o.getClass())) return null;
+        String token = "g" + (++producedFunctions);
+        FUNCS.put(o, token);
+        return token;
+    }
+
+    private static boolean functional(Class<?> c) {
+        if (c == null || java.util.Collection.class.isAssignableFrom(c) || java.util.Map.class.isAssignableFrom(c)) return false;
+        if (java.util.Comparator.class.isAssignableFrom(c) || Runnable.class.isAssignableFrom(c)) return true;
+        for (Class<?> i : c.getInterfaces()) if (i.getPackageName().equals("java.util.function") || functional(i)) return true;
+        return functional(c.getSuperclass());
     }
 
     /** Ends the current invocation; true if it was silent (nothing is recorded). */
     private static boolean leave() {
         if (silent > 0) { silent--; return true; }
         depth--;
+        if (CALLBACK_FRAMES.pop()) CALLBACKS.pop(); // Part 10d
         return false;
     }
 

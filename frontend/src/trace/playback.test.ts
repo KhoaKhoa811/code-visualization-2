@@ -350,6 +350,21 @@ test('for-each over collections and map views reads as next-element steps; entri
   assert.deepEqual(next.focus, { objectId: (next.event!.data as { objectId: string }).objectId, access: 'read' });
 });
 
+test('lambdas run by library calls are frames via the call; functions are values (1.10.0)', () => {
+  const p = new Playback(fixture('lambdas'));
+  const views = Array.from({ length: p.steps }, (_, k) => p.at(k + 1));
+  const texts = views.map(v => describeStep(v.event!, v.state));
+  for (const want of ['Call lambda at 6:12 via forEach(total = int[1], x = 3)', 'xs.forEach(lambda at 6:12)',
+    'xs.removeIf(lambda at 7:13) → true', 'Function.apply(2) → 4'])
+    assert.ok(texts.includes(want), `${want}\n${texts.join('\n')}`);
+  const inside = views.find(v => v.event?.kind === 'CALL' && v.event.data.frame.via)!;
+  assert.equal(inside.state.frames.length, 2);
+  assert.equal(inside.state.frames[1].via, 'java.util.List.forEach(java.util.function.Consumer)');
+  const after = views.find(v => v.event?.kind === 'LIBRARY' && v.event.data.method.startsWith('java.util.List.forEach'))!;
+  assert.equal(after.state.frames.length, 1); // the callbacks ended before their library call's step
+  assert.equal(formatValue(after.state.bindings.find(b => b.name === 'total')!.value, after.state.objects), 'int[1]');
+});
+
 test('Scanner reads are recorded library steps over console input (8g)', () => {
   const p = new Playback(example('valid/scanner-read.json'));
   const created = p.at(1);
@@ -360,7 +375,7 @@ test('Scanner reads are recorded library steps over console input (8g)', () => {
   assert.equal(describeStep(read.event!, read.state), 'Read input: in.nextInt() → 21');
   assert.deepEqual(read.focus, { objectId: 'in1', access: 'read' });
   assert.equal(formatValue(p.at(4).beforeEnd!.bindings.find(b => b.name === 'n')!.value), '21');
-  assert.throws(() => new Playback({ ...example('valid/scanner-read.json'), schemaVersion: '1.5.0' as '1.9.0' }), TraceError);
+  assert.throws(() => new Playback({ ...example('valid/scanner-read.json'), schemaVersion: '1.5.0' as '1.10.0' }), TraceError);
   // 1.8.0: a BufferedReader over System.in is the same kind of input object.
   const reader = structuredClone(example('valid/scanner-read.json'));
   const allocate = reader.events[0];

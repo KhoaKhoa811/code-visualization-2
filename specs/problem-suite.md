@@ -225,6 +225,21 @@ passes all of them.
   ran uncaptured. It is now covered (unboxing, then the arithmetic).
 - Probe after 10d.2: M3, M4, T2 and L1 have no uncaptured statement. Left: G6/G7 (M5, F1-F11).
 
+**10d.3 (2026-10-23): done.** G6, trace contract **1.10.0**, plan format 10 ([library](library.md)).
+- LAMBDA sites at each `invokedynamic`. The instrumenter learns a lambda body's synthetic
+  method (`lambda$main$N`, nested ones numbered inner first) from it, and orders the
+  captured locals by that method's local variable table.
+- The recorder registers each function (`f<site>`; a library-made function is `g<n>`). A
+  library call that runs functions announces itself (`cbEnter`/`cbExit`). A traced method
+  entered while it runs is a callback frame (`c<method> v<site>`).
+- The builder logs each call's callbacks and replays the call with stand-ins that return
+  the recorded results in order. A mismatch stops capture.
+- Decision: a JDK method reference must return a value (`Integer::sum`, `String::length`).
+  `String::toUpperCase` would return strings the recorder never saw, so F11 uses
+  `s -> s.toUpperCase()` instead.
+- Probe after 10d.3: M5, F1 and F3 have no uncaptured statement. Left: G7 streams (F2, F4,
+  F6, F9, F11).
+
 ## Decisions for review (revision 2)
 
 1. The added F1–F11 programs and the G6/G7 operation lists above.
