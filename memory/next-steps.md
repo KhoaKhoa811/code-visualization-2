@@ -10,10 +10,9 @@ only. For the active task, [handoff.md](handoff.md) is authoritative. History:
   8c (PR #90), 8d (PR #91), 8e (PR #92), 8f (PR #93), 8g (PR #94), 8h (PR #95), 8i (PR #96), 9a-9d (PRs #97-#100). ADR 0004 accepted.
 - Approved 2026-10-18: revised [coverage roadmap](../specs/coverage-roadmap.md).
 - Approved 2026-10-20: Part 9/10 roadmap in [V1 scope](../specs/v1-scope.md).
-- Done, awaiting review: 10a separate test inputs (`feat/part-10a-test-inputs`, on main 9309231).
-- Done, awaiting review: 10b custom mappings (`feat/part-10b-custom-mappings`, stacked on 10a).
-- Done, awaiting review: 10c view rankings (`feat/part-10c-view-rankings`, stacked on 10b).
-- Next in the approved roadmap: 10d broader problem suite (the last V1 part); ask before starting. Input-wait detection via /proc is deferred to 6g. Propose each with a checklist and wait for approval.
+- Merged: 10a-10c and 10d.0-10d.2 (PRs #101-#104).
+- 10d approved (specs/problem-suite.md revision 2, five increments). Done, awaiting review: 10d.3 lambdas
+  (`feat/part-10d3-lambdas`). Remaining: 10d.4 streams, 10d.5 suite test and examples (AC-36). Input-wait detection via /proc is deferred to 6g. Propose each with a checklist and wait for approval.
 - Never merge pull requests; the user merges.
 
 ## Part 7 roadmap (trace engine and first visible slice)

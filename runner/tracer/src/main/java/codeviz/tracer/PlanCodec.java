@@ -15,7 +15,7 @@ import java.util.*;
  * source's SHA-256 so the reader can reject a plan for different text.
  */
 final class PlanCodec {
-    static final int VERSION = 9; // 2: regions (8a); 3: primitives (8b); 4: switch, arrays (8c); 5: methods (8d); 6: objects (8e); 7: interactive (8g); 8: exceptions (8h); 9: iteration (10d)
+    static final int VERSION = 10; // 2: regions (8a); 3: primitives (8b); 4: switch, arrays (8c); 5: methods (8d); 6: objects (8e); 7: interactive (8g); 8: exceptions (8h); 9: iteration (10d); 10: lambdas (10d)
 
     private PlanCodec() { }
 
@@ -41,6 +41,8 @@ final class PlanCodec {
             put(m, "owner", s.owner);
             if (s.instance) m.put("instance", true);
             if (s.constructor) m.put("constructor", true);
+            if (s.lambda) m.put("lambda", true); // Part 10d
+            if (s.callbacks) m.put("callbacks", true);
             if (!s.fields.isEmpty()) m.put("fields", s.fields.stream().map(f -> (Object) f.id).toList());
             if (!s.cases.isEmpty()) m.put("cases", s.cases.stream().map(c -> (Object) TraceBuilder.ordered("values",
                     new ArrayList<Object>(c.values()), "default", c.isDefault(), "start", c.start(), "end", c.end())).toList());
@@ -110,6 +112,8 @@ final class PlanCodec {
             s.owner = (String) m.get("owner");
             s.instance = Boolean.TRUE.equals(m.get("instance"));
             s.constructor = Boolean.TRUE.equals(m.get("constructor"));
+            s.lambda = Boolean.TRUE.equals(m.get("lambda"));
+            s.callbacks = Boolean.TRUE.equals(m.get("callbacks"));
             if (m.containsKey("cases")) {
                 List<Plan.Case> cases = new ArrayList<>();
                 for (Object c : (List<Object>) m.get("cases")) {

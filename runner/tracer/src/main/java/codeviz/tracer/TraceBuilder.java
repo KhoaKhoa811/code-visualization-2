@@ -94,7 +94,10 @@ final class TraceBuilder {
     private Map<String, Object> initialState;
     private int nextScope = 1, nextBinding = 1, nextFrame = 1;
     // A traced entry whose parameter records are still arriving.
-    private record PendingCall(Site call, Site method, List<Map<String, Object>> values) { }
+    // Part 10d: via is the library call that runs the callee (a lambda body or Main::helper), call is then null.
+    private record PendingCall(Site call, Site method, List<Map<String, Object>> values, Site via) {
+        PendingCall(Site call, Site method, List<Map<String, Object>> values) { this(call, method, values, null); }
+    }
     private PendingCall pendingCall;
 
     private void push(Frame frame) { frames.push(frame); use(frame); }
@@ -468,6 +471,8 @@ final class TraceBuilder {
         if (t.length != 4) throw new Inconsistent("malformed failure record");
         Site site = site(t[0].substring(1));
         if (site.kind == Plan.Kind.REGION || site.kind == Plan.Kind.CATCH || site.kind == Plan.Kind.FINALLY) throw new Inconsistent("failure at this site");
+        // Part 10d: a library call that failed (perhaps in a callback) ends its callback log unreplayed.
+        if (!callbackLogs.isEmpty() && callbackLogs.peek().via() == site && callbackLogs.peek().callerFrame().equals(frameId)) callbackLogs.pop();
         regionThrow = false;
         declarePending(site);
         syncScopes(site);
@@ -529,6 +534,7 @@ final class TraceBuilder {
         expectPropagating("unwinding");
         if (frames.size() < 2 || pendingCall != null) throw new Inconsistent("unwinding main");
         addBookkeeping("FRAME_END", ordered("frameId", frameId, "reason", "unwind"));
+        callbackFrames.remove(frameId); // Part 10d: a callback that threw never returned
         frames.pop();
         use(frames.peek());
     }
@@ -605,6 +611,7 @@ final class TraceBuilder {
     private void callEntry(String line) throws Inconsistent {
         String[] t = line.substring(1).split(" ");
         expect(t, 2);
+        if (t[1].startsWith("v")) { callbackEntry(site(t[0]), site(t[1].substring(1))); return; } // Part 10d
         Site method = site(t[0]), call = site(t[1]);
         if (method.kind != Plan.Kind.METHOD || call.kind != Plan.Kind.CALL || call.callee != method)
             throw new Inconsistent("call record");
@@ -628,6 +635,16 @@ final class TraceBuilder {
         if (values.size() == pendingCall.method().params.size()) enterCallee();
     }
 
+    /** {@code c<method> v<library site>}: a function the covered library call runs (Part 10d). */
+    private void callbackEntry(Site method, Site via) throws Inconsistent {
+        if (method.kind != Plan.Kind.METHOD || via.kind != Plan.Kind.LIBRARY || !via.callbacks) throw new Inconsistent("callback record");
+        if (frames.size() >= MAX_FRAMES) throw new Inconsistent("call depth");
+        declarePending(via);
+        syncScopes(via);
+        pendingCall = new PendingCall(null, method, new ArrayList<>(), via);
+        if (method.params.isEmpty()) enterCallee();
+    }
+
     /** One CALL step in the caller's frame, then the callee's frame with its parameter bindings. */
     private void enterCallee() {
         Site method = pendingCall.method();
@@ -641,8 +658,20 @@ final class TraceBuilder {
             callee.bindings().put(p.declarationId, binding);
             parameters.add(copy(binding));
         }
-        addObservable(pendingCall.call(), "CALL", ordered(
-                "frame", ordered("frameId", frame, "methodId", method.methodId, "callerFrameId", frameId),
+        Site via = pendingCall.via();
+        Map<String, Object> frameData = ordered("frameId", frame, "methodId", method.methodId, "callerFrameId", frameId);
+        if (via != null) { // Part 10d: a callback, logged for the replay of its library call
+            frameData.put("via", via.methodId);
+            CallbackLog log = callbackLogs.peek();
+            if (log == null || log.via() != via || !log.callerFrame().equals(frameId)) callbackLogs.push(log = new CallbackLog(via, frameId, new ArrayList<>()));
+            Callback callback = new Callback(method, new ArrayList<>(pendingCall.values()));
+            log.calls().add(callback);
+            callbackFrames.put(frame, callback);
+        }
+        // A lambda's CALL step shows the lambda; Main::helper run by a library call shows that call.
+        Site shown = via == null ? pendingCall.call() : method.lambda ? method : via;
+        addObservable(shown, "CALL", ordered(
+                "frame", frameData,
                 "scope", ordered("scopeId", scope, "frameId", frame, "parentScopeId", null),
                 "parameters", parameters));
         pendingCall = null;
@@ -834,6 +863,8 @@ final class TraceBuilder {
                 Object result = null;
                 if (site.javaType.equals("void")) expect(t, 1);
                 else { expect(t, 2); result = typed(site.javaType, t[1]); }
+                Callback callback = callbackFrames.remove(frameId); // Part 10d: a callback's result, for its library call's replay
+                if (callback != null) { callback.result = site.javaType.equals("void") ? null : t[1]; callback.returned = true; }
                 addObservable(site, "RETURN", ordered("result", result, "implicit", site.implicit));
                 frames.pop();
                 use(frames.peek());
@@ -988,6 +1019,7 @@ final class TraceBuilder {
                 return value;
             }
             default -> {
+                if (function(token)) return functionValue(token); // Part 10d: a lambda, method reference or library-made function
                 Map<String, Object> value = reference(token);
                 if (value.get("objectId") instanceof String id) {
                     boolean fits = type.endsWith("[]") ? Analyzer.component(type).equals(elementTypes.get(id))
@@ -1177,6 +1209,7 @@ final class TraceBuilder {
     /** The trace value of a self-describing token (boxes are shown as values). */
     private Map<String, Object> libraryValueOf(String token) throws Inconsistent {
         if (token.equals("n")) return ordered("kind", "null");
+        if (function(token)) return functionValue(token); // Part 10d
         if (token.startsWith("r")) return reference(token);
         return traceValue(box(token));
     }
@@ -1263,7 +1296,9 @@ final class TraceBuilder {
         if (params.length != n) throw new Inconsistent("library arity");
         String receiverId = null;
         Object target = null;
-        if (site.instance) {
+        if (site.instance && function(t[1])) { // Part 10d: calling a function value (f.apply(x)), replayed by its stand-in
+            target = functionMirror(t[1], method.getDeclaringClass());
+        } else if (site.instance) {
             Map<String, Object> receiver = reference(t[1]);
             receiverId = (String) receiver.get("objectId");
             if (receiverId == null) throw new Inconsistent("library call on null"); // a null receiver fails instead
@@ -1276,6 +1311,11 @@ final class TraceBuilder {
         String changedArgument = null; // Part 10d: a mirror argument a static call may change (Collections.sort)
         for (int i = 0; i < n; i++) {
             String token = t[3 + i];
+            if (function(token)) { // Part 10d: a function the call runs, replayed by a stand-in returning recorded results
+                arguments.add(functionValue(token));
+                args[i] = functionMirror(token, params[i]);
+                continue;
+            }
             arguments.add(libraryValueOf(token));
             Object value = mirror(token);
             // A string argument of a String or StringBuilder method, or of a String/CharSequence parameter, is its text.
@@ -1287,14 +1327,29 @@ final class TraceBuilder {
         }
         Map<String, Object> before = mirrors.containsKey(receiverId) ? libraryValue(receiverId)
                 : changedArgument != null ? libraryValue(changedArgument) : null;
+        // Part 10d: the callbacks recorded during this call, consumed in order by the stand-ins.
+        CallbackLog log = !callbackLogs.isEmpty() && callbackLogs.peek().via() == site && callbackLogs.peek().callerFrame().equals(frameId)
+                ? callbackLogs.pop() : null;
+        Deque<Callback> queue = new ArrayDeque<>(log == null ? List.of() : log.calls());
         Object replayed;
+        replayQueues.push(queue);
         try { replayed = method.invoke(target, args); }
-        catch (ReflectiveOperationException | RuntimeException e) { throw new Inconsistent("library replay of " + site.methodId); }
+        catch (ReflectiveOperationException | RuntimeException e) {
+            Throwable cause = e instanceof java.lang.reflect.InvocationTargetException ite ? ite.getCause() : e;
+            throw new Inconsistent("library replay of " + site.methodId + (cause instanceof ReplayMismatch m ? ": " + m.getMessage() : ""));
+        } finally { replayQueues.pop(); }
+        if (!queue.isEmpty()) throw new Inconsistent("callbacks of " + site.methodId + " the replay did not make");
         String token = t[3 + n];
         Map<String, Object> result;
         if (method.getReturnType() == void.class) {
             if (!token.equals("v")) throw new Inconsistent("void library result");
             result = null;
+        } else if (function(token)) { // Part 10d: a function the library made (Comparator.comparing, andThen): its replayed twin
+            if (replayed == null || !token.startsWith("g") || funcMirrors.containsKey(token)) throw new Inconsistent("library function result");
+            funcMirrors.put(token, replayed);
+            funcLabels.put(token, site.owner.substring(site.owner.lastIndexOf('.') + 1) + "." + site.name + "("
+                    + arguments.stream().map(a -> a instanceof Map<?, ?> m && "function".equals(m.get("kind")) ? (String) m.get("label") : "…").reduce((a, b) -> a + ", " + b).orElse("") + ")");
+            result = functionValue(token);
         } else {
             result = libraryValueOf(token);
             boolean same = replayed instanceof String text ? text.equals(stringTexts.get((String) result.get("objectId")))
@@ -1373,6 +1428,111 @@ final class TraceBuilder {
             return true;
         }
         return replayed.getClass().getComponentType().getName().equals(elementTypes.get(id)) && state.equals(arrayElements(replayed));
+    }
+
+    // ---- Part 10d: functions, callbacks and their replay -------------------------------------
+
+    /** One function a library call ran: its frame's parameters and, once it returned, its result token. */
+    private static final class Callback {
+        final Site method;
+        final List<Map<String, Object>> args;
+        String result;
+        boolean returned;
+        Callback(Site method, List<Map<String, Object>> args) { this.method = method; this.args = args; }
+    }
+
+    /** The callbacks of one library call still running, in the frame that made it. */
+    private record CallbackLog(Site via, String callerFrame, List<Callback> calls) { }
+
+    /** A replay that does not make the recorded callbacks (another order, other arguments). */
+    private static final class ReplayMismatch extends RuntimeException {
+        ReplayMismatch(String message) { super(message, null, false, false); }
+    }
+
+    private final Deque<CallbackLog> callbackLogs = new ArrayDeque<>();
+    private final Map<String, Callback> callbackFrames = new HashMap<>(); // callback frame id -> its log entry
+    private final Deque<Deque<Callback>> replayQueues = new ArrayDeque<>(); // callbacks of the library calls being replayed
+    private final Map<String, Object> funcMirrors = new HashMap<>(); // g<n> -> the replayed twin of a library-made function
+    private final Map<String, String> funcLabels = new HashMap<>();
+
+    /** Whether a record token is a function: f<LAMBDA site> or g<n>. */
+    private static boolean function(String token) { return token.length() > 1 && (token.charAt(0) == 'f' || token.charAt(0) == 'g'); }
+
+    private Map<String, Object> functionValue(String token) throws Inconsistent {
+        if (token.startsWith("g")) {
+            String label = funcLabels.get(token);
+            if (label == null) throw new Inconsistent("a function made by code that was not recorded");
+            return ordered("kind", "function", "label", label);
+        }
+        Site lambda = site(token.substring(1));
+        if (lambda.kind != Plan.Kind.LAMBDA) throw new Inconsistent("function token");
+        return ordered("kind", "function", "label", lambda.name);
+    }
+
+    /**
+     * A stand-in for a function during replay: a lambda or Main::helper returns the next recorded
+     * callback's result after checking it is the same function with the same arguments; a JDK method
+     * reference runs that JDK method (System.out::println does nothing: its output was already written).
+     */
+    private Object functionMirror(String token, Class<?> iface) throws Inconsistent {
+        if (token.startsWith("g")) {
+            Object twin = funcMirrors.get(token);
+            if (twin == null || !iface.isInstance(twin)) throw new Inconsistent("a function made by code that was not recorded");
+            return twin;
+        }
+        Site lambda = site(token.substring(1));
+        if (lambda.kind != Plan.Kind.LAMBDA || !iface.isInterface()) throw new Inconsistent("function token");
+        java.lang.reflect.InvocationHandler handler = (proxy, m, a) -> {
+            if (m.isDefault()) return java.lang.reflect.InvocationHandler.invokeDefault(proxy, m, a);
+            Object[] args = a == null ? new Object[0] : a;
+            switch (m.getName()) {
+                case "equals": if (args.length == 1 && m.getParameterTypes()[0] == Object.class) return proxy == args[0]; break;
+                case "hashCode": if (args.length == 0) return System.identityHashCode(proxy); break;
+                case "toString": if (args.length == 0) return lambda.name; break;
+                default: break;
+            }
+            if (lambda.callee == null) return jdkReference(lambda, args);
+            Deque<Callback> queue = replayQueues.peek();
+            Callback callback = queue == null ? null : queue.poll();
+            if (callback == null || callback.method != lambda.callee) throw new ReplayMismatch(lambda.name + " was not called here");
+            if (!callback.returned) throw new ReplayMismatch(lambda.name + " did not return");
+            List<Map<String, Object>> recorded = callback.args.subList(callback.args.size() - args.length, callback.args.size());
+            for (int i = 0; i < args.length; i++) {
+                try { if (!traceValue(args[i]).equals(recorded.get(i))) throw new ReplayMismatch(lambda.name + " argument " + i); }
+                catch (Inconsistent e) { throw new ReplayMismatch(e.getMessage()); }
+            }
+            try { return callback.result == null ? null : resultMirror(callback.method.javaType, callback.result); }
+            catch (Inconsistent e) { throw new ReplayMismatch(e.getMessage()); }
+        };
+        return java.lang.reflect.Proxy.newProxyInstance(iface.getClassLoader() == null ? TraceBuilder.class.getClassLoader() : iface.getClassLoader(),
+                new Class<?>[]{iface}, handler);
+    }
+
+    /** A JDK method reference during replay: pure methods run on the mirror values; printing does nothing. */
+    private static Object jdkReference(Site lambda, Object[] args) throws ReflectiveOperationException {
+        if (lambda.operator.equals("print")) return null;
+        java.lang.reflect.Method m = Library.method(lambda.methodId);
+        Object[] plain = new Object[args.length];
+        for (int i = 0; i < args.length; i++) plain[i] = args[i] instanceof Library.Str s ? s.text() : args[i];
+        if (lambda.operator.equals("static")) return m.invoke(null, plain);
+        return m.invoke(plain[0], java.util.Arrays.copyOfRange(plain, 1, plain.length));
+    }
+
+    /** A recorded callback result as the mirror value the library would have received. */
+    private Object resultMirror(String javaType, String token) throws Inconsistent {
+        try {
+            return switch (javaType) {
+                case "int" -> Integer.parseInt(token);
+                case "short" -> Short.parseShort(token);
+                case "byte" -> Byte.parseByte(token);
+                case "char" -> (char) Integer.parseInt(token);
+                case "boolean" -> token.equals("1");
+                case "long" -> Long.parseLong(token);
+                case "float" -> Values.f(token);
+                case "double" -> Values.d(token);
+                default -> function(token) ? functionMirror(token, Object.class) : mirror(token);
+            };
+        } catch (RuntimeException e) { throw new Inconsistent("callback result " + token); }
     }
 
     // ---- Part 10d: for-each over collections and map views ------------------------------------
@@ -1576,7 +1736,7 @@ final class TraceBuilder {
             diagnosticJson.add(map);
         }
         return Json.write(ordered(
-                "schemaVersion", "1.9.0",
+                "schemaVersion", "1.10.0",
                 "runId", runId,
                 "source", ordered("file", Analyzer.FILE, "text", source, "sha256", sha256(source)),
                 "execution", ordered("status", executionStatus, "reason", executionReason),

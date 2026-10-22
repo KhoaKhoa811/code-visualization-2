@@ -7,37 +7,30 @@
 
 ## Status
 
-- Updated: 2026-10-22 (Asia/Saigon)
+- Updated: 2026-10-23 (Asia/Saigon)
 - Owner: Claude Code
-- Status: 10d in progress. Revision 2 approved 2026-10-22 ("1. I approve 2. do as your recommendation
-  3. do what you want 4. I approve"). 10d.1 implemented; next 10d.2.
-- Milestone: V1.1 (Part 10). 10a, 10b, 10c done and awaiting merge. Full isolation (6g) deferred.
+- Status: 10d in progress. 10d.0-10d.2 merged (PRs #101-#104 include 10a-10c and 10d.0-10d.2).
+  10d.3 lambdas done on `feat/part-10d3-lambdas`, awaiting review. Next: 10d.4 streams.
+- Milestone: V1.1 (Part 10). Full isolation (6g) deferred.
 
-## Approved roadmap (2026-10-20, "I approve")
+## Approved scope
 
-9.0-9d done; V1.1: 10a test inputs, 10b custom mappings, 10c view rankings (all done, awaiting review),
-10d broader problem suite. User 2026-10-22: "please continue doing part 10d" -> 10d started.
-Requirements 6.5 require the concrete operations and representative programs to be agreed before
-implementation, so 10d.0 is a draft: [specs/problem-suite.md](../specs/problem-suite.md).
+[specs/problem-suite.md](../specs/problem-suite.md) revision 2, approved 2026-10-22 ("1. I approve
+2. do as your recommendation 3. do what you want 4. I approve"): suite with lambdas and streams,
+lambda frames via the library call, sort comparators covered, collection-held comparators not,
+five increments. User 2026-10-23: "continue implement" after merging.
 
 ## Current task: 10d broader problem suite (AC-36)
 
-- [x] 10d.0 probe of 32 candidate programs through the real tracer; draft suite + gaps G1-G5 (this commit)
-- [x] user review of revision 1 (2026-10-22): include lambdas and streams; entrySet yes; G5 only reverseOrder
-- [x] revision 2: G6 lambdas/method references, G7 sequential streams, F1-F11 programs, 5 increments;
-      probe found bug F1 (List.forEach with a lambda makes the whole program output-only, TRACE_MAPPING)
-- [x] user review of revision 2: approved (lambda frames via the library call; sort comparators in,
-      collection-held comparators out)
-- [x] 10d.1 G1 println(Object) for library values, G3 toCharArray/split/Arrays.toString/equals,
-      G4 Arrays.sort/Collections.sort as one step, G5 reverse order (PQ/TreeSet/TreeMap), bug F1.
-      Recorder marks sorted collections' comparator ("/r", "/c"); args recorded before the call;
-      static call's changed argument in `after` (schema already allowed it, no version bump);
-      3 tracer tests, 1 frontend test, fixtures array-utilities.json and reverse-order.json.
-- [x] 10d.2 G2 enhanced for over List/Set/Deque, keySet/values/entrySet (trace contract 1.9.0, plan format 9):
-      ITERATE/NEXT sites, builder iterates its mirror; `entry` objects (stale entry -> partial);
-      also `total += map.get(k)` (boxed right side of a compound assignment)
-- [ ] 10d.3 G6 lambdas (callback frames via the library call, replay with recorded callback results)
-- [ ] 10d.4 G7 sequential streams (contract 1.10.0 with 10d.3)
+- [x] 10d.0 probe + suite draft, revisions 1 and 2 approved
+- [x] 10d.1 printing library values, toCharArray/split, library sorts, reverse order, F1 bug (merged)
+- [x] 10d.2 for-each over collections and map views, entry objects, trace 1.9.0 (merged)
+- [x] 10d.3 lambdas and method references (trace 1.10.0, plan format 10):
+      LAMBDA sites; instrumenter learns lambda$main$N from the invokedynamic and orders captured
+      params by the LVT; recorder f<site>/g<n> tokens, cbEnter/cbExit, callback entry `c<m> v<site>`;
+      builder callback logs, Proxy stand-ins replaying recorded results; frontend `function` values,
+      frames `via`. JDK method refs only with value results (String::toUpperCase not covered).
+- [ ] 10d.4 G7 sequential streams (reuse callbacks; stream values; terminal ops run the pipeline)
 - [ ] 10d.5 ProblemSuiteTest (zero uncaptured statements), three frontend examples, browser test, AC-36 Done
 
 Probe tool: `runner/tracer/src/test/java/codeviz/tracer/ProbeTest.java` is a local, **uncommitted**
@@ -46,26 +39,16 @@ It becomes the basis of ProblemSuiteTest in 10d.5; do not commit it as is.
 
 ## Git
 
-- Branch `feat/part-10d-problem-suite` stacked on `feat/part-10c-view-rankings` (10a -> 10b -> 10c -> 10d).
-- PRs (manual, `gh` unavailable), merge in order:
-  https://github.com/KhoaKhoa811/code-visualization-2/compare/main...feat/part-10a-test-inputs?expand=1
-  https://github.com/KhoaKhoa811/code-visualization-2/compare/feat/part-10a-test-inputs...feat/part-10b-custom-mappings?expand=1
-  https://github.com/KhoaKhoa811/code-visualization-2/compare/feat/part-10b-custom-mappings...feat/part-10c-view-rankings?expand=1
-  https://github.com/KhoaKhoa811/code-visualization-2/compare/feat/part-10c-view-rankings...feat/part-10d-problem-suite?expand=1
+- Branch `feat/part-10d3-lambdas` on main efb198d.
+- PR (manual, `gh` unavailable):
+  https://github.com/KhoaKhoa811/code-visualization-2/compare/main...feat/part-10d3-lambdas?expand=1
 
-## Verification
+## Verification (10d.3, 2026-10-23, Claude)
 
-- Last full Java live verify: 2026-10-21 (10a), 175 tests. Frontend after 10c: 41 unit, build, 16 Playwright.
-- 10d.2 (2026-10-22, Claude): root `clean verify` live Docker: tracer 83 (82 committed + ProbeTest),
-  backend 97, 0 failures (`.tools/part-10d2-verify.log`). Contracts 63; frontend 43 unit, build,
-  16 Playwright passed.
-- 10d.1 (2026-10-22, Claude): root `clean verify` with live Docker: tracer 82 (incl. the uncommitted
-  ProbeTest: 81 committed), backend 97, 0 failures. Log `.tools/part-10d1-verify.log`. First attempt
-  failed one live test that used Arrays.sort as its uncaptured example (now Arrays.fill). Contracts 62;
-  frontend 42 unit, build, 16 Playwright passed. "Helper and library calls" example now uses Arrays.fill.
-- 10d.0: the probe ran on the host (tracer module only): all 32 programs compiled, matched the
-  original stdout and gave capture complete; 18 have uncaptured statements. No product code changed.
+- Root `clean verify` live Docker: tracer 84 (83 committed + ProbeTest), backend 97, 0 failures
+  (`.tools/part-10d3-verify.log`). Contracts 64; frontend 44 unit, build, 16 Playwright passed.
+- Probe: M5, F1, F3 now have no uncaptured statement; streams (F2, F4, F6, F9, F11) remain.
 
 ## Next action
 
-Wait for the user's review of specs/problem-suite.md revision 2; then implement 10d.1.
+Wait for review/merge of 10d.3, or continue with 10d.4 streams if the user asks.

@@ -4,6 +4,7 @@ import codeviz.tracer.Plan.Expect;
 import codeviz.tracer.Plan.Item;
 import codeviz.tracer.Plan.Site;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -12,6 +13,7 @@ import java.util.Set;
 import org.objectweb.asm.Attribute;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
+import org.objectweb.asm.Handle;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
@@ -47,31 +49,35 @@ final class Instrumenter {
         if (cn.name.equals("Main") && cn.methods.stream().noneMatch(m -> (cn.name + "#" + m.name + m.desc).equals(MAIN)))
             throw new MappingException("main not found");
         Map<String, Site> helpers = new HashMap<>();
-        for (Site s : sites.values()) if (s.kind == Plan.Kind.METHOD) helpers.put(key(s), s);
+        for (Site s : sites.values()) if (s.kind == Plan.Kind.METHOD && !s.lambda) helpers.put(key(s), s);
         for (MethodNode method : cn.methods) {
             String key = cn.name + "#" + method.name + method.desc;
             List<Item> plan = plans.get(key);
-            if (plan == null) continue; // untraced: runs as compiled
+            if (plan == null) continue; // untraced: runs as compiled (lambda bodies follow below)
             Site helper = key.equals(MAIN) ? null : helpers.get(key);
             if (!key.equals(MAIN) && helper == null) throw new MappingException("no method site for " + key);
-            Map<Site, Region> regions = regions(method, plan);
-            List<Match> matches = match(method, plan, regions, helper);
-            AbstractInsnNode anchor = null; // a constructor is entered after its super() call
-            for (Match m : matches) {
-                if (m.item().expect() == Expect.SUPER) anchor = m.insn();
-                rewrite(method, m);
+            instrumentMethod(method, plan, helper);
+        }
+        // Part 10d: a lambda body's synthetic method is known once the invokedynamic creating it was
+        // matched (in main, a helper, or another lambda), so bodies are instrumented until none is left.
+        if (cn.name.equals("Main")) {
+            List<Site> lambdas = sites.values().stream().filter(s -> s.kind == Plan.Kind.METHOD && s.lambda).toList();
+            Set<Site> done = new HashSet<>();
+            boolean progress = true;
+            while (progress) {
+                progress = false;
+                for (Site s : lambdas) {
+                    if (done.contains(s) || s.name == null) continue;
+                    MethodNode method = cn.methods.stream().filter(m -> m.name.equals(s.name) && m.desc.equals(s.operand)).findFirst()
+                            .orElseThrow(() -> new MappingException("lambda method " + s.name + " not found"));
+                    orderLambdaParameters(method, s);
+                    if (!key(s).equals(cn.name + "#" + method.name + method.desc)) throw new MappingException("lambda signature " + method.desc);
+                    instrumentMethod(method, plans.get("lambda:" + s.id), s);
+                    done.add(s);
+                    progress = true;
+                }
             }
-            if (helper == null) {
-                InsnList entry = new InsnList();
-                entry.add(new VarInsnNode(Opcodes.ALOAD, 0));
-                entry.add(call("enter", "([Ljava/lang/String;)V"));
-                method.instructions.insert(entry);
-                for (AbstractInsnNode insn : method.instructions.toArray())
-                    if (insn.getOpcode() == Opcodes.RETURN) method.instructions.insertBefore(insn, call("exit", "()V"));
-            } else {
-                if (helper.constructor && anchor == null) throw new MappingException("constructor without super()");
-                enterHelper(method, helper, anchor);
-            }
+            if (done.size() != lambdas.size()) throw new MappingException("a planned lambda was not created by traced code");
         }
         // The range table only served mapping; it is not written back.
         for (MethodNode m : cn.methods) if (m.attrs != null) m.attrs.removeIf(Crt.class::isInstance);
@@ -81,6 +87,48 @@ final class Instrumenter {
         };
         cn.accept(writer);
         return writer.toByteArray();
+    }
+
+    private static void instrumentMethod(MethodNode method, List<Item> plan, Site helper) throws MappingException {
+        Map<Site, Region> regions = regions(method, plan);
+        List<Match> matches = match(method, plan, regions, helper);
+        AbstractInsnNode anchor = null; // a constructor is entered after its super() call
+        for (Match m : matches) {
+            if (m.item().expect() == Expect.SUPER) anchor = m.insn();
+            rewrite(method, m);
+        }
+        if (helper == null) {
+            InsnList entry = new InsnList();
+            entry.add(new VarInsnNode(Opcodes.ALOAD, 0));
+            entry.add(call("enter", "([Ljava/lang/String;)V"));
+            method.instructions.insert(entry);
+            for (AbstractInsnNode insn : method.instructions.toArray())
+                if (insn.getOpcode() == Opcodes.RETURN) method.instructions.insertBefore(insn, call("exit", "()V"));
+        } else {
+            if (helper.constructor && anchor == null) throw new MappingException("constructor without super()");
+            enterHelper(method, helper, anchor);
+        }
+    }
+
+    /**
+     * Part 10d: a lambda's synthetic method takes the captured locals first, in an order javac
+     * chooses, then the lambda's parameters. Its local variable table names each parameter slot,
+     * and lambda bodies cannot shadow locals, so the names give the order.
+     */
+    private static void orderLambdaParameters(MethodNode method, Site site) throws MappingException {
+        Type[] args = Type.getArgumentTypes(method.desc);
+        if (args.length != site.params.size()) throw new MappingException("lambda parameter count");
+        List<Site> ordered = new ArrayList<>();
+        for (int i = 0, slot = 0; i < args.length; slot += args[i].getSize(), i++) {
+            int index = slot;
+            String name = method.localVariables == null ? null : method.localVariables.stream()
+                    .filter(lv -> lv.index == index).min(Comparator.comparingInt(lv -> method.instructions.indexOf(lv.start)))
+                    .map(lv -> lv.name).orElse(null);
+            Site param = site.params.stream().filter(p -> p.name.equals(name)).findFirst()
+                    .orElseThrow(() -> new MappingException("lambda parameter " + name));
+            ordered.add(param);
+        }
+        site.params = List.copyOf(ordered);
     }
 
     // ---- traced helpers (Part 8d) --------------------------------------------------------
@@ -300,7 +348,7 @@ final class Instrumenter {
         return switch (expect) {
             case NEWARRAY_LITERAL -> Expect.NEWARRAY;
             case LITERAL_STORE -> Expect.ASTORE;
-            case CALL, SUPER, CTOR, LIB, LIBNEW, APPEND, TOSTRING, BOX, UNBOX, ITER, NEXT -> Expect.INVOKE;
+            case CALL, SUPER, CTOR, LIB, LIBNEW, APPEND, TOSTRING, BOX, UNBOX, ITER, NEXT, LAMBDA -> Expect.INVOKE;
             default -> expect;
         };
     }
@@ -397,6 +445,18 @@ final class Instrumenter {
                 };
                 if (!(insn instanceof MethodInsnNode m) || insn.getOpcode() != opcode
                         || !(m.owner + "#" + m.name + m.desc).equals(item.member())) throw new MappingException("unexpected library call");
+            }
+            case LAMBDA -> { // Part 10d: an invokedynamic creating a lambda or method reference
+                if (!(insn instanceof InvokeDynamicInsnNode indy) || !indy.bsm.getOwner().equals("java/lang/invoke/LambdaMetafactory")
+                        || !indy.bsm.getName().equals("metafactory") || !(indy.bsmArgs[1] instanceof Handle impl)) throw new MappingException("expected a lambda");
+                if (site.callee != null && site.callee.lambda) { // the synthetic method of a lambda body, learned here
+                    if (!impl.getOwner().equals("Main") || !impl.getName().startsWith("lambda$") || impl.getTag() != Opcodes.H_INVOKESTATIC)
+                        throw new MappingException("unexpected lambda method");
+                    site.callee.name = impl.getName();
+                    site.callee.operand = impl.getDesc();
+                } else if (!(impl.getOwner() + "#" + impl.getName() + impl.getDesc()).equals(item.member())) {
+                    throw new MappingException("unexpected method reference");
+                }
             }
             case ITER, NEXT -> { // Part 10d: the call a for-each over a collection starts with, and each next()
                 int opcode = item.expect() == Expect.NEXT || site.operator.equals("interface") ? Opcodes.INVOKEINTERFACE : Opcodes.INVOKEVIRTUAL;
@@ -737,11 +797,16 @@ final class Instrumenter {
                     before.add(call("libSee", "(Ljava/lang/Object;)V"));
                 }
                 for (int i = 0; i < args.length; i++) before.add(new VarInsnNode(args[i].getOpcode(Opcodes.ILOAD), slots[i]));
+                if (site.callbacks) { // Part 10d: functions the call runs are entered as callbacks of this site
+                    before.add(siteConstant(site));
+                    before.add(call("cbEnter", "(I)V"));
+                }
                 LabelNode start = new LabelNode(), end = new LabelNode(), handler = new LabelNode();
                 before.add(start);
                 list.insertBefore(insn, before);
                 InsnList after = new InsnList();
                 after.add(end);
+                if (site.callbacks) after.add(call("cbExit", "()V"));
                 boolean isVoid = result.getSort() == Type.VOID;
                 if (!isVoid) { after.add(new InsnNode(result.getSize() == 2 ? Opcodes.DUP2 : Opcodes.DUP)); box(after, result); }
                 after.add(siteConstant(site));
@@ -762,6 +827,7 @@ final class Instrumenter {
                 LabelNode resume = new LabelNode();
                 after.add(new JumpInsnNode(Opcodes.GOTO, resume));
                 after.add(handler);
+                if (site.callbacks) after.add(call("cbExit", "()V"));
                 after.add(new InsnNode(Opcodes.DUP));
                 after.add(siteConstant(site));
                 after.add(call("libFail", "(Ljava/lang/Throwable;I)V"));
@@ -777,6 +843,13 @@ final class Instrumenter {
                 after.add(new InsnNode(Opcodes.DUP));
                 after.add(siteConstant(site));
                 after.add(call("libNew", "(Ljava/lang/Object;I)V"));
+                list.insert(insn, after);
+            }
+            case LAMBDA -> { // Part 10d: the new function object is registered with its site
+                InsnList after = new InsnList();
+                after.add(new InsnNode(Opcodes.DUP));
+                after.add(siteConstant(site));
+                after.add(call("fn", "(Ljava/lang/Object;I)V"));
                 list.insert(insn, after);
             }
             case ITER, NEXT -> {

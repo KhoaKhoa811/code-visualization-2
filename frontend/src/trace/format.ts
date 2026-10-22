@@ -14,6 +14,7 @@ export function formatValue(value: Value, objects?: Map<string, TraceObject>): s
     case 'null': return 'null';
     case 'unassigned': return '(unassigned)';
     case 'unknown': return '?';
+    case 'function': return value.label; // 1.10.0
     case 'ref': {
       const object = objects?.get(value.objectId);
       if (object?.kind === 'string') return JSON.stringify(stringText(object));
@@ -200,7 +201,8 @@ export function describe(event: ObservableEvent, state: State, source?: string):
       return `${operand(a, objects)} ${event.data.operator} ${operand(b, objects)} = ${result}`;
     }
     case 'CALL':
-      return `Call ${methodName(event.data.frame.methodId)}(${event.data.parameters.map(p => `${p.name} = ${formatValue(p.value, objects)}`).join(', ')})`;
+      // 1.10.0: a function a library call runs reads as called via that call (Call lambda at 5:20 via forEach(x = 1))
+      return `Call ${methodName(event.data.frame.methodId)}${event.data.frame.via ? ` via ${methodName(event.data.frame.via)}` : ''}(${event.data.parameters.map(p => `${p.name} = ${formatValue(p.value, objects)}`).join(', ')})`;
     case 'RETURN':
       if (event.data.result !== null) return `Return ${formatValue(event.data.result, objects)}`;
       return event.data.implicit ? 'Return (end of method)' : 'Return';
@@ -235,6 +237,7 @@ export function methodName(methodId: string): string {
   const open = methodId.indexOf('(');
   const head = open < 0 ? methodId : methodId.slice(0, open);
   const name = head.slice(head.lastIndexOf('.') + 1);
+  if (name.startsWith('lambda@')) return `lambda at ${name.slice(7)}`; // 1.10.0: Main.lambda@line:column(...)
   if (name !== '<init>') return name;
   const owner = head.slice(0, head.lastIndexOf('.'));
   return `new ${owner.slice(owner.lastIndexOf('.') + 1)}`; // a constructor
