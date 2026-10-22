@@ -42,8 +42,21 @@ playback cursor.
 - Elements carry `data-binding` (variable rows) and `data-object`/`data-index` (array cells)
   for measuring.
 
-## Later parts (approved as a roadmap, not yet built)
+## Index arrows (Part 11b, 2026-10-23, user: "it's better. please continue")
 
-- **11b:** index pointer arrows under arrays.
+- **When an arrow appears:** a variable is drawn as an arrow `▲ j` under an array only after
+  the program has indexed that array with it. The code text of a recorded read or write must
+  be literally `…[j]`. Accesses with an expression (`a[j + 1]`) or a constant make no arrow.
+- **No future facts:** only accesses up to the cursor count (`trace/pointers.ts`, unit-tested).
+- **Where it sits:**
+  - at the variable's current value, measured from the rendered cells (cells vary in width
+    and wrap);
+  - just past the last cell when the value equals the length (where `i < a.length` ends);
+  - outside the array's range, it is a note next to the array name (`i = -1 (outside)`).
+- **Movement:** arrows slide between cells while Motion is on, and jump when it is off.
+- **Limits:** only one-dimensional arrays shown at the top level get arrows; rows of a grid
+  do not.
+
+## Later parts (approved as a roadmap, not yet built)
 - **11c:** call and return motion (frames slide, return values fly back to the caller).
 - **11d:** structure, tree and heap motion.
