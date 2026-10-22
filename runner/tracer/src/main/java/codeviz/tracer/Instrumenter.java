@@ -157,6 +157,8 @@ final class Instrumenter {
 
     private record Region(LabelNode start, LabelNode end) { }
 
+    private static final int LOST_START = 1 << 10 | 1;
+
     /** Bytecode range of each uncaptured statement: the table entry with exactly its source range. */
     private static Map<Site, Region> regions(MethodNode main, List<Item> plan) throws MappingException {
         Crt crt = main.attrs == null ? null
@@ -168,6 +170,10 @@ final class Instrumenter {
             if (crt == null || s.crtStart < 0 || s.crtEnd < 0) throw new MappingException("no statement range table");
             List<Crt.Entry> found = crt.entries.stream()
                     .filter(e -> (e.flags() & Crt.STATEMENT) != 0 && e.charStart() == s.crtStart && e.charEnd() == s.crtEnd).toList();
+            // Part 10d: javac loses the start of a statement holding a capturing lambda (it becomes
+            // position 0, line 1 column 1); its end and bytecode range are still right.
+            if (found.isEmpty()) found = crt.entries.stream()
+                    .filter(e -> (e.flags() & Crt.STATEMENT) != 0 && e.charStart() == LOST_START && e.charEnd() == s.crtEnd).toList();
             if (found.isEmpty()) throw new MappingException("no bytecode range for an uncaptured statement");
             // Several entries share a range when javac lowers a statement (a for-each's hidden setup
             // carries the loop's range): the statement is the outermost one, all starting together.
@@ -294,7 +300,7 @@ final class Instrumenter {
         return switch (expect) {
             case NEWARRAY_LITERAL -> Expect.NEWARRAY;
             case LITERAL_STORE -> Expect.ASTORE;
-            case CALL, SUPER, CTOR, LIB, LIBNEW, APPEND, TOSTRING, BOX, UNBOX -> Expect.INVOKE;
+            case CALL, SUPER, CTOR, LIB, LIBNEW, APPEND, TOSTRING, BOX, UNBOX, ITER, NEXT -> Expect.INVOKE;
             default -> expect;
         };
     }
@@ -348,7 +354,7 @@ final class Instrumenter {
 
     private static void check(Item item, AbstractInsnNode insn, MethodNode main) throws MappingException {
         Site site = item.site();
-        if (site == null && !List.of(Expect.GETSTATIC, Expect.INVOKE, Expect.NEW, Expect.CTOR, Expect.BOX, Expect.UNBOX).contains(item.expect())) {
+        if (site == null && !List.of(Expect.GETSTATIC, Expect.INVOKE, Expect.NEW, Expect.CTOR, Expect.BOX, Expect.UNBOX, Expect.LIB).contains(item.expect())) {
             // A hidden for-each step (copy, length, index) or a folded conversion: its family is enough.
             if (item.expect() == Expect.CONVERT) checkConversion(item, insn);
             return;
@@ -384,13 +390,18 @@ final class Instrumenter {
             }
             case LIB, LIBNEW, APPEND, TOSTRING, BOX, UNBOX -> {
                 int opcode = switch (item.expect()) {
-                    case LIB -> switch (site.operator) { case "static" -> Opcodes.INVOKESTATIC; case "interface" -> Opcodes.INVOKEINTERFACE; default -> Opcodes.INVOKEVIRTUAL; };
+                    case LIB -> site == null ? insn.getOpcode() : switch (site.operator) { case "static" -> Opcodes.INVOKESTATIC; case "interface" -> Opcodes.INVOKEINTERFACE; default -> Opcodes.INVOKEVIRTUAL; };
                     case LIBNEW -> Opcodes.INVOKESPECIAL;
                     case BOX -> Opcodes.INVOKESTATIC;
                     default -> Opcodes.INVOKEVIRTUAL;
                 };
                 if (!(insn instanceof MethodInsnNode m) || insn.getOpcode() != opcode
                         || !(m.owner + "#" + m.name + m.desc).equals(item.member())) throw new MappingException("unexpected library call");
+            }
+            case ITER, NEXT -> { // Part 10d: the call a for-each over a collection starts with, and each next()
+                int opcode = item.expect() == Expect.NEXT || site.operator.equals("interface") ? Opcodes.INVOKEINTERFACE : Opcodes.INVOKEVIRTUAL;
+                if (!(insn instanceof MethodInsnNode m) || insn.getOpcode() != opcode
+                        || !(m.owner + "#" + m.name + m.desc).equals(item.member())) throw new MappingException("unexpected iteration call");
             }
             case CTOR -> {
                 if (!(insn instanceof MethodInsnNode m) || insn.getOpcode() != Opcodes.INVOKESPECIAL
@@ -514,6 +525,7 @@ final class Instrumenter {
         type = Analyzer.erasure(type); // Part 8f: generic arguments do not reach the JVM
         if (type.equals("java.lang.String")) return "java/lang/String";
         if (type.startsWith("Main.")) return "Main$" + type.substring(5);
+        if (type.equals("java.util.Map.Entry")) return "java/util/Map$Entry"; // Part 10d
         return type.replace('.', '/');
     }
 
@@ -718,6 +730,12 @@ final class Instrumenter {
                     before.add(call("libSee", "(Ljava/lang/Object;)V"));
                     before.add(new VarInsnNode(Opcodes.ALOAD, base));
                 }
+                // Part 10d: so are reference arguments, which a call may change too (Arrays.sort, Collections.sort).
+                for (int i = 0; i < args.length; i++) {
+                    if (args[i].getSort() != Type.OBJECT && args[i].getSort() != Type.ARRAY) continue;
+                    before.add(new VarInsnNode(Opcodes.ALOAD, slots[i]));
+                    before.add(call("libSee", "(Ljava/lang/Object;)V"));
+                }
                 for (int i = 0; i < args.length; i++) before.add(new VarInsnNode(args[i].getOpcode(Opcodes.ILOAD), slots[i]));
                 LabelNode start = new LabelNode(), end = new LabelNode(), handler = new LabelNode();
                 before.add(start);
@@ -760,6 +778,36 @@ final class Instrumenter {
                 after.add(siteConstant(site));
                 after.add(call("libNew", "(Ljava/lang/Object;I)V"));
                 list.insert(insn, after);
+            }
+            case ITER, NEXT -> {
+                // Part 10d: ITER records the iterated collection (or map) before the call; NEXT records the
+                // element after next(). Either call's failure (a null collection, a concurrent modification)
+                // is recorded and rethrown like a library call's.
+                LabelNode start = new LabelNode(), end = new LabelNode(), handler = new LabelNode(), resume = new LabelNode();
+                InsnList before = new InsnList();
+                if (match.item().expect() == Expect.ITER) {
+                    before.add(new InsnNode(Opcodes.DUP));
+                    before.add(siteConstant(site));
+                    before.add(call("iter", "(Ljava/lang/Object;I)V"));
+                }
+                before.add(start);
+                list.insertBefore(insn, before);
+                InsnList after = new InsnList();
+                after.add(end);
+                if (match.item().expect() == Expect.NEXT) {
+                    after.add(new InsnNode(Opcodes.DUP));
+                    after.add(siteConstant(site));
+                    after.add(call("iterNext", "(Ljava/lang/Object;I)V"));
+                }
+                after.add(new JumpInsnNode(Opcodes.GOTO, resume));
+                after.add(handler);
+                after.add(new InsnNode(Opcodes.DUP));
+                after.add(siteConstant(site));
+                after.add(call("libFail", "(Ljava/lang/Throwable;I)V"));
+                after.add(new InsnNode(Opcodes.ATHROW));
+                after.add(resume);
+                list.insert(insn, after);
+                m.tryCatchBlocks.add(0, new TryCatchBlockNode(start, end, handler, null));
             }
             case APPEND -> { // the operand of a concatenation, recorded as it is appended
                 char t = Type.getArgumentTypes(((MethodInsnNode) insn).desc)[0].getDescriptor().charAt(0);

@@ -23,6 +23,7 @@ export function formatValue(value: Value, objects?: Map<string, TraceObject>): s
       if (object?.kind === 'collection') return `${shortName(object.className)}(${object.elements.length})`;
       if (object?.kind === 'map') return `${shortName(object.className)}(${object.entries.length})`;
       if (object?.kind === 'input') return `${shortName(object.className)}(System.in)`;
+      if (object?.kind === 'entry') return `${formatValue(object.key, objects)}=${formatValue(object.value, objects)}`; // 1.9.0
       if (object?.kind === 'exception') return `${exceptionName(object.className)}(${object.message === null ? '' : JSON.stringify(object.message)})`;
       return `ref ${value.objectId}`;
     }
@@ -148,16 +149,24 @@ export function describe(event: ObservableEvent, state: State, source?: string):
       if (o.kind === 'object') return `Create ${objectLabel(o)}`;
       if (o.kind === 'string') return 'Create string';
       if (o.kind === 'input') return `Create ${shortName(o.className)}(System.in)`;
+      if (o.kind === 'entry') return 'Create map entry';
       return `Create ${shortName(o.className)}`;
     }
     case 'LIBRARY': {
       // java.util.List.add(java.lang.Object) on xs reads as xs.add(5) → true
       const method = event.data.method;
+      // 1.9.0: one element of a for-each over a collection or a map view
+      if (method === 'java.util.Iterator.next()' && event.data.objectId && event.data.result) {
+        const what = event.data.view ? { keys: 'key', values: 'value', entries: 'entry' }[event.data.view] : 'element';
+        return `Next ${what} of ${objectName(event.data.objectId)}: ${formatValue(event.data.result, objects)}`;
+      }
       const open = method.indexOf('(');
       const name = method.slice(method.lastIndexOf('.', open) + 1, open);
       const owner = method.slice(0, method.lastIndexOf('.', open));
       const target = event.data.objectId ? objectName(event.data.objectId) : shortName(owner);
-      const args = event.data.arguments.map(a => formatValue(a, objects)).join(', ');
+      // 10d: an array or collection argument held by a variable reads as its name (Arrays.sort(a)).
+      const args = event.data.arguments.map(a => a.kind === 'ref' && objects.get(a.objectId)?.kind !== 'string' && namesOf(state, a.objectId)[0]
+        || formatValue(a, objects)).join(', ');
       const call = `${target}.${name}(${args})`;
       const text = event.data.result ? `${call} → ${formatValue(event.data.result, objects)}` : call;
       // 1.6.0: a Scanner read consumed delivered console input.

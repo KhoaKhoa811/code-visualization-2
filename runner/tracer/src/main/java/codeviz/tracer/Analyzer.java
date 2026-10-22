@@ -722,7 +722,7 @@ final class Analyzer {
             String arrayType = javaType(f.getExpression());
             VariableTree v = f.getVariable();
             String type = javaType(v);
-            if (!array(arrayType)) { unsupported(f.getExpression(), "for-each over " + arrayType + " (only arrays are traced)"); return; }
+            if (!array(arrayType)) { iterableForEach(f); return; } // Part 10d
             if (!localType(type)) { unsupported(v, "local variables of type " + type); return; }
             scopes.push("f" + start(f));
             value(f.getExpression(), null);
@@ -742,6 +742,64 @@ final class Analyzer {
             exits.push(f);
             try { statement(f.getStatement()); } finally { exits.pop(); }
             plan.add(new Item(Expect.IINC, null, 0, "index++"));
+            scopes.pop();
+        }
+
+        /**
+         * Part 10d. javac Lower.visitIterableForeachLoop: {@code for (Iterator i = c.iterator(); i.hasNext(); ) { V v = (V) i.next(); body }}
+         * over a covered list, set or deque, or a map's keySet(), values() or entrySet(). The ITERATE site records
+         * the collection before iterator() (or before the view call); each next() is a NEXT step with the element,
+         * then the loop variable's declaration. The iterator itself is never shown.
+         */
+        private void iterableForEach(EnhancedForLoopTree f) {
+            ExpressionTree e = strip(f.getExpression());
+            VariableTree v = f.getVariable();
+            String type = javaType(v), collection = javaType(e), view = "elements", element;
+            ExpressionTree source = e;
+            if (e instanceof MethodInvocationTree call && call.getArguments().isEmpty() && call.getMethodSelect() instanceof MemberSelectTree select
+                    && MAPS.contains(erasure(javaType(select.getExpression()))) && libraryType(javaType(select.getExpression()))
+                    && Set.of("keySet", "values", "entrySet").contains(select.getIdentifier().toString())) {
+                source = select.getExpression();
+                collection = javaType(source);
+                List<String> kv = typeArguments(collection);
+                view = switch (select.getIdentifier().toString()) { case "keySet" -> "keys"; case "values" -> "values"; default -> "entries"; };
+                element = switch (view) { case "keys" -> kv.get(0); case "values" -> kv.get(1); default -> ENTRY + "<" + kv.get(0) + "," + kv.get(1) + ">"; };
+            } else if ((LISTS.contains(erasure(collection)) || SETS.contains(erasure(collection)) || DEQUES.contains(erasure(collection)))
+                    && libraryType(collection)) {
+                element = typeArguments(collection).get(0);
+            } else {
+                unsupported(f.getExpression(), "for-each over " + collection + " (only arrays, lists, sets, deques and map views are traced)");
+                return;
+            }
+            if (!localType(type)) { unsupported(v, "local variables of type " + type); return; }
+            scopes.push("f" + start(f));
+            value(source, null);
+            String raw = erasure(collection), owner = Instrumenter.internal(raw);
+            TypeElement ownerType = elements.getTypeElement(raw);
+            Site iterate = site(Kind.ITERATE, f.getExpression());
+            iterate.name = view;
+            iterate.javaType = collection;
+            iterate.operator = ownerType != null && ownerType.getKind() == ElementKind.INTERFACE ? "interface" : "virtual";
+            if (view.equals("elements")) {
+                plan.add(new Item(Expect.ITER, iterate, 0, owner + "#iterator()Ljava/util/Iterator;"));
+            } else {
+                String call = view.equals("keys") ? "keySet()Ljava/util/Set;" : view.equals("values") ? "values()Ljava/util/Collection;" : "entrySet()Ljava/util/Set;";
+                plan.add(new Item(Expect.ITER, iterate, 0, owner + "#" + call));
+                plan.add(new Item(Expect.LIB, null, 0, (view.equals("values") ? "java/util/Collection" : "java/util/Set") + "#iterator()Ljava/util/Iterator;"));
+            }
+            plan.add(new Item(Expect.STORE, null, 0, "iterator"));
+            plan.add(new Item(Expect.LIB, null, 0, "java/util/Iterator#hasNext()Z"));
+            plan.add(new Item(Expect.JUMP, null, 0, "hasNext"));
+            Site next = site(Kind.NEXT, f.getExpression());
+            next.callee = iterate;
+            next.name = view;
+            next.javaType = element;
+            plan.add(new Item(Expect.NEXT, next, 0, "java/util/Iterator#next()Ljava/lang/Object;"));
+            coerce(element, type);
+            Site declare = declareSite(v, type);
+            plan.add(Item.of(Expect.STORE, declare));
+            exits.push(f);
+            try { statement(f.getStatement()); } finally { exits.pop(); }
             scopes.pop();
         }
 
@@ -1221,13 +1279,15 @@ final class Analyzer {
         private static final Set<String> MAPS = Set.of("java.util.Map", "java.util.HashMap", "java.util.TreeMap", "java.util.LinkedHashMap");
         private static final Set<String> SETS = Set.of("java.util.Set", "java.util.HashSet", "java.util.TreeSet", "java.util.LinkedHashSet");
         private static final String PQ = "java.util.PriorityQueue", BUILDER = "java.lang.StringBuilder", SCANNER = "java.util.Scanner",
-                READER = "java.io.BufferedReader"; // Part 8i
+                READER = "java.io.BufferedReader", // Part 8i
+                ENTRY = "java.util.Map.Entry"; // Part 10d: a map entry seen by iterating entrySet()
 
         /** A covered library type with covered type arguments (Part 8f). */
         private boolean libraryType(String t) {
             String raw = erasure(t);
             if (raw.equals(BUILDER) || raw.equals(SCANNER) || raw.equals(READER)) return t.equals(raw);
             List<String> args = typeArguments(t);
+            if (raw.equals(ENTRY)) return args.size() == 2 && keyType(args.get(0)) && elementType(args.get(1)); // Part 10d
             if (MAPS.contains(raw)) return args.size() == 2 && keyType(args.get(0)) && elementType(args.get(1));
             if (SETS.contains(raw) || raw.equals(PQ)) return args.size() == 1 && keyType(args.get(0));
             if (LISTS.contains(raw) || DEQUES.contains(raw)) return args.size() == 1 && elementType(args.get(0));
@@ -1241,7 +1301,7 @@ final class Analyzer {
 
         private static final Map<String, Set<String>> FAMILY_METHODS = Map.ofEntries(
                 Map.entry("string", Set.of("length", "charAt", "substring", "indexOf", "lastIndexOf", "equals", "compareTo", "contains",
-                        "startsWith", "endsWith", "isEmpty", "toUpperCase", "toLowerCase", "trim")),
+                        "startsWith", "endsWith", "isEmpty", "toUpperCase", "toLowerCase", "trim", "toCharArray", "split")), // 10d: arrays
                 Map.entry("builder", Set.of("append", "insert", "reverse", "toString", "length", "charAt", "setCharAt", "deleteCharAt", "setLength")),
                 Map.entry("list", Set.of("add", "get", "set", "remove", "size", "isEmpty", "contains", "indexOf", "clear")),
                 Map.entry("deque", Set.of("push", "pop", "peek", "offer", "poll", "add", "remove", "addFirst", "addLast", "offerFirst", "offerLast",
@@ -1249,13 +1309,17 @@ final class Analyzer {
                 Map.entry("map", Set.of("put", "get", "getOrDefault", "containsKey", "remove", "size", "isEmpty", "clear")),
                 Map.entry("set", Set.of("add", "contains", "remove", "size", "isEmpty", "clear")),
                 Map.entry("pq", Set.of("add", "offer", "poll", "peek", "remove", "size", "isEmpty", "clear")),
+                Map.entry("entry", Set.of("getKey", "getValue")), // Part 10d; setValue is not covered
                 Map.entry("scanner", Set.of("nextInt", "nextLong", "nextDouble", "nextBoolean", "next", "nextLine", "hasNext", "hasNextInt",
                         "hasNextLine", "close")),
                 // Part 8i: ready() is left out, its answer depends on when input arrives, not on the input.
                 Map.entry("reader", Set.of("readLine", "read", "close")),
                 Map.entry("java.lang.Math", Set.of("max", "min", "abs", "sqrt")),
                 Map.entry("java.lang.Integer", Set.of("parseInt")),
-                Map.entry("java.lang.Character", Set.of("isDigit", "isLetter", "isUpperCase", "isLowerCase", "toUpperCase", "toLowerCase")));
+                Map.entry("java.lang.Character", Set.of("isDigit", "isLetter", "isUpperCase", "isLowerCase", "toUpperCase", "toLowerCase")),
+                // Part 10d: one step each, replayed on a copy; a sort shows only its before and after contents.
+                Map.entry("java.util.Arrays", Set.of("sort", "toString", "equals")),
+                Map.entry("java.util.Collections", Set.of("sort")));
 
         /** The library call a method invocation denotes, or null when it is not covered. */
         private ExecutableElement library(MethodInvocationTree call) {
@@ -1274,7 +1338,7 @@ final class Analyzer {
                 if (exceptionElement(receiver) != null && name.equals("getMessage") && m.getParameters().isEmpty()) return m;
                 if (!raw.equals("java.lang.String") && !libraryType(receiver)) return null;
                 String family = raw.equals("java.lang.String") ? "string" : raw.equals(BUILDER) ? "builder" : raw.equals(SCANNER) ? "scanner"
-                        : raw.equals(READER) ? "reader"
+                        : raw.equals(READER) ? "reader" : raw.equals(ENTRY) ? "entry"
                         : LISTS.contains(raw) ? "list"
                         : DEQUES.contains(raw) ? "deque" : MAPS.contains(raw) ? "map" : SETS.contains(raw) ? "set" : "pq";
                 names = new HashSet<>(FAMILY_METHODS.get(family));
@@ -1282,6 +1346,7 @@ final class Analyzer {
                 if (raw.equals("java.util.Stack")) names.addAll(FAMILY_METHODS.get("list"));
             }
             if (names == null || !names.contains(name)) return null;
+            if (isStatic && arrayUtility(owner.getQualifiedName().toString(), m, call)) return m; // Part 10d
             // No argument may make the library run user code (toString, equals, compareTo of user objects).
             for (VariableElement p : m.getParameters()) {
                 String t = types.erasure(p.asType()).toString();
@@ -1294,6 +1359,26 @@ final class Analyzer {
                 if (!SCALARS.contains(t) && !keyType(t) && !elementType(t) && !t.equals("<nulltype>") && !t.equals("<null>")) return null;
             }
             return m;
+        }
+
+        /**
+         * {@code Arrays.sort/toString/equals} over one-dimensional primitive or String arrays, and
+         * {@code Collections.sort} of a list of boxed values or strings (Part 10d). Natural order only,
+         * so no user code runs; other overloads (comparators, Object arrays of user types) are not covered.
+         */
+        private boolean arrayUtility(String owner, ExecutableElement m, MethodInvocationTree call) {
+            if (!owner.equals("java.util.Arrays") && !owner.equals("java.util.Collections")) return false;
+            for (VariableElement p : m.getParameters()) {
+                String t = types.erasure(p.asType()).toString();
+                if (!t.equals("int") && !(owner.equals("java.util.Arrays") ? t.endsWith("[]") && !t.endsWith("[][]") : t.equals("java.util.List"))) return false;
+            }
+            for (ExpressionTree a : call.getArguments()) {
+                String t = javaType(a);
+                if (t.equals("int")) continue;
+                if (owner.equals("java.util.Arrays") ? !array(t) || t.endsWith("[][]") || !(SCALARS.contains(component(t)) || component(t).equals("java.lang.String"))
+                        : !(LISTS.contains(erasure(t)) && libraryType(t) && keyType(typeArguments(t).get(0)))) return false;
+            }
+            return true;
         }
 
         /** A covered library call (Part 8f): receiver, arguments, one invocation; a LIBRARY step. */
@@ -1355,6 +1440,16 @@ final class Analyzer {
                 plan.add(new Item(Expect.LIBNEW, site, 0, "java/io/BufferedReader#<init>(Ljava/io/Reader;)V"));
                 return true;
             }
+            if (params.equals(List.of("java.util.Comparator"))) { // Part 10d: only the JDK's reverse natural order
+                String owner = reverseOrder(n.getArguments().get(0));
+                if (owner == null || !Library.REVERSIBLE.contains(raw)) return false;
+                plan.add(new Item(Expect.NEW, null, 0, Instrumenter.internal(raw)));
+                plan.add(new Item(Expect.LIB, null, 0, owner + "#reverseOrder()Ljava/util/Comparator;"));
+                Site site = site(Kind.ALLOCATE, n);
+                site.javaType = type;
+                plan.add(new Item(Expect.LIBNEW, site, 0, Instrumenter.internal(raw) + "#<init>(Ljava/util/Comparator;)V"));
+                return true;
+            }
             if (!params.isEmpty() && !params.equals(List.of("int")) && !(raw.equals(BUILDER) && params.equals(List.of("java.lang.String")))) return false;
             plan.add(new Item(Expect.NEW, null, 0, Instrumenter.internal(raw)));
             for (ExpressionTree a : n.getArguments()) value(a, params.get(0));
@@ -1362,6 +1457,15 @@ final class Analyzer {
             site.javaType = type;
             plan.add(new Item(Expect.LIBNEW, site, 0, Instrumenter.internal(raw) + "#<init>(" + (params.isEmpty() ? "" : Instrumenter.descriptorOf(params.get(0))) + ")V"));
             return true;
+        }
+
+        /** The internal owner of a {@code Collections.reverseOrder()} or {@code Comparator.reverseOrder()} call, else null. */
+        private String reverseOrder(ExpressionTree e) {
+            if (!(strip(e) instanceof MethodInvocationTree call) || !call.getArguments().isEmpty()
+                    || !(element(call) instanceof ExecutableElement m) || !m.getSimpleName().contentEquals("reverseOrder")
+                    || !(m.getEnclosingElement() instanceof TypeElement owner)) return null;
+            String o = owner.getQualifiedName().toString();
+            return o.equals("java.util.Collections") ? "java/util/Collections" : o.equals("java.util.Comparator") ? "java/util/Comparator" : null;
         }
 
         /** The expression {@code System.in}. */
@@ -1609,6 +1713,7 @@ final class Analyzer {
                 unsupported(c, "this compound assignment");
                 return;
             }
+            if (BOXES.containsKey(rhsType)) rhsType = BOXES.get(rhsType); // Part 10d: total += map.get(k) unboxes the right side
             if (rhsType.equals("java.lang.String") || !SCALARS.contains(rhsType)) { unsupported(c, "this compound assignment"); return; }
             boolean shift = op.startsWith("<") || op.startsWith(">");
             String opType = type.equals("boolean") ? "boolean" : shift ? promote(type) : promote(type, rhsType);
@@ -1695,7 +1800,8 @@ final class Analyzer {
             }
             List<String> parameters = method.getParameters().stream().map(p -> p.asType().toString()).toList();
             if (!(parameters.isEmpty() || parameters.size() == 1 && (SCALARS.contains(parameters.get(0))
-                    || parameters.get(0).equals("java.lang.String")))) {
+                    || parameters.get(0).equals("java.lang.String")
+                    || parameters.get(0).equals("java.lang.Object") && printable(javaType(call.getArguments().get(0)))))) {
                 unsupported(call, "print/println(" + String.join(",", parameters) + ")");
                 return;
             }
@@ -1708,8 +1814,20 @@ final class Analyzer {
         private static String descriptor(String type) {
             return switch (type) {
                 case "int" -> "I"; case "boolean" -> "Z"; case "long" -> "J"; case "double" -> "D"; case "float" -> "F";
-                case "char" -> "C"; case "byte" -> "B"; case "short" -> "S"; default -> "Ljava/lang/String;";
+                case "char" -> "C"; case "byte" -> "B"; case "short" -> "S"; case "java.lang.Object" -> "Ljava/lang/Object;";
+                default -> "Ljava/lang/String;";
             };
+        }
+
+        /**
+         * Whether printing a value of this type runs only JDK code (Part 10d): boxed values, strings,
+         * builders, and covered collections and maps holding only those (no user toString).
+         */
+        private boolean printable(String t) {
+            if (keyType(t) || t.equals("<nulltype>") || t.equals("<null>") || t.equals(BUILDER)) return true;
+            if (!libraryType(t) || erasure(t).equals(SCANNER) || erasure(t).equals(READER)) return false;
+            for (String a : typeArguments(t)) if (!printable(a)) return false;
+            return true;
         }
 
         // ---- expressions in value context --------------------------------------

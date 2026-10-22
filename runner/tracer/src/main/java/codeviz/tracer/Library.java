@@ -37,6 +37,15 @@ final class Library {
         return Class.forName(className).getConstructor().newInstance();
     }
 
+    /** Sorted classes that may be built with {@code Collections.reverseOrder()} (Part 10d). */
+    static final Set<String> REVERSIBLE = Set.of("java.util.PriorityQueue", "java.util.TreeMap", "java.util.TreeSet");
+
+    /** Empty mirror ordered by the JDK's reverse natural order, the only comparator a mirror may hold (Part 10d). */
+    static Object createReversed(String className) throws ReflectiveOperationException {
+        if (!REVERSIBLE.contains(className)) throw new IllegalArgumentException("reversed library class " + className);
+        return Class.forName(className).getConstructor(java.util.Comparator.class).newInstance(java.util.Collections.reverseOrder());
+    }
+
     private static final Map<String, Method> METHODS = new HashMap<>();
     private static final Map<String, Class<?>> PRIMITIVES = Map.of("int", int.class, "long", long.class, "double", double.class,
             "float", float.class, "char", char.class, "boolean", boolean.class, "short", short.class, "byte", byte.class);
@@ -49,11 +58,18 @@ final class Library {
         String owner = methodId.substring(0, dot), name = methodId.substring(dot + 1, open);
         String params = methodId.substring(open + 1, methodId.length() - 1);
         Class<?>[] types = params.isEmpty() ? new Class<?>[0] : java.util.Arrays.stream(params.split(","))
-                .map(p -> { try { return PRIMITIVES.containsKey(p) ? PRIMITIVES.get(p) : Class.forName(p); }
-                            catch (ClassNotFoundException e) { throw new IllegalArgumentException(p); } })
+                .map(p -> { try { return type(p); } catch (ClassNotFoundException e) { throw new IllegalArgumentException(p); } })
                 .toArray(Class<?>[]::new);
-        Method method = Class.forName(owner).getMethod(name, types);
+        // Part 10d: a nested owner (java.util.Map.Entry) has a binary name with '$'.
+        Class<?> ownerClass = owner.equals("java.util.Map.Entry") ? java.util.Map.Entry.class : Class.forName(owner);
+        Method method = ownerClass.getMethod(name, types);
         METHODS.put(methodId, method);
         return method;
+    }
+
+    /** A parameter type name: a primitive, a class, or (Part 10d) an array of either. */
+    private static Class<?> type(String name) throws ClassNotFoundException {
+        if (name.endsWith("[]")) return type(name.substring(0, name.length() - 2)).arrayType();
+        return PRIMITIVES.containsKey(name) ? PRIMITIVES.get(name) : Class.forName(name);
     }
 }

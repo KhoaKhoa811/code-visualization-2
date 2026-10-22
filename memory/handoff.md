@@ -9,55 +9,63 @@
 
 - Updated: 2026-10-22 (Asia/Saigon)
 - Owner: Claude Code
-- Status: ready for review. No approved task is unfinished.
-- Milestone: V1.1 (Part 10). Core V1 parts 9a-9d merged (PRs #97-#100). Full isolation (6g) deferred.
+- Status: 10d in progress. Revision 2 approved 2026-10-22 ("1. I approve 2. do as your recommendation
+  3. do what you want 4. I approve"). 10d.1 implemented; next 10d.2.
+- Milestone: V1.1 (Part 10). 10a, 10b, 10c done and awaiting merge. Full isolation (6g) deferred.
 
 ## Approved roadmap (2026-10-20, "I approve")
 
-9.0-9d done; V1.1: 10a separate test inputs (done), 10b custom mappings (done), 10c view rankings (done),
-10d broader problem suite. Order and AC mapping: [specs/v1-scope.md](../specs/v1-scope.md).
-User (2026-10-21): "continue implement next part" -> 10a; "ok" -> 10b; "ok" -> 10c; 2026-10-22 "ok, please implement it" approved
-the rank-1 rules (specs/visualization-rules.md). Ask before starting 10d.
+9.0-9d done; V1.1: 10a test inputs, 10b custom mappings, 10c view rankings (all done, awaiting review),
+10d broader problem suite. User 2026-10-22: "please continue doing part 10d" -> 10d started.
+Requirements 6.5 require the concrete operations and representative programs to be agreed before
+implementation, so 10d.0 is a draft: [specs/problem-suite.md](../specs/problem-suite.md).
 
-## Last tasks: 10a test inputs, 10b custom mappings, 10c view rankings (complete)
+## Current task: 10d broader problem suite (AC-36)
 
-- [x] Run request 1.2.0 `inputMode: provided` + `input {text, sha256}`; snapshot 1.1.0 `input {mode, sha256}`
-- [x] Backend RunStdin (none/live/provided), RunInput.provided, admission codes, live + API tests
-- [x] Frontend "Use test input", run summary association, input-changed warning, AC-35 browser test
-- [x] specs/test-inputs.md, RUN_API.md, run-lifecycle.md, v1-scope AC-35 Done — 794bfc4
-- [x] 10b list / array stack / circular queue mappings, revisions, AC-27 and AC-30 — b70de5c
-- [x] 10c rank-1 rankings (rankings.ts, Suggested views card), AC-32..34 — 716026e; drag tests scroll fix
-- [x] memory (this commit)
+- [x] 10d.0 probe of 32 candidate programs through the real tracer; draft suite + gaps G1-G5 (this commit)
+- [x] user review of revision 1 (2026-10-22): include lambdas and streams; entrySet yes; G5 only reverseOrder
+- [x] revision 2: G6 lambdas/method references, G7 sequential streams, F1-F11 programs, 5 increments;
+      probe found bug F1 (List.forEach with a lambda makes the whole program output-only, TRACE_MAPPING)
+- [x] user review of revision 2: approved (lambda frames via the library call; sort comparators in,
+      collection-held comparators out)
+- [x] 10d.1 G1 println(Object) for library values, G3 toCharArray/split/Arrays.toString/equals,
+      G4 Arrays.sort/Collections.sort as one step, G5 reverse order (PQ/TreeSet/TreeMap), bug F1.
+      Recorder marks sorted collections' comparator ("/r", "/c"); args recorded before the call;
+      static call's changed argument in `after` (schema already allowed it, no version bump);
+      3 tracer tests, 1 frontend test, fixtures array-utilities.json and reverse-order.json.
+- [x] 10d.2 G2 enhanced for over List/Set/Deque, keySet/values/entrySet (trace contract 1.9.0, plan format 9):
+      ITERATE/NEXT sites, builder iterates its mirror; `entry` objects (stale entry -> partial);
+      also `total += map.get(k)` (boxed right side of a compound assignment)
+- [ ] 10d.3 G6 lambdas (callback frames via the library call, replay with recorded callback results)
+- [ ] 10d.4 G7 sequential streams (contract 1.10.0 with 10d.3)
+- [ ] 10d.5 ProblemSuiteTest (zero uncaptured statements), three frontend examples, browser test, AC-36 Done
+
+Probe tool: `runner/tracer/src/test/java/codeviz/tracer/ProbeTest.java` is a local, **uncommitted**
+scratch test (prints a report). Run with `-pl runner/tracer -Dtest=ProbeTest`; output in `.tools/probe.log`.
+It becomes the basis of ProblemSuiteTest in 10d.5; do not commit it as is.
 
 ## Git
 
-- Branch `feat/part-10a-test-inputs` on main 9309231; `feat/part-10b-custom-mappings` and `feat/part-10c-view-rankings` stacked in that order.
-- PR (manual, `gh` unavailable):
+- Branch `feat/part-10d-problem-suite` stacked on `feat/part-10c-view-rankings` (10a -> 10b -> 10c -> 10d).
+- PRs (manual, `gh` unavailable), merge in order:
   https://github.com/KhoaKhoa811/code-visualization-2/compare/main...feat/part-10a-test-inputs?expand=1
   https://github.com/KhoaKhoa811/code-visualization-2/compare/feat/part-10a-test-inputs...feat/part-10b-custom-mappings?expand=1
   https://github.com/KhoaKhoa811/code-visualization-2/compare/feat/part-10b-custom-mappings...feat/part-10c-view-rankings?expand=1
+  https://github.com/KhoaKhoa811/code-visualization-2/compare/feat/part-10c-view-rankings...feat/part-10d-problem-suite?expand=1
 
-## Verification (2026-10-21, Claude)
+## Verification
 
-- Root reactor `clean verify` with live Docker: **175 tests, 0 failures/skips** (tracer 78, backend 97).
-  Log `.tools/part-10a-verify.log`. First attempt failed only because Docker Desktop was stopped.
-  No owned container left.
-- Contracts 62; frontend 31 unit tests, build, 14 Playwright tests. One run had a single flaky
-  "Monaco not visible" in the 8b test; the full rerun passed all 14.
-
-## Decisions in this task
-
-- Provided input uses the normal 5 s deadline (nobody waits); stdin attached only when the source
-  refers to System.in. Bytes kept exactly (CR, no final LF, long lines chunked at 4 KiB).
-- Snapshot live input hash is the delivered transcript, published only once finished.
-- Editing test input after a run warns; playback stays valid (trace belongs to its input).
-- 10b (frontend only, 35 unit + 15 browser tests): suggestions from field types only; queue empty/full
-  without a size field is stated, not guessed; mapping revisions tied to source sha. The editor bundle
-  has no find/replace, so the browser test pastes edited source via the clipboard.
-- 10c (frontend only, 41 unit + 16 browser tests): assessments read state at k and events of steps 1..k
-  only (cut-trace tests). Mistake: 10c was committed before the full browser run; two drag tests then
-  failed (cards pushed boxes below the fold) and were fixed by scrolling targets into view.
+- Last full Java live verify: 2026-10-21 (10a), 175 tests. Frontend after 10c: 41 unit, build, 16 Playwright.
+- 10d.2 (2026-10-22, Claude): root `clean verify` live Docker: tracer 83 (82 committed + ProbeTest),
+  backend 97, 0 failures (`.tools/part-10d2-verify.log`). Contracts 63; frontend 43 unit, build,
+  16 Playwright passed.
+- 10d.1 (2026-10-22, Claude): root `clean verify` with live Docker: tracer 82 (incl. the uncommitted
+  ProbeTest: 81 committed), backend 97, 0 failures. Log `.tools/part-10d1-verify.log`. First attempt
+  failed one live test that used Arrays.sort as its uncaptured example (now Arrays.fill). Contracts 62;
+  frontend 42 unit, build, 16 Playwright passed. "Helper and library calls" example now uses Arrays.fill.
+- 10d.0: the probe ran on the host (tracer module only): all 32 programs compiled, matched the
+  original stdout and gave capture complete; 18 have uncaptured statements. No product code changed.
 
 ## Next action
 
-Wait for review/merge (10a, 10b, 10c in order); then ask to start 10d (broader problem suite).
+Wait for the user's review of specs/problem-suite.md revision 2; then implement 10d.1.

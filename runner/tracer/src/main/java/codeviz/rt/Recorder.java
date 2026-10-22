@@ -116,10 +116,11 @@ public final class Recorder {
      * iteration, which runs no user code for the covered classes and element types (Part 8f).
      */
     private static String contents(Object o) {
-        StringBuilder b = new StringBuilder().append(o.getClass().getName());
+        StringBuilder b = new StringBuilder().append(o.getClass().getName()).append(order(o));
         if (o.getClass().isArray()) values(b, o);
         else if (o instanceof java.util.Scanner || o instanceof java.io.BufferedReader) b.append(" 0"); // Parts 8g, 8i: reads are replayed
         else if (o instanceof StringBuilder sb) b.append(' ').append(hex(sb.toString()));
+        else if (o instanceof java.util.Map.Entry<?, ?> e) b.append(' ').append(id(e.getKey())).append(' ').append(id(e.getValue())); // Part 10d
         else if (o instanceof java.util.Map<?, ?> map) {
             b.append(' ').append(map.size());
             for (var e : map.entrySet()) b.append(' ').append(id(e.getKey())).append(' ').append(id(e.getValue()));
@@ -130,14 +131,24 @@ public final class Recorder {
         return b.toString();
     }
 
-    private static final java.util.Set<Class<?>> LIBRARY = java.util.Set.of(java.util.ArrayList.class, java.util.LinkedList.class,
+    /**
+     * The comparator of a sorted collection, read without calling it (Part 10d): "" for natural
+     * order, "/r" for the JDK's reverse order, "/c" for any other (its order is user code).
+     */
+    private static String order(Object o) {
+        java.util.Comparator<?> c = o instanceof java.util.PriorityQueue<?> q ? q.comparator()
+                : o instanceof java.util.SortedMap<?, ?> m ? m.comparator() : o instanceof java.util.SortedSet<?> s ? s.comparator() : null;
+        return c == null ? "" : c == java.util.Collections.reverseOrder() ? "/r" : "/c";
+    }
+
+    private static final java.util.Set<Class<?>> LIBRARY =java.util.Set.of(java.util.ArrayList.class, java.util.LinkedList.class,
             java.util.ArrayDeque.class, java.util.Stack.class, java.util.HashMap.class, java.util.TreeMap.class, java.util.LinkedHashMap.class,
             java.util.HashSet.class, java.util.TreeSet.class, java.util.LinkedHashSet.class, java.util.PriorityQueue.class, StringBuilder.class,
             java.util.Scanner.class, java.io.BufferedReader.class);
 
     /** Record prefix of a first sight or re-read: array, library collection, map, builder or object. */
     private static String prefix(Object o) {
-        return o.getClass().isArray() ? "A" : o instanceof StringBuilder ? "B" : o instanceof java.util.Map ? "M"
+        return o.getClass().isArray() ? "A" : o instanceof StringBuilder ? "B" : o instanceof java.util.Map ? "M" : o instanceof java.util.Map.Entry ? "Y"
                 : o instanceof java.util.Collection || o instanceof java.util.Scanner || o instanceof java.io.BufferedReader ? "C" : "O";
     }
 
@@ -210,7 +221,7 @@ public final class Recorder {
         Integer known = IDS.get(o);
         if (known != null) return "r" + known;
         if (!(o instanceof String) && !(o instanceof Throwable) && !o.getClass().isArray() && !LIBRARY.contains(o.getClass())
-                && o.getClass().getName().startsWith("java.")) return "?";
+                && !(o instanceof java.util.Map.Entry) && o.getClass().getName().startsWith("java.")) return "?"; // Part 10d: entries
         int id = register(o);
         INTRODUCED.add(o);
         return "r" + id;
@@ -617,6 +628,12 @@ public final class Recorder {
     }
 
     public static void libFail(Throwable e, int site) { fail(site, e); }
+
+    /** Part 10d: the collection (or map) a for-each iterates, before its iterator() (or view) call. */
+    public static void iter(Object collection, int site) { String r = ref(collection); line(site + " " + r); }
+
+    /** Part 10d: one element a for-each's next() returned. */
+    public static void iterNext(Object element, int site) { String r = ref(element); line(site + " " + r); }
 
     /** The receiver of a library call, before the call: a first sight records its contents as they were. */
     public static void libSee(Object receiver) { if (receiver != null) ref(receiver); }

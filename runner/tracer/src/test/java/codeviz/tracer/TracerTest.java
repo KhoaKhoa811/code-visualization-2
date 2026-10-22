@@ -1162,18 +1162,132 @@ class TracerTest {
                 java.util.List<Integer> xs = new java.util.ArrayList<>();
                 xs.add(1);
                 java.util.Collections.addAll(xs, 3, 2);
-                java.util.Collections.sort(xs);
+                java.util.Collections.reverse(xs);
                 int n = xs.size();
                 int last = xs.get(2);
                 System.out.println(n + last);""");
         assertComplete(region, "completed");
-        assertEquals("6\n", region.result().stdout());
+        assertEquals("4\n", region.result().stdout());
         assertInOrder(textSteps(region.trace()), "LIB add(1) = true -> [1] @xs.add(1)", "UNCAPTURED @java.util.Collections.addAll(xs, 3, 2);",
-                "UNCAPTURED @java.util.Collections.sort(xs);", "LIB size() = 3 @xs.size()", "LIB get(2) = 3 @xs.get(2)");
+                "UNCAPTURED @java.util.Collections.reverse(xs);", "LIB size() = 3 @xs.size()", "LIB get(2) = 1 @xs.get(2)");
         @SuppressWarnings("unchecked")
         List<Object> reread = events(region.trace()).stream().filter(e -> "UNCAPTURED".equals(e.get("kind")))
                 .flatMap(e -> ((List<Object>) map(e.get("data")).get("collections")).stream()).toList();
         assertEquals(2, reread.size(), "both uncaptured statements changed the list: " + reread);
+    }
+
+    // ---- Part 10d: broader problems --------------------------------------------------------------
+
+    private static List<String> uncaptured(Run run) { return steps(run.trace()).stream().filter(s -> s.startsWith("UNCAPTURED")).toList(); }
+
+    @Test void arrayUtilitiesStringArraysAndLibrarySortsAreOneStepEach() throws Exception {
+        Run r = main("array-utilities", """
+                int[] a = {3, 1, 2};
+                java.util.Arrays.sort(a);
+                String s = java.util.Arrays.toString(a);
+                char[] c = "cba".toCharArray();
+                java.util.Arrays.sort(c, 1, 3);
+                boolean same = java.util.Arrays.equals(c, "cab".toCharArray());
+                String[] w = "y x y".split(" ");
+                java.util.Arrays.sort(w);
+                java.util.List<String> xs = new java.util.ArrayList<>();
+                xs.add("b"); xs.add("a");
+                java.util.Collections.sort(xs);
+                System.out.println(s + same + w[0]);
+                System.out.println(xs);""");
+        assertComplete(r, "completed");
+        assertEquals("[1, 2, 3]truex\n[a, b]\n", r.result().stdout());
+        assertEquals(List.of(), uncaptured(r));
+        assertInOrder(textSteps(r.trace()), "ALLOCATE [3,1,2] @{3, 1, 2}", "LIB sort(#o2) -> [1,2,3] @java.util.Arrays.sort(a)",
+                "LIB toString(#o2) = \"[1, 2, 3]\" @java.util.Arrays.toString(a)",
+                "LIB toCharArray() = #o5 @\"cba\".toCharArray()", "LIB sort(#o5,1,3) -> [99,97,98] @java.util.Arrays.sort(c, 1, 3)",
+                "LIB equals(#o5,#o7) = true @java.util.Arrays.equals(c, \"cab\".toCharArray())",
+                "LIB split(\" \") = #o10 @\"y x y\".split(\" \")", "LIB sort(#o10) -> [\"x\",\"y\",\"y\"] @java.util.Arrays.sort(w)",
+                "LIB sort(#o14) -> [\"a\",\"b\"] @java.util.Collections.sort(xs)");
+    }
+
+    @Test void printingLibraryValuesAndReverseOrderCollections() throws Exception {
+        Run r = main("print-and-reverse", """
+                java.util.PriorityQueue<Integer> pq = new java.util.PriorityQueue<>(java.util.Collections.reverseOrder());
+                pq.add(1); pq.add(5); pq.add(3);
+                System.out.println(pq.poll());
+                java.util.TreeSet<String> t = new java.util.TreeSet<>(java.util.Comparator.reverseOrder());
+                t.add("a"); t.add("c"); t.add("b");
+                StringBuilder sb = new StringBuilder("x");
+                System.out.println(sb);
+                System.out.println(t);
+                System.out.print(pq.peek());""");
+        assertComplete(r, "completed");
+        assertEquals("5\nx\n[c, b, a]\n3", r.result().stdout());
+        assertEquals(List.of(), uncaptured(r));
+        assertInOrder(textSteps(r.trace()), "LIB add(5) = true -> [5,1] @pq.add(5)", "LIB add(3) = true -> [5,3,1] @pq.add(3)",
+                "LIB poll() = 5 -> [3,1] @pq.poll()", "LIB add(\"b\") = true -> [\"c\",\"b\",\"a\"] @t.add(\"b\")");
+        // A collection ordered by user code cannot be mirrored: a lambda comparator stays uncaptured.
+        Run user = main("user-comparator", """
+                java.util.PriorityQueue<Integer> q = new java.util.PriorityQueue<>((x, y) -> y - x);
+                q.add(2);
+                System.out.println(q.peek());""");
+        assertEquals("2\n", user.result().stdout());
+        assertFalse(uncaptured(user).isEmpty());
+    }
+
+    @Test void forEachOverCollectionsAndMapViewsStepsThroughEachElement() throws Exception {
+        Run r = main("for-each-collections", """
+                java.util.List<Integer> xs = new java.util.ArrayList<>();
+                xs.add(3); xs.add(4);
+                int sum = 0;
+                for (int x : xs) sum += x;
+                java.util.Set<String> seen = new java.util.TreeSet<>();
+                seen.add("b"); seen.add("a");
+                String all = "";
+                for (String s : seen) all += s;
+                java.util.Map<Character, Integer> m = new java.util.TreeMap<>();
+                m.put('x', 1); m.put('y', 2);
+                int total = 0;
+                for (char k : m.keySet()) total += m.get(k);
+                for (int v : m.values()) total += v;
+                for (java.util.Map.Entry<Character, Integer> e : m.entrySet()) System.out.println(e.getKey() + "=" + e.getValue());
+                java.util.Deque<Integer> d = new java.util.ArrayDeque<>();
+                d.push(1); d.push(2);
+                for (Integer y : d) System.out.print(y);
+                System.out.println(sum + all + total);""");
+        assertComplete(r, "completed");
+        assertEquals("x=1\ny=2\n217ab6\n", r.result().stdout());
+        assertEquals(List.of(), uncaptured(r));
+        assertInOrder(textSteps(r.trace()), "LIB next() = 3 @xs", "DECLARE x=3 @int x", "LIB next() = 4 @xs",
+                "LIB next() = \"a\" @seen", "DECLARE s=\"a\" @String s", "LIB next() = \"b\" @seen",
+                "LIB next() = 120 @m.keySet()", "LIB get(120) = 1 @m.get(k)", "LIB next() = 2 @m.values()");
+        List<Map<String, Object>> entries = events(r.trace()).stream().filter(e -> "OBJECT_CAPTURE".equals(e.get("kind")))
+                .map(e -> map(map(e.get("data")).get("object"))).filter(o -> "entry".equals(o.get("kind"))).toList();
+        assertEquals(2, entries.size(), "each entry is captured once, with its key and value");
+        assertEquals("1", map(entries.get(0).get("value")).get("value"));
+        // A change to the collection inside the loop fails next() exactly as in Java.
+        Run cme = main("for-each-modified", """
+                java.util.List<Integer> xs = new java.util.ArrayList<>();
+                xs.add(1); xs.add(2);
+                for (int x : xs) if (x == 1) xs.add(3);""");
+        assertComplete(cme, "failed");
+        assertInOrder(steps(cme.trace()), "LIB add(3) = true -> [1,2,3] @xs.add(3)", "EXCEPTION java.util.ConcurrentModificationException @xs");
+        // An entry changed through put while shown cannot be followed: capture stops before it would be wrong.
+        Run stale = main("for-each-entry-put", """
+                java.util.Map<String, Integer> m = new java.util.HashMap<>();
+                m.put("a", 1);
+                for (java.util.Map.Entry<String, Integer> e : m.entrySet()) m.put(e.getKey(), e.getValue() + 1);
+                System.out.println(m.get("a"));""");
+        assertEquals("2\n", stale.result().stdout());
+        assertEquals("partial", status(stale.trace(), "capture"));
+    }
+
+    @Test void aStatementWithACapturingLambdaRunsUncapturedInsteadOfFailingTheProgram() throws Exception {
+        Run r = main("capturing-lambda", """
+                java.util.List<Integer> xs = new java.util.ArrayList<>();
+                xs.add(1); xs.add(2);
+                int[] total = {0};
+                xs.forEach(x -> total[0] += x);
+                System.out.println(total[0]);""");
+        assertComplete(r, "completed");
+        assertEquals("3\n", r.result().stdout());
+        assertInOrder(steps(r.trace()), "UNCAPTURED #o3=[3] @xs.forEach(x -> total[0] += x);", "READ [0]=3 @total[0]");
     }
 
     // ---- Part 8g: Scanner input ---------------------------------------------------------------
@@ -1538,10 +1652,10 @@ class TracerTest {
     }
 
     @Test void arraysChangedByUncapturedCodeAreReRead() throws Exception {
-        Run lib = main("uncaptured-library", "int[] a = {2, 1};\njava.util.Arrays.sort(a);\nSystem.out.println(a[0]);");
+        Run lib = main("uncaptured-library", "int[] a = {2, 1};\njava.util.Arrays.fill(a, 0, 1, 1); // Part 10d: Arrays.sort is covered now\nSystem.out.println(a[0]);");
         assertComplete(lib, "completed");
         assertEquals("1\n", lib.result().stdout());
-        assertInOrder(steps(lib.trace()), "ALLOCATE [2,1] @{2, 1}", "UNCAPTURED #o2=[1,2] @java.util.Arrays.sort(a);", "READ [0]=1 @a[0]");
+        assertInOrder(steps(lib.trace()), "ALLOCATE [2,1] @{2, 1}", "UNCAPTURED #o2=[1,1] @java.util.Arrays.fill(a, 0, 1, 1);", "READ [0]=1 @a[0]");
 
         String helper = "class Util<T> { // generic: stays untraced (Part 8e)\n    static void bump(int[] a) { a[0]++; }\n}\npublic class Main {\n"
                 + "    public static void main(String[] args) {\n        int[] a = {1, 2};\n        Util.bump(a);\n        Util.bump(a);\n"

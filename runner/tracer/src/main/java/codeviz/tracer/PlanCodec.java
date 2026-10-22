@@ -15,7 +15,7 @@ import java.util.*;
  * source's SHA-256 so the reader can reject a plan for different text.
  */
 final class PlanCodec {
-    static final int VERSION = 8; // 2: regions (8a); 3: primitives (8b); 4: switch, arrays (8c); 5: methods (8d); 6: objects (8e); 7: interactive (8g); 8: exceptions (8h)
+    static final int VERSION = 9; // 2: regions (8a); 3: primitives (8b); 4: switch, arrays (8c); 5: methods (8d); 6: objects (8e); 7: interactive (8g); 8: exceptions (8h); 9: iteration (10d)
 
     private PlanCodec() { }
 

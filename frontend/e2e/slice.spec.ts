@@ -62,7 +62,7 @@ test('statements outside coverage run without visualization while the rest is tr
   const summary = page.getByTestId('run-summary');
   await expect(summary).toContainText('capture complete');
   await expect(summary).toContainText('some statements ran without capture');
-  await expect(page.getByTestId('console-output')).toHaveText('total = 30\n');
+  await expect(page.getByTestId('console-output')).toHaveText('total = 22\n');
 
   const forward = page.getByRole('button', { name: 'Step forward' });
   for (let i = 0; i < 10; i++) {
@@ -71,12 +71,12 @@ test('statements outside coverage run without visualization while the rest is tr
   }
   await expect(page.getByTestId('step-detail')).toContainText('Ran without visualization (a changed)');
   await expect(page.locator('.step-detail.uncaptured')).toBeVisible();
-  await expect(cells(page, 'a')).toHaveText(['1', '2', '3', '4']); // re-read after Arrays.sort
+  await expect(cells(page, 'a')).toHaveText(['4', '2', '1', '1']); // re-read after Arrays.fill (Arrays.sort is covered since 10d)
   await page.screenshot({ path: 'test-results/partial-coverage.png' });
 
   await page.getByTitle('End').click();
   // Since 8d the helper square(...) is traced, so total is known; only the printing ran uncaptured.
-  await expect(page.getByTestId('var-total')).toContainText('30');
+  await expect(page.getByTestId('var-total')).toContainText('22');
 });
 
 test('strings, a map, a stack, a queue and a priority queue play back as library calls (8f)', async ({ page }) => {

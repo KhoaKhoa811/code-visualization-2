@@ -21,7 +21,7 @@ Status words: **Done** (implemented and verified by the named tests), **Partial*
 | 10a | V1.1 | Separate test inputs next to `Main.java`, replay without resubmission | AC-35 |
 | 10b | V1.1 | General custom mappings (list, tree, stack, queue conventions), revalidation after edits | AC-27, AC-30 |
 | 10c | V1.1 | Evidence-based view rankings (Strong / Possible / Weak), rules specified first | AC-32, AC-33, AC-34 |
-| 10d | V1.1 | Broader problem suite across arrays, strings, maps, sets, trees, heaps | AC-36 |
+| 10d | V1.1 | Broader problem suite across arrays, strings, maps, sets, trees, heaps ([draft](problem-suite.md)) | AC-36 |
 
 The mapping model of 9b and 9c is the first piece of 10b. The input-wait limit of
 Part 4r (part of AC-20) is deferred to the 6g isolation review before any public
