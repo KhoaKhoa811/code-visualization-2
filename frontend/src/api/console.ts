@@ -4,7 +4,8 @@
 import { useSyncExternalStore } from 'react';
 import type { Phase } from './runs.ts';
 
-export interface ConsoleState { phase: Phase; interactive: boolean; controller: boolean; inputOpen: boolean }
+// 6g: waiting is true while the kernel shows a blocked read of standard input, false while not, null when unknown.
+export interface ConsoleState { phase: Phase; interactive: boolean; controller: boolean; inputOpen: boolean; waiting?: boolean | null }
 export interface ConsoleText { stream: 'stdout' | 'stderr' | 'stdin'; text: string }
 
 export interface ConsoleView {

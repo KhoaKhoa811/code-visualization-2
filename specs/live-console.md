@@ -21,9 +21,14 @@ A non-interactive run keeps the 5,000 ms deadline and an immediately closed
 standard input (a read sees end of input at once).
 
 The 30,000 ms input-wait deadline of Part 4r needs verified evidence that a read
-is blocked. This part has no such evidence, so the waiting state is reported as
-unknown and only the overall deadline applies. The console says the program
-*reads input*, not that it is waiting.
+is blocked. Since Part 6g the backend gets that evidence from the kernel.
+- About once a second it reads `/proc` in the container. A thread of the program in a
+  pipe read on its stdin pipe counts as waiting.
+- After 30 s of unbroken waiting the run stops: `limited`, `INPUT_WAIT_TIMEOUT`.
+- The console says "Waiting for input" only while that is observed. When the evidence is
+  unknown, only the overall deadline applies.
+
+Details: [isolation review](isolation-review.md).
 
 ## Input bounds and semantics
 
@@ -53,8 +58,9 @@ Client to server:
 
 Server to client:
 
-- `{"type":"state","phase":"executing","interactive":true,"controller":true,"inputOpen":true}`
-  whenever any of these change (`phase` uses the run-v1 phase words).
+- `{"type":"state","phase":"executing","interactive":true,"controller":true,"inputOpen":true,"waiting":true}`
+  whenever any of these change (`phase` uses the run-v1 phase words). `waiting` (6g) is
+  `true` while a blocked stdin read is observed, `false` while not, `null` when unknown.
 - `{"type":"output","stream":"stdout","text":"Enter n: "}` for new console text,
   in order, decoded as UTF-8 across chunk boundaries.
 - `{"type":"ack","seq":1}` and `{"type":"reject","seq":1,"code":"INPUT_LINE_LIMIT"}`
@@ -112,5 +118,5 @@ Verified on 2026-10-20 with Docker Desktop 29.8.0:
   Enter sends `21`, the console shows `Enter n: 42`, and playback shows
   `Read input: in.nextInt() → 21` without sending input again.
 
-Not done: the input-wait deadline (see above), more than one Scanner, and other
-`System.in` readers (these run without capture).
+Not done: more than one Scanner, and other `System.in` readers (these run without
+capture). The input-wait deadline was added in Part 6g (see above).

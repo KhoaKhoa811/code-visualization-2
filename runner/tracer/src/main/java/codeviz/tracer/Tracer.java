@@ -16,7 +16,7 @@ import java.util.Map;
  */
 public final class Tracer {
     /** Why the run ended, as decided by the orchestrator (never by the user JVM). */
-    public enum Cause { EXIT, EXECUTION_TIMEOUT, OUTPUT_LIMIT, CANCELLED, COMPILATION_TIMEOUT, INPUT_DISCONNECTED, INTERACTIVE_TIMEOUT }
+    public enum Cause { EXIT, EXECUTION_TIMEOUT, OUTPUT_LIMIT, CANCELLED, COMPILATION_TIMEOUT, INPUT_DISCONNECTED, INTERACTIVE_TIMEOUT, INPUT_WAIT_TIMEOUT }
 
     /** Stop cause plus the process exit code (meaningful for {@link Cause#EXIT}). */
     public record Outcome(Cause cause, int exitCode) {

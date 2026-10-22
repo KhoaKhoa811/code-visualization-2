@@ -67,6 +67,72 @@ class TracedRunLiveTest {
         assertTrue(r.trace().contains("\"operator\":\">\""));
     }
 
+    @Test void aProgramBlockedOnInputIsSeenWaitingAndStopsAtTheInputWaitLimit() throws Exception {
+        // Part 6g: the kernel shows the blocked Scanner read; nobody types, so the limit stops the run.
+        String source = "import java.util.Scanner;\n" + program("""
+                Scanner in = new Scanner(System.in);
+                System.out.println("ready");
+                int n = in.nextInt();
+                System.out.println(n);""");
+        var lifecycle = new TracedRunLifecycle(docker());
+        lifecycle.inputWait(Duration.ofSeconds(4));
+        var seen = new java.util.concurrent.atomic.AtomicBoolean();
+        var watcher = Executors.newSingleThreadScheduledExecutor();
+        watcher.scheduleAtFixedRate(() -> { if (Boolean.TRUE.equals(lifecycle.waiting())) seen.set(true); }, 0, 100, TimeUnit.MILLISECONDS);
+        long start = System.nanoTime();
+        TracedRunLifecycle.Result r;
+        try { r = lifecycle.run(source, true); } finally { watcher.shutdownNow(); }
+        long seconds = Duration.ofNanos(System.nanoTime() - start).toSeconds();
+        assertTrue(r.terminationConfirmed() && r.cleanupVerified(), r.infrastructureFailures().toString());
+        check("input-wait", r.trace());
+        assertTrue(seen.get(), "the blocked read was observed as waiting");
+        assertEquals("ready\n", stdout(r));
+        assertTrue(r.trace().contains("\"status\":\"limited\"") && r.trace().contains("INPUT_WAIT_TIMEOUT"), r.trace());
+        assertTrue(seconds < 60, "stopped by the input-wait limit, not the 120 s deadline: " + seconds + " s");
+    }
+
+    @Test void aProgramThatDoesNotReadIsNeverSeenWaiting() throws Exception {
+        // Reads nothing while it sleeps past the limit: its threads are not in a pipe read.
+        String source = """
+                public class Main {
+                    public static void main(String[] args) throws Exception {
+                        java.util.Scanner in = new java.util.Scanner(System.in);
+                        Thread.sleep(6000);
+                        System.out.println("done");
+                    }
+                }
+                """;
+        var lifecycle = new TracedRunLifecycle(docker());
+        lifecycle.inputWait(Duration.ofSeconds(3));
+        var r = lifecycle.run(source, true);
+        assertTrue(r.terminationConfirmed() && r.cleanupVerified(), r.infrastructureFailures().toString());
+        assertEquals("done\n", stdout(r));
+        assertFalse(r.trace().contains("INPUT_WAIT_TIMEOUT"), r.trace());
+    }
+
+    @Test void inputWithinTheLimitKeepsTheRunGoing() throws Exception {
+        String source = "import java.util.Scanner;\n" + program("""
+                Scanner in = new Scanner(System.in);
+                int n = in.nextInt();
+                System.out.println(n * 2);""");
+        var lifecycle = new TracedRunLifecycle(docker());
+        lifecycle.inputWait(Duration.ofSeconds(6));
+        var feeder = Executors.newSingleThreadExecutor();
+        // Typed after about 3 s of waiting: well inside the limit, so the run completes normally.
+        feeder.submit(() -> {
+            while (lifecycle.input() == null || !lifecycle.input().accepting()) Thread.sleep(50);
+            Thread.sleep(3000);
+            lifecycle.input().offer(1, "21");
+            lifecycle.input().eof();
+            return null;
+        });
+        TracedRunLifecycle.Result r;
+        try { r = lifecycle.run(source, true); } finally { feeder.shutdownNow(); }
+        assertTrue(r.terminationConfirmed() && r.cleanupVerified(), r.infrastructureFailures().toString());
+        assertEquals("42\n", stdout(r));
+        assertTrue(r.trace().contains("\"execution\":{\"status\":\"completed\""), r.trace());
+    }
+
     @Test void uncaughtFailureIsCompleteAndFailed() throws Exception {
         var r = run("failed-write", program("int[] a = {0};\nint x = 0;\na[2] = ++x;"));
         assertTrue(r.trace().contains("\"status\":\"failed\"") && r.trace().contains("\"status\":\"complete\""));

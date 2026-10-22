@@ -188,7 +188,9 @@ function ConsoleInput({ run, view }: { run: SubmittedRun | null; view: ConsoleVi
           placeholder={open ? 'Type input and press Enter' : 'Input opens when the program runs'} autoComplete="off" spellCheck={false} />
         <button type="button" onClick={() => run.console.eof()} disabled={!open}>Send EOF</button>
       </form>
-      <p className="muted">This program reads input. Losing this page while it runs cancels the run.</p>
+      {open && state.waiting === true
+        ? <p className="waiting" data-testid="console-waiting">Waiting for input (the run stops after 30 s of waiting).</p>
+        : <p className="muted">This program reads input. Losing this page while it runs cancels the run.</p>}
       {view.rejected && <p className="error" data-testid="console-reject">{REJECT_TEXT[view.rejected] ?? view.rejected}</p>}
     </div>
   );

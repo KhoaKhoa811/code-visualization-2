@@ -224,7 +224,9 @@ public final class RunSupervisor implements AutoCloseable {
      * Live console view of a run (Part 8g): its phase, whether it runs interactively, its
      * input while it executes, and whether termination is confirmed (all output is final).
      */
-    public record Console(Phase phase, boolean interactive, RunInput input, boolean ended) { }
+    public record Console(Phase phase, boolean interactive, RunInput input, boolean ended, Boolean waiting) {
+        public Console(Phase phase, boolean interactive, RunInput input, boolean ended) { this(phase, interactive, input, ended, null); }
+    }
 
     public synchronized Console console(Run run) {
         if (run.state == State.EXPIRED) return new Console(Phase.FINISHED, false, null, true);
@@ -232,7 +234,8 @@ public final class RunSupervisor implements AutoCloseable {
         TracedRunLifecycle lifecycle = run.lifecycle;
         boolean interactive = lifecycle != null && lifecycle.interactive();
         RunInput input = interactive && s.phase() == Phase.EXECUTING ? lifecycle.input() : null;
-        return new Console(s.phase(), interactive, input, s.terminationConfirmed());
+        // Part 6g: whether a standard-input read is blocked (null: not known), while it executes.
+        return new Console(s.phase(), interactive, input, s.terminationConfirmed(), input == null ? null : lifecycle.waiting());
     }
 
     /** Console bytes of a run in arrival order, from chunk {@code index} on. */

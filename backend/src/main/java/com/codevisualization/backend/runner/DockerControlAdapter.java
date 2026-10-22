@@ -171,6 +171,33 @@ public final class DockerControlAdapter implements FixtureControl, WorkspaceCont
         }
     }
 
+    /**
+     * Part 6g, verified with Docker Desktop 29.8.0 under this profile: a JVM blocked in Scanner
+     * reading its stdin pipe has a thread whose wchan is anon_pipe_read (pipe_read or pipe_wait on
+     * other kernels); /proc/<pid>/syscall is not readable without ptrace rights, wchan is. The probe
+     * itself runs with stdin /dev/null, so only processes started with stdin attached count.
+     */
+    // No double quotes: control arguments must not contain any (BoundedCommandRunner); case words are not split.
+    static final String WAIT_PROBE = "w=unknown; for p in /proc/[0-9]*; do l=$(readlink $p/fd/0 2>/dev/null); "
+            + "case $l in pipe:*) ;; *) continue;; esac; "
+            + "for t in $p/task/*; do c=$(cat $t/wchan 2>/dev/null) || continue; "
+            + "case $c in *pipe_read*|pipe_wait) echo waiting; exit 0;; 0) ;; ?*) w=running;; esac; done; done; echo $w";
+
+    @Override
+    public Boolean stdinWaiting(Duration remaining) throws IOException {
+        if (!operation.tryLock()) return null; // busy (stopping): not known
+        try {
+            if (quarantined || !started || stopped || removed) return null;
+            var command = new ArrayList<>(List.of(executable.toString(), "--context", "desktop-linux"));
+            command.addAll(execArguments(List.of("/bin/sh", "-c", WAIT_PROBE)));
+            String answer;
+            try (var probe = new BoundedCommandRunner(64)) { answer = probe.execute(command, remaining).strip(); }
+            return switch (answer) { case "waiting" -> true; case "running" -> false; default -> null; };
+        } finally {
+            operation.unlock();
+        }
+    }
+
     public void recover() throws IOException {
         if (!operation.tryLock()) throw new IOException("Container control busy");
         try {
