@@ -47,7 +47,7 @@ function Heap({ view, mapping }: { view: View; mapping: HeapMapping }) {
   const height = Math.max(0, ...[...pos.values()].map(p => p.y)) * DY + DY;
   const end = boundary ?? array.elements.length;
   return (
-    <div className="heap-block" data-testid={`heap-${mapping.array}`}>
+    <div className="heap-block" data-testid={`heap-${mapping.array}`} data-heap={array.objectId}>
       <div className="array-label">
         {[...new Set(namesOf(state, array.objectId).filter(n => !n.includes('[')))].slice(0, 2).join(' = ') || mapping.array}{' '}
         <span className="muted">

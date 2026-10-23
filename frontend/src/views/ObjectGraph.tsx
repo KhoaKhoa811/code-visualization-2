@@ -85,7 +85,7 @@ export function ObjectGraph({ view }: { view: View }) {
               const names = namesOf(state, o.objectId);
               const allocated = focus.objectId === o.objectId && focus.access === 'allocate' || focus.touched?.includes(o.objectId);
               return (
-                <Draggable id={`object:${o.objectId}`} className={`object${allocated ? ' allocated' : ''}`} key={o.objectId} data-object={o.objectId}
+                <Draggable id={`object:${o.objectId}`} className={`object${allocated ? ' allocated' : ''}`} key={o.objectId} data-object={o.objectId} data-box={o.objectId}
                      data-testid={`object-${names[0] ?? o.objectId}`}>
                   <div className="object-label" title={names.join(' = ')}>
                     {objectLabel(o)}{names.length > 0 && <span className="muted"> {names.slice(0, 2).join(' = ')}</span>}
