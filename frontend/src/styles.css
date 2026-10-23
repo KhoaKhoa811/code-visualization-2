@@ -238,3 +238,13 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 .motion-badge.no { border-color: var(--error); color: #ff9c9c; }
 .controls select { margin-left: 8px; }
 .motion-toggle { margin-left: 8px; color: var(--muted); font-size: 13px; white-space: nowrap; }
+
+/* Part 11b: index arrows under arrays, placed from measured cells; they slide while motion is on. */
+.cells.has-pointers { position: relative; row-gap: 28px; padding-bottom: 26px; }
+.pointer-layer { position: absolute; inset: 0; pointer-events: none; }
+.pointer {
+  position: absolute; left: 0; top: 0; white-space: nowrap; color: var(--accent);
+  font: 700 12px/1 Consolas, ui-monospace, monospace; transition: transform .35s ease-in-out;
+}
+body.motion-off .pointer { transition: none; }
+.pointer-outside { margin-left: 8px; font: 600 12px Consolas, monospace; color: var(--warning); }

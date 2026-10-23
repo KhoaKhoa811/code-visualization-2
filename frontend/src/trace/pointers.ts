@@ -1,0 +1,50 @@
+// Part 11b: index pointers. A variable is drawn as an arrow under an array only after the program
+// has indexed that array with it: a recorded read or write whose own code is literally `…[name]`.
+// Only accesses up to the cursor count (no future facts), and the arrow sits at the variable's
+// current value. Nothing is inferred from names, values or the algorithm.
+import type { Playback, State } from './playback.ts';
+import type { Value } from './types.ts';
+
+export interface Pointer { name: string; frameId: string; value: number }
+
+interface Access { step: number; frameId: string; name: string; arrayId: string }
+
+const INDEX = /\[\s*([A-Za-z_$][\w$]*)\s*\]$/;
+const cache = new WeakMap<Playback, Access[]>();
+
+/** Every recorded array access whose index expression is a plain variable, in step order. */
+function accesses(playback: Playback): Access[] {
+  let found = cache.get(playback);
+  if (found) return found;
+  found = [];
+  const text = playback.trace.source.text;
+  for (const e of playback.trace.events) {
+    if ((e.kind !== 'ARRAY_READ' && e.kind !== 'ARRAY_WRITE') || !('step' in e)) continue;
+    const match = INDEX.exec(text.slice(e.source.start, e.source.end));
+    if (match) found.push({ step: e.step, frameId: e.frameId, name: match[1], arrayId: e.data.objectId });
+  }
+  cache.set(playback, found);
+  return found;
+}
+
+const intValue = (v: Value): number | null =>
+  v.kind === 'int' || v.kind === 'short' || v.kind === 'byte' ? Number(v.value) : v.kind === 'char' ? v.value : null;
+
+/** The index pointers of each array in {@code state}, the state at cursor {@code k}. */
+export function pointersAt(playback: Playback, k: number, state: State): Map<string, Pointer[]> {
+  const out = new Map<string, Pointer[]>();
+  const seen = new Set<string>();
+  for (const a of accesses(playback)) {
+    if (a.step > k) break;
+    const key = `${a.arrayId}|${a.frameId}|${a.name}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const binding = state.bindings.find(b => b.frameId === a.frameId && b.name === a.name);
+    const value = binding ? intValue(binding.value) : null;
+    if (value === null || state.objects.get(a.arrayId)?.kind !== 'array') continue;
+    const list = out.get(a.arrayId) ?? [];
+    list.push({ name: a.name, frameId: a.frameId, value });
+    out.set(a.arrayId, list);
+  }
+  return out;
+}

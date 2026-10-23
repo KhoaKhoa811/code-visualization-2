@@ -12,11 +12,15 @@ import { HeapPanel } from './HeapPanel.tsx';
 import type { HeapMapping } from '../trace/heap.ts';
 import { StructPanel } from './StructPanel.tsx';
 import type { StructMapping } from '../trace/structures.ts';
+import type { Pointer } from '../trace/pointers.ts';
+import { useLayoutEffect, useRef, useState } from 'react';
 
 type ArrayObject = TraceObject & { kind: 'array' };
 
 /** Confirmed tree (Part 9b), heap (Part 9c) and list/stack/queue (Part 10b) mappings that fit this run. */
-export function StatePanel({ view, trees = [], heaps = [], structs = [] }: { view: View; trees?: TreeMapping[]; heaps?: HeapMapping[]; structs?: StructMapping[] }) {
+export function StatePanel({ view, trees = [], heaps = [], structs = [], pointers = new Map() }: {
+  view: View; trees?: TreeMapping[]; heaps?: HeapMapping[]; structs?: StructMapping[]; pointers?: Map<string, Pointer[]>;
+}) {
   // After main returns, show the recorded values it ended with, labelled as such.
   const state = view.beforeEnd ?? view.state;
   const focus = view.focus;
@@ -60,14 +64,17 @@ export function StatePanel({ view, trees = [], heaps = [], structs = [] }: { vie
         {topLevel.map(array => {
           const names = namesOf(state, array.objectId);
           const active = focus.objectId === array.objectId;
+          const indices = pointers.get(array.objectId) ?? [];
+          const outside = indices.filter(p => p.value < 0 || p.value > array.elements.length);
           return (
             <Draggable id={`array:${array.objectId}`} className={`array${active && focus.access === 'allocate' || focus.touched?.includes(array.objectId) ? ' allocated' : ''}`} key={array.objectId}
                  data-testid={`array-${names[0] ?? array.objectId}`}>
               <div className="array-label">
                 {names.length ? names.join(' = ') : '(temporary)'} <span className="muted">{arrayType(array)}</span>
                 {active && focus.access === 'length' && <span className="badge">length</span>}
+                {outside.map(p => <span className="pointer-outside" key={p.frameId + p.name} data-testid={`pointer-${p.name}`}>{p.name} = {p.value} (outside)</span>)}
               </div>
-              <ArrayBody array={array} state={state} focus={focus} depth={0} />
+              <ArrayBody array={array} state={state} focus={focus} depth={0} pointers={indices} />
             </Draggable>
           );
         })}
@@ -78,11 +85,12 @@ export function StatePanel({ view, trees = [], heaps = [], structs = [] }: { vie
 }
 
 /** Cells of a one-dimensional array, or one row per element of an array of arrays. */
-function ArrayBody({ array, state, focus, depth }: { array: ArrayObject; state: State; focus: Focus; depth: number }) {
+function ArrayBody({ array, state, focus, depth, pointers = [] }: { array: ArrayObject; state: State; focus: Focus; depth: number; pointers?: Pointer[] }) {
   const active = focus.objectId === array.objectId;
   if (!array.elementType.endsWith('[]') || depth > 3) {
+    const inside = pointers.filter(p => p.value >= 0 && p.value <= array.elements.length);
     return (
-      <div className="cells">
+      <div className={`cells${inside.length ? ' has-pointers' : ''}`}>
         {array.elements.length === 0 && <span className="muted">empty</span>}
         {array.elements.map((element, index) => {
           const hit = active && focus.index === index ? ` ${focus.access}` : '';
@@ -94,6 +102,7 @@ function ArrayBody({ array, state, focus, depth }: { array: ArrayObject; state: 
             </div>
           );
         })}
+        {inside.length > 0 && <PointerLayer pointers={inside} />}
       </div>
     );
   }
@@ -119,6 +128,45 @@ function ArrayBody({ array, state, focus, depth }: { array: ArrayObject; state: 
         );
       })}
     </div>
+  );
+}
+
+/**
+ * Part 11b: index arrows under the cells, placed from the cells' measured positions after layout
+ * (cells differ in width and wrap). Keyed by variable, so an arrow slides when its value changes.
+ * A value equal to the length points just past the last cell, where a loop like i < a.length ends.
+ */
+function PointerLayer({ pointers }: { pointers: Pointer[] }) {
+  const anchor = useRef<HTMLSpanElement>(null);
+  const [spots, setSpots] = useState('{}');
+  useLayoutEffect(() => {
+    const cells = anchor.current?.parentElement;
+    if (!cells) return;
+    const placed: Record<string, [number, number]> = {};
+    const stacked = new Map<number, number>();
+    for (const p of pointers) {
+      const cell = cells.querySelector<HTMLElement>(`:scope > [data-index="${p.value}"]`);
+      const last = cells.querySelector<HTMLElement>(':scope > [data-index]:last-of-type');
+      const x = cell ? cell.offsetLeft + cell.offsetWidth / 2 : last ? last.offsetLeft + last.offsetWidth + 18 : 18;
+      const base = cell ?? last;
+      const level = stacked.get(p.value) ?? 0;
+      stacked.set(p.value, level + 1);
+      placed[p.frameId + p.name] = [x, (base ? base.offsetTop + base.offsetHeight : 0) + 2 + level * 15];
+    }
+    const json = JSON.stringify(placed);
+    if (json !== spots) setSpots(json);
+  });
+  const at = JSON.parse(spots) as Record<string, [number, number]>;
+  return (
+    <span ref={anchor} className="pointer-layer" aria-hidden="true">
+      {pointers.map(p => {
+        const spot = at[p.frameId + p.name];
+        return spot && (
+          <span key={p.frameId + p.name} className="pointer" data-testid={`pointer-${p.name}`} data-value={p.value}
+            style={{ transform: `translate(calc(${spot[0]}px - 50%), ${spot[1]}px)` }}>▲ {p.name}</span>
+        );
+      })}
+    </span>
   );
 }
 

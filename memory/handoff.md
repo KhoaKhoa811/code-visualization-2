@@ -33,6 +33,14 @@ dependency. Ask before starting 11b.
 - [x] verified 2026-10-23: frontend 46 unit, build, 18 Playwright passed (`.tools/pw-11a.log`); Java unchanged
 - [x] committed and pushed; local app restarted for the user
 
+## Task 11b index arrows (user: "it's better. please continue")
+
+- [x] `trace/pointers.ts`: arrow only after a recorded access whose code is literally `…[name]`, accesses
+      up to the cursor only; measured placement under cells, slide with Motion on; outside values as notes
+- [x] tests: pointers.test.ts, browser test "an index variable becomes an arrow ..."; frontend 47 unit,
+      build, 19 Playwright passed (`.tools/pw-11b.log`); Java unchanged. Branch `feat/part-11b-pointers`
+      stacked on 11a.
+
 ## Notes
 
 - The local app (backend jar + Vite dev server) was stopped to run Playwright (both use 8080/5173);
@@ -41,4 +49,4 @@ dependency. Ask before starting 11b.
 
 ## Next action
 
-Report 11a with the PR link; ask before 11b.
+Report 11b; ask before 11c (call and return motion).

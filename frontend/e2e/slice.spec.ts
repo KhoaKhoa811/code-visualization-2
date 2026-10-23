@@ -502,6 +502,33 @@ test('steps move: a stored value flies to its cell, a comparison shows its verdi
   await page.getByRole('button', { name: 'Pause' }).click();
 });
 
+test('an index variable becomes an arrow under its array once the code indexes with it, and follows its value (11b)', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.monaco-editor')).toBeVisible();
+  await page.getByLabel('Example').selectOption('Bubble sort');
+  await run(page);
+  await expect(page.getByTestId('run-summary')).toContainText('capture complete');
+  const forward = page.getByRole('button', { name: 'Step forward' });
+  const arrow = page.getByTestId('pointer-j');
+  await expect(arrow).toHaveCount(0); // nothing indexed yet
+  for (let i = 0; i < 40 && (await arrow.count()) === 0; i++) await forward.click();
+  await expect(arrow).toBeVisible();
+
+  // The arrow stands under the cell its value names, and moves on when the value changes.
+  const under = async () => {
+    const value = Number(await arrow.getAttribute('data-value'));
+    await page.waitForTimeout(450); // let the slide finish
+    const a = (await arrow.boundingBox())!, cell = (await page.getByTestId('array-a').getByTestId('cell').nth(value).boundingBox())!;
+    expect(Math.abs((a.x + a.width / 2) - (cell.x + cell.width / 2))).toBeLessThan(8);
+    expect(a.y).toBeGreaterThan(cell.y + cell.height - 2);
+    return value;
+  };
+  const start = await under();
+  for (let i = 0; i < 40 && Number(await arrow.getAttribute('data-value')) === start; i++) await forward.click();
+  expect(await under()).not.toBe(start);
+  await page.getByTestId('array-a').screenshot({ path: 'test-results/pointers.png' });
+});
+
 test('long, double and char values are traced exactly (8b)', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('.monaco-editor')).toBeVisible();

@@ -8,6 +8,7 @@ import { describe } from './trace/format.ts';
 import { Playback, TraceError } from './trace/playback.ts';
 import { Controls } from './views/Controls.tsx';
 import { clearMotion, motionFor, playMotion } from './views/motion.ts';
+import { pointersAt } from './trace/pointers.ts';
 import { StatePanel } from './views/StatePanel.tsx';
 import { LayoutContext } from './views/Draggable.tsx';
 import { forNewRun, initialLayout } from './views/layout.ts';
@@ -91,6 +92,10 @@ export function App() {
     try { localStorage.setItem('codeviz.motion', on ? 'on' : 'off'); } catch { /* not remembered */ }
   };
   const stepTime = 900 / speed;
+  // Index arrows slide only while motion is on.
+  useEffect(() => { document.body.classList.toggle('motion-off', !motion); }, [motion]);
+  // Part 11b: index arrows from the recorded accesses up to the cursor.
+  const pointers = useMemo(() => usable && view ? pointersAt(usable, view.cursor, view.beforeEnd ?? view.state) : new Map(), [usable, view]);
 
   useEffect(() => {
     if (!playing || !usable) return;
@@ -169,7 +174,7 @@ export function App() {
                 })}
                 onRemove={c => setStructMappings(list => list.filter(x => x.className !== c))}
                 onDismiss={c => setNotStructs(list => [...list, c])} />}
-              <StatePanel view={view} trees={fittingTrees} heaps={fittingHeaps} structs={fittingStructs} />
+              <StatePanel view={view} trees={fittingTrees} heaps={fittingHeaps} structs={fittingStructs} pointers={pointers} />
             </LayoutContext.Provider>
           )}
           {!snap && !submit.isPending && <p className="muted hint">Write Java in the editor and press Run.</p>}
