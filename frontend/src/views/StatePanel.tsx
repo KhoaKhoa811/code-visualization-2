@@ -9,6 +9,8 @@ import { Draggable, Panel } from './Draggable.tsx';
 import { TreePanel } from './TreePanel.tsx';
 import type { TreeMapping } from '../trace/tree.ts';
 import { HeapPanel } from './HeapPanel.tsx';
+import { GraphPanel } from './GraphPanel.tsx';
+import type { GraphMapping } from '../trace/graph.ts';
 import type { HeapMapping } from '../trace/heap.ts';
 import { StructPanel } from './StructPanel.tsx';
 import type { StructMapping } from '../trace/structures.ts';
@@ -21,8 +23,8 @@ import { CallLink } from './CallLink.tsx';
 type ArrayObject = TraceObject & { kind: 'array' };
 
 /** Confirmed tree (Part 9b), heap (Part 9c) and list/stack/queue (Part 10b) mappings that fit this run. */
-export function StatePanel({ view, trees = [], heaps = [], structs = [], pointers = new Map(), leaving, calls }: {
-  view: View; trees?: TreeMapping[]; heaps?: HeapMapping[]; structs?: StructMapping[]; pointers?: Map<string, Pointer[]>;
+export function StatePanel({ view, trees = [], heaps = [], graphs = [], structs = [], pointers = new Map(), leaving, calls }: {
+  view: View; trees?: TreeMapping[]; heaps?: HeapMapping[]; graphs?: GraphMapping[]; structs?: StructMapping[]; pointers?: Map<string, Pointer[]>;
   /** 12d: frames the last step ended, drawn from the state before it while they leave. */
   leaving?: { frames: State['frames']; state: State };
   /** Part 13: how the calls up to the cursor relate (call tree, waiting lines, returned values). */
@@ -83,6 +85,7 @@ export function StatePanel({ view, trees = [], heaps = [], structs = [], pointer
       <TreePanel view={view} mappings={trees} />
       <StructPanel view={view} mappings={structs} />
       <HeapPanel view={view} mappings={heaps} />
+      <GraphPanel view={view} mappings={graphs} />
       <ObjectGraph view={view} />
       <Panel id="arrays" label="Arrays" title="Arrays">
         {topLevel.length === 0 && <p className="muted">No arrays yet.</p>}

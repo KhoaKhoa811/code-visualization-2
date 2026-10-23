@@ -17,6 +17,8 @@ import { TreeMappings } from './views/TreeMappings.tsx';
 import { classFields, mappingProblem, type TreeMapping } from './trace/tree.ts';
 import { HeapMappings } from './views/HeapMappings.tsx';
 import { heapProblem, type HeapMapping } from './trace/heap.ts';
+import { GraphMappings } from './views/GraphMappings.tsx';
+import { graphProblem, type GraphMapping } from './trace/graph.ts';
 import { StructMappings } from './views/StructMappings.tsx';
 import { structProblem, type Confirmed, type StructMapping } from './trace/structures.ts';
 import { assess } from './trace/rankings.ts';
@@ -68,6 +70,9 @@ export function App() {
   // Part 9c: arrays confirmed as heaps, also for the session and checked against each run.
   const [heapMappings, setHeapMappings] = useState<HeapMapping[]>([]);
   const fittingHeaps = useMemo(() => usable ? heapMappings.filter(m => heapProblem(m, usable.trace) === null) : [], [heapMappings, usable]);
+  // Part 14a: matrices confirmed as graphs, for the session and checked against each run.
+  const [graphMappings, setGraphMappings] = useState<GraphMapping[]>([]);
+  const fittingGraphs = useMemo(() => usable ? graphMappings.filter(m => graphProblem(m, usable.trace) === null) : [], [graphMappings, usable]);
   // Part 10b: list, stack and queue views of user classes; each confirmation is a new revision tied to its source.
   const [structMappings, setStructMappings] = useState<Confirmed<StructMapping>[]>([]);
   const [notStructs, setNotStructs] = useState<string[]>([]);
@@ -181,6 +186,9 @@ export function App() {
               {usable && <HeapMappings trace={usable.trace} mappings={heapMappings}
                 onConfirm={(m, replacing) => setHeapMappings(list => [...list.filter(x => x.array !== m.array && x.array !== replacing), m])}
                 onRemove={a => setHeapMappings(list => list.filter(x => x.array !== a))} />}
+              {usable && <GraphMappings trace={usable.trace} state={view.beforeEnd ?? view.state} mappings={graphMappings}
+                onConfirm={(m, replacing) => setGraphMappings(list => [...list.filter(x => x.array !== m.array && x.array !== replacing), m])}
+                onRemove={a => setGraphMappings(list => list.filter(x => x.array !== a))} />}
               {usable && <StructMappings fields={fields} sourceSha256={usable.trace.source.sha256} mappings={structMappings} dismissed={notStructs}
                 onConfirm={m => setStructMappings(list => {
                   const previous = list.find(x => x.className === m.className);
@@ -189,7 +197,7 @@ export function App() {
                 })}
                 onRemove={c => setStructMappings(list => list.filter(x => x.className !== c))}
                 onDismiss={c => setNotStructs(list => [...list, c])} />}
-              <StatePanel view={view} trees={fittingTrees} heaps={fittingHeaps} structs={fittingStructs} pointers={pointers} leaving={shown.leaving} calls={calls} />
+              <StatePanel view={view} trees={fittingTrees} heaps={fittingHeaps} graphs={fittingGraphs} structs={fittingStructs} pointers={pointers} leaving={shown.leaving} calls={calls} />
             </LayoutContext.Provider>
           )}
           {!snap && !submit.isPending && <p className="muted hint">Write Java in the editor and press Run.</p>}

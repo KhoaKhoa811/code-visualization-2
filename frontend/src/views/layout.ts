@@ -15,7 +15,7 @@ export interface Layout {
 
 export type CollectionMode = 'stack' | 'queue';
 
-export const PANELS = ['variables', 'calls', 'collections', 'trees', 'structures', 'heaps', 'objects', 'arrays', 'strings'] as const;
+export const PANELS = ['variables', 'calls', 'collections', 'trees', 'structures', 'heaps', 'objects', 'arrays', 'strings', 'graphs'] as const; // 14a: graphs last, so earlier orders stay
 
 export function initialLayout(): Layout {
   return { order: [...PANELS], offsets: {}, modes: {} };

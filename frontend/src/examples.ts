@@ -224,6 +224,37 @@ public class Main {
     }
 }
 `,
+  'Graph BFS (matrix)': `import java.util.*;
+
+public class Main {
+    public static void main(String[] args) {
+        int n = 5;
+        int[][] g = new int[n][n];
+        for (int[] row : g) Arrays.fill(row, -1);
+        int[][] roads = {{0, 1, 4}, {0, 2, 1}, {2, 1, 2}, {1, 3, 5}, {2, 3, 8}, {3, 4, 3}};
+        for (int[] r : roads) {
+            g[r[0]][r[1]] = r[2];
+            g[r[1]][r[0]] = r[2];
+        }
+        boolean[] visited = new boolean[n];
+        Deque<Integer> queue = new ArrayDeque<>();
+        queue.add(0);
+        visited[0] = true;
+        List<Integer> order = new ArrayList<>();
+        while (!queue.isEmpty()) {
+            int u = queue.poll();
+            order.add(u);
+            for (int v = 0; v < n; v++) {
+                if (g[u][v] != -1 && !visited[v]) {
+                    visited[v] = true;
+                    queue.add(v);
+                }
+            }
+        }
+        System.out.println(order);
+    }
+}
+`,
   'Grid and switch': `public class Main {
     public static void main(String[] args) {
         int[][] grid = new int[3][4];

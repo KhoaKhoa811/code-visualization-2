@@ -714,6 +714,44 @@ test('the call tree keeps every call with its result, and a caller shows what it
   await expect(tree).toHaveCount(0);
 });
 
+test('a matrix confirmed as a graph is drawn by levels, follows writes and lights the edge a step reads (14a)', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.monaco-editor')).toBeVisible();
+  await page.getByLabel('Example').selectOption('Graph BFS (matrix)');
+  await run(page);
+  await expect(page.getByTestId('run-summary')).toContainText('capture complete');
+  await expect(page.getByTestId('console-output')).toHaveText('[0, 1, 2, 3, 4]\n');
+  await page.getByTitle('End').click();
+  await page.getByRole('button', { name: 'Show a matrix as a graph…' }).click();
+  await expect(page.getByLabel('Graph matrix')).toHaveValue('g');
+  await expect(page.getByLabel('Graph edges')).toHaveValue('undirected'); // suggested: symmetric at this step
+  await expect(page.getByTestId('graph-hint')).toContainText('5 nodes; symmetric');
+  await page.getByRole('button', { name: 'Show as graph' }).click();
+
+  const graph = page.getByTestId('graph-g');
+  await expect(graph.getByTestId('graph-node')).toHaveCount(5);
+  await expect(graph.getByTestId('graph-edge')).toHaveCount(6);
+  await expect(graph.locator('[data-testid="graph-edge"][data-tree="true"]')).toHaveCount(4); // the level tree from node 0
+  await expect(graph.locator('[data-node="0"]')).toHaveAttribute('data-level', '0');
+  await expect(graph.locator('[data-node="4"]')).toHaveAttribute('data-level', '3');
+  await expect(graph.locator('.graph-weight').first()).toBeVisible(); // weights other than 1 are drawn
+  await graph.scrollIntoViewIfNeeded();
+  await graph.screenshot({ path: 'test-results/graph-matrix.png' });
+
+  // Back in the BFS: the step reading g[u][v] lights that edge (or no edge is lit when the cell is -1).
+  const detail = page.getByTestId('step-detail');
+  const back = page.getByRole('button', { name: 'Step back' });
+  for (let i = 0; i < 200 && (await graph.locator('.graph-edge.lit').count()) === 0; i++) await back.click();
+  await expect(graph.locator('.graph-edge.lit')).toHaveCount(1);
+  await expect(detail).toContainText('Read g[4][3] = 3'); // the last edge BFS reads
+  const lit = graph.locator('.graph-edge.lit');
+  expect([await lit.getAttribute('data-from'), await lit.getAttribute('data-to')].sort()).toEqual(['3', '4']);
+
+  // Before the edges are written there are fewer edges; before g exists the view says so.
+  await page.getByTitle('Restart').click();
+  await expect(graph).toContainText('not in scope');
+});
+
 test('a program reads live console input and playback shows the read (8g, AC-19)', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('.monaco-editor')).toBeVisible();
