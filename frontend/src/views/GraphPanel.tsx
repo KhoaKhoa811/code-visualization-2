@@ -3,7 +3,7 @@
 // or write of g[i][j] lights edge i→j, and of g[i] lights node i, at that step.
 import { formatValue, namesOf } from '../trace/format.ts';
 import type { View } from '../trace/playback.ts';
-import { projectGraph, type Edge, type GraphMapping, type GraphView } from '../trace/graph.ts';
+import { projectGraph, touched, type Edge, type GraphMapping, type GraphView } from '../trace/graph.ts';
 import { Panel } from './Draggable.tsx';
 
 const DX = 64, DY = 72, R = 16, PAD = 28;
@@ -37,25 +37,26 @@ function Graph({ view, mapping }: { view: View; mapping: GraphMapping }) {
     return <div className="graph-block warning" data-testid={`graph-${mapping.array}`}>The graph view of {mapping.array} does not fit at this step: {projection.problem}.</div>;
   }
   const g = projection.graph;
-  const focus = view.focus;
-  const row = focus.objectId ? g.rows.indexOf(focus.objectId) : -1;
-  const litEdge = row >= 0 && focus.index !== undefined ? [row, focus.index] : null;
-  const litNode = focus.objectId === g.matrix.objectId && focus.index !== undefined ? focus.index : null;
+  // The step's own event: a read or write of g[i][j], a row's get/next/add, or g[i] / adj.get(i).
+  const hit = touched(view.event, g, state);
+  const focus = { access: hit.access };
+  const litEdge = hit.edge ?? null;
+  const litNode = hit.node ?? null;
   const pairs = new Set(g.edges.map(e => `${e.from}-${e.to}`));
   const width = PAD * 2 + g.widest * DX, height = PAD * 2 + (g.levels - 1) * DY;
-  const marker = `arrow-${g.matrix.objectId}`;
-  const names = namesOf(state, g.matrix.objectId).filter(n => !n.includes('['));
+  const marker = `arrow-${g.holder.objectId}`;
+  const names = namesOf(state, g.holder.objectId).filter(n => !n.includes('['));
   return (
-    <div className="graph-block" data-testid={`graph-${mapping.array}`} data-graph={g.matrix.objectId}>
+    <div className="graph-block" data-testid={`graph-${mapping.array}`} data-graph={g.holder.objectId}>
       <div className="array-label">
         {names.join(' = ') || mapping.array}{' '}
         <span className="muted">
-          {mapping.directed ? 'directed' : 'undirected'} graph, {g.n} node{g.n === 1 ? '' : 's'}, {g.edges.length} edge{g.edges.length === 1 ? '' : 's'}
+          {mapping.directed ? 'directed' : 'undirected'} graph from {g.form === 'matrix' ? 'a matrix' : 'neighbour lists'}, {g.n} node{g.n === 1 ? '' : 's'}, {g.edges.length} edge{g.edges.length === 1 ? '' : 's'}
           {' · '}levels from node {mapping.start}{g.roots.length > 1 ? ` (${g.roots.length - 1} part${g.roots.length > 2 ? 's' : ''} not reached from it, below)` : ''}
         </span>
       </div>
       {!mapping.directed && !g.symmetric && (
-        <p className="warning" data-testid="graph-asymmetric">The matrix is not symmetric at this step; differing pairs show both values.</p>
+        <p className="warning" data-testid="graph-asymmetric">{g.form === 'matrix' ? 'The matrix is not symmetric at this step; differing pairs show both values.' : 'Some neighbours are listed in one direction only at this step.'}</p>
       )}
       <svg className="graph" width={width} height={Math.max(height, PAD * 2)} role="img" aria-label={`graph of ${mapping.array}`}>
         <defs>

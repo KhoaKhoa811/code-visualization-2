@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { State } from './playback.ts';
 import type { Value } from './types.ts';
-import { projectGraph, type GraphMapping } from './graph.ts';
+import { projectGraph, touched, type GraphMapping } from './graph.ts';
 
 const int = (v: number): Value => ({ kind: 'int', value: String(v) });
 
@@ -75,4 +75,52 @@ test('a matrix that stops fitting is reported, never repaired; unknown cells are
   assert.ok(unknown && 'graph' in unknown);
   assert.deepEqual(unknown.graph.edges.map(x => [x.from, x.to, x.unknown, x.tree]), [[0, 1, true, false]]);
   assert.equal(projectGraph({ ...s, bindings: [] }, m()), null, 'not in scope');
+});
+
+/** A state where `adj` refers to a list of integer lists (collections) or a jagged int array. */
+function lists(rows: number[][], kind: 'collection' | 'array'): State {
+  const s = matrix([]);
+  const holder = kind === 'collection'
+    ? { objectId: 'L', kind: 'collection', className: 'java.util.ArrayList', elements: rows.map((_, i) => ({ kind: 'ref', objectId: `l${i}` })) }
+    : { objectId: 'L', kind: 'array', elementType: 'int[]', elements: rows.map((_, i) => ({ kind: 'ref', objectId: `l${i}` })) };
+  s.objects.set('L', holder as never);
+  rows.forEach((r, i) => s.objects.set(`l${i}`, (kind === 'collection'
+    ? { objectId: `l${i}`, kind: 'collection', className: 'java.util.ArrayList', elements: r.map(int) }
+    : { objectId: `l${i}`, kind: 'array', elementType: 'int', elements: r.map(int) }) as never));
+  s.bindings = [{ ...s.bindings[0], name: 'adj', javaType: 'java.util.List<java.util.List<java.lang.Integer>>', value: { kind: 'ref', objectId: 'L' } }];
+  return s;
+}
+
+test('neighbour lists: row i lists the neighbours of i, from a list of lists or a jagged array (14b)', () => {
+  const rows = [[1, 2], [0, 3], [0], [1]];
+  for (const kind of ['collection', 'array'] as const) {
+    const u = projectGraph(lists(rows, kind), m({ array: 'adj', form: 'lists', directed: false }));
+    assert.ok(u && 'graph' in u, kind);
+    assert.equal(u.graph.symmetric, true, 'every edge is listed both ways');
+    assert.deepEqual(u.graph.edges.map(e => [e.from, e.to]), [[0, 1], [0, 2], [1, 3]], `${kind}: each pair once`);
+    assert.deepEqual(u.graph.place.map(p => p.level), [0, 1, 1, 2]);
+    const d = projectGraph(lists(rows, kind), m({ array: 'adj', form: 'lists' }));
+    assert.ok(d && 'graph' in d);
+    assert.equal(d.graph.edges.length, 6, 'directed: every listed entry');
+    assert.equal(d.graph.weighted, false);
+  }
+  assert.deepEqual(projectGraph(lists([[1], [5]], 'collection'), m({ array: 'adj', form: 'lists' })), { problem: 'row 1 lists 5, which is not a node (0..1)' });
+});
+
+test('the step that read or wrote a row lights that edge; reading a row lights its node (14b)', () => {
+  const s = lists([[1, 2], [0], [0]], 'collection');
+  const p = projectGraph(s, m({ array: 'adj', form: 'lists', directed: false }));
+  assert.ok(p && 'graph' in p);
+  const event = (kind: string, data: object) => ({ seq: 1, step: 1, frameId: 'f0', source: { start: 0, end: 0 }, kind, data }) as never;
+  assert.deepEqual(touched(event('LIBRARY', { objectId: 'L', method: 'java.util.List.get(int)', arguments: [int(2)], result: { kind: 'ref', objectId: 'l2' }, after: null }), p.graph, s),
+    { node: 2, access: 'read' });
+  assert.deepEqual(touched(event('LIBRARY', { objectId: 'l0', method: 'java.util.Iterator.next()', arguments: [], result: int(2), after: null }), p.graph, s),
+    { edge: [0, 2], access: 'read' });
+  assert.deepEqual(touched(event('LIBRARY', { objectId: 'l1', method: 'java.util.List.add(java.lang.Object)', arguments: [int(2)], result: { kind: 'boolean', value: true }, after: null }), p.graph, s),
+    { edge: [1, 2], access: 'write' });
+  const jag = lists([[1, 2], [0], [0]], 'array');
+  const q = projectGraph(jag, m({ array: 'adj', form: 'lists' }));
+  assert.ok(q && 'graph' in q);
+  assert.deepEqual(touched(event('ARRAY_READ', { objectId: 'l0', index: 1, value: int(2) }), q.graph, jag), { edge: [0, 2], access: 'read' });
+  assert.deepEqual(touched(null, q.graph, jag), {});
 });

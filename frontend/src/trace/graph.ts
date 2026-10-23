@@ -1,16 +1,22 @@
-// Part 14a (specs/graph-view.md): a square two-dimensional array the user confirms as an
-// adjacency matrix. g[i][j] holding anything but the chosen "no edge" value (or true, for a
-// boolean matrix) is an edge from node i to node j with that value as its weight. Only the
-// recorded state at the cursor is read; an array that stops fitting is reported, never repaired.
-// Layout (presentation only): levels by distance from a start node, following the edges at
-// this cursor; edges outside that tree are drawn dashed; nodes the start cannot reach start
-// trees of their own below.
+// Part 14 (specs/graph-view.md): arrays and lists the user confirms as graphs.
+// - 14a, matrix: a square two-dimensional array; g[i][j] holding anything but the chosen
+//   "no edge" value (or true, for a boolean matrix) is an edge i → j weighted by that value.
+// - 14b, lists: row i of a two-dimensional int array, a List<List<Integer>> or a
+//   List<Integer>[] lists the neighbours of node i.
+// Only the recorded state at the cursor is read; a value that stops fitting is reported, never
+// repaired. Layout (presentation only): levels by distance from a start node, following the
+// edges at this cursor; edges outside that tree are drawn dashed; nodes the start cannot reach
+// start trees of their own below.
 import type { State } from './playback.ts';
-import type { Trace, TraceObject, Value } from './types.ts';
+import type { ObservableEvent, Trace, TraceObject, Value } from './types.ts';
+
+export type GraphForm = 'matrix' | 'lists';
 
 export interface GraphMapping {
-  /** Variable referring to the matrix (looked up from the outermost frame inward). */
+  /** Variable referring to the graph (looked up from the outermost frame inward). */
   array: string;
+  /** 14b: how the variable holds the graph; a matrix when absent (14a mappings). */
+  form?: GraphForm;
   directed: boolean;
   /** The value that means "no edge" in a numeric matrix (the user's choice; -1 by default). */
   noEdge: number;
@@ -23,26 +29,47 @@ export const NO_EDGE_CHOICES = [-1, 0] as const;
 type ArrayObject = TraceObject & { kind: 'array' };
 
 const NUMERIC = new Set(['byte', 'short', 'int', 'long', 'float', 'double', 'char']);
+const LIST = '(?:java\\.util\\.)?(?:List|ArrayList|LinkedList)';
+const INTEGER_LISTS = new RegExp(`^${LIST}<${LIST}<(?:java\\.lang\\.)?Integer>>$`);
+const ARRAY_OF_LISTS = new RegExp(`^${LIST}<(?:java\\.lang\\.)?Integer>\\[\\]$`);
 
-/** Variables of the run that are two-dimensional numeric or boolean arrays (matrix candidates). */
-export function graphVariables(trace: Trace): string[] {
-  const out = new Set<string>();
-  const see = (name: string, javaType: string) => {
-    if (!javaType.endsWith('[][]') || javaType.endsWith('[][][]')) return;
+/** The graph forms a declared type can be confirmed as. */
+export function formsOf(javaType: string): GraphForm[] {
+  if (javaType.endsWith('[][]') && !javaType.endsWith('[][][]')) {
     const base = javaType.slice(0, -4);
-    if (NUMERIC.has(base) || base === 'boolean') out.add(name);
+    if (base === 'int') return ['matrix', 'lists'];
+    if (NUMERIC.has(base) || base === 'boolean') return ['matrix'];
+  }
+  if (INTEGER_LISTS.test(javaType) || ARRAY_OF_LISTS.test(javaType)) return ['lists'];
+  return [];
+}
+
+/** Variables of the run that can be confirmed as a graph, with the forms each allows. */
+export function graphCandidates(trace: Trace): Map<string, GraphForm[]> {
+  const out = new Map<string, GraphForm[]>();
+  const see = (name: string, javaType: string) => {
+    const forms = formsOf(javaType);
+    if (forms.length && !out.has(name)) out.set(name, forms);
   };
   for (const b of trace.initialState?.bindings ?? []) see(b.name, b.javaType);
   for (const e of trace.events) {
     if (e.kind === 'DECLARE') see(e.data.binding.name, e.data.binding.javaType);
     if (e.kind === 'CALL') for (const p of e.data.parameters) see(p.name, p.javaType);
   }
-  return [...out];
+  return out;
+}
+
+/** 14a: variables that can be confirmed as a matrix (kept for callers of the first increment). */
+export function graphVariables(trace: Trace): string[] {
+  return [...graphCandidates(trace)].filter(([, forms]) => forms.includes('matrix')).map(([name]) => name);
 }
 
 /** Why a mapping does not fit a run (null when it fits). */
 export function graphProblem(mapping: GraphMapping, trace: Trace): string | null {
-  if (!graphVariables(trace).includes(mapping.array)) return `no two-dimensional numeric or boolean array ${mapping.array} in this run`;
+  const forms = graphCandidates(trace).get(mapping.array);
+  const form = mapping.form ?? 'matrix';
+  if (!forms) return `no variable ${mapping.array} that can hold a graph in this run`;
+  if (!forms.includes(form)) return `${mapping.array} cannot be read as ${form === 'matrix' ? 'a matrix' : 'neighbour lists'}`;
   if (!Number.isInteger(mapping.start) || mapping.start < 0) return 'the start node must be a node index (0 or more)';
   return null;
 }
@@ -70,18 +97,20 @@ function number(v: Value): number | null {
 export interface Edge {
   from: number;
   to: number;
-  /** The cell value, shown as a weight; null for a boolean matrix. */
+  /** The cell value, shown as a weight; null for a boolean matrix and for lists. */
   weight: Value | null;
-  /** Undirected: the other direction's cell holds a different value (both are shown). */
+  /** Undirected matrix: the other direction's cell holds a different value (both are shown). */
   reverse?: Value | null;
   /** Part of the level tree (solid), or another edge (dashed). */
   tree: boolean;
-  /** The cell is unknown (uncaptured code may have changed it): drawn as unknown, not as a fact. */
+  /** The entry is unknown (uncaptured code may have changed it): drawn as unknown, not as a fact. */
   unknown?: boolean;
 }
 
 export interface GraphView {
-  matrix: ArrayObject;
+  form: GraphForm;
+  /** The object the variable refers to. */
+  holder: TraceObject;
   /** Row object id per node, for matching recorded accesses. */
   rows: string[];
   n: number;
@@ -92,6 +121,7 @@ export interface GraphView {
   widest: number;
   /** Whether every edge's weight should be drawn (some weight other than 1). */
   weighted: boolean;
+  /** Matrix: whether it is symmetric. Lists: whether every listed edge is also listed back. */
   symmetric: boolean;
   /** Nodes that start a tree of their own (the start node first). */
   roots: number[];
@@ -99,29 +129,45 @@ export interface GraphView {
 
 export type Projection = { graph: GraphView } | { problem: string } | null;
 
-/** The graph at a state: null when the variable is not in scope, or why the array does not fit now. */
+const same = (a: Value, b: Value) => JSON.stringify(a) === JSON.stringify(b);
+
+/** The graph at a state: null when the variable is not in scope, or why the value does not fit now. */
 export function projectGraph(state: State, mapping: GraphMapping): Projection {
   const ref = lookup(state, mapping.array);
   if (!ref || ref.kind !== 'ref') return ref?.kind === 'null' ? { problem: `${mapping.array} is null` } : null;
-  const matrix = state.objects.get(ref.objectId);
-  if (!matrix || matrix.kind !== 'array') return null;
-  const n = matrix.elements.length;
-  const rows: ArrayObject[] = [];
+  const holder = state.objects.get(ref.objectId);
+  if (!holder) return null;
+  const outer = holder.kind === 'array' || holder.kind === 'collection' ? holder.elements : null;
+  if (!outer) return { problem: `${mapping.array} is not an array or a list` };
+  const n = outer.length;
+  const rows: (TraceObject & { kind: 'array' | 'collection' })[] = [];
   for (let i = 0; i < n; i++) {
-    const e = matrix.elements[i];
+    const e = outer[i];
     if (e.kind !== 'ref') return { problem: e.kind === 'null' ? `row ${i} is null` : `row ${i} is not known here` };
     const row = state.objects.get(e.objectId);
-    if (!row || row.kind !== 'array') return { problem: `row ${i} is not an array` };
-    if (row.elements.length !== n) return { problem: `not square: row ${i} has ${row.elements.length} entries for ${n} nodes` };
+    if (!row || row.kind !== 'array' && row.kind !== 'collection') return { problem: `row ${i} is not an array or a list` };
     rows.push(row);
+  }
+  const form = mapping.form ?? 'matrix';
+  const made = form === 'matrix' ? matrixEdges(holder as ArrayObject, rows as ArrayObject[], mapping) : listEdges(rows, mapping);
+  if ('problem' in made) return made;
+  const { edges, symmetric, weighted } = made;
+  const { place, levels, widest, roots } = layout(n, edges, mapping);
+  return { graph: { form, holder, rows: rows.map(r => r.objectId), n, edges, place, levels, widest, weighted, symmetric, roots } };
+}
+
+type Made = { edges: Edge[]; symmetric: boolean; weighted: boolean } | { problem: string };
+
+function matrixEdges(matrix: ArrayObject, rows: ArrayObject[], mapping: GraphMapping): Made {
+  const n = rows.length;
+  for (let i = 0; i < n; i++) {
+    if (rows[i].elements.length !== n) return { problem: `not square: row ${i} has ${rows[i].elements.length} entries for ${n} nodes` };
   }
   const boolean = matrix.elementType.startsWith('boolean');
   const present = (v: Value) => v.kind === 'unknown' ? 'unknown' : boolean ? v.kind === 'boolean' && v.value : number(v) !== mapping.noEdge;
   const cell = (i: number, j: number) => rows[i].elements[j];
-  const same = (a: Value, b: Value) => JSON.stringify(a) === JSON.stringify(b);
   let symmetric = true;
   for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) if (!same(cell(i, j), cell(j, i))) symmetric = false;
-
   const edges: Edge[] = [];
   for (let i = 0; i < n; i++) {
     for (let j = mapping.directed ? 0 : i; j < n; j++) {
@@ -135,9 +181,39 @@ export function projectGraph(state: State, mapping: GraphMapping): Projection {
       edges.push(edge);
     }
   }
+  const weighted = !boolean && edges.some(e => e.weight !== null && number(e.weight) !== 1);
+  return { edges, symmetric, weighted };
+}
 
-  // Levels: breadth-first over the edges at this cursor, from the start node, then from the
-  // smallest node not reached yet. Unknown cells are not followed.
+/** 14b: row i lists the neighbours of i. An entry outside 0..n-1 does not fit; repeats are one edge. */
+function listEdges(rows: (TraceObject & { kind: 'array' | 'collection' })[], mapping: GraphMapping): Made {
+  const n = rows.length;
+  const listed = new Set<string>();
+  const unknownRows: number[] = [];
+  for (let i = 0; i < n; i++) {
+    for (const v of rows[i].elements) {
+      if (v.kind === 'unknown') { if (!unknownRows.includes(i)) unknownRows.push(i); continue; }
+      const j = number(v);
+      if (j === null || !Number.isInteger(j)) return { problem: `row ${i} holds ${v.kind}, not a node index` };
+      if (j < 0 || j >= n) return { problem: `row ${i} lists ${j}, which is not a node (0..${n - 1})` };
+      listed.add(`${i}-${j}`);
+    }
+  }
+  const edges: Edge[] = [];
+  let symmetric = true;
+  for (const key of listed) {
+    const [i, j] = key.split('-').map(Number);
+    if (!listed.has(`${j}-${i}`)) symmetric = false;
+    if (!mapping.directed && listed.has(`${j}-${i}`) && j < i) continue; // the pair is drawn once
+    edges.push({ from: i, to: j, weight: null, tree: false });
+  }
+  edges.sort((a, b) => a.from - b.from || a.to - b.to);
+  // A row with unknown entries: its node shows an unknown loop instead of guessed neighbours.
+  for (const i of unknownRows) edges.push({ from: i, to: i, weight: null, tree: false, unknown: true });
+  return { edges, symmetric, weighted: false };
+}
+/** Levels: breadth-first over the known edges, from the start node, then from the smallest node not reached. */
+function layout(n: number, edges: Edge[], mapping: GraphMapping) {
   const out = new Map<number, number[]>();
   for (const e of edges) {
     if (e.unknown) continue;
@@ -173,11 +249,38 @@ export function projectGraph(state: State, mapping: GraphMapping): Projection {
   for (const e of edges) e.tree = !e.unknown && e.from !== e.to && (parent[e.to] === e.from || !mapping.directed && parent[e.from] === e.to);
   const place = new Array<{ level: number; slot: number }>(n);
   order.forEach((nodes, l) => nodes.forEach((u, slot) => { place[u] = { level: l, slot }; }));
-  const weighted = !boolean && edges.some(e => e.weight !== null && number(e.weight) !== 1);
-  return {
-    graph: {
-      matrix, rows: rows.map(r => r.objectId), n, edges, place, levels: order.length,
-      widest: Math.max(1, ...order.map(l => l.length)), weighted, symmetric, roots,
-    },
+  return { place, levels: order.length, widest: Math.max(1, ...order.map(l => l.length)), roots };
+}
+
+/** What the step's own recorded event touched in the graph: a node (g[i], adj.get(i)) or an edge. */
+export function touched(event: ObservableEvent | null, g: GraphView, state: State): { node?: number; edge?: [number, number]; access?: string } {
+  if (!event) return {};
+  const row = (id: string | null) => id ? g.rows.indexOf(id) : -1;
+  const entry = (i: number, k: number): number | null => {
+    const r = state.objects.get(g.rows[i]);
+    const v = r && (r.kind === 'array' || r.kind === 'collection') ? r.elements[k] : undefined;
+    return v ? number(v) : null;
   };
+  if (event.kind === 'ARRAY_READ' || event.kind === 'ARRAY_WRITE') {
+    const access = event.kind === 'ARRAY_READ' ? 'read' : 'write';
+    if (event.data.objectId === g.holder.objectId) return { node: event.data.index, access };
+    const i = row(event.data.objectId);
+    if (i < 0) return {};
+    if (g.form === 'matrix') return { edge: [i, event.data.index], access };
+    const j = access === 'read' ? number(event.data.value) : entry(i, event.data.index);
+    return j === null ? {} : { edge: [i, j], access };
+  }
+  if (event.kind === 'LIBRARY') {
+    const args = event.data.arguments;
+    const first = args[0] && 'kind' in args[0] ? number(args[0] as Value) : null;
+    if (event.data.objectId === g.holder.objectId && event.data.method.endsWith('.get(int)') && first !== null) return { node: first, access: 'read' };
+    // A row's for-each next() names the row as objectId; get(k) and add(j) are calls on the row.
+    const i = row(event.data.objectId);
+    if (i < 0) return {};
+    const result = event.data.result && 'kind' in event.data.result ? number(event.data.result) : null;
+    if (event.data.method === 'java.util.Iterator.next()' && result !== null) return { edge: [i, result], access: 'read' };
+    if (event.data.method.endsWith('.get(int)') && result !== null) return { edge: [i, result], access: 'read' };
+    if (event.data.method.endsWith('.add(java.lang.Object)') && first !== null) return { edge: [i, first], access: 'write' };
+  }
+  return {};
 }

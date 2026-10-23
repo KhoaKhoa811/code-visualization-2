@@ -722,10 +722,11 @@ test('a matrix confirmed as a graph is drawn by levels, follows writes and light
   await expect(page.getByTestId('run-summary')).toContainText('capture complete');
   await expect(page.getByTestId('console-output')).toHaveText('[0, 1, 2, 3, 4]\n');
   await page.getByTitle('End').click();
-  await page.getByRole('button', { name: 'Show a matrix as a graph…' }).click();
-  await expect(page.getByLabel('Graph matrix')).toHaveValue('g');
+  await page.getByRole('button', { name: 'Show a variable as a graph…' }).click();
+  await expect(page.getByLabel('Graph variable')).toHaveValue('g');
+  await expect(page.getByLabel('Graph form')).toHaveValue('matrix');
   await expect(page.getByLabel('Graph edges')).toHaveValue('undirected'); // suggested: symmetric at this step
-  await expect(page.getByTestId('graph-hint')).toContainText('5 nodes; symmetric');
+  await expect(page.getByTestId('graph-hint')).toContainText('5 nodes, 6 edges; symmetric');
   await page.getByRole('button', { name: 'Show as graph' }).click();
 
   const graph = page.getByTestId('graph-g');
@@ -748,6 +749,40 @@ test('a matrix confirmed as a graph is drawn by levels, follows writes and light
   expect([await lit.getAttribute('data-from'), await lit.getAttribute('data-to')].sort()).toEqual(['3', '4']);
 
   // Before the edges are written there are fewer edges; before g exists the view says so.
+  await page.getByTitle('Restart').click();
+  await expect(graph).toContainText('not in scope');
+});
+
+test('neighbour lists confirmed as a graph: a DFS lights each edge it walks (14b)', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.monaco-editor')).toBeVisible();
+  await page.getByLabel('Example').selectOption('Graph DFS (lists)');
+  await run(page);
+  const summary = page.getByTestId('run-summary');
+  await expect(summary).toContainText('capture complete');
+  await expect(summary).not.toContainText('without capture');
+  await expect(page.getByTestId('console-output')).toHaveText('[0, 1, 3, 2, 4, 5]\n');
+  await page.getByTitle('End').click();
+  await page.getByRole('button', { name: 'Show a variable as a graph…' }).click();
+  await page.getByLabel('Graph variable').selectOption('adj');
+  await expect(page.getByLabel('Graph form')).toHaveValue('lists');
+  await expect(page.getByLabel('Graph edges')).toHaveValue('undirected'); // every edge is listed both ways
+  await expect(page.getByLabel('Graph no edge')).toHaveCount(0); // only for a matrix
+  await page.getByRole('button', { name: 'Show as graph' }).click();
+
+  const graph = page.getByTestId('graph-adj');
+  await expect(graph.getByTestId('graph-node')).toHaveCount(6);
+  await expect(graph.getByTestId('graph-edge')).toHaveCount(6);
+  await expect(graph.locator('[data-testid="graph-edge"][data-tree="true"]')).toHaveCount(5);
+  await expect(graph.locator('[data-node="5"]')).toHaveAttribute('data-level', '4');
+  await graph.scrollIntoViewIfNeeded();
+  await graph.screenshot({ path: 'test-results/graph-lists.png' });
+
+  // Step back into the DFS: the for-each's next() over adj.get(u) lights edge u - v.
+  const back = page.getByRole('button', { name: 'Step back' });
+  for (let i = 0; i < 300 && (await graph.locator('.graph-edge.lit').count()) === 0; i++) await back.click();
+  await expect(graph.locator('.graph-edge.lit')).toHaveCount(1);
+  // Before the lists are filled the graph has fewer edges, never edges from later steps.
   await page.getByTitle('Restart').click();
   await expect(graph).toContainText('not in scope');
 });
