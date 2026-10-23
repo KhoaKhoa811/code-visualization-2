@@ -14,14 +14,19 @@ import { StructPanel } from './StructPanel.tsx';
 import type { StructMapping } from '../trace/structures.ts';
 import { latestRows, type Pointer } from '../trace/pointers.ts';
 import { useLayoutEffect, useRef, useState } from 'react';
+import type { CallsView } from '../trace/calls.ts';
+import { CallTreePanel } from './CallTreePanel.tsx';
+import { CallLink } from './CallLink.tsx';
 
 type ArrayObject = TraceObject & { kind: 'array' };
 
 /** Confirmed tree (Part 9b), heap (Part 9c) and list/stack/queue (Part 10b) mappings that fit this run. */
-export function StatePanel({ view, trees = [], heaps = [], structs = [], pointers = new Map(), leaving }: {
+export function StatePanel({ view, trees = [], heaps = [], structs = [], pointers = new Map(), leaving, calls }: {
   view: View; trees?: TreeMapping[]; heaps?: HeapMapping[]; structs?: StructMapping[]; pointers?: Map<string, Pointer[]>;
   /** 12d: frames the last step ended, drawn from the state before it while they leave. */
   leaving?: { frames: State['frames']; state: State };
+  /** Part 13: how the calls up to the cursor relate (call tree, waiting lines, returned values). */
+  calls?: CallsView;
 }) {
   // After main returns, show the recorded values it ended with, labelled as such.
   const state = view.beforeEnd ?? view.state;
@@ -58,6 +63,7 @@ export function StatePanel({ view, trees = [], heaps = [], structs = [], pointer
             <div className="frame-name" title={frame.methodId}>
               {methodName(frame.methodId)}{frame.via && <span className="muted"> via {methodName(frame.via)}</span>}{depth === 0 && state.frames.length > 1 && <span className="badge">running</span>}
             </div>
+            {calls && <CallLink frameId={frame.frameId} calls={calls} state={state} />}
             <table className="bindings">
               <tbody>
                 {state.bindings.filter(b => b.frameId === frame.frameId).map(b => (
@@ -72,6 +78,7 @@ export function StatePanel({ view, trees = [], heaps = [], structs = [], pointer
           </div>
         ))}
       </Panel>
+      {calls && <CallTreePanel calls={calls} state={state} />}
       <LibraryPanel view={view} />
       <TreePanel view={view} mappings={trees} />
       <StructPanel view={view} mappings={structs} />

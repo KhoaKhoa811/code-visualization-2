@@ -282,4 +282,8 @@ not verbatim transcripts, unless quoted.
   en-US); 12c iterators used directly (trace 1.11.0 `iterator` value); 12d grid
   row/column index arrows, writes indexed by their target, returning-frame
   ghost. Verify: tracer 139 + backend 102 with live Docker, 66 contract,
-  53 unit tests.
+  53 unit tests.- Part 13 (user: "I want to know the relationship between callstack ... go ahead with all of
+  them"), branch feat/part-13-recursion stacked on Part 12: call tree panel (13a), the line a
+  frame waits on (13b), returned values kept until the caller's step that contains the call
+  (13c; the first rule "next caller step" was wrong for fib(n - 1) + fib(n - 2), caught by the
+  browser test). Frontend only. 55 unit, 25 browser tests.
