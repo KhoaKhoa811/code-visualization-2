@@ -296,4 +296,7 @@ not verbatim transcripts, unless quoted.
   Complexity.java (javac trees in the container; loops, nesting, calls, library costs, recursion
   by master theorem; guesses marked approximate), carried in the plan (format 12) and trace
   1.12.0 `complexity`; 15b editor badges and a Complexity panel ranking methods with measured
-  calls/steps. Tracer 143 tests (ComplexityTest 4), contract 66, frontend 64 unit.
+  calls/steps. Tracer 143 tests (ComplexityTest 4), contract 66, frontend 64 unit.- Part 16 (user: "add one code options ... already define all the library and main function"):
+  "New program (template)" with java.util.*, java.util.function.*, java.util.stream.* imports
+  and an empty main (no Scanner, so the run is not interactive until the user adds one).
+  Branch feat/part-16-template stacked on Part 15. Unit 64, build, browser tests 16 and 11c.

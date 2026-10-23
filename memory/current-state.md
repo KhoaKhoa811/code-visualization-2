@@ -53,6 +53,7 @@ improvements.
 | 13a-13c | Call relationships: call tree panel, the line each frame waits on, returned values kept until used ([call tree](../specs/call-tree.md)); frontend only; 55 unit, 25 browser tests | Merged |
 | 14a-14d | Graph view: square matrix or neighbour lists confirmed as a graph, levels from a start node, edges lit by each step, index markers, per-node arrays ([graph view](../specs/graph-view.md)); frontend only; 62 unit, 28 browser tests | Done, pushed, awaiting review |
 | 15a-15b | Complexity estimates per method from the code's shape (trace 1.12.0 `complexity`, plan 12) with editor badges and a ranking panel next to measured calls/steps ([complexity](../specs/complexity.md)); stacked on 14 | Done, pushed, awaiting review |
+| 16 | "New program (template)" first in the example picker: common imports and an empty main (frontend only) | Done, pushed, awaiting review (stacked on 15) |
 
 ## Verified environment
 

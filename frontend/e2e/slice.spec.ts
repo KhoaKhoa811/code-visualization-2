@@ -841,6 +841,18 @@ test('each method gets an estimated complexity, ranked next to what the run meas
   await table.screenshot({ path: 'test-results/complexity.png' });
 });
 
+test('the template has the imports and main ready, and code typed into it runs traced (16)', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.monaco-editor')).toBeVisible();
+  const example = page.getByLabel('Example');
+  await expect(example.locator('option').nth(1)).toHaveText('New program (template)'); // first after "Load example…"
+  await example.selectOption('New program (template)');
+  await expect(page.locator('.monaco-editor')).toContainText(/import\s+java\.util\.\*;/); // Monaco renders spaces as non-breaking spaces
+  await run(page);
+  await expect(page.getByTestId('run-summary')).toContainText('capture complete');
+  await expect(page.getByTestId('run-summary')).not.toContainText('without capture');
+});
+
 test('a program reads live console input and playback shows the read (8g, AC-19)', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('.monaco-editor')).toBeVisible();

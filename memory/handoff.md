@@ -34,6 +34,12 @@ those algos". Time complexity only; badge per method plus a ranking panel.
   (`.tools/pw-15.log`); the first run failed only the new test: Monaco skips decorations on an empty range
   without `showIfCollapsed`, and renders spaces as non-breaking ones. No run containers left.
 
+## Part 16 (user request 2026-10-24)
+
+- [x] "New program (template)" first in the picker (`frontend/src/examples.ts`); browser test "(16)".
+  Verified: 64 unit, build, Playwright tests 16 and 11c (the full suite last ran on Part 15: 29 passed).
+  Branch `feat/part-16-template`, stacked on Part 15.
+
 ## Next action
 
 Report Part 15 with the PR link (base on Part 14's branch until it merges); wait.
