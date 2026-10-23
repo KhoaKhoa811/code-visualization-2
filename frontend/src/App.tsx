@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { REJECT_TEXT, useConsoleView, type ConsoleView } from './api/console.ts';
 import { ApiError, ERROR_TEXT, type Snapshot } from './api/runs.ts';
 import { useRun, type SubmittedRun } from './api/useRun.ts';
@@ -7,6 +7,7 @@ import { EXAMPLES } from './examples.ts';
 import { describe } from './trace/format.ts';
 import { Playback, TraceError } from './trace/playback.ts';
 import { Controls } from './views/Controls.tsx';
+import { clearMotion, motionFor, playMotion } from './views/motion.ts';
 import { StatePanel } from './views/StatePanel.tsx';
 import { LayoutContext } from './views/Draggable.tsx';
 import { forNewRun, initialLayout } from './views/layout.ts';
@@ -75,12 +76,46 @@ export function App() {
   const assessments = useMemo(() => usable && view ? assess(usable, view.cursor, { trees: treeMappings, structs: structMappings }) : [],
     [usable, view, treeMappings, structMappings]);
 
+  // Part 11a: play speed, and motion (on unless the system asks for reduced motion; remembered per browser).
+  const [speed, setSpeed] = useState(1);
+  const [motion, setMotion] = useState(() => {
+    try {
+      const saved = localStorage.getItem('codeviz.motion');
+      if (saved !== null) return saved === 'on';
+    } catch { /* storage unavailable: use the system preference */ }
+    return !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  });
+  const changeMotion = (on: boolean) => {
+    setMotion(on);
+    if (!on) clearMotion();
+    try { localStorage.setItem('codeviz.motion', on ? 'on' : 'off'); } catch { /* not remembered */ }
+  };
+  const stepTime = 900 / speed;
+
   useEffect(() => {
     if (!playing || !usable) return;
     if (cursor >= usable.steps) { setPlaying(false); return; }
-    const timer = setTimeout(() => setCursor(c => c + 1), 500);
+    const timer = setTimeout(() => setCursor(c => c + 1), stepTime);
     return () => clearTimeout(timer);
-  }, [playing, cursor, usable]);
+  }, [playing, cursor, usable, stepTime]);
+
+  // One step forward or back animates that step's own event; any other jump (restart, the slider,
+  // a new run) only shows the new state.
+  const previous = useRef<{ playback: unknown; view: typeof view }>({ playback: null, view: null });
+  useEffect(() => {
+    const before = previous.current;
+    previous.current = { playback: usable, view };
+    if (!motion || !view || !before.view || before.playback !== usable) return;
+    const delta = view.cursor - before.view.cursor;
+    const stateOf = (v: NonNullable<typeof view>) => v.beforeEnd ?? v.state;
+    const motions = delta === 1 ? motionFor(view.event, stateOf(before.view), stateOf(view), true)
+      : delta === -1 ? motionFor(before.view.event, stateOf(view), stateOf(before.view), false) : [];
+    if (motions.length === 0) { clearMotion(); return; }
+    // Two frames: React has committed, the editor has drawn the step's highlight.
+    let second = 0;
+    const first = requestAnimationFrame(() => { second = requestAnimationFrame(() => playMotion(motions, Math.min(650, stepTime * 0.7))); });
+    return () => { cancelAnimationFrame(first); cancelAnimationFrame(second); };
+  }, [view, usable, motion, stepTime]);
 
   const markers: Marker[] = useMemo(() => !trace || stale ? [] : trace.diagnostics
     .filter(d => d.source).map(d => ({ range: d.source!, message: `${d.code}: ${d.message}`, warning: d.phase === 'capture' })), [trace, stale]);
@@ -103,7 +138,8 @@ export function App() {
       </header>
       <main className="layout">
         <section className="visual">
-          <Controls cursor={view?.cursor ?? 0} steps={steps} playing={playing} onCursor={go} onPlaying={setPlaying} />
+          <Controls cursor={view?.cursor ?? 0} steps={steps} playing={playing} onCursor={go} onPlaying={setPlaying}
+            speed={speed} onSpeed={setSpeed} motion={motion} onMotion={changeMotion} />
           <RunSummary snapshot={finished ? snap : undefined} playback={playback} stale={stale} given={run?.input ?? null} inputChanged={inputChanged} />
           {view && (
             <div className={`step-detail${view.event?.kind === 'UNCAPTURED' ? ' uncaptured' : ''}`} data-testid="step-detail">
