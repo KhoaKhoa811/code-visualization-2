@@ -13,9 +13,10 @@ import { setMode, type CollectionMode } from './layout.ts';
 
 type LibraryObject = TraceObject & { kind: 'collection' | 'map' | 'builder' };
 
-function cell(value: Value, state: State, key: string | number, extra = '') {
+// `index` is the recorded position of the element, whatever order the panel draws it in (11d).
+function cell(value: Value, state: State, index: number, extra = '') {
   return (
-    <div className={`cell${value.kind === 'unknown' ? ' unknown' : ''}${extra}`} key={key} data-testid="item">
+    <div className={`cell${value.kind === 'unknown' ? ' unknown' : ''}${extra}`} key={index} data-testid="item" data-item={index}>
       <div className="cell-value">{formatValue(value, state.objects)}</div>
     </div>
   );
@@ -29,7 +30,7 @@ function Body({ object, state, mode }: { object: LibraryObject; state: State; mo
       <div className="cells">
         {text.length === 0 && <span className="muted">empty</span>}
         {[...text].map((ch, i) => (
-          <div className="cell" key={i} data-testid="item">
+          <div className="cell" key={i} data-testid="item" data-item={i}>
             <div className="cell-value">{ch}</div>
             <div className="cell-index">{i}</div>
           </div>
@@ -43,7 +44,7 @@ function Body({ object, state, mode }: { object: LibraryObject; state: State; mo
         <tbody>
           {object.entries.length === 0 && <tr><td className="muted">empty</td></tr>}
           {object.entries.map((e, i) => (
-            <tr key={i} data-testid="entry">
+            <tr key={i} data-testid="entry" data-item={i}>
               <td className="map-key">{formatValue(e.key, state.objects)}</td>
               <td className="muted">→</td>
               <td className={e.value.kind === 'unknown' ? 'unknown' : undefined}>{formatValue(e.value, state.objects)}</td>
@@ -66,7 +67,7 @@ function Body({ object, state, mode }: { object: LibraryObject; state: State; mo
     return (
       <div className="cells" data-testid="as-queue">
         {elements.map((v, i) => (
-          <div className={`cell${v.kind === 'unknown' ? ' unknown' : ''}${i === 0 ? ' top' : ''}`} key={i} data-testid="item">
+          <div className={`cell${v.kind === 'unknown' ? ' unknown' : ''}${i === 0 ? ' top' : ''}`} key={i} data-testid="item" data-item={i}>
             <div className="cell-value">{formatValue(v, state.objects)}</div>
             <div className="cell-index">{[i === 0 && 'front', i === elements.length - 1 && 'back'].filter(Boolean).join(' / ')}</div>
           </div>
@@ -77,7 +78,7 @@ function Body({ object, state, mode }: { object: LibraryObject; state: State; mo
   if (name === 'Stack') { // vertical, top first
     return (
       <div className="stack-cells">
-        {[...elements].reverse().map((v, i) => cell(v, state, i, i === 0 ? ' top' : ''))}
+        {[...elements].reverse().map((v, i) => cell(v, state, elements.length - 1 - i, i === 0 ? ' top' : ''))}
       </div>
     );
   }
@@ -91,7 +92,7 @@ function Body({ object, state, mode }: { object: LibraryObject; state: State; mo
   return (
     <div className="cells">
       {elements.map((v, i) => (
-        <div className={`cell${v.kind === 'unknown' ? ' unknown' : ''}`} key={i} data-testid="item">
+        <div className={`cell${v.kind === 'unknown' ? ' unknown' : ''}`} key={i} data-testid="item" data-item={i}>
           <div className="cell-value">{formatValue(v, state.objects)}</div>
           <div className="cell-index">{deque ? (i === 0 ? 'first' : i === elements.length - 1 ? 'last' : '') : i}</div>
         </div>
@@ -143,6 +144,7 @@ export function LibraryPanel({ view }: { view: View }) {
         const active = focus.objectId === o.objectId || focus.touched?.includes(o.objectId);
         return (
           <Draggable id={`collection:${o.objectId}`} className={`library${active ? ` ${focus.access === 'write' || focus.touched ? 'changed' : 'read'}` : ''}`} key={o.objectId}
+               data-collection={o.objectId} data-box={o.objectId}
                data-testid={`library-${names[0] ?? o.objectId}`}>
             <div className="array-label">
               {names.length ? names.join(' = ') : '(temporary)'} <span className="muted">{name}</span>

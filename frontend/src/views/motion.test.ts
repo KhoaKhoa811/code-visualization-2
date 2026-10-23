@@ -59,3 +59,42 @@ test('a call slides its frame in and carries the arguments; a return carries the
   assert.deepEqual(back.kind === 'flight' && back.to, { frame: caller.frameId });
   assert.notEqual(caller.frameId, views[ret].event!.frameId, 'the result goes to the caller, not the returning frame');
 });
+test('collections: an added item pops in and its value flies in; a removed one flies out of the box (11d)', () => {
+  const p = new Playback(fixture('library'));
+  const views = Array.from({ length: p.steps + 1 }, (_, k) => p.at(k));
+  const state = (k: number) => views[k].beforeEnd ?? views[k].state;
+  const count = (k: number, id: string) => { const o = state(k).objects.get(id); return o?.kind === 'collection' ? o.elements.length : -1; };
+  const lib = (k: number) => { const e = views[k].event; return e?.kind === 'LIBRARY' && e.data.objectId && e.data.after ? e.data.objectId : null; };
+  const grow = views.findIndex((_, k) => k > 0 && lib(k) !== null && count(k, lib(k)!) === count(k - 1, lib(k)!) + 1);
+  const shrink = views.findIndex((_, k) => k > 0 && lib(k) !== null && count(k, lib(k)!) === count(k - 1, lib(k)!) - 1 && count(k, lib(k)!) >= 0);
+  assert.ok(grow > 0 && shrink > 0);
+
+  const id = lib(grow)!;
+  const [appear, fly] = motionFor(views[grow].event, state(grow - 1), state(grow), true);
+  assert.equal(appear.kind, 'appear');
+  assert.ok(fly.kind === 'flight' && 'code' in fly.from && 'item' in fly.to && fly.to.item.objectId === id);
+  const [undo] = motionFor(views[grow].event, state(grow - 1), state(grow), false);
+  assert.ok(undo.kind === 'flight' && 'box' in undo.from && 'code' in undo.to, 'backward: the item goes back to the code');
+
+  const [out] = motionFor(views[shrink].event, state(shrink - 1), state(shrink), true);
+  assert.ok(out.kind === 'flight' && 'box' in out.from && out.from.box === lib(shrink) && 'code' in out.to, JSON.stringify(out));
+
+  // A call that only reads (no `after`) moves nothing.
+  const read = views.findIndex(v => v.event?.kind === 'LIBRARY' && v.event.data.after === null);
+  assert.deepEqual(motionFor(views[read].event, state(read - 1), state(read), true), []);
+});
+
+test('objects: a new object appears, a field write flies into the field and its tree node pulses (11d)', () => {
+  const p = new Playback(fixture('objects'));
+  const views = Array.from({ length: p.steps + 1 }, (_, k) => p.at(k));
+  const state = (k: number) => views[k].beforeEnd ?? views[k].state;
+  const alloc = views.findIndex(v => v.event?.kind === 'ALLOCATE');
+  const id = (views[alloc].event!.data as { object: { objectId: string } }).object.objectId;
+  assert.deepEqual(motionFor(views[alloc].event, state(alloc - 1), state(alloc), true), [{ kind: 'appear', at: { box: id } }, { kind: 'appear', at: { treeNode: id } }]);
+  const write = views.findIndex(v => v.event?.kind === 'FIELD_WRITE');
+  const event = views[write].event!;
+  assert.ok(event.kind === 'FIELD_WRITE');
+  const [fly, pulse] = motionFor(event, state(write - 1), state(write), true);
+  assert.ok(fly.kind === 'flight' && 'field' in fly.to && fly.to.field.name === event.data.field);
+  assert.deepEqual(pulse, { kind: 'pulse', at: { treeNode: event.data.objectId } });
+});

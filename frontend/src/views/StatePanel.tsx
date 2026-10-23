@@ -67,7 +67,7 @@ export function StatePanel({ view, trees = [], heaps = [], structs = [], pointer
           const indices = pointers.get(array.objectId) ?? [];
           const outside = indices.filter(p => p.value < 0 || p.value > array.elements.length);
           return (
-            <Draggable id={`array:${array.objectId}`} className={`array${active && focus.access === 'allocate' || focus.touched?.includes(array.objectId) ? ' allocated' : ''}`} key={array.objectId}
+            <Draggable id={`array:${array.objectId}`} data-box={array.objectId} className={`array${active && focus.access === 'allocate' || focus.touched?.includes(array.objectId) ? ' allocated' : ''}`} key={array.objectId}
                  data-testid={`array-${names[0] ?? array.objectId}`}>
               <div className="array-label">
                 {names.length ? names.join(' = ') : '(temporary)'} <span className="muted">{arrayType(array)}</span>

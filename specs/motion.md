@@ -73,6 +73,24 @@ Fixed with 11c, from the user's testing:
 - **Playback icons:** they are one drawn SVG set instead of mixed text glyphs, following the
   media convention: |◀◀ restart, |◀ one step back, ▶ play, ▶| one step forward, ▶▶| end.
 
-## Later parts (approved as a roadmap, not yet built)
+## Structures, objects, trees and heaps (Part 11d, 2026-10-23)
 
-- **11d:** structure, tree and heap motion.
+| Event | Forward | Backward |
+| --- | --- | --- |
+| LIBRARY with `after`: one item more | the new item pops into place where the shown contents first differ, and its value flies in from the code (`push`, `add`, `offer`, `put` of a new key, `append`) | the value flies from the box back to the code |
+| LIBRARY with `after`: one item fewer | the removed value flies out of the box to the code (`pop`, `poll`, `remove`) | the item pops back in |
+| LIBRARY with `after`: same size | each changed item pulses (`set`, `put` of an existing key); more than six changes pulse the whole box (a sort) | the same |
+| LIBRARY without `after` (a read) | nothing | nothing |
+| ALLOCATE | the new array, collection or object pops into place, and so does its tree node | nothing |
+| FIELD_WRITE | the value flies into the field in the object graph, and the object's tree node pulses | the value flies back to the code |
+| ARRAY_WRITE | also lands on the matching node of a heap view of that array | the same, reversed |
+
+Items are compared by their shown text before and after the call, in the order the panel
+draws them by recorded index. This is a difference of the two recorded states; nothing is
+inferred about the operation. A Stack, drawn top first, still uses each element's recorded
+index.
+
+Elements carry `data-collection`, `data-item`, `data-box` (arrays, collections, objects) and
+`data-heap`; tree nodes already had `data-tree-node`, and heap nodes `data-heap-index`.
+
+Part 11 (motion) is complete.

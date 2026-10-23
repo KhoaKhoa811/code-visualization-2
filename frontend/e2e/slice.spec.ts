@@ -547,6 +547,26 @@ test('the chosen example stays selected, and calls and returns move between fram
   await page.screenshot({ path: 'test-results/call-return.png' });
 });
 
+test('collections move: a pushed value flies in and a popped one flies out to the code (11d)', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.monaco-editor')).toBeVisible();
+  await page.getByLabel('Example').selectOption('Strings and collections');
+  await run(page);
+  await expect(page.getByTestId('run-summary')).toContainText('capture complete');
+  await page.getByLabel('Motion').check();
+  const forward = page.getByRole('button', { name: 'Step forward' });
+  const detail = page.getByTestId('step-detail');
+  for (let i = 0; i < 400 && !(await detail.textContent())?.includes('.push('); i++) await forward.click();
+  await expect(detail).toContainText('.push(');
+  const pushed = (await detail.textContent())!.match(/\.push\((.+)\)/)![1];
+  await expect(page.locator('.motion-chip').first()).toHaveText(pushed); // the pushed value flies into the stack
+  for (let i = 0; i < 400 && !(await detail.textContent())?.includes('.pop()'); i++) await forward.click();
+  await expect(detail).toContainText('.pop()');
+  const popped = (await detail.textContent())!.match(/\.pop\(\) → (.+)$/)![1];
+  await expect(page.locator('.motion-chip').first()).toHaveText(popped); // the popped value leaves the box
+  await page.screenshot({ path: 'test-results/collections-motion.png' });
+});
+
 test('long, double and char values are traced exactly (8b)', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('.monaco-editor')).toBeVisible();
