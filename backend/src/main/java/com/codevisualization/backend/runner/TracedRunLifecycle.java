@@ -33,7 +33,8 @@ public final class TracedRunLifecycle {
     static final String RUNTIME_JAR = "tracer-runtime.jar";
     static final List<String> PREPARE = List.of("java", "-Xmx256m", "-Djava.io.tmpdir=/tmp",
             "-cp", "/work/" + RUNTIME_JAR, "codeviz.tracer.Prepare", "/work/Main.java", "/work/out");
-    static final List<String> RUN_TRACED = List.of("java", "-Xmx128m", "-Djava.io.tmpdir=/tmp",
+    // Part 12b: a fixed locale, so the builder replays String.format exactly as the run formatted.
+    static final List<String> RUN_TRACED = List.of("java", "-Xmx128m", "-Djava.io.tmpdir=/tmp", "-Duser.language=en", "-Duser.country=US",
             "-Dcodeviz.trace=/work/raw.trace", "-cp", "/work/out:/work/" + RUNTIME_JAR, "Main");
     static final List<String> RUN_PLAIN = List.of("java", "-Xmx128m", "-Djava.io.tmpdir=/tmp", "-cp", "/work/out", "Main");
 

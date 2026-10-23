@@ -687,6 +687,19 @@ public final class Recorder {
 
     public static void libV(int site, Object receiver, Object[] args) { line(call(site, receiver, args) + " v"); }
 
+    /** Part 12b: a varargs call; the last argument is javac's array of the written-out arguments, recorded one by one. */
+    public static void libVa(Object result, int site, Object receiver, Object[] args) { lib(result, site, receiver, spread(args)); }
+
+    public static void libVaV(int site, Object receiver, Object[] args) { libV(site, receiver, spread(args)); }
+
+    private static Object[] spread(Object[] args) {
+        Object[] rest = (Object[]) args[args.length - 1];
+        Object[] out = new Object[args.length - 1 + rest.length];
+        System.arraycopy(args, 0, out, 0, args.length - 1);
+        System.arraycopy(rest, 0, out, args.length - 1, rest.length);
+        return out;
+    }
+
     private static String call(int site, Object receiver, Object[] args) {
         StringBuilder b = new StringBuilder().append(site).append(' ').append(receiver == null ? "-" : ref(receiver)).append(' ').append(args.length);
         for (Object a : args) b.append(' ').append(ref(a));

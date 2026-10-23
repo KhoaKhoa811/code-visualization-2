@@ -251,7 +251,7 @@ class TracerTest {
     private static void assertComplete(Run run, String execution) {
         assertTrue(run.prepared().traced(), "program should be traceable: " + run.prepared().analysis().unsupported());
         assertEquals(execution, status(run.trace(), "execution"));
-        assertEquals("complete", status(run.trace(), "capture"));
+        assertEquals("complete", status(run.trace(), "capture"), () -> "capture: " + run.trace().get("capture") + "\nsteps:\n" + String.join("\n", steps(run.trace())));
     }
 
     // ---- acceptance cases -----------------------------------------------------
@@ -806,7 +806,7 @@ class TracerTest {
                         int[] a = {1, 2, 3};
                         int total = 0;
                         for (int i = 0; i < a.length; i++) total += square(a[i]);
-                        System.out.println(String.format("total = %d", square(total)));
+                        System.out.println(String.format(java.util.Locale.ROOT, "total = %d", square(total))); // Part 12b: no Locale overload
                         int big = Integer.max(square(2), 1);
                         tick();
                         System.out.println(total + big);
@@ -817,7 +817,7 @@ class TracerTest {
         assertEquals("total = 196\n18\n", r.result().stdout());
         List<String> steps = steps(r.trace());
         assertEquals(3, steps.stream().filter(s -> s.startsWith("CALL Main.square")).count(), String.join("\n", steps));
-        assertInOrder(steps, "ASSIGN total 5->14 @total += square(a[i])", "UNCAPTURED @System.out.println(String.format(\"total = %d\", square(total)));",
+        assertInOrder(steps, "ASSIGN total 5->14 @total += square(a[i])", "UNCAPTURED @System.out.println(String.format(java.util.Locale.ROOT, \"total = %d\", square(total)));",
                 "UNCAPTURED @int big = Integer.max(square(2), 1);", "CALL Main.tick():void @tick()", "UNCAPTURED @counter++;",
                 "RETURN void implicit @}");
     }
@@ -1205,6 +1205,59 @@ class TracerTest {
                 "LIB equals(#o5,#o7) = true @java.util.Arrays.equals(c, \"cab\".toCharArray())",
                 "LIB split(\" \") = #o10 @\"y x y\".split(\" \")", "LIB sort(#o10) -> [\"x\",\"y\",\"y\"] @java.util.Arrays.sort(w)",
                 "LIB sort(#o14) -> [\"a\",\"b\"] @java.util.Collections.sort(xs)");
+    }
+
+    @Test void arraysFillAndMathPowAreOneStepEach() throws Exception { // Part 12a
+        Run r = main("fill-and-pow", """
+                int[] a = new int[4];
+                java.util.Arrays.fill(a, 7);
+                java.util.Arrays.fill(a, 1, 3, 2);
+                char[] c = new char[2];
+                java.util.Arrays.fill(c, 'x');
+                String[] w = new String[2];
+                java.util.Arrays.fill(w, "hi");
+                double[][] g = new double[2][2];
+                java.util.Arrays.fill(g[1], 1.5);
+                double p = Math.pow(2, 10);
+                double q = Math.pow(a[1], 0.5);
+                System.out.println(a[1] + " " + c[0] + w[1] + g[1][0] + " " + p + " " + q);""");
+        assertComplete(r, "completed");
+        assertEquals("2 xhi1.5 1024.0 1.4142135623730951\n", r.result().stdout());
+        assertEquals(List.of(), uncaptured(r));
+        assertInOrder(textSteps(r.trace()), "LIB fill(#o2,7) -> [7,7,7,7] @java.util.Arrays.fill(a, 7)",
+                "LIB fill(#o2,1,3,2) -> [7,2,2,7] @java.util.Arrays.fill(a, 1, 3, 2)",
+                "LIB fill(#o3,120) -> [120,120] @java.util.Arrays.fill(c, 'x')",
+                "LIB pow(2.0,10.0) = 1024.0 @Math.pow(2, 10)", "LIB pow(2.0,0.5) = 1.4142135623730951 @Math.pow(a[1], 0.5)");
+        assertTrue(textSteps(r.trace()).stream().anyMatch(s -> s.startsWith("LIB fill(#o4,") && s.endsWith("-> [\"hi\",\"hi\"] @java.util.Arrays.fill(w, \"hi\")")), "string array fill");
+        assertTrue(textSteps(r.trace()).stream().anyMatch(s -> s.endsWith("-> [1.5,1.5] @java.util.Arrays.fill(g[1], 1.5)")), "fill of a grid row");
+    }
+
+    @Test void stringFormatAndStreamOfRecordTheirArgumentsOneByOne() throws Exception { // Part 12b
+        Run r = main("format-and-stream-of", """
+                int n = 7;
+                String name = "Ann";
+                String s = String.format("%s has %d (%.2f)%n", name, n, n / 3.0);
+                String t = String.format("100%%");
+                java.util.List<Integer> xs = java.util.stream.Stream.of(3, 1, 2).sorted().toList();
+                long c = java.util.stream.Stream.of("a").count();
+                System.out.print(s + t + xs + c);""");
+        assertComplete(r, "completed");
+        assertEquals("Ann has 7 (2.33)\n100%[1, 2, 3]1", r.result().stdout());
+        assertEquals(List.of(), uncaptured(r));
+        List<String> steps = textSteps(r.trace());
+        assertTrue(steps.stream().anyMatch(x -> x.startsWith("LIB format(\"%s has %d (%.2f)%n\",\"Ann\",7,2.3333333333333335) = \"Ann has 7 (2.33)\n\"")), String.join("\n", steps));
+        assertTrue(steps.stream().anyMatch(x -> x.startsWith("LIB format(\"100%%\") = \"100%\"")), String.join("\n", steps));
+        assertTrue(steps.stream().anyMatch(x -> x.startsWith("LIB of(3,1,2) = ")), String.join("\n", steps));
+        assertTrue(steps.stream().anyMatch(x -> x.startsWith("LIB toList() = ")), String.join("\n", steps));
+        assertFalse(steps.stream().anyMatch(x -> x.startsWith("ALLOCATE")), "javac's varargs array is not shown: " + steps);
+
+        // An array passed whole, a user object to format, and the Locale overload stay uncaptured.
+        Run u = main("format-uncovered", """
+                Object[] values = {1};
+                String a = String.format("%s", values);
+                String b = String.format(java.util.Locale.ROOT, "%d", 2);""");
+        assertComplete(u, "completed");
+        assertEquals(3, uncaptured(u).size(), String.join("\n", steps(u.trace()))); // Object[] itself is not traced
     }
 
     @Test void printingLibraryValuesAndReverseOrderCollections() throws Exception {
@@ -1745,10 +1798,11 @@ class TracerTest {
     }
 
     @Test void arraysChangedByUncapturedCodeAreReRead() throws Exception {
-        Run lib = main("uncaptured-library", "int[] a = {2, 1};\njava.util.Arrays.fill(a, 0, 1, 1); // Part 10d: Arrays.sort is covered now\nSystem.out.println(a[0]);");
+        // Part 12a: Arrays.fill is covered now; System.arraycopy is not.
+        Run lib = main("uncaptured-library", "int[] a = {2, 1};\nSystem.arraycopy(a, 1, a, 0, 1);\nSystem.out.println(a[0]);");
         assertComplete(lib, "completed");
         assertEquals("1\n", lib.result().stdout());
-        assertInOrder(steps(lib.trace()), "ALLOCATE [2,1] @{2, 1}", "UNCAPTURED #o2=[1,1] @java.util.Arrays.fill(a, 0, 1, 1);", "READ [0]=1 @a[0]");
+        assertInOrder(steps(lib.trace()), "ALLOCATE [2,1] @{2, 1}", "UNCAPTURED #o2=[1,1] @System.arraycopy(a, 1, a, 0, 1);", "READ [0]=1 @a[0]");
 
         String helper = "class Util<T> { // generic: stays untraced (Part 8e)\n    static void bump(int[] a) { a[0]++; }\n}\npublic class Main {\n"
                 + "    public static void main(String[] args) {\n        int[] a = {1, 2};\n        Util.bump(a);\n        Util.bump(a);\n"

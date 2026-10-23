@@ -1300,8 +1300,11 @@ final class TraceBuilder {
         if (site.name.equals("getMessage") && site.instance) { exceptionMessage(site, t); return; }
         java.lang.reflect.Method method;
         try { method = Library.method(site.methodId); } catch (ReflectiveOperationException | RuntimeException e) { throw new Inconsistent("library method " + site.methodId); }
-        Class<?>[] params = method.getParameterTypes();
-        if (params.length != n) throw new Inconsistent("library arity");
+        Class<?>[] declared = method.getParameterTypes();
+        // Part 12b: a varargs call records its written-out arguments one by one; each takes the array's component type.
+        if (site.varargs ? !method.isVarArgs() || n < declared.length - 1 : declared.length != n) throw new Inconsistent("library arity");
+        Class<?>[] params = new Class<?>[n];
+        for (int i = 0; i < n; i++) params[i] = site.varargs && i >= declared.length - 1 ? declared[declared.length - 1].getComponentType() : declared[i];
         String receiverId = null;
         Object target = null;
         if (site.instance && function(t[1])) { // Part 10d: calling a function value (f.apply(x)), replayed by its stand-in
@@ -1344,7 +1347,7 @@ final class TraceBuilder {
         Deque<Callback> queue = new ArrayDeque<>(log == null ? List.of() : log.calls());
         Object replayed;
         replayQueues.push(queue);
-        try { replayed = method.invoke(target, args); }
+        try { replayed = FORMAT.equals(site.methodId) ? format(args) : method.invoke(target, site.varargs ? packVarargs(declared, args) : args); }
         catch (ReflectiveOperationException | RuntimeException e) {
             Throwable cause = e instanceof java.lang.reflect.InvocationTargetException ite ? ite.getCause() : e;
             throw new Inconsistent("library replay of " + site.methodId + (cause instanceof ReplayMismatch m ? ": " + m.getMessage() : ""));
@@ -1390,6 +1393,39 @@ final class TraceBuilder {
         }
         addObservable(site, "LIBRARY", ordered("objectId", receiverId, "method", site.methodId, "arguments", arguments,
                 "result", result, "after", after));
+    }
+
+    /** Part 12b: the call's arguments with the written-out ones packed into the varargs array, as javac did. */
+    private static Object[] packVarargs(Class<?>[] declared, Object[] args) {
+        int fixed = declared.length - 1;
+        Object packed = java.lang.reflect.Array.newInstance(declared[fixed].getComponentType(), args.length - fixed);
+        for (int i = fixed; i < args.length; i++) java.lang.reflect.Array.set(packed, i - fixed, args[i]);
+        Object[] out = java.util.Arrays.copyOf(args, declared.length);
+        out[fixed] = packed;
+        return out;
+    }
+
+    static final String FORMAT = "java.lang.String.format(java.lang.String,java.lang.Object[])";
+
+    /**
+     * Part 12b: {@code String.format} replayed as the run computed it: in the run's fixed locale
+     * ({@code en-US}, set on the traced JVM) and with {@code %n} as the container's line separator,
+     * so neither depends on the machine that builds the trace. Values are boxed primitives, texts
+     * of strings, or null; no user code runs.
+     */
+    private static String format(Object[] args) {
+        Object[] values = new Object[args.length - 1];
+        for (int i = 1; i < args.length; i++) values[i - 1] = args[i] instanceof Library.Str s ? s.text() : args[i];
+        String pattern = (String) args[0];
+        if (pattern == null) throw new NullPointerException();
+        StringBuilder unix = new StringBuilder(pattern.length());
+        for (int i = 0; i < pattern.length(); i++) {
+            char c = pattern.charAt(i);
+            if (c == '%' && i + 1 < pattern.length() && pattern.charAt(i + 1) == 'n') { unix.append('\n'); i++; }
+            else if (c == '%' && i + 1 < pattern.length() && pattern.charAt(i + 1) == '%') { unix.append("%%"); i++; }
+            else unix.append(c);
+        }
+        return String.format(java.util.Locale.US, unix.toString(), values);
     }
 
     /** A Java array holding a copy of a traced array's state, for replay (Part 10d). Strings are {@link Library.Str}. */

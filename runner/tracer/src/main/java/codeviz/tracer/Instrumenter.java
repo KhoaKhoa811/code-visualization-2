@@ -793,6 +793,7 @@ final class Instrumenter {
                 // Part 10d: so are reference arguments, which a call may change too (Arrays.sort, Collections.sort).
                 for (int i = 0; i < args.length; i++) {
                     if (args[i].getSort() != Type.OBJECT && args[i].getSort() != Type.ARRAY) continue;
+                    if (site.varargs && i == args.length - 1) continue; // Part 12b: javac's array is not a program object
                     before.add(new VarInsnNode(Opcodes.ALOAD, slots[i]));
                     before.add(call("libSee", "(Ljava/lang/Object;)V"));
                 }
@@ -820,8 +821,10 @@ final class Instrumenter {
                     box(after, args[i]);
                     after.add(new InsnNode(Opcodes.AASTORE));
                 }
-                after.add(isVoid ? call("libV", "(ILjava/lang/Object;[Ljava/lang/Object;)V")
-                        : call("lib", "(Ljava/lang/Object;ILjava/lang/Object;[Ljava/lang/Object;)V"));
+                // Part 12b: a varargs call records the written-out arguments one by one (libVa flattens the last).
+                String record = site.varargs ? "libVa" : "lib";
+                after.add(isVoid ? call(record + "V", "(ILjava/lang/Object;[Ljava/lang/Object;)V")
+                        : call(record, "(Ljava/lang/Object;ILjava/lang/Object;[Ljava/lang/Object;)V"));
                 // The failure handler sits right after the call, so its rethrow stays inside the
                 // user's try ranges around the call (Part 8h); normal flow jumps over it.
                 LabelNode resume = new LabelNode();

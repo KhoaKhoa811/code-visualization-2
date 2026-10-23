@@ -74,6 +74,9 @@ final class Plan {
         // methodId and operator (static, instance, print). METHOD: lambda marks a lambda body, whose
         // synthetic name the instrumenter learns. LIBRARY: callbacks when the call may run functions.
         boolean lambda, callbacks;
+        // Part 12b. LIBRARY: varargs when the call passes its last parameter as separate arguments
+        // (String.format, Stream.of); they are recorded and shown one by one.
+        boolean varargs;
 
         Site(int id, Kind kind, int start, int end, List<String> scopes) {
             this.id = id; this.kind = kind; this.start = start; this.end = end;

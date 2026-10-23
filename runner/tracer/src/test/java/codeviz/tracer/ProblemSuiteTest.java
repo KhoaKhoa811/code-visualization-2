@@ -571,7 +571,7 @@ class ProblemSuiteTest {
     @Test void outOfScopeFormsRunUncapturedWithADiagnostic() throws Exception {
         Map<String, String> forms = Map.of(
                 "user comparator in a priority queue", "PriorityQueue<Integer> q = new PriorityQueue<>((a, b) -> b - a); q.add(1); System.out.println(q.size());",
-                "Stream.of", "System.out.println(java.util.stream.Stream.of(1, 2, 3).count());",
+                "Stream.of of a whole array (12b covers written-out values)", "Integer[] v = {1, 2}; System.out.println(java.util.stream.Stream.of(v).count());",
                 "JDK reference returning a new object", "List<String> ws = new ArrayList<>(); ws.add(\"a\"); System.out.println(ws.stream().map(String::toUpperCase).count());",
                 "parallel stream", "List<Integer> xs = new ArrayList<>(); xs.add(1); System.out.println(xs.parallelStream().count());");
         for (var f : forms.entrySet()) {
