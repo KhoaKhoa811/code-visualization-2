@@ -1,6 +1,6 @@
 # Next steps
 
-Last updated: 2026-10-22 (Asia/Saigon). Short roadmap and approval boundaries
+Last updated: 2026-10-23 (Asia/Saigon). Short roadmap and approval boundaries
 only. For the active task, [handoff.md](handoff.md) is authoritative. History:
 [archive/](archive/README.md).
 
@@ -13,6 +13,14 @@ only. For the active task, [handoff.md](handoff.md) is authoritative. History:
 - Merged: 10a-10c and 10d.0-10d.2 (PRs #101-#104).
 - 10d approved (specs/problem-suite.md revision 2, five increments). Done, awaiting review: 10d.3 lambdas,
   10d.4 streams, 10d.5 suite test and examples (AC-36 Done), stacked in that order. Input-wait detection via /proc is deferred to 6g. Propose each with a checklist and wait for approval.
+- Merged since: 10d, 6g, 11a-11d (PRs up to #112). V1 support matrix agreed 2026-10-23.
+- Part 12 (approved 2026-10-23: "implement more library calls and Visual"): 12a-12d done on
+  `feat/part-12-library-visual`, awaiting review.
+- On hold (user: "deployment can hold on"): public-deployment gaps in specs/isolation-review.md
+  (auth/quotas/TLS, CPU limit, startup sweep of orphaned `codeviz-run-*` containers, stronger
+  sandbox, more slots and persistent state, re-verification on the host).
+- Remaining optional ideas, each needing approval: user classes with inheritance, interfaces,
+  records, enums; `switch` on String or enum; comparators kept inside sorted collections.
 - Never merge pull requests; the user merges.
 
 ## Part 7 roadmap (trace engine and first visible slice)
@@ -32,7 +40,7 @@ only. For the active task, [handoff.md](handoff.md) is authoritative. History:
    collections (8c-8f merged), 8g live Scanner console, 8h exceptions, 8i hardening (merged); then Core V1 completion 9a-9d (merged) and V1.1 10a-10d. See the coverage roadmap and V1 scope.
 
 Then V1.1: custom mappings, view rankings, separate test inputs, broader coverage.
-6g isolation-gap review done 2026-10-23 (specs/isolation-review.md, input-wait limit, AC-20 Done); public deployment needs the listed gaps closed, each with its own approval. V1 support matrix (specs/v1-support-matrix.md) awaits agreement.
+6g isolation-gap review done 2026-10-23 (specs/isolation-review.md, input-wait limit, AC-20 Done); public deployment needs the listed gaps closed, each with its own approval. V1 support matrix (specs/v1-support-matrix.md) agreed 2026-10-23.
 
 ## Part 6 (backend run orchestration)
 

@@ -508,6 +508,7 @@ final class Analyzer {
             effects.scan(s, null);
             site.unknownDeclarations = List.copyOf(effects.assigned);
             site.mayWriteArrays = effects.writes;
+            site.mayAdvanceIterators = effects.iterators; // Part 12c
             // javac positions a lowered for-each (and so its range table entry) at the iterated expression.
             Tree ranged = s instanceof EnhancedForLoopTree f ? f.getExpression() : s;
             site.crtStart = crt(start(ranged));
@@ -536,6 +537,12 @@ final class Analyzer {
         private final class Effects extends TreeScanner<Void, Void> {
             final Set<String> assigned = new LinkedHashSet<>();
             boolean writes;
+            boolean iterators; // Part 12c: the statement uses an iterator, which its code may advance unseen
+
+            @Override public Void visitIdentifier(IdentifierTree id, Void p) {
+                if (element(id) instanceof VariableElement && iteratorType(javaType(id))) iterators = true;
+                return super.visitIdentifier(id, p);
+            }
 
             private void target(ExpressionTree t) {
                 t = strip(t);
@@ -1462,7 +1469,8 @@ final class Analyzer {
         private boolean localType(String t) {
             return SCALARS.contains(t) || t.equals("java.lang.String") || classes.containsKey(t) || array(t)
                     || BOXES.containsKey(t) || libraryType(t) // Part 8f
-                    || functionalType(t) || streamType(t); // Part 10d
+                    || functionalType(t) || streamType(t) // Part 10d
+                    || iteratorType(t); // Part 12c
         }
 
         // ---- Part 8f: boxed values, strings and library collections --------------------------
@@ -1529,24 +1537,32 @@ final class Analyzer {
             return raw.equals("java.util.stream.Stream") || raw.equals("java.util.Optional") ? args.size() == 1 && elementType(args.get(0)) : args.isEmpty();
         }
 
+        /** Part 12c: an iterator of a covered list, set or deque, used directly (hasNext, next, remove). */
+        private boolean iteratorType(String t) {
+            List<String> args = typeArguments(t);
+            return erasure(t).equals("java.util.Iterator") && args.size() == 1 && elementType(args.get(0));
+        }
+
         private static final Map<String, Set<String>> FAMILY_METHODS = Map.ofEntries(
                 Map.entry("string", Set.of("length", "charAt", "substring", "indexOf", "lastIndexOf", "equals", "compareTo", "contains",
                         "startsWith", "endsWith", "isEmpty", "toUpperCase", "toLowerCase", "trim", "toCharArray", "split", "chars")), // 10d: arrays, streams
                 Map.entry("builder", Set.of("append", "insert", "reverse", "toString", "length", "charAt", "setCharAt", "deleteCharAt", "setLength")),
                 Map.entry("list", Set.of("add", "get", "set", "remove", "size", "isEmpty", "contains", "indexOf", "clear",
-                        "forEach", "removeIf", "replaceAll", "sort", "stream")), // 10d: calls that run functions
+                        "forEach", "removeIf", "replaceAll", "sort", "stream", "iterator")), // 10d: calls that run functions; 12c: iterator
                 Map.entry("deque", Set.of("push", "pop", "peek", "offer", "poll", "add", "remove", "addFirst", "addLast", "offerFirst", "offerLast",
                         "pollFirst", "pollLast", "peekFirst", "peekLast", "removeFirst", "removeLast", "size", "isEmpty", "empty", "clear",
-                        "forEach", "removeIf", "stream")),
+                        "forEach", "removeIf", "stream", "iterator")),
                 Map.entry("map", Set.of("put", "get", "getOrDefault", "containsKey", "remove", "size", "isEmpty", "clear",
                         "forEach", "merge", "computeIfAbsent", "computeIfPresent", "compute")),
-                Map.entry("set", Set.of("add", "contains", "remove", "size", "isEmpty", "clear", "forEach", "removeIf", "stream")),
+                Map.entry("set", Set.of("add", "contains", "remove", "size", "isEmpty", "clear", "forEach", "removeIf", "stream", "iterator")),
+                Map.entry("iterator", Set.of("hasNext", "next", "remove")), // Part 12c
                 // Part 10d: sequential streams; a terminal operation runs the pipeline's functions.
                 Map.entry("stream", Set.of("filter", "map", "mapToInt", "mapToObj", "boxed", "sorted", "distinct", "limit", "skip", "peek",
                         "sum", "count", "min", "max", "average", "reduce", "anyMatch", "allMatch", "noneMatch", "findFirst", "forEach",
                         "toList", "collect")),
                 Map.entry("optional", Set.of("getAsInt", "getAsDouble", "get", "orElse", "isPresent", "isEmpty")),
                 Map.entry("java.util.stream.IntStream", Set.of("range", "rangeClosed")),
+                Map.entry("java.util.stream.Stream", Set.of("of")), // Part 12b
                 Map.entry("java.util.stream.Collectors", Set.of("toList", "toSet", "joining", "groupingBy", "counting", "toMap")),
                 // Part 10d: calling a function value, or composing functions.
                 Map.entry("function", Set.of("apply", "test", "accept", "get", "applyAsInt", "compare", "run",
@@ -1558,11 +1574,11 @@ final class Analyzer {
                         "hasNextLine", "close")),
                 // Part 8i: ready() is left out, its answer depends on when input arrives, not on the input.
                 Map.entry("reader", Set.of("readLine", "read", "close")),
-                Map.entry("java.lang.Math", Set.of("max", "min", "abs", "sqrt")),
+                Map.entry("java.lang.Math", Set.of("max", "min", "abs", "sqrt", "pow")), // Part 12a: pow
                 Map.entry("java.lang.Integer", Set.of("parseInt")),
                 Map.entry("java.lang.Character", Set.of("isDigit", "isLetter", "isUpperCase", "isLowerCase", "toUpperCase", "toLowerCase")),
                 // Part 10d: one step each, replayed on a copy; a sort shows only its before and after contents.
-                Map.entry("java.util.Arrays", Set.of("sort", "toString", "equals", "stream")),
+                Map.entry("java.util.Arrays", Set.of("sort", "toString", "equals", "stream", "fill")), // Part 12a: fill
                 Map.entry("java.util.Collections", Set.of("sort")));
 
         /** The library call a method invocation denotes, or null when it is not covered. */
@@ -1573,15 +1589,16 @@ final class Analyzer {
             Set<String> names;
             if (isStatic) {
                 String o = owner.getQualifiedName().toString();
-                names = o.equals("java.lang.String") ? Set.of("valueOf") : FAMILY_METHODS.get(o);
+                names = o.equals("java.lang.String") ? Set.of("valueOf", "format") : FAMILY_METHODS.get(o); // Part 12b: format
             } else {
                 if (!(call.getMethodSelect() instanceof MemberSelectTree select)) return null;
                 String receiver = javaType(select.getExpression());
                 String raw = erasure(receiver);
                 // Part 8h: the message of a caught exception, replayed from the recorded exception object.
                 if (exceptionElement(receiver) != null && name.equals("getMessage") && m.getParameters().isEmpty()) return m;
-                if (!raw.equals("java.lang.String") && !libraryType(receiver) && !functionalType(receiver) && !streamType(receiver)) return null;
-                String family = streamType(receiver) ? (raw.startsWith("java.util.stream.") ? "stream" : "optional")
+                if (!raw.equals("java.lang.String") && !libraryType(receiver) && !functionalType(receiver) && !streamType(receiver)
+                        && !iteratorType(receiver)) return null;
+                String family = iteratorType(receiver) ? "iterator" : streamType(receiver) ? (raw.startsWith("java.util.stream.") ? "stream" : "optional")
                         : functionalType(receiver) ? "function" : raw.equals("java.lang.String") ? "string" : raw.equals(BUILDER) ? "builder" : raw.equals(SCANNER) ? "scanner"
                         : raw.equals(READER) ? "reader" : raw.equals(ENTRY) ? "entry"
                         : LISTS.contains(raw) ? "list"
@@ -1592,8 +1609,20 @@ final class Analyzer {
             }
             if (names == null || !names.contains(name)) return null;
             if (isStatic && arrayUtility(owner.getQualifiedName().toString(), m, call)) return m; // Part 10d
+            // Part 12b: String.format(fmt, args...) and Stream.of(values...) with their arguments written out.
+            boolean varargs = varargs(m, call);
+            if (m.isVarArgs() && !varargs && call.getArguments().size() == m.getParameters().size()) return null; // an array passed whole
+            if (varargs) {
+                boolean format = name.equals("format");
+                for (ExpressionTree a : call.getArguments().subList(m.getParameters().size() - 1, call.getArguments().size())) {
+                    String t = javaType(a);
+                    // format runs toString of each value: boxed values, strings and null only.
+                    boolean ok = SCALARS.contains(t) || keyType(t) || t.equals("<nulltype>") || t.equals("<null>") || !format && elementType(t);
+                    if (!ok) return null;
+                }
+            }
             // No argument may make the library run user code (toString, equals, compareTo of user objects).
-            for (VariableElement p : m.getParameters()) {
+            for (VariableElement p : varargs ? m.getParameters().subList(0, m.getParameters().size() - 1) : m.getParameters()) {
                 String t = types.erasure(p.asType()).toString();
                 if (FUNCTIONAL.contains(t) || t.equals("java.util.stream.Collector")) continue; // Part 10d: a function (or collector) the call runs
                 if (!SCALARS.contains(t) && !t.equals("java.lang.String") && !t.equals("java.lang.Object") && !t.equals("java.lang.CharSequence")) return null;
@@ -1608,6 +1637,15 @@ final class Analyzer {
             return m;
         }
 
+        /** Part 12b: a varargs method called with its last arguments written out, which javac packs into an array. */
+        private boolean varargs(ExecutableElement m, MethodInvocationTree call) {
+            if (!m.isVarArgs()) return false;
+            int n = m.getParameters().size();
+            if (call.getArguments().size() != n) return true;
+            String last = javaType(call.getArguments().get(n - 1));
+            return !last.endsWith("[]") && !last.equals("<nulltype>") && !last.equals("<null>");
+        }
+
         /**
          * {@code Arrays.sort/toString/equals} over one-dimensional primitive or String arrays, and
          * {@code Collections.sort} of a list of boxed values or strings (Part 10d). Natural order only,
@@ -1615,15 +1653,25 @@ final class Analyzer {
          */
         private boolean arrayUtility(String owner, ExecutableElement m, MethodInvocationTree call) {
             if (!owner.equals("java.util.Arrays") && !owner.equals("java.util.Collections")) return false;
-            for (VariableElement p : m.getParameters()) {
-                String t = types.erasure(p.asType()).toString();
+            // Part 12a: Arrays.fill(a, v) and fill(a, from, to, v); the value is the last parameter.
+            boolean fill = m.getSimpleName().contentEquals("fill");
+            int last = m.getParameters().size() - 1;
+            for (int i = 0; i <= last; i++) {
+                String t = types.erasure(m.getParameters().get(i).asType()).toString();
+                if (fill && i == last) {
+                    if (!SCALARS.contains(t) && !t.equals("java.lang.Object")) return false;
+                    String a = javaType(call.getArguments().get(i));
+                    // Object[] overload: only a String array, filled with a string or null (no user objects).
+                    if (t.equals("java.lang.Object") && !a.equals("java.lang.String") && !a.equals("<nulltype>") && !a.equals("<null>")) return false;
+                    continue;
+                }
                 if (t.equals("java.util.Comparator")) continue; // Part 10d: a comparator the sort runs
                 if (m.getSimpleName().contentEquals("stream") && m.getParameters().size() != 1) return false; // Arrays.stream(a) only
                 if (!t.equals("int") && !(owner.equals("java.util.Arrays") ? t.endsWith("[]") && !t.endsWith("[][]") : t.equals("java.util.List"))) return false;
             }
-            for (ExpressionTree a : call.getArguments()) {
-                String t = javaType(a);
-                if (t.equals("int") || functionalType(t)) continue;
+            for (int i = 0; i < call.getArguments().size(); i++) {
+                String t = javaType(call.getArguments().get(i));
+                if (t.equals("int") || functionalType(t) || fill && i == last) continue; // the fill value was checked above
                 if (owner.equals("java.util.Arrays") ? !array(t) || t.endsWith("[][]") || !(SCALARS.contains(component(t)) || component(t).equals("java.lang.String"))
                         : !(LISTS.contains(erasure(t)) && libraryType(t) && (keyType(typeArguments(t).get(0)) // natural order, or a comparator (10d)
                                 || m.getParameters().size() == 2 && elementType(typeArguments(t).get(0))))) return false;
@@ -1639,13 +1687,25 @@ final class Analyzer {
             if (!isStatic) value(((MemberSelectTree) call.getMethodSelect()).getExpression(), null);
             var instantiated = (javax.lang.model.type.ExecutableType) trees.getTypeMirror(TreePath.getPath(unit, call.getMethodSelect()));
             List<? extends ExpressionTree> arguments = call.getArguments();
-            for (int i = 0; i < arguments.size(); i++) value(arguments.get(i), instantiated.getParameterTypes().get(i).toString());
+            boolean varargs = varargs(m, call);
+            int fixed = varargs ? m.getParameters().size() - 1 : arguments.size();
+            for (int i = 0; i < fixed; i++) value(arguments.get(i), instantiated.getParameterTypes().get(i).toString());
+            if (varargs) { // Part 12b: javac's array for the written-out arguments: anewarray, then one aastore each
+                String packed = instantiated.getParameterTypes().get(fixed).toString();
+                String component = packed.endsWith("...") ? packed.substring(0, packed.length() - 3) : packed.substring(0, packed.length() - 2);
+                plan.add(Item.of(Expect.NEWARRAY, null));
+                for (int i = fixed; i < arguments.size(); i++) {
+                    value(arguments.get(i), component);
+                    plan.add(Item.of(Expect.ASTORE, null));
+                }
+            }
             List<String> erased = m.getParameters().stream().map(p -> types.erasure(p.asType()).toString()).toList();
             String result = types.erasure(m.getReturnType()).toString();
             Site site = site(Kind.LIBRARY, call);
             site.owner = qualifying;
             site.name = m.getSimpleName().toString();
             site.instance = !isStatic;
+            site.varargs = varargs;
             site.methodId = qualifying + "." + site.name + "(" + String.join(",", erased) + ")";
             site.javaType = javaType(call);
             TypeElement owner = elements.getTypeElement(qualifying);

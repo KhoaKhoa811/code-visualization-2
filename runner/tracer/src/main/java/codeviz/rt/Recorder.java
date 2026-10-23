@@ -445,8 +445,9 @@ public final class Recorder {
         String known = FUNCS.get(o);
         if (known != null) return known;
         // Streams and their optionals are values the builder replays too: s<n>.
+        // Part 12c: so are iterators used directly (a Scanner is an iterator too, but a recorded library object).
         if (o instanceof java.util.stream.BaseStream || o instanceof java.util.Optional || o instanceof java.util.OptionalInt
-                || o instanceof java.util.OptionalDouble) {
+                || o instanceof java.util.OptionalDouble || o instanceof java.util.Iterator && !(o instanceof java.util.Scanner)) {
             String token = "s" + (++producedFunctions);
             FUNCS.put(o, token);
             return token;
@@ -686,6 +687,19 @@ public final class Recorder {
     }
 
     public static void libV(int site, Object receiver, Object[] args) { line(call(site, receiver, args) + " v"); }
+
+    /** Part 12b: a varargs call; the last argument is javac's array of the written-out arguments, recorded one by one. */
+    public static void libVa(Object result, int site, Object receiver, Object[] args) { lib(result, site, receiver, spread(args)); }
+
+    public static void libVaV(int site, Object receiver, Object[] args) { libV(site, receiver, spread(args)); }
+
+    private static Object[] spread(Object[] args) {
+        Object[] rest = (Object[]) args[args.length - 1];
+        Object[] out = new Object[args.length - 1 + rest.length];
+        System.arraycopy(args, 0, out, 0, args.length - 1);
+        System.arraycopy(rest, 0, out, args.length - 1, rest.length);
+        return out;
+    }
 
     private static String call(int site, Object receiver, Object[] args) {
         StringBuilder b = new StringBuilder().append(site).append(' ').append(receiver == null ? "-" : ref(receiver)).append(' ').append(args.length);

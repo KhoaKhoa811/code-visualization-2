@@ -18,7 +18,8 @@ Calls in traced code to these methods are steps (a LIBRARY event):
 | `Map` (`HashMap`, `TreeMap`, `LinkedHashMap`) | `new`, `put`, `get`, `getOrDefault`, `containsKey`, `remove(key)`, `size`, `isEmpty`, `clear` |
 | `Set` (`HashSet`, `TreeSet`, `LinkedHashSet`) | `new`, `add`, `contains`, `remove`, `size`, `isEmpty`, `clear` |
 | `PriorityQueue` (natural order, or since 10d the JDK's reverse order) | `new`, `add`, `offer`, `poll`, `peek`, `remove()`, `size`, `isEmpty`, `clear` |
-| static | `Math.max`, `Math.min`, `Math.abs`, `Math.sqrt`, `Integer.parseInt`, `String.valueOf` (primitives), `Character.isDigit`, `isLetter`, `isUpperCase`, `isLowerCase`, `toUpperCase`, `toLowerCase` |
+| static | `Math.max`, `Math.min`, `Math.abs`, `Math.sqrt`, `Integer.parseInt`, `String.valueOf` (primitives), `Character.isDigit`, `isLetter`, `isUpperCase`, `isLowerCase`, `toUpperCase`, `toLowerCase`; since 12a `Math.pow`, `Arrays.fill`; since 12b `String.format`, `Stream.of` |
+| since 12c | `iterator()` of a list, set or deque, and `hasNext`, `next`, `remove` on that iterator |
 | static, since 10d | `Arrays.sort` (whole array or a range), `Arrays.toString`, `Arrays.equals` on one-dimensional primitive or `String` arrays; `Collections.sort(list)` of boxed values or strings (natural order) |
 | output, since 10d | `print`/`println(Object)` of a boxed value, `String`, `StringBuilder`, or a covered collection or map holding only those |
 
@@ -89,7 +90,31 @@ Part 10d ([problem suite](problem-suite.md)):
     builder replays every call on a twin, so a terminal replay makes the same callbacks in
     the same order. A collected list or map is checked against the twin, nested lists
     included, and the twin becomes its mirror. A stream used twice fails as in Java.
-  - `Stream.of(...)` (varargs) is not covered.
+  - `Stream.of(...)` (varargs) is covered since 12b.
+- Part 12 (approved 2026-10-23, user: "I only need you to implement more library calls and Visual"):
+  - 12a: `Arrays.fill(a, v)` and `fill(a, from, to, v)` on a one-dimensional primitive array, or a
+    `String` array filled with a string or null. Like `Arrays.sort`, it is one LIBRARY step with
+    `objectId` null and `after` the changed array, replayed on a copy of the array. `Math.pow` is
+    replayed by the builder's JVM and checked like `Math.sqrt`. Java allows `Math.pow` to differ
+    by one ulp between JVMs; if the run's result and the replay ever differ, capture stops
+    there instead of showing either value as the other.
+  - 12b: varargs calls with their arguments written out: `String.format(fmt, args...)` and
+    `Stream.of(values...)`. javac's array for the arguments is matched in the bytecode but is not
+    a program object and is never shown. The step lists each argument. `String.format` takes
+    boxed values, strings and null only (no user `toString`, no arrays or collections). The
+    traced JVM runs with a fixed locale (`-Duser.language=en -Duser.country=US`), and the
+    builder formats with `Locale.US` and `%n` as `"\n"` (the Linux runner's line separator), so
+    the replay does not depend on the machine building the trace. Not covered: the `Locale`
+    overload, and an array passed as the whole varargs argument (`String.format("%s", arr)`,
+    `Stream.of(arr)`).
+  - 12c, trace 1.11.0: iterators used directly. `c.iterator()` returns an `iterator` value
+    (label `ArrayList.iterator()`, `objectId` the collection). `hasNext()`, `next()` and
+    `remove()` are LIBRARY steps with `objectId` null, replayed on the builder's own iterator
+    over its mirror; `remove()` has `after` = the collection. A `ConcurrentModificationException`
+    is the failure of its step, as in Java. A statement that runs uncaptured and names an
+    iterator variable may have advanced it unseen, so the builder drops its iterators; a later
+    use stops capture rather than show a guessed position. Iterating a `PriorityQueue` or a map
+    view directly stays uncaptured.
 - 10d.5: string concatenation may include a printable library value (`"in order: " + list`):
   the operand reads as the JDK's own `toString` of the trusted mirror, checked against the
   recorded result.
@@ -114,11 +139,10 @@ be primitives, boxed primitives, `String` or `null` (no `toString()` of user
 objects). The program is compiled with javac's inline concatenation strategy, so
 concatenation uses `StringBuilder` calls that the tracer can match.
 
-Still uncaptured: other library methods and classes, iterators used directly,
+Still uncaptured: other library methods and classes, iterators of a `PriorityQueue` or a map view,
 `for` over a `PriorityQueue`, parallel streams and stream operations not listed below, lambdas outside the calls listed below, comparators other than the JDK's reverse
-order, other `Collections`/`Arrays` utilities (`fill`, `reverse`, `addAll`, ...), map views
-used other than by a for-each, `format`, `Math.pow` (not exactly specified across
-JVMs), and user `toString` in concatenation or output (library values may be
+order, other `Collections`/`Arrays` utilities (`reverse`, `addAll`, ...), map views
+used other than by a for-each, `String.format` with a `Locale` or with user objects, and user `toString` in concatenation or output (library values may be
 concatenated since 10d.5). Part 10d adds iteration, lambdas
 and streams in later increments ([problem suite](problem-suite.md)).
 

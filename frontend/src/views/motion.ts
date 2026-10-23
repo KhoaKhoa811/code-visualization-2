@@ -35,6 +35,15 @@ const short = (text: string) => text.length > MAX_TEXT ? `${text.slice(0, MAX_TE
  * stored in (from the cell to the code for a read). Backward, the same flight runs the other way,
  * undoing the step; badges are not repeated backward.
  */
+/**
+ * 12d: the frames one step forward ended (a return, or an exception unwinding them), innermost
+ * first, so the call stack can show them leaving. Nothing leaves when stepping back.
+ */
+export function leavingFrames(before: State, after: State): State['frames'] {
+  const kept = new Set(after.frames.map(f => f.frameId));
+  return before.frames.filter(f => !kept.has(f.frameId)).reverse();
+}
+
 export function motionFor(event: ObservableEvent | null, before: State, after: State, forward: boolean): Motion[] {
   if (!event) return [];
   const value = (v: Parameters<typeof formatValue>[0], state: State) => short(formatValue(v, state.objects));
@@ -58,7 +67,8 @@ export function motionFor(event: ObservableEvent | null, before: State, after: S
       return [...flight(value(event.data.value, after), CODE, { field: { objectId: event.data.objectId, name: event.data.field } },
         value(event.data.previous, before)), { kind: 'pulse', at: { treeNode: event.data.objectId } }];
     case 'LIBRARY':
-      return libraryMotion(event.data.objectId, event.data.after !== null, before, after, forward);
+      // 12c: a static call (Arrays.fill, Collections.sort) or an iterator's remove() changes the object in its after.
+      return libraryMotion(event.data.objectId ?? event.data.after?.objectId ?? null, event.data.after !== null, before, after, forward);
     case 'ARRAY_READ': {
       const read: Motion = { kind: 'flight', text: value(event.data.value, after), from: { cell: { objectId: event.data.objectId, index: event.data.index } }, to: CODE };
       return forward ? [read] : [];
@@ -103,6 +113,12 @@ function items(state: State, id: string): string[] | null {
  */
 function libraryMotion(id: string | null, changed: boolean, before: State, after: State, forward: boolean): Motion[] {
   if (!id || !changed) return [];
+  const array = after.objects.get(id);
+  if (array?.kind === 'array') { // 12a: an array a library call changed (Arrays.fill, Arrays.sort): its changed cells pulse
+    const old = before.objects.get(id);
+    const changes = array.elements.flatMap((v, i) => old?.kind === 'array' && formatValue(old.elements[i], before.objects) === formatValue(v, after.objects) ? [] : [i]);
+    return changes.length > 6 ? [{ kind: 'pulse', at: { box: id } }] : changes.map(i => ({ kind: 'pulse' as const, at: { cell: { objectId: id, index: i } } }));
+  }
   const was = items(before, id), now = items(after, id);
   if (!was || !now) return [];
   const first = (a: string[], b: string[]) => { let i = 0; while (i < a.length && i < b.length && a[i] === b[i]) i++; return i; };

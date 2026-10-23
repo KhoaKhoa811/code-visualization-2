@@ -31,7 +31,8 @@ final class HostRun {
                 "-Xmx256m"));
         String classpath = out.toString();
         if (traced) {
-            command.add("-Dcodeviz.trace=" + raw);
+            // As the Linux runner (Part 12b): a fixed locale, and "\n" lines so String.format's %n replays the same.
+            command.addAll(List.of("-Duser.language=en", "-Duser.country=US", "-Dline.separator=\n", "-Dcodeviz.trace=" + raw));
             classpath += File.pathSeparator + Path.of("target/classes").toAbsolutePath();
         }
         command.addAll(List.of("-cp", classpath, "Main"));

@@ -5,9 +5,9 @@ import { useRun, type SubmittedRun } from './api/useRun.ts';
 import { JavaEditor, type Marker } from './editor/JavaEditor.tsx';
 import { EXAMPLES } from './examples.ts';
 import { describe } from './trace/format.ts';
-import { Playback, TraceError } from './trace/playback.ts';
+import { Playback, TraceError, type State } from './trace/playback.ts';
 import { Controls } from './views/Controls.tsx';
-import { clearMotion, motionFor, playMotion } from './views/motion.ts';
+import { clearMotion, leavingFrames, motionFor, playMotion } from './views/motion.ts';
 import { pointersAt } from './trace/pointers.ts';
 import { StatePanel } from './views/StatePanel.tsx';
 import { LayoutContext } from './views/Draggable.tsx';
@@ -104,6 +104,16 @@ export function App() {
     return () => clearTimeout(timer);
   }, [playing, cursor, usable, stepTime]);
 
+  // Part 12d: one step forward that ended frames shows them leaving the call stack. Derived while
+  // rendering (from the view shown before), so the ghost is in the same commit as the new state.
+  const [shown, setShown] = useState<{ view: typeof view; playback: unknown; leaving?: { frames: State['frames']; state: State } }>({ view: null, playback: null });
+  if (shown.view !== view || shown.playback !== usable) {
+    const stepped = motion && view && shown.view && shown.playback === usable && view.cursor - shown.view.cursor === 1;
+    const was = shown.view && (shown.view.beforeEnd ?? shown.view.state);
+    const frames = stepped && was ? leavingFrames(was, view.beforeEnd ?? view.state) : [];
+    setShown({ view, playback: usable, leaving: frames.length && was ? { frames, state: was } : undefined });
+  }
+
   // One step forward or back animates that step's own event; any other jump (restart, the slider,
   // a new run) only shows the new state.
   const previous = useRef<{ playback: unknown; view: typeof view }>({ playback: null, view: null });
@@ -176,7 +186,7 @@ export function App() {
                 })}
                 onRemove={c => setStructMappings(list => list.filter(x => x.className !== c))}
                 onDismiss={c => setNotStructs(list => [...list, c])} />}
-              <StatePanel view={view} trees={fittingTrees} heaps={fittingHeaps} structs={fittingStructs} pointers={pointers} />
+              <StatePanel view={view} trees={fittingTrees} heaps={fittingHeaps} structs={fittingStructs} pointers={pointers} leaving={shown.leaving} />
             </LayoutContext.Provider>
           )}
           {!snap && !submit.isPending && <p className="muted hint">Write Java in the editor and press Run.</p>}

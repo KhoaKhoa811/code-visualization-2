@@ -28,7 +28,7 @@ container ([isolation review](isolation-review.md)).
 | Arrays | every primitive element type and `String`, nested arrays, aliasing, bounds failures | [statements](statements.md) |
 | Methods | static methods of `Main`, recursion (depth limit 64), parameters, returns, unwinding | [methods](methods.md) |
 | Objects | traced classes (top-level or static nested, no inheritance or interfaces) with fields, constructors, instance methods; object graphs with cycles | [objects](objects.md) |
-| Strings and library | `String` methods, `StringBuilder`, concatenation (also with library values), `ArrayList`, `LinkedList`, `ArrayDeque`, `Stack`, `HashMap`/`TreeMap`/`LinkedHashMap`, `HashSet`/`TreeSet`/`LinkedHashSet`, `PriorityQueue` (natural or reverse order), map entries, library sorts, `Arrays.toString`/`equals`, `toCharArray`, `split`, printing library values | [library](library.md) |
+| Strings and library | `String` methods, `StringBuilder`, concatenation (also with library values), `ArrayList`, `LinkedList`, `ArrayDeque`, `Stack`, `HashMap`/`TreeMap`/`LinkedHashMap`, `HashSet`/`TreeSet`/`LinkedHashSet`, `PriorityQueue` (natural or reverse order), map entries, library sorts, `Arrays.toString`/`equals`, `toCharArray`, `split`, printing library values; since Part 12 `Arrays.fill`, `Math.pow`, `String.format`, `Stream.of` and iterators used directly | [library](library.md) |
 | Lambdas and streams | lambdas and method references run by the covered library calls (`forEach`, `removeIf`, `sort`, `merge`, `computeIfAbsent`, `Comparator.comparing`, ...), stored functions, sequential streams with the listed intermediate and terminal operations and collectors | [library](library.md) |
 | Exceptions | `throw`, `try`/`catch` (multi-catch), `finally` on every path, exception objects and messages, program-only stack traces | [exceptions](exceptions.md) |
 | Input | live console with `Scanner` (documented subset) or `BufferedReader` over `System.in`; separate test inputs; input bounds, EOF, input-wait limit | [live console](live-console.md), [test inputs](test-inputs.md) |
@@ -37,10 +37,11 @@ container ([isolation review](isolation-review.md)).
 ## Uncaptured statement (the program is still traced)
 
 - Calls to library methods and classes not listed in [library](library.md), for example
-  `String.format`, `Math.pow` and `Arrays.fill`.
-- Collection-held user comparators (`new PriorityQueue<>((a, b) -> b - a)`), `Stream.of`,
-  parallel streams, JDK method references returning new objects (`String::toUpperCase`),
-  user functional interfaces, iterators used directly, `for` over a `PriorityQueue`.
+  `System.arraycopy`, `Arrays.copyOf` and `String.format` with a `Locale`.
+- Collection-held user comparators (`new PriorityQueue<>((a, b) -> b - a)`), varargs calls
+  given a whole array, parallel streams, JDK method references returning new objects
+  (`String::toUpperCase`), user functional interfaces, iterators of a `PriorityQueue` or a map
+  view, `for` over a `PriorityQueue`.
 - User `toString` in output or concatenation; `==` on boxed values or functions.
 - Lambdas outside static code of `Main`; a lambda whose expression body is not covered.
 - A second `Scanner`/`BufferedReader`, and other ways of reading `System.in`.
@@ -76,6 +77,9 @@ container ([isolation review](isolation-review.md)).
 
 - More than one source file, and packages.
 - Public multi-user deployment (see the [isolation review](isolation-review.md)).
+
+Part 12 (2026-10-23, approved by the user) moved `Arrays.fill`, `Math.pow`, `String.format`,
+`Stream.of` and iterators used directly from uncaptured to traced.
 
 Agreeing this matrix declares V1 functionally complete. Changing a row later is a new part
 with its own approval.

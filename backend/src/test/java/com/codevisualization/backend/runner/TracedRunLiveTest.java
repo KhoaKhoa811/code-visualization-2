@@ -156,7 +156,7 @@ class TracedRunLiveTest {
                     static void bump(int[] a) { a[0] += 10; }
                     public static void main(String[] args) {
                         int[] a = {3, 1, 2};
-                        java.util.Arrays.fill(a, 0, 1, 1); // uncaptured (Arrays.sort is covered since Part 10d)
+                        System.arraycopy(a, 1, a, 0, 1); // uncaptured (Arrays.sort and, since Part 12a, Arrays.fill are covered)
                         bump(a);
                         Box box = new Box(a);
                         int total = 0;

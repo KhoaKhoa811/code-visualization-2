@@ -36,6 +36,7 @@ final class Plan {
         // REGION (Part 8a): a statement that runs without capture, and what it may change.
         List<String> unknownDeclarations = List.of(); // covered locals the statement may assign
         boolean mayWriteArrays;
+        boolean mayAdvanceIterators;        // Part 12c: the statement uses an iterator variable
         int crtStart = -1, crtEnd = -1;     // javac CharacterRangeTable positions (line << 10 | column)
         int crtFirstStart = -1, crtFirstEnd = -1; // try-with-resources: its code starts with the first resource's own entry
         // Part 8b. ARITHMETIC: javaType is the operation type; CAST: fromType -> javaType.
@@ -74,6 +75,9 @@ final class Plan {
         // methodId and operator (static, instance, print). METHOD: lambda marks a lambda body, whose
         // synthetic name the instrumenter learns. LIBRARY: callbacks when the call may run functions.
         boolean lambda, callbacks;
+        // Part 12b. LIBRARY: varargs when the call passes its last parameter as separate arguments
+        // (String.format, Stream.of); they are recorded and shown one by one.
+        boolean varargs;
 
         Site(int id, Kind kind, int start, int end, List<String> scopes) {
             this.id = id; this.kind = kind; this.start = start; this.end = end;

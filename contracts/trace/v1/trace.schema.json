@@ -1,12 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/KhoaKhoa811/code-visualization-2/contracts/trace/v1/trace.schema.json",
-  "title": "Recorded Java trace 1.10.0",
+  "title": "Recorded Java trace 1.11.0",
   "description": "Candidate contract. Structural validity is not proof of Java execution or semantic replay correctness.",
   "type": "object",
   "properties": {
     "schemaVersion": {
-      "const": "1.10.0"
+      "const": "1.11.0"
     },
     "runId": {
       "$ref": "#/$defs/id"
@@ -361,6 +361,28 @@
           "required": [
             "kind",
             "label"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "description": "1.11.0: an iterator used directly (Part 12c), shown by the call that made it, with the collection it iterates. A value: its identity and position are not shown.",
+          "properties": {
+            "kind": {
+              "const": "iterator"
+            },
+            "label": {
+              "type": "string",
+              "minLength": 1
+            },
+            "objectId": {
+              "$ref": "#/$defs/id"
+            }
+          },
+          "required": [
+            "kind",
+            "label",
+            "objectId"
           ],
           "additionalProperties": false
         }

@@ -311,6 +311,8 @@ final class TraceBuilder {
         addObservable(site, "UNCAPTURED", data);
         sawRegion = true;
         regionThrow = true; // until the next recorded operation, a catch or finally may receive what it threw (Part 8h)
+        // Part 12c: code that ran unseen may have advanced an iterator; its twin no longer follows it.
+        if (site.mayAdvanceIterators) streamTwins.values().removeIf(java.util.Iterator.class::isInstance);
         if (site.mayWriteArrays) {
             openRegion = data;
             openRegionEvent = events.get(events.size() - 1);
@@ -1300,8 +1302,11 @@ final class TraceBuilder {
         if (site.name.equals("getMessage") && site.instance) { exceptionMessage(site, t); return; }
         java.lang.reflect.Method method;
         try { method = Library.method(site.methodId); } catch (ReflectiveOperationException | RuntimeException e) { throw new Inconsistent("library method " + site.methodId); }
-        Class<?>[] params = method.getParameterTypes();
-        if (params.length != n) throw new Inconsistent("library arity");
+        Class<?>[] declared = method.getParameterTypes();
+        // Part 12b: a varargs call records its written-out arguments one by one; each takes the array's component type.
+        if (site.varargs ? !method.isVarArgs() || n < declared.length - 1 : declared.length != n) throw new Inconsistent("library arity");
+        Class<?>[] params = new Class<?>[n];
+        for (int i = 0; i < n; i++) params[i] = site.varargs && i >= declared.length - 1 ? declared[declared.length - 1].getComponentType() : declared[i];
         String receiverId = null;
         Object target = null;
         if (site.instance && function(t[1])) { // Part 10d: calling a function value (f.apply(x)), replayed by its stand-in
@@ -1320,6 +1325,8 @@ final class TraceBuilder {
         List<Object> arguments = new ArrayList<>();
         Map<String, Object> javaArrays = new LinkedHashMap<>(); // Part 10d: array arguments, replayed on copies of their state
         String changedArgument = null; // Part 10d: a mirror argument a static call may change (Collections.sort)
+        // Part 12c: an iterator's remove() changes the collection it iterates.
+        if (site.instance && stream(t[1]) && target instanceof java.util.Iterator) changedArgument = iteratorSources.get(t[1]);
         for (int i = 0; i < n; i++) {
             String token = t[3 + i];
             if (function(token)) { // Part 10d: a function the call runs, replayed by a stand-in returning recorded results
@@ -1344,7 +1351,7 @@ final class TraceBuilder {
         Deque<Callback> queue = new ArrayDeque<>(log == null ? List.of() : log.calls());
         Object replayed;
         replayQueues.push(queue);
-        try { replayed = method.invoke(target, args); }
+        try { replayed = FORMAT.equals(site.methodId) ? format(args) : method.invoke(target, site.varargs ? packVarargs(declared, args) : args); }
         catch (ReflectiveOperationException | RuntimeException e) {
             Throwable cause = e instanceof java.lang.reflect.InvocationTargetException ite ? ite.getCause() : e;
             throw new Inconsistent("library replay of " + site.methodId + (cause instanceof ReplayMismatch m ? ": " + m.getMessage() : ""));
@@ -1358,6 +1365,7 @@ final class TraceBuilder {
         } else if (stream(token)) { // Part 10d: a stream or optional the call made: its replayed twin
             if (replayed == null || streamTwins.containsKey(token)) throw new Inconsistent("library stream result");
             streamTwins.put(token, replayed);
+            if (replayed instanceof java.util.Iterator && receiverId != null) iteratorSources.put(token, receiverId); // Part 12c
             String base = !site.instance ? site.owner.substring(site.owner.lastIndexOf('.') + 1)
                     : stream(t[1]) ? streamLabels.get(t[1]) : target instanceof String ? "String" : target.getClass().getSimpleName();
             streamLabels.put(token, base + "." + site.name + "(" + arguments.stream().map(a -> label((Map<?, ?>) a)).reduce((a, b) -> a + ", " + b).orElse("") + ")");
@@ -1390,6 +1398,39 @@ final class TraceBuilder {
         }
         addObservable(site, "LIBRARY", ordered("objectId", receiverId, "method", site.methodId, "arguments", arguments,
                 "result", result, "after", after));
+    }
+
+    /** Part 12b: the call's arguments with the written-out ones packed into the varargs array, as javac did. */
+    private static Object[] packVarargs(Class<?>[] declared, Object[] args) {
+        int fixed = declared.length - 1;
+        Object packed = java.lang.reflect.Array.newInstance(declared[fixed].getComponentType(), args.length - fixed);
+        for (int i = fixed; i < args.length; i++) java.lang.reflect.Array.set(packed, i - fixed, args[i]);
+        Object[] out = java.util.Arrays.copyOf(args, declared.length);
+        out[fixed] = packed;
+        return out;
+    }
+
+    static final String FORMAT = "java.lang.String.format(java.lang.String,java.lang.Object[])";
+
+    /**
+     * Part 12b: {@code String.format} replayed as the run computed it: in the run's fixed locale
+     * ({@code en-US}, set on the traced JVM) and with {@code %n} as the container's line separator,
+     * so neither depends on the machine that builds the trace. Values are boxed primitives, texts
+     * of strings, or null; no user code runs.
+     */
+    private static String format(Object[] args) {
+        Object[] values = new Object[args.length - 1];
+        for (int i = 1; i < args.length; i++) values[i - 1] = args[i] instanceof Library.Str s ? s.text() : args[i];
+        String pattern = (String) args[0];
+        if (pattern == null) throw new NullPointerException();
+        StringBuilder unix = new StringBuilder(pattern.length());
+        for (int i = 0; i < pattern.length(); i++) {
+            char c = pattern.charAt(i);
+            if (c == '%' && i + 1 < pattern.length() && pattern.charAt(i + 1) == 'n') { unix.append('\n'); i++; }
+            else if (c == '%' && i + 1 < pattern.length() && pattern.charAt(i + 1) == '%') { unix.append("%%"); i++; }
+            else unix.append(c);
+        }
+        return String.format(java.util.Locale.US, unix.toString(), values);
     }
 
     /** A Java array holding a copy of a traced array's state, for replay (Part 10d). Strings are {@link Library.Str}. */
@@ -1560,6 +1601,7 @@ final class TraceBuilder {
 
     private final Map<String, Object> streamTwins = new HashMap<>(); // s<n> -> the replayed stream or optional
     private final Map<String, String> streamLabels = new HashMap<>();
+    private final Map<String, String> iteratorSources = new HashMap<>(); // Part 12c: s<n> of an iterator -> the collection it iterates
 
     /** Whether a record token is a stream or optional: s<n>. */
     private static boolean stream(String token) { return token.length() > 1 && token.charAt(0) == 's'; }
@@ -1570,13 +1612,15 @@ final class TraceBuilder {
         if (twin == null) throw new Inconsistent("a stream made by code that was not recorded");
         if (twin instanceof java.util.Optional<?> || twin instanceof java.util.OptionalInt || twin instanceof java.util.OptionalDouble)
             return ordered("kind", "optional", "label", twin.toString());
+        // Part 12c: an iterator, with the collection it iterates.
+        if (twin instanceof java.util.Iterator) return ordered("kind", "iterator", "label", streamLabels.get(token), "objectId", iteratorSources.get(token));
         return ordered("kind", "stream", "label", streamLabels.get(token));
     }
 
     /** Short text of an argument inside a stream's label. */
     private String label(Map<?, ?> value) {
         Object kind = value.get("kind");
-        if ("function".equals(kind) || "stream".equals(kind) || "optional".equals(kind)) return (String) value.get("label");
+        if ("function".equals(kind) || "stream".equals(kind) || "optional".equals(kind) || "iterator".equals(kind)) return (String) value.get("label");
         if ("ref".equals(kind)) {
             String text = stringTexts.get((String) value.get("objectId"));
             return text == null ? "…" : '"' + text + '"';
@@ -1817,7 +1861,7 @@ final class TraceBuilder {
             diagnosticJson.add(map);
         }
         return Json.write(ordered(
-                "schemaVersion", "1.10.0",
+                "schemaVersion", "1.11.0",
                 "runId", runId,
                 "source", ordered("file", Analyzer.FILE, "text", source, "sha256", sha256(source)),
                 "execution", ordered("status", executionStatus, "reason", executionReason),

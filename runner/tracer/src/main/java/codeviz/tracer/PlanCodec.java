@@ -15,7 +15,7 @@ import java.util.*;
  * source's SHA-256 so the reader can reject a plan for different text.
  */
 final class PlanCodec {
-    static final int VERSION = 10; // 2: regions (8a); 3: primitives (8b); 4: switch, arrays (8c); 5: methods (8d); 6: objects (8e); 7: interactive (8g); 8: exceptions (8h); 9: iteration (10d); 10: lambdas (10d)
+    static final int VERSION = 11; // 2: regions (8a); 3: primitives (8b); 4: switch, arrays (8c); 5: methods (8d); 6: objects (8e); 7: interactive (8g); 8: exceptions (8h); 9: iteration (10d); 10: lambdas (10d); 11: varargs, iterators (12)
 
     private PlanCodec() { }
 
@@ -43,6 +43,7 @@ final class PlanCodec {
             if (s.constructor) m.put("constructor", true);
             if (s.lambda) m.put("lambda", true); // Part 10d
             if (s.callbacks) m.put("callbacks", true);
+            if (s.varargs) m.put("varargs", true);
             if (!s.fields.isEmpty()) m.put("fields", s.fields.stream().map(f -> (Object) f.id).toList());
             if (!s.cases.isEmpty()) m.put("cases", s.cases.stream().map(c -> (Object) TraceBuilder.ordered("values",
                     new ArrayList<Object>(c.values()), "default", c.isDefault(), "start", c.start(), "end", c.end())).toList());
@@ -51,6 +52,7 @@ final class PlanCodec {
             if (s.kind == Kind.REGION) {
                 m.put("unknownDeclarations", new ArrayList<Object>(s.unknownDeclarations));
                 m.put("mayWriteArrays", s.mayWriteArrays);
+                if (s.mayAdvanceIterators) m.put("mayAdvanceIterators", true); // Part 12c
             }
             if (s.leaf != null) {
                 m.put("leaf", condIds.get(s.leaf));
@@ -114,6 +116,7 @@ final class PlanCodec {
             s.constructor = Boolean.TRUE.equals(m.get("constructor"));
             s.lambda = Boolean.TRUE.equals(m.get("lambda"));
             s.callbacks = Boolean.TRUE.equals(m.get("callbacks"));
+            s.varargs = Boolean.TRUE.equals(m.get("varargs"));
             if (m.containsKey("cases")) {
                 List<Plan.Case> cases = new ArrayList<>();
                 for (Object c : (List<Object>) m.get("cases")) {
@@ -127,6 +130,7 @@ final class PlanCodec {
             if (m.containsKey("unknownDeclarations")) {
                 s.unknownDeclarations = ((List<Object>) m.get("unknownDeclarations")).stream().map(String.class::cast).toList();
                 s.mayWriteArrays = (Boolean) m.get("mayWriteArrays");
+                s.mayAdvanceIterators = Boolean.TRUE.equals(m.get("mayAdvanceIterators"));
             }
             sites.put(s.id, s);
             rawSites.put(s.id, m);
