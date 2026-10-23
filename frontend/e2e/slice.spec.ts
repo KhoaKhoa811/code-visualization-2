@@ -787,6 +787,36 @@ test('neighbour lists confirmed as a graph: a DFS lights each edge it walks (14b
   await expect(graph).toContainText('not in scope');
 });
 
+test('a linked visited array colours the nodes and the index variables mark them (14c)', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.monaco-editor')).toBeVisible();
+  await page.getByLabel('Example').selectOption('Graph BFS (matrix)');
+  await run(page);
+  await page.getByTitle('End').click();
+  await page.getByRole('button', { name: 'Show a variable as a graph…' }).click();
+  await page.getByLabel('Graph node array visited').check();
+  await page.getByRole('button', { name: 'Show as graph' }).click();
+  const graph = page.getByTestId('graph-g');
+  await expect(graph.getByTestId('graph-legend')).toContainText('visited[i] is true');
+  await expect(graph.locator('.graph-node.flagged')).toHaveCount(5); // every node was visited
+
+  // Back inside the BFS loop: u (g[u]) and v (g[u][v]) mark their nodes; fewer nodes are visited
+  // at the first read, and a write to visited[v] lights node v.
+  const back = page.getByRole('button', { name: 'Step back' });
+  for (let i = 0; i < 300 && (await graph.getByTestId('graph-marker').count()) < 2; i++) await back.click();
+  await expect(graph.getByTestId('graph-marker').filter({ hasText: 'u' })).toHaveCount(1);
+  await expect(graph.getByTestId('graph-marker').filter({ hasText: 'v' })).toHaveCount(1);
+  await page.getByTitle('Restart').click();
+  const forward = page.getByRole('button', { name: 'Step forward' });
+  const detail = page.getByTestId('step-detail');
+  for (let i = 0; i < 400 && !(await detail.textContent())?.includes('Write visited[1]: false → true'); i++) await forward.click();
+  await expect(detail).toContainText('Write visited[1]: false → true');
+  await expect(graph.locator('.graph-node.lit')).toHaveAttribute('data-node', '1');
+  await expect(graph.locator('.graph-node.flagged')).toHaveCount(2); // 0, then 1: only what is recorded so far
+  await graph.scrollIntoViewIfNeeded();
+  await graph.screenshot({ path: 'test-results/graph-traversal.png' });
+});
+
 test('a program reads live console input and playback shows the read (8g, AC-19)', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('.monaco-editor')).toBeVisible();

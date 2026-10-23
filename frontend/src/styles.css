@@ -297,4 +297,10 @@ mark.call-waiting, mark.call-filled, .call-line .badge { white-space: nowrap; }
 .graph-node.root circle { stroke: var(--accent); }
 .graph-node.lit circle { stroke: var(--accent); stroke-width: 3; fill: color-mix(in srgb, var(--accent) 25%, transparent); }
 .graph-label { font: 700 12px Consolas, ui-monospace, monospace; fill: currentColor; text-anchor: middle; }
-body.motion-off .graph-node, body.motion-off .graph-edge path { transition: none; }
+body.motion-off .graph-node, body.motion-off .graph-edge path { transition: none; }/* Part 14c: index variables above nodes, linked arrays (visited[i], dist[i]) on them. */
+.graph-marker { font: 700 11px Consolas, ui-monospace, monospace; fill: var(--accent); text-anchor: middle; }
+.graph-value { font: 600 10.5px Consolas, ui-monospace, monospace; fill: var(--muted); text-anchor: middle; }
+.graph-node.flagged circle { fill: color-mix(in srgb, #3fb37f 35%, var(--panel)); stroke: #3fb37f; }
+.graph-node.unknown circle { stroke: var(--warning); stroke-dasharray: 3 3; }
+.graph-swatch { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: color-mix(in srgb, #3fb37f 35%, var(--panel)); border: 2px solid #3fb37f; vertical-align: middle; }
+.graph-pick { margin-left: 6px; white-space: nowrap; }.graph-node.flagged.lit circle { stroke: var(--accent); stroke-width: 3; }

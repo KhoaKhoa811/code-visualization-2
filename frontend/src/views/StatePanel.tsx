@@ -85,7 +85,7 @@ export function StatePanel({ view, trees = [], heaps = [], graphs = [], structs 
       <TreePanel view={view} mappings={trees} />
       <StructPanel view={view} mappings={structs} />
       <HeapPanel view={view} mappings={heaps} />
-      <GraphPanel view={view} mappings={graphs} />
+      <GraphPanel view={view} mappings={graphs} pointers={pointers} />
       <ObjectGraph view={view} />
       <Panel id="arrays" label="Arrays" title="Arrays">
         {topLevel.length === 0 && <p className="muted">No arrays yet.</p>}

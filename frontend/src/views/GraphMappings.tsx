@@ -3,7 +3,7 @@
 // editor only hints and suggests from the state at the cursor (fits as a matrix or as lists,
 // symmetric); it never guesses for the user.
 import { useState } from 'react';
-import { graphCandidates, graphProblem, NO_EDGE_CHOICES, projectGraph, type GraphForm, type GraphMapping } from '../trace/graph.ts';
+import { graphCandidates, graphProblem, NO_EDGE_CHOICES, nodeArrayCandidates, projectGraph, type GraphForm, type GraphMapping } from '../trace/graph.ts';
 import type { State } from '../trace/playback.ts';
 import type { Trace } from '../trace/types.ts';
 
@@ -69,6 +69,16 @@ function Editor({ start, trace, state, onConfirm, onCancel }: {
         <input aria-label="Graph start node" type="number" min={0} value={m.start} style={{ width: '4em' }}
                onChange={e => setM({ ...m, start: Math.trunc(Number(e.target.value)) })} />
       </label>
+      {nodeArrayCandidates(trace).length > 0 && (
+        <span className="mapping-field" data-testid="graph-node-arrays">per node{' '}
+          {nodeArrayCandidates(trace).map(a => (
+            <label key={a} className="graph-pick">
+              <input type="checkbox" aria-label={`Graph node array ${a}`} checked={(m.nodeArrays ?? []).includes(a)}
+                     onChange={e => setM({ ...m, nodeArrays: e.target.checked ? [...(m.nodeArrays ?? []), a] : (m.nodeArrays ?? []).filter(x => x !== a) })} /> {a}[i]
+            </label>
+          ))}
+        </span>
+      )}
       <button className="primary" disabled={problem !== null} onClick={() => onConfirm(m)}>Show as graph</button>
       <button onClick={onCancel}>Cancel</button>
       {problem ? <span className="warning">{problem}</span> : <span className="muted" data-testid="graph-hint">{hint}</span>}
@@ -95,7 +105,7 @@ export function GraphMappings({ trace, state, mappings, onConfirm, onRemove }: P
                   <span>{problem
                     ? <span className="warning">Graph view of {m.array} does not fit this run: {problem}.</span>
                     : <><b>{m.array}</b> shown as {m.directed ? 'a directed' : 'an undirected'} graph from {(m.form ?? 'matrix') === 'matrix'
-                        ? `a matrix, ${m.noEdge} is no edge` : 'neighbour lists'}; levels from node {m.start}.</>}</span>
+                        ? `a matrix, ${m.noEdge} is no edge` : 'neighbour lists'}; levels from node {m.start}{m.nodeArrays?.length ? `; per node: ${m.nodeArrays.join(', ')}` : ''}.</>}</span>
                   <button onClick={() => setEditing(m.array)}>Change</button>
                   <button onClick={() => onRemove(m.array)}>Remove</button>
                 </>

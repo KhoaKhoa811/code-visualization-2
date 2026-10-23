@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { State } from './playback.ts';
 import type { Value } from './types.ts';
-import { projectGraph, touched, type GraphMapping } from './graph.ts';
+import { markers, nodeValues, projectGraph, touched, type GraphMapping } from './graph.ts';
 
 const int = (v: number): Value => ({ kind: 'int', value: String(v) });
 
@@ -123,4 +123,28 @@ test('the step that read or wrote a row lights that edge; reading a row lights i
   assert.ok(q && 'graph' in q);
   assert.deepEqual(touched(event('ARRAY_READ', { objectId: 'l0', index: 1, value: int(2) }), q.graph, jag), { edge: [0, 2], access: 'read' });
   assert.deepEqual(touched(null, q.graph, jag), {});
+});
+test('index variables mark nodes, and linked arrays give one value per node, from this state only (14c)', () => {
+  const s = matrix([[-1, 1, -1], [1, -1, 1], [-1, 1, -1]]);
+  const p = projectGraph(s, m({ directed: false }));
+  assert.ok(p && 'graph' in p);
+  const ptr = (name: string, value: number) => ({ name, frameId: 'f0', value, last: 1 });
+  // g[u] marks node u; g[u][v] (a row indexed by v) marks node v; out-of-range values mark nothing.
+  const marks = markers(p.graph, new Map([['m', [ptr('u', 2)]], ['r0', [ptr('v', 1)]], ['r1', [ptr('v', 1), ptr('w', 9)]]]));
+  assert.deepEqual([...marks.entries()].sort(), [[1, ['v']], [2, ['u']]]);
+  const l = lists([[1], [0]], 'collection');
+  const q = projectGraph(l, m({ array: 'adj', form: 'lists' }));
+  assert.ok(q && 'graph' in q);
+  assert.deepEqual([...markers(q.graph, new Map([['L', [ptr('u', 1)]], ['l0', [ptr('k', 0)]]])).entries()], [[1, ['u']]], 'a position in a list is not a node');
+
+  s.objects.set('vis', { objectId: 'vis', kind: 'array', elementType: 'boolean', elements: [{ kind: 'boolean', value: true }, { kind: 'boolean', value: false }, { kind: 'unknown' }] } as never);
+  s.objects.set('d', { objectId: 'd', kind: 'array', elementType: 'int', elements: [int(0), int(1)] } as never);
+  s.bindings.push({ ...s.bindings[0], bindingId: 'b2', name: 'visited', javaType: 'boolean[]', value: { kind: 'ref', objectId: 'vis' } },
+    { ...s.bindings[0], bindingId: 'b3', name: 'dist', javaType: 'int[]', value: { kind: 'ref', objectId: 'd' } });
+  const values = nodeValues(s, m({ nodeArrays: ['visited', 'dist', 'gone'] }), 3);
+  assert.deepEqual(values.map(v => [v.name, v.boolean ?? null, v.note ?? null, v.values?.length ?? null]),
+    [['visited', true, null, 3], ['dist', null, 'has 2 entries for 3 nodes', null], ['gone', null, 'not in scope here', null]]);
+  // A write to visited[i] lights node i.
+  const write = { seq: 1, step: 1, frameId: 'f0', source: { start: 0, end: 0 }, kind: 'ARRAY_WRITE', data: { objectId: 'vis', index: 2, value: { kind: 'boolean', value: true }, previous: { kind: 'boolean', value: false } } } as never;
+  assert.deepEqual(touched(write, p.graph, s, ['vis']), { node: 2, access: 'write' });
 });

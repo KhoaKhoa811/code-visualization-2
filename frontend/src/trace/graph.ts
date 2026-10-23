@@ -8,6 +8,7 @@
 // edges at this cursor; edges outside that tree are drawn dashed; nodes the start cannot reach
 // start trees of their own below.
 import type { State } from './playback.ts';
+import type { Pointer } from './pointers.ts';
 import type { ObservableEvent, Trace, TraceObject, Value } from './types.ts';
 
 export type GraphForm = 'matrix' | 'lists';
@@ -22,6 +23,8 @@ export interface GraphMapping {
   noEdge: number;
   /** The node the levels are measured from. */
   start: number;
+  /** 14c: one-dimensional arrays the user linked to the nodes (entry i belongs to node i). */
+  nodeArrays?: string[];
 }
 
 export const NO_EDGE_CHOICES = [-1, 0] as const;
@@ -252,9 +255,67 @@ function layout(n: number, edges: Edge[], mapping: GraphMapping) {
   return { place, levels: order.length, widest: Math.max(1, ...order.map(l => l.length)), roots };
 }
 
-/** What the step's own recorded event touched in the graph: a node (g[i], adj.get(i)) or an edge. */
-export function touched(event: ObservableEvent | null, g: GraphView, state: State): { node?: number; edge?: [number, number]; access?: string } {
+/** 14c: one-dimensional primitive arrays of the run, which may be linked to a graph's nodes. */
+export function nodeArrayCandidates(trace: Trace): string[] {
+  const out = new Set<string>();
+  const see = (name: string, javaType: string) => {
+    if (javaType.endsWith('[]') && !javaType.endsWith('[][]') && (NUMERIC.has(javaType.slice(0, -2)) || javaType === 'boolean[]')) out.add(name);
+  };
+  for (const b of trace.initialState?.bindings ?? []) see(b.name, b.javaType);
+  for (const e of trace.events) {
+    if (e.kind === 'DECLARE') see(e.data.binding.name, e.data.binding.javaType);
+    if (e.kind === 'CALL') for (const p of e.data.parameters) see(p.name, p.javaType);
+  }
+  return [...out];
+}
+
+export interface NodeValues {
+  name: string;
+  /** The array object, when it is in scope and has one entry per node. */
+  objectId?: string;
+  values?: Value[];
+  boolean?: boolean;
+  /** Why no values are shown at this step. */
+  note?: string;
+}
+
+/** 14c: the linked arrays' entries per node at this state (never a value from another step). */
+export function nodeValues(state: State, mapping: GraphMapping, n: number): NodeValues[] {
+  return (mapping.nodeArrays ?? []).map(name => {
+    const ref = lookup(state, name);
+    if (!ref) return { name, note: 'not in scope here' };
+    if (ref.kind !== 'ref') return { name, note: ref.kind === 'null' ? 'null' : 'not known here' };
+    const array = state.objects.get(ref.objectId);
+    if (!array || array.kind !== 'array') return { name, note: 'not an array' };
+    if (array.elements.length !== n) return { name, note: `has ${array.elements.length} entries for ${n} nodes` };
+    return { name, objectId: array.objectId, values: array.elements, boolean: array.elementType === 'boolean' };
+  });
+}
+
+/**
+ * 14c: index variables at each node. A variable that indexed the graph (`g[u]`, `adj.get(u)`)
+ * marks node u; for a matrix, one that indexed a row (`g[u][v]`) marks node v. The 11b rule:
+ * recorded accesses written literally with the variable, up to the cursor, at its current value.
+ */
+export function markers(g: GraphView, pointers: Map<string, Pointer[]>): Map<number, string[]> {
+  const out = new Map<number, string[]>();
+  const put = (p: Pointer) => {
+    if (p.value < 0 || p.value >= g.n) return;
+    const names = out.get(p.value) ?? [];
+    if (!names.includes(p.name)) names.push(p.name);
+    out.set(p.value, names);
+  };
+  for (const p of pointers.get(g.holder.objectId) ?? []) put(p);
+  if (g.form === 'matrix') for (const row of g.rows) for (const p of pointers.get(row) ?? []) put(p);
+  return out;
+}
+
+/** What the step's own recorded event touched in the graph: a node (g[i], adj.get(i), visited[i]) or an edge. */
+export function touched(event: ObservableEvent | null, g: GraphView, state: State, linked: string[] = []): { node?: number; edge?: [number, number]; access?: string } {
   if (!event) return {};
+  if ((event.kind === 'ARRAY_READ' || event.kind === 'ARRAY_WRITE') && linked.includes(event.data.objectId)) {
+    return { node: event.data.index, access: event.kind === 'ARRAY_READ' ? 'read' : 'write' };
+  }
   const row = (id: string | null) => id ? g.rows.indexOf(id) : -1;
   const entry = (i: number, k: number): number | null => {
     const r = state.objects.get(g.rows[i]);
