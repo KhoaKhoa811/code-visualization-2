@@ -508,6 +508,7 @@ final class Analyzer {
             effects.scan(s, null);
             site.unknownDeclarations = List.copyOf(effects.assigned);
             site.mayWriteArrays = effects.writes;
+            site.mayAdvanceIterators = effects.iterators; // Part 12c
             // javac positions a lowered for-each (and so its range table entry) at the iterated expression.
             Tree ranged = s instanceof EnhancedForLoopTree f ? f.getExpression() : s;
             site.crtStart = crt(start(ranged));
@@ -536,6 +537,12 @@ final class Analyzer {
         private final class Effects extends TreeScanner<Void, Void> {
             final Set<String> assigned = new LinkedHashSet<>();
             boolean writes;
+            boolean iterators; // Part 12c: the statement uses an iterator, which its code may advance unseen
+
+            @Override public Void visitIdentifier(IdentifierTree id, Void p) {
+                if (element(id) instanceof VariableElement && iteratorType(javaType(id))) iterators = true;
+                return super.visitIdentifier(id, p);
+            }
 
             private void target(ExpressionTree t) {
                 t = strip(t);
@@ -1462,7 +1469,8 @@ final class Analyzer {
         private boolean localType(String t) {
             return SCALARS.contains(t) || t.equals("java.lang.String") || classes.containsKey(t) || array(t)
                     || BOXES.containsKey(t) || libraryType(t) // Part 8f
-                    || functionalType(t) || streamType(t); // Part 10d
+                    || functionalType(t) || streamType(t) // Part 10d
+                    || iteratorType(t); // Part 12c
         }
 
         // ---- Part 8f: boxed values, strings and library collections --------------------------
@@ -1529,18 +1537,25 @@ final class Analyzer {
             return raw.equals("java.util.stream.Stream") || raw.equals("java.util.Optional") ? args.size() == 1 && elementType(args.get(0)) : args.isEmpty();
         }
 
+        /** Part 12c: an iterator of a covered list, set or deque, used directly (hasNext, next, remove). */
+        private boolean iteratorType(String t) {
+            List<String> args = typeArguments(t);
+            return erasure(t).equals("java.util.Iterator") && args.size() == 1 && elementType(args.get(0));
+        }
+
         private static final Map<String, Set<String>> FAMILY_METHODS = Map.ofEntries(
                 Map.entry("string", Set.of("length", "charAt", "substring", "indexOf", "lastIndexOf", "equals", "compareTo", "contains",
                         "startsWith", "endsWith", "isEmpty", "toUpperCase", "toLowerCase", "trim", "toCharArray", "split", "chars")), // 10d: arrays, streams
                 Map.entry("builder", Set.of("append", "insert", "reverse", "toString", "length", "charAt", "setCharAt", "deleteCharAt", "setLength")),
                 Map.entry("list", Set.of("add", "get", "set", "remove", "size", "isEmpty", "contains", "indexOf", "clear",
-                        "forEach", "removeIf", "replaceAll", "sort", "stream")), // 10d: calls that run functions
+                        "forEach", "removeIf", "replaceAll", "sort", "stream", "iterator")), // 10d: calls that run functions; 12c: iterator
                 Map.entry("deque", Set.of("push", "pop", "peek", "offer", "poll", "add", "remove", "addFirst", "addLast", "offerFirst", "offerLast",
                         "pollFirst", "pollLast", "peekFirst", "peekLast", "removeFirst", "removeLast", "size", "isEmpty", "empty", "clear",
-                        "forEach", "removeIf", "stream")),
+                        "forEach", "removeIf", "stream", "iterator")),
                 Map.entry("map", Set.of("put", "get", "getOrDefault", "containsKey", "remove", "size", "isEmpty", "clear",
                         "forEach", "merge", "computeIfAbsent", "computeIfPresent", "compute")),
-                Map.entry("set", Set.of("add", "contains", "remove", "size", "isEmpty", "clear", "forEach", "removeIf", "stream")),
+                Map.entry("set", Set.of("add", "contains", "remove", "size", "isEmpty", "clear", "forEach", "removeIf", "stream", "iterator")),
+                Map.entry("iterator", Set.of("hasNext", "next", "remove")), // Part 12c
                 // Part 10d: sequential streams; a terminal operation runs the pipeline's functions.
                 Map.entry("stream", Set.of("filter", "map", "mapToInt", "mapToObj", "boxed", "sorted", "distinct", "limit", "skip", "peek",
                         "sum", "count", "min", "max", "average", "reduce", "anyMatch", "allMatch", "noneMatch", "findFirst", "forEach",
@@ -1581,8 +1596,9 @@ final class Analyzer {
                 String raw = erasure(receiver);
                 // Part 8h: the message of a caught exception, replayed from the recorded exception object.
                 if (exceptionElement(receiver) != null && name.equals("getMessage") && m.getParameters().isEmpty()) return m;
-                if (!raw.equals("java.lang.String") && !libraryType(receiver) && !functionalType(receiver) && !streamType(receiver)) return null;
-                String family = streamType(receiver) ? (raw.startsWith("java.util.stream.") ? "stream" : "optional")
+                if (!raw.equals("java.lang.String") && !libraryType(receiver) && !functionalType(receiver) && !streamType(receiver)
+                        && !iteratorType(receiver)) return null;
+                String family = iteratorType(receiver) ? "iterator" : streamType(receiver) ? (raw.startsWith("java.util.stream.") ? "stream" : "optional")
                         : functionalType(receiver) ? "function" : raw.equals("java.lang.String") ? "string" : raw.equals(BUILDER) ? "builder" : raw.equals(SCANNER) ? "scanner"
                         : raw.equals(READER) ? "reader" : raw.equals(ENTRY) ? "entry"
                         : LISTS.contains(raw) ? "list"

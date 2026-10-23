@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "1.10.0",
+  "schemaVersion": "1.11.0",
   "runId": "example-string-capture",
   "source": {
     "file": "Main.java",

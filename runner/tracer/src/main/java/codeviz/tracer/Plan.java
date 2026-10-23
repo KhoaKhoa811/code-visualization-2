@@ -36,6 +36,7 @@ final class Plan {
         // REGION (Part 8a): a statement that runs without capture, and what it may change.
         List<String> unknownDeclarations = List.of(); // covered locals the statement may assign
         boolean mayWriteArrays;
+        boolean mayAdvanceIterators;        // Part 12c: the statement uses an iterator variable
         int crtStart = -1, crtEnd = -1;     // javac CharacterRangeTable positions (line << 10 | column)
         int crtFirstStart = -1, crtFirstEnd = -1; // try-with-resources: its code starts with the first resource's own entry
         // Part 8b. ARITHMETIC: javaType is the operation type; CAST: fromType -> javaType.

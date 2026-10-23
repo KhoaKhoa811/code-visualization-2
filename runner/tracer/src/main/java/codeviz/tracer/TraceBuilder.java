@@ -311,6 +311,8 @@ final class TraceBuilder {
         addObservable(site, "UNCAPTURED", data);
         sawRegion = true;
         regionThrow = true; // until the next recorded operation, a catch or finally may receive what it threw (Part 8h)
+        // Part 12c: code that ran unseen may have advanced an iterator; its twin no longer follows it.
+        if (site.mayAdvanceIterators) streamTwins.values().removeIf(java.util.Iterator.class::isInstance);
         if (site.mayWriteArrays) {
             openRegion = data;
             openRegionEvent = events.get(events.size() - 1);
@@ -1323,6 +1325,8 @@ final class TraceBuilder {
         List<Object> arguments = new ArrayList<>();
         Map<String, Object> javaArrays = new LinkedHashMap<>(); // Part 10d: array arguments, replayed on copies of their state
         String changedArgument = null; // Part 10d: a mirror argument a static call may change (Collections.sort)
+        // Part 12c: an iterator's remove() changes the collection it iterates.
+        if (site.instance && stream(t[1]) && target instanceof java.util.Iterator) changedArgument = iteratorSources.get(t[1]);
         for (int i = 0; i < n; i++) {
             String token = t[3 + i];
             if (function(token)) { // Part 10d: a function the call runs, replayed by a stand-in returning recorded results
@@ -1361,6 +1365,7 @@ final class TraceBuilder {
         } else if (stream(token)) { // Part 10d: a stream or optional the call made: its replayed twin
             if (replayed == null || streamTwins.containsKey(token)) throw new Inconsistent("library stream result");
             streamTwins.put(token, replayed);
+            if (replayed instanceof java.util.Iterator && receiverId != null) iteratorSources.put(token, receiverId); // Part 12c
             String base = !site.instance ? site.owner.substring(site.owner.lastIndexOf('.') + 1)
                     : stream(t[1]) ? streamLabels.get(t[1]) : target instanceof String ? "String" : target.getClass().getSimpleName();
             streamLabels.put(token, base + "." + site.name + "(" + arguments.stream().map(a -> label((Map<?, ?>) a)).reduce((a, b) -> a + ", " + b).orElse("") + ")");
@@ -1596,6 +1601,7 @@ final class TraceBuilder {
 
     private final Map<String, Object> streamTwins = new HashMap<>(); // s<n> -> the replayed stream or optional
     private final Map<String, String> streamLabels = new HashMap<>();
+    private final Map<String, String> iteratorSources = new HashMap<>(); // Part 12c: s<n> of an iterator -> the collection it iterates
 
     /** Whether a record token is a stream or optional: s<n>. */
     private static boolean stream(String token) { return token.length() > 1 && token.charAt(0) == 's'; }
@@ -1606,13 +1612,15 @@ final class TraceBuilder {
         if (twin == null) throw new Inconsistent("a stream made by code that was not recorded");
         if (twin instanceof java.util.Optional<?> || twin instanceof java.util.OptionalInt || twin instanceof java.util.OptionalDouble)
             return ordered("kind", "optional", "label", twin.toString());
+        // Part 12c: an iterator, with the collection it iterates.
+        if (twin instanceof java.util.Iterator) return ordered("kind", "iterator", "label", streamLabels.get(token), "objectId", iteratorSources.get(token));
         return ordered("kind", "stream", "label", streamLabels.get(token));
     }
 
     /** Short text of an argument inside a stream's label. */
     private String label(Map<?, ?> value) {
         Object kind = value.get("kind");
-        if ("function".equals(kind) || "stream".equals(kind) || "optional".equals(kind)) return (String) value.get("label");
+        if ("function".equals(kind) || "stream".equals(kind) || "optional".equals(kind) || "iterator".equals(kind)) return (String) value.get("label");
         if ("ref".equals(kind)) {
             String text = stringTexts.get((String) value.get("objectId"));
             return text == null ? "…" : '"' + text + '"';
@@ -1853,7 +1861,7 @@ final class TraceBuilder {
             diagnosticJson.add(map);
         }
         return Json.write(ordered(
-                "schemaVersion", "1.10.0",
+                "schemaVersion", "1.11.0",
                 "runId", runId,
                 "source", ordered("file", Analyzer.FILE, "text", source, "sha256", sha256(source)),
                 "execution", ordered("status", executionStatus, "reason", executionReason),

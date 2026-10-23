@@ -10,6 +10,8 @@ export type Value =
   | { kind: 'null' }
   // 1.10.0: a lambda, method reference or library-made function, shown by its label
   | { kind: 'function' | 'stream' | 'optional'; label: string }
+  // 1.11.0: an iterator used directly, shown by the call that made it; objectId is the collection it iterates
+  | { kind: 'iterator'; label: string; objectId: string }
   | { kind: 'unassigned' }
   // 1.1.0: state that uncaptured code may have changed and nothing has observed since.
   | { kind: 'unknown' };
@@ -91,7 +93,7 @@ export interface Diagnostic {
 }
 
 export interface Trace {
-  schemaVersion: '1.10.0';
+  schemaVersion: '1.11.0';
   runId: string;
   source: { file: 'Main.java'; text: string; sha256: string };
   execution: { status: ExecutionStatus; reason: string };

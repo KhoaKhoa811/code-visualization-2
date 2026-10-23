@@ -52,6 +52,7 @@ final class PlanCodec {
             if (s.kind == Kind.REGION) {
                 m.put("unknownDeclarations", new ArrayList<Object>(s.unknownDeclarations));
                 m.put("mayWriteArrays", s.mayWriteArrays);
+                if (s.mayAdvanceIterators) m.put("mayAdvanceIterators", true); // Part 12c
             }
             if (s.leaf != null) {
                 m.put("leaf", condIds.get(s.leaf));
@@ -129,6 +130,7 @@ final class PlanCodec {
             if (m.containsKey("unknownDeclarations")) {
                 s.unknownDeclarations = ((List<Object>) m.get("unknownDeclarations")).stream().map(String.class::cast).toList();
                 s.mayWriteArrays = (Boolean) m.get("mayWriteArrays");
+                s.mayAdvanceIterators = Boolean.TRUE.equals(m.get("mayAdvanceIterators"));
             }
             sites.put(s.id, s);
             rawSites.put(s.id, m);

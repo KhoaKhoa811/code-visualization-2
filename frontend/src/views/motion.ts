@@ -58,7 +58,8 @@ export function motionFor(event: ObservableEvent | null, before: State, after: S
       return [...flight(value(event.data.value, after), CODE, { field: { objectId: event.data.objectId, name: event.data.field } },
         value(event.data.previous, before)), { kind: 'pulse', at: { treeNode: event.data.objectId } }];
     case 'LIBRARY':
-      return libraryMotion(event.data.objectId, event.data.after !== null, before, after, forward);
+      // 12c: a static call (Arrays.fill, Collections.sort) or an iterator's remove() changes the object in its after.
+      return libraryMotion(event.data.objectId ?? event.data.after?.objectId ?? null, event.data.after !== null, before, after, forward);
     case 'ARRAY_READ': {
       const read: Motion = { kind: 'flight', text: value(event.data.value, after), from: { cell: { objectId: event.data.objectId, index: event.data.index } }, to: CODE };
       return forward ? [read] : [];
@@ -103,6 +104,12 @@ function items(state: State, id: string): string[] | null {
  */
 function libraryMotion(id: string | null, changed: boolean, before: State, after: State, forward: boolean): Motion[] {
   if (!id || !changed) return [];
+  const array = after.objects.get(id);
+  if (array?.kind === 'array') { // 12a: an array a library call changed (Arrays.fill, Arrays.sort): its changed cells pulse
+    const old = before.objects.get(id);
+    const changes = array.elements.flatMap((v, i) => old?.kind === 'array' && formatValue(old.elements[i], before.objects) === formatValue(v, after.objects) ? [] : [i]);
+    return changes.length > 6 ? [{ kind: 'pulse', at: { box: id } }] : changes.map(i => ({ kind: 'pulse' as const, at: { cell: { objectId: id, index: i } } }));
+  }
   const was = items(before, id), now = items(after, id);
   if (!was || !now) return [];
   const first = (a: string[], b: string[]) => { let i = 0; while (i < a.length && i < b.length && a[i] === b[i]) i++; return i; };

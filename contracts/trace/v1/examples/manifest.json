@@ -60,6 +60,11 @@
     "reason": "A helper throws, its frame unwinds mid-trace, and main catches the exception object (1.7.0)."
   },
   {
+    "file": "valid/iterators.json",
+    "schemaValid": true,
+    "reason": "An iterator used directly: iterator(), hasNext(), next() and remove() replayed on the list, remove() showing the list after it, and iterator values (1.11.0)."
+  },
+  {
     "file": "valid/streams.json",
     "schemaValid": true,
     "reason": "Stream pipelines: lambdas run element by element via the terminal operation, stream and optional values, groupingBy, and a stream used twice failing (1.10.0)."

@@ -445,8 +445,9 @@ public final class Recorder {
         String known = FUNCS.get(o);
         if (known != null) return known;
         // Streams and their optionals are values the builder replays too: s<n>.
+        // Part 12c: so are iterators used directly (a Scanner is an iterator too, but a recorded library object).
         if (o instanceof java.util.stream.BaseStream || o instanceof java.util.Optional || o instanceof java.util.OptionalInt
-                || o instanceof java.util.OptionalDouble) {
+                || o instanceof java.util.OptionalDouble || o instanceof java.util.Iterator && !(o instanceof java.util.Scanner)) {
             String token = "s" + (++producedFunctions);
             FUNCS.put(o, token);
             return token;

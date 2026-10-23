@@ -1260,6 +1260,46 @@ class TracerTest {
         assertEquals(3, uncaptured(u).size(), String.join("\n", steps(u.trace()))); // Object[] itself is not traced
     }
 
+    @Test void iteratorsUsedDirectlyAreReplayedOnTheirCollection() throws Exception { // Part 12c
+        Run r = main("iterators", """
+                java.util.List<Integer> xs = new java.util.ArrayList<>();
+                xs.add(1); xs.add(2); xs.add(3); xs.add(4);
+                java.util.Iterator<Integer> it = xs.iterator();
+                int sum = 0;
+                while (it.hasNext()) {
+                    int x = it.next();
+                    if (x % 2 == 0) it.remove();
+                    else sum += x;
+                }
+                java.util.Set<String> s = new java.util.TreeSet<>();
+                s.add("b"); s.add("a");
+                for (java.util.Iterator<String> i = s.iterator(); i.hasNext(); ) System.out.print(i.next());
+                System.out.println(" " + xs + " " + sum);""");
+        assertComplete(r, "completed");
+        assertEquals("ab [1, 3] 4\n", r.result().stdout());
+        assertEquals(List.of(), uncaptured(r));
+        List<String> steps = textSteps(r.trace());
+        assertInOrder(steps, "LIB iterator() = null @xs.iterator()", "LIB hasNext() = true @it.hasNext()", "LIB next() = 1 @it.next()",
+                "LIB next() = 2 @it.next()", "LIB remove() -> [1,3,4] @it.remove()", "LIB next() = 3 @it.next()",
+                "LIB remove() -> [1,3] @it.remove()", "LIB hasNext() = false @it.hasNext()", "LIB next() = \"a\" @i.next()");
+        Map<String, Object> declared = events(r.trace()).stream().filter(e -> "DECLARE".equals(e.get("kind")))
+                .map(e -> map(e.get("data"))).filter(d -> "it".equals(map(d.get("binding")).get("name"))).findFirst().orElseThrow();
+        Map<String, Object> value = map(map(declared.get("binding")).get("value"));
+        assertEquals("iterator", value.get("kind"));
+        assertEquals("ArrayList.iterator()", value.get("label"));
+        assertEquals("o2", value.get("objectId"));
+
+        // Code that runs unseen may advance the iterator: capture stops before its next use.
+        Run u = main("iterator-uncaptured", """
+                java.util.List<Integer> xs = new java.util.ArrayList<>();
+                xs.add(1); xs.add(2);
+                java.util.Iterator<Integer> it = xs.iterator();
+                System.out.println(Integer.toBinaryString(it.next()));
+                int y = it.next();""");
+        assertEquals("partial", status(u.trace(), "capture"));
+        assertEquals("1\n", u.result().stdout());
+    }
+
     @Test void printingLibraryValuesAndReverseOrderCollections() throws Exception {
         Run r = main("print-and-reverse", """
                 java.util.PriorityQueue<Integer> pq = new java.util.PriorityQueue<>(java.util.Collections.reverseOrder());
