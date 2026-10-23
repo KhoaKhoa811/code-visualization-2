@@ -4,6 +4,7 @@
 // array. Anything the recorded fields do not determine is said, not guessed.
 import { useLayoutEffect, useRef, useState } from 'react';
 import { formatValue, namesOf, shortClass } from '../trace/format.ts';
+import { VarTags } from './VarTags.tsx';
 import type { State, View } from '../trace/playback.ts';
 import { projectList, projectQueue, projectStack, type ArrayView, type StructMapping } from '../trace/structures.ts';
 import { Draggable, Panel } from './Draggable.tsx';
@@ -57,14 +58,13 @@ function ListView({ view, mapping }: { view: View; mapping: StructMapping & { ki
           {lines.map(l => <path key={l.key} d={l.d} className={l.repeat ? 'repeat' : undefined} markerEnd="url(#list-head)" />)}
         </svg>
         {chains.map((c, row) => c.nodes.map((n, i) => {
-          const names = [...new Set(namesOf(state, n.objectId).filter(x => !x.includes('.')))].slice(0, 2);
           const hit = focus.objectId === n.objectId ? ` ${focus.access ?? ''}` : '';
           const last = i === c.nodes.length - 1;
           return (
             <Draggable id={`list:${n.objectId}`} key={n.objectId} className={`list-node${hit}`} data-list-node={n.objectId} data-testid="list-node"
                        style={{ left: i * GX, top: row * GY }} title={n.objectId}>
               <span className="tree-value">{formatValue(n.value, state.objects)}</span>
-              {names.length > 0 && <span className="list-names">{names.join(' = ')}</span>}
+              <VarTags view={view} objectId={n.objectId} />
               {last && c.end.kind === 'null' && <span className="list-end">null</span>}
               {last && c.end.kind === 'unknown' && <span className="list-end unknown">?</span>}
               {last && c.end.kind === 'other' && <span className="list-end">{formatValue(c.end.value, state.objects)}</span>}

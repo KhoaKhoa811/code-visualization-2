@@ -3,6 +3,7 @@
 // structure is guessed. Shared objects appear once; cycles draw back-arrows.
 import { useLayoutEffect, useRef, useState } from 'react';
 import { formatValue, namesOf, objectLabel } from '../trace/format.ts';
+import { VarTags } from './VarTags.tsx';
 import type { State, View } from '../trace/playback.ts';
 import type { TraceObject } from '../trace/types.ts';
 import { Draggable, Panel } from './Draggable.tsx';
@@ -88,7 +89,8 @@ export function ObjectGraph({ view }: { view: View }) {
                 <Draggable id={`object:${o.objectId}`} className={`object${allocated ? ' allocated' : ''}`} key={o.objectId} data-object={o.objectId} data-box={o.objectId}
                      data-testid={`object-${names[0] ?? o.objectId}`}>
                   <div className="object-label" title={names.join(' = ')}>
-                    {objectLabel(o)}{names.length > 0 && <span className="muted"> {names.slice(0, 2).join(' = ')}</span>}
+                    {objectLabel(o)} <VarTags view={view} objectId={o.objectId} />
+                    {names.some(n => n.includes('.')) && <span className="muted"> {names.filter(n => n.includes('.')).slice(0, 2).join(' = ')}</span>}
                   </div>
                   {o.fields.map(f => {
                     const hit = focus.objectId === o.objectId && focus.field === f.name ? ` ${focus.access}` : '';

@@ -853,6 +853,54 @@ test('the template has the imports and main ready, and code typed into it runs t
   await expect(page.getByTestId('run-summary')).not.toContainText('without capture');
 });
 
+test('a DP write shows the cells it was computed from; heat, bars, ranges and string arrows (18a-18c, 18e)', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.monaco-editor')).toBeVisible();
+  await page.getByLabel('Example').selectOption('DP and two pointers');
+  await run(page);
+  await expect(page.getByTestId('console-output')).toHaveText('35 2 6 true\n');
+  const detail = page.getByTestId('step-detail');
+  const forward = page.getByRole('button', { name: 'Step forward' });
+  // 18a: paths[1][1] = paths[0][1] + paths[1][0]: two arrows into the written cell.
+  for (let i = 0; i < 300 && !(await detail.textContent())?.includes('Write paths[1][1]'); i++) await forward.click();
+  const grid = page.getByTestId('array-paths');
+  await expect(grid.getByTestId('flow-arrows')).toHaveAttribute('data-count', '2');
+  await grid.scrollIntoViewIfNeeded();
+  await grid.screenshot({ path: 'test-results/dp-flow.png' });
+  await grid.getByTestId('look-heat').click();
+  await expect(grid.getByTestId('look-heat')).toHaveAttribute('aria-pressed', 'true');
+  await page.getByTitle('End').click();
+  await expect(grid.getByTestId('cell').last()).toHaveText(/35/);
+  await grid.screenshot({ path: 'test-results/dp-heat.png' });
+
+  // 18b: bars; 18c: left and right shade the cells between them.
+  const a = page.getByTestId('array-a');
+  await a.getByTestId('look-bars').click();
+  await expect(a.getByTestId('bar')).toHaveCount(7);
+  await page.getByTitle('Restart').click();
+  for (let i = 0; i < 600 && !(await detail.textContent())?.includes('Read a[6]'); i++) await forward.click();
+  await expect(a.locator('.cell.in-range')).toHaveCount(7); // left = 0, right = 6
+  // 18e: s.charAt(i) and s.charAt(j) put i and j over the characters.
+  for (let i = 0; i < 600 && !(await detail.textContent())?.includes('.charAt(6)'); i++) await forward.click();
+  const s = page.getByTestId('string-s');
+  await expect(s.getByTestId('char')).toHaveCount(7);
+  await expect(s.getByTestId('pointer-i')).toHaveAttribute('data-value', '0');
+  await expect(s.getByTestId('pointer-j')).toHaveAttribute('data-value', '6');
+  await a.scrollIntoViewIfNeeded();
+  await a.screenshot({ path: 'test-results/bars-range.png' });
+  await s.scrollIntoViewIfNeeded();
+  await s.screenshot({ path: 'test-results/string-pointers.png' });
+});
+
+test('a variable referring to a node is a tag on it (18d)', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.monaco-editor')).toBeVisible();
+  await page.getByLabel('Example').selectOption('Linked list and tree');
+  await run(page);
+  await page.getByTitle('End').click();
+  await expect(page.getByTestId('var-tag-head').first()).toBeVisible();
+});
+
 test('a program reads live console input and playback shows the read (8g, AC-19)', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('.monaco-editor')).toBeVisible();
