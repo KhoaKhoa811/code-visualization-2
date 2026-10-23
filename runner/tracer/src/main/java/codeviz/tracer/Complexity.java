@@ -417,10 +417,9 @@ final class Complexity {
             Result recursion(Cost work) {
                 if (selfCalls.isEmpty()) return new Result(work, approximate, List.copyOf(reasons));
                 boolean inLoop = selfCalls.stream().anyMatch(s -> s.inLoop);
-                long alternatives = selfCalls.stream().filter(s -> s.branch).count();
-                long always = selfCalls.size() - alternatives;
-                // Calls in different branches are alternatives: one of them runs.
-                int a = (int) Math.max(1, always + (alternatives > 0 ? 1 : 0));
+                // Part 17: self-calls per invocation, at most: statements in sequence add up (two separate ifs
+                // can both run); only the then and else of one if (or one ?: or switch) are alternatives.
+                int a = Math.max(1, count(methods.get(self).getBody()));
                 String shrink = "unknown";
                 for (SelfCall s : selfCalls) {
                     String k = shrink(s.call);
@@ -454,6 +453,37 @@ final class Complexity {
                     reasons.add("calls itself " + (a == 1 ? "once" : a + " times") + " on half the input, " + work.text() + " work besides: " + cost.text());
                 }
                 return new Result(cost, approximate, List.copyOf(reasons));
+            }
+
+            /** The most self-calls one pass through a statement can make (loops are counted once; a self-call in a loop is handled apart). */
+            int count(Tree t) {
+                return switch (t) {
+                    case null -> 0;
+                    case BlockTree b -> b.getStatements().stream().mapToInt(this::count).sum();
+                    case IfTree i -> count(i.getCondition()) + Math.max(count(i.getThenStatement()), count(i.getElseStatement()));
+                    case ConditionalExpressionTree c -> count(c.getCondition()) + Math.max(count(c.getTrueExpression()), count(c.getFalseExpression()));
+                    case SwitchTree s -> count(s.getExpression()) + s.getCases().stream().mapToInt(k -> k.getBody() != null ? count(k.getBody())
+                            : k.getStatements().stream().mapToInt(this::count).sum()).max().orElse(0);
+                    case SwitchExpressionTree s -> count(s.getExpression()) + s.getCases().stream().mapToInt(k -> k.getBody() != null ? count(k.getBody())
+                            : k.getStatements().stream().mapToInt(this::count).sum()).max().orElse(0);
+                    case LambdaExpressionTree l -> 0;
+                    default -> { // any other statement or expression: its self-calls, ?: and nested branches counted as above
+                        int[] n = {0};
+                        new TreeScanner<Void, Void>() {
+                            @Override public Void visitMethodInvocation(MethodInvocationTree call, Void p) {
+                                if (element(call) instanceof ExecutableElement m && m.equals(self)) n[0]++;
+                                return super.visitMethodInvocation(call, p);
+                            }
+                            @Override public Void visitConditionalExpression(ConditionalExpressionTree c, Void p) { n[0] += count(c); return null; }
+                            @Override public Void visitIf(IfTree i, Void p) { n[0] += count(i); return null; }
+                            @Override public Void visitBlock(BlockTree b, Void p) { n[0] += count(b); return null; }
+                            @Override public Void visitSwitch(SwitchTree s, Void p) { n[0] += count(s); return null; }
+                            @Override public Void visitSwitchExpression(SwitchExpressionTree s, Void p) { n[0] += count(s); return null; }
+                            @Override public Void visitLambdaExpression(LambdaExpressionTree l, Void p) { return null; }
+                        }.scan(t, null);
+                        yield n[0];
+                    }
+                };
             }
 
             /**

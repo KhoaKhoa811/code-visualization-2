@@ -299,4 +299,9 @@ not verbatim transcripts, unless quoted.
   calls/steps. Tracer 143 tests (ComplexityTest 4), contract 66, frontend 64 unit.- Part 16 (user: "add one code options ... already define all the library and main function"):
   "New program (template)" with java.util.*, java.util.function.*, java.util.stream.* imports
   and an empty main (no Scanner, so the run is not interactive until the user adds one).
-  Branch feat/part-16-template stacked on Part 15. Unit 64, build, browser tests 16 and 11c.
+  Branch feat/part-16-template stacked on Part 15. Unit 64, build, browser tests 16 and 11c.- Part 17 (user: "please review the code to see if we handle backtracking yet?", then "please fix
+  both"): a probe of four backtracking programs found permutations, N-queens and parentheses fully
+  traced, subsets with res.add(new ArrayList<>(path)) partial (copy constructors uncovered), and
+  the complexity of two separate recursing ifs as O(n²). Fixed: copy constructors (libCopy record,
+  builder checks the JDK's copy of the source mirror), and a per-statement self-call count. Suite
+  B1-B4 added. Branch feat/part-17-backtracking stacked on Part 16. Tracer 148.

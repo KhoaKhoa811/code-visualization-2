@@ -276,3 +276,10 @@ passes all of them.
 3. Comparators: covered when passed to a sort; still not covered when kept inside a
    `PriorityQueue`, `TreeMap` or `TreeSet` (keeps decision 3 of revision 1).
 4. Size: 10d grows from 3 to 5 increments; G6 and G7 are the largest pieces.
+
+## Part 17: backtracking (2026-10-24)
+
+Programs B1-B4 (permutations with a `used` array, subsets with a path list copied by
+`new ArrayList<>(path)`, N-queens with a `safe` helper, parentheses with `StringBuilder`
+append/`deleteCharAt`) trace completely with no uncaptured statement: choosing, recursing and
+undoing are all steps. The copy constructor was the one gap (see [library](library.md)).

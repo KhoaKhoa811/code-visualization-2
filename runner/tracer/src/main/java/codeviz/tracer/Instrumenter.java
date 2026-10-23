@@ -844,8 +844,19 @@ final class Instrumenter {
             case LIBNEW -> {
                 InsnList after = new InsnList();
                 after.add(new InsnNode(Opcodes.DUP));
-                after.add(siteConstant(site));
-                after.add(call("libNew", "(Ljava/lang/Object;I)V"));
+                if ("copy".equals(site.operator)) { // Part 17: the source of a copy constructor is recorded with the copy
+                    int spare = m.maxLocals + 2;
+                    InsnList before = new InsnList();
+                    before.add(new InsnNode(Opcodes.DUP));
+                    before.add(new VarInsnNode(Opcodes.ASTORE, spare));
+                    list.insertBefore(insn, before);
+                    after.add(new VarInsnNode(Opcodes.ALOAD, spare));
+                    after.add(siteConstant(site));
+                    after.add(call("libCopy", "(Ljava/lang/Object;Ljava/lang/Object;I)V"));
+                } else {
+                    after.add(siteConstant(site));
+                    after.add(call("libNew", "(Ljava/lang/Object;I)V"));
+                }
                 list.insert(insn, after);
             }
             case LAMBDA -> { // Part 10d: the new function object is registered with its site

@@ -736,7 +736,11 @@ final class TraceBuilder {
                     if (t.length < 3) throw new Inconsistent("library allocation record");
                     String id = object(t[1]);
                     if (knownObjects.contains(id)) throw new Inconsistent("reused object identity");
-                    buildMirror(id, t[2], List.of(t).subList(3, t.length));
+                    boolean copy = "copy".equals(site.operator); // Part 17: the source's token comes last
+                    if (copy && t.length < 4) throw new Inconsistent("library copy record");
+                    Object source = copy ? mirror(t[t.length - 1]) : null;
+                    buildMirror(id, t[2], List.of(t).subList(3, copy ? t.length - 1 : t.length));
+                    if (copy) checkCopy(mirrors.get(id), source);
                     addObservable(site, "ALLOCATE", ordered("object", libraryValue(id)));
                     return;
                 }
@@ -1188,6 +1192,28 @@ final class TraceBuilder {
             @SuppressWarnings("unchecked") java.util.Collection<Object> c = (java.util.Collection<Object>) mirror;
             for (int i = 0; i < n; i++) c.add(mirror(body.get(1 + i)));
         }
+    }
+
+    /**
+     * Part 17: a copy constructor's result is the JDK's own copy of the source mirror: the same
+     * class built from it must hold what was recorded (same order for lists, deques and linked
+     * or sorted collections). Elements are shared, as a shallow copy shares them.
+     */
+    private static void checkCopy(Object copy, Object source) throws Inconsistent {
+        if (copy == null || source == null) throw new Inconsistent("library copy of an unknown source");
+        Object expected;
+        try {
+            Class<?> parameter = copy instanceof Map ? Map.class : java.util.Collection.class;
+            if (!parameter.isInstance(source)) throw new Inconsistent("library copy source");
+            expected = copy.getClass().getConstructor(parameter).newInstance(source);
+        } catch (ReflectiveOperationException | RuntimeException e) { throw new Inconsistent("library copy replay"); }
+        // Hashed sets and maps have no order to compare (their tables may differ in size); the others do.
+        boolean ordered = copy instanceof java.util.LinkedHashMap || copy instanceof java.util.LinkedHashSet
+                || copy instanceof java.util.List || copy instanceof java.util.Deque;
+        boolean same = !ordered ? copy.equals(expected)
+                : copy instanceof Map<?, ?> m ? new ArrayList<>(m.entrySet()).equals(new ArrayList<>(((Map<?, ?>) expected).entrySet()))
+                : new ArrayList<>((java.util.Collection<?>) copy).equals(new ArrayList<>((java.util.Collection<?>) expected));
+        if (!same) throw new Inconsistent("library copy differs from its source");
     }
 
     /** The mirror value of a token: a box, a Str, a nested mirror, a Ref or null. */

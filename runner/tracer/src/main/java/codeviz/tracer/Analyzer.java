@@ -1725,6 +1725,10 @@ final class Analyzer {
                 "java.util.Stack", "java.util.HashMap", "java.util.TreeMap", "java.util.LinkedHashMap", "java.util.HashSet",
                 "java.util.TreeSet", "java.util.LinkedHashSet", "java.util.PriorityQueue", BUILDER, SCANNER, READER);
 
+        /** Part 17: classes whose copy constructor (from a collection or map) is covered; a PriorityQueue may adopt a comparator. */
+        private static final Set<String> COPYABLE = Set.of("java.util.ArrayList", "java.util.LinkedList", "java.util.ArrayDeque",
+                "java.util.HashSet", "java.util.LinkedHashSet", "java.util.TreeSet", "java.util.HashMap", "java.util.LinkedHashMap", "java.util.TreeMap");
+
         /** {@code new ArrayList<>()} and friends: an ALLOCATE step after the library constructor runs (Part 8f). */
         private boolean libraryNew(NewClassTree n) {
             String type = javaType(n), raw = erasure(type);
@@ -1763,6 +1767,19 @@ final class Analyzer {
                 Site site = site(Kind.ALLOCATE, n);
                 site.javaType = type;
                 plan.add(new Item(Expect.LIBNEW, site, 0, Instrumenter.internal(raw) + "#<init>(Ljava/util/Comparator;)V"));
+                return true;
+            }
+            // Part 17: a copy of a covered collection or map (res.add(new ArrayList<>(path))), replayed on its mirror.
+            if (COPYABLE.contains(raw) && (params.equals(List.of("java.util.Collection")) || params.equals(List.of("java.util.Map")))) {
+                String from = javaType(n.getArguments().get(0));
+                if (!libraryType(from) || erasure(from).equals(PQ) || erasure(from).equals(SCANNER) || erasure(from).equals(READER)
+                        || erasure(from).equals(BUILDER) || erasure(from).equals(ENTRY)) return false;
+                plan.add(new Item(Expect.NEW, null, 0, Instrumenter.internal(raw)));
+                value(n.getArguments().get(0), params.get(0));
+                Site site = site(Kind.ALLOCATE, n);
+                site.javaType = type;
+                site.operator = "copy";
+                plan.add(new Item(Expect.LIBNEW, site, 0, Instrumenter.internal(raw) + "#<init>(" + Instrumenter.descriptorOf(params.get(0)) + ")V"));
                 return true;
             }
             if (!params.isEmpty() && !params.equals(List.of("int")) && !(raw.equals(BUILDER) && params.equals(List.of("java.lang.String")))) return false;
