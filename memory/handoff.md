@@ -9,40 +9,28 @@
 
 - Updated: 2026-10-23 (Asia/Saigon)
 - Owner: Claude Code
-- Status: Part 12 done on `feat/part-12-library-visual` (from main 651d37f, which has 11a-11d).
-  Pushed; awaiting the user's review and merge.
-- Milestone: V1 complete (36/36 ACs, V1 support matrix agreed). Public deployment on hold
-  (user: "deployment can hold on").
+- Status: Part 13 done on `feat/part-13-recursion`, stacked on `feat/part-12-library-visual`
+  (Part 12 is pushed and not merged yet). Frontend only. Pushed; awaiting review and merge.
+- Milestone: V1 complete. Public deployment on hold (user: "deployment can hold on").
 
-## Part 12 roadmap (approved 2026-10-23: "I only need you to implement more library calls and Visual. after that update memory")
+## Part 13 (approved 2026-10-23: "ok, go ahead with all of them"); spec: specs/call-tree.md
 
-- [x] 12a `Arrays.fill` (whole or range; primitive arrays, String arrays with a string or null), `Math.pow`
-- [x] 12b varargs with written-out arguments: `String.format` (boxed values, strings, null), `Stream.of`;
-      plan format 11 (`varargs`); recorder `libVa`; builder repacks; format replayed with `Locale.US` and
-      `%n` = "\n"; the traced JVM now runs with `-Duser.language=en -Duser.country=US`
-- [x] 12c iterators used directly: `iterator()` of a list/set/deque, `hasNext`/`next`/`remove`;
-      trace 1.11.0 `iterator` value (label, objectId); twins over mirrors; `mayAdvanceIterators` regions
-      drop the twins; contract example `valid/iterators.json`
-- [x] 12d grid index arrows (`i ▶` beside rows, `▲ j` under the row last indexed; writes are now
-      matched by their target), returning-frame ghost (`frame-leaving`), array/iterator library motion;
-      new example "Iterator and format"
-- [x] specs: library.md, motion.md, v1-support-matrix.md, trace-format.md, contracts/trace/README.md
-- [x] memory: current-state, next-steps, archive/history-current
+- [x] 13a call tree panel (`calls` panel id, after the call stack): every call up to the cursor
+      under its caller, arguments, `→ result` / `done` / `threw`, running path outlined, 200-call bound
+- [x] 13b each waiting frame shows its call's source line with the call marked and `⏳ fib(2)`
+- [x] 13c returned values fill the mark (`fib(n - 1) = 2`) until the caller's first later step whose
+      code contains the call (or code past the call's line); shown on that step, then gone
+- [x] tests: calls.test.ts (2), layout test updated; browser test with the new example
+      "Fibonacci (call tree)"; screenshot test-results/call-tree.png
+- [x] memory and spec updated
 
 ## Verification
 
-- Root `clean verify` with live Docker: tracer 139, backend 102 passed (`.tools/verify-12.log`).
-- Contract `npm test`: 66 passed. Frontend: 53 unit, build OK.
-- Playwright: first full run 23 passed, 1 failed (the new grid test: writes were not matched,
-  fixed in pointers.ts); final full rerun 24 passed (`.tools/pw-12.log`); no run containers left.
-
-## Notes
-
-- Old tests that used `Arrays.fill`/`String.format`/`Stream.of` as uncaptured examples now use
-  `System.arraycopy`, the `Locale` overload, or a whole array passed to varargs.
-- The local app was stopped for verify/Playwright; restart with
-  `java -jar backend/target/backend-0.0.1-SNAPSHOT.jar` and `npm run dev -- --host 127.0.0.1 --port 5173`.
+- Frontend: 55 unit passed, build OK. Playwright: new test passed after fixes (selector matched
+  main; first value-use rule cleared fib(n - 1) at the `n - 2` step). Full run 24 passed, 1 failed (9a drag test: Objects panel order is 6 now, since the calls panel), fixed and rerun: passed. 25/25.
+- Java and contracts unchanged since Part 12's verify (tracer 139, backend 102, contract 66).
 
 ## Next action
 
-Report Part 12 with the PR link; wait for the user's merge and next request.
+Report Part 13 with the PR link (base it on Part 12, or on main after Part 12 merges); wait.
+Restart the local app for the user afterwards (it is stopped during Playwright).

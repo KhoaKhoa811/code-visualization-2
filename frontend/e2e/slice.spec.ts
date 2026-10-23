@@ -201,7 +201,7 @@ test('dragging diagram boxes and reordering panels changes layout only (9a, AC-1
   await expect(page.getByRole('region', { name: 'Call stack' })).toHaveCSS('order', '1');
 
   await page.getByRole('button', { name: 'Reset layout' }).click();
-  await expect(objects).toHaveCSS('order', '5');
+  await expect(objects).toHaveCSS('order', '6'); // after variables, calls (13a), collections, trees, structures, heaps
   expect(Math.round((await head.boundingBox())!.x - before.x)).toBe(0);
 });
 
@@ -680,6 +680,38 @@ test('a returning frame leaves the call stack while motion is on (12d)', async (
   if (!(await detail.textContent())?.includes('Return')) await expect(ghost).toHaveCount(0); // gone on the next step
   await page.getByRole('button', { name: 'Step back' }).click();
   await expect(ghost).toHaveCount(0); // stepping back brings the frame back; nothing leaves
+});
+
+test('the call tree keeps every call with its result, and a caller shows what it waits for and received (13)', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.monaco-editor')).toBeVisible();
+  await page.getByLabel('Example').selectOption('Fibonacci (call tree)');
+  await run(page);
+  await expect(page.getByTestId('console-output')).toHaveText('3\n');
+  const tree = page.getByTestId('call-tree');
+  const forward = page.getByRole('button', { name: 'Step forward' });
+  // Step until fib(n - 1) of the outer call has returned and fib(n - 2) is running: the caller
+  // fib(4) shows the received value and the call it now waits for on the same line.
+  const outer = page.getByTestId('frame').filter({ has: page.locator('.frame-name', { hasText: /^fib/ }) }).last();
+  for (let i = 0; i < 300; i++) {
+    if (await outer.getByTestId('call-filled').count() && await outer.getByTestId('call-waiting').count()) break;
+    await forward.click();
+  }
+  await expect(outer.getByTestId('call-filled')).toContainText('fib(n - 1) = 2'); // fib(3) returned 2
+  await expect(outer.getByTestId('call-waiting')).toContainText('fib(n - 2)');
+  await expect(outer.getByTestId('call-link')).toHaveText('waits at return fib(n - 1) = 2 + fib(n - 2) ⏳ fib(2);');
+  await expect(tree.locator('[data-status="current"]')).toHaveCount(1);
+  await expect(tree.locator('.call-label', { hasText: 'fib(3) → 2' })).toHaveCount(1);
+  await page.screenshot({ path: 'test-results/call-tree.png' });
+
+  // The next steps add the + : the received values stay until fib(4) uses them.
+  await page.getByTitle('End').click();
+  await expect(tree.locator('.call-label', { hasText: 'fib(4) → 3' })).toHaveCount(1);
+  await expect(tree.getByTestId('call-node')).toHaveCount(10); // main and nine calls of fib
+  await expect(tree.locator('[data-status="returned"]')).toHaveCount(9);
+  // Rewinding removes calls that have not happened yet.
+  await page.getByTitle('Restart').click();
+  await expect(tree).toHaveCount(0);
 });
 
 test('a program reads live console input and playback shows the read (8g, AC-19)', async ({ page }) => {

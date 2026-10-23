@@ -261,3 +261,25 @@ body.motion-off .frame.leaving { display: none; }
 /* Playback icons: one drawn set, centred in each button. */
 .controls button { display: inline-flex; align-items: center; justify-content: center; min-width: 36px; }
 .controls button svg { display: block; }
+
+/* Part 13a: the call tree; returned calls stay, greyed, with what they returned. */
+.call-tree, .call-tree ul { list-style: none; margin: 0; padding-left: 0; }
+.call-tree ul { padding-left: 14px; border-left: 1px dashed var(--border); margin-left: 6px; }
+.call-node { padding: 1px 0; }
+.call-label { font-family: Consolas, ui-monospace, monospace; font-size: 12.5px; padding: 1px 6px; border-radius: 4px; white-space: nowrap; }
+.call-node.returned > .call-label, .call-node.threw > .call-label { color: var(--muted); }
+.call-node.running > .call-label { border: 1px solid var(--border); }
+.call-node.current > .call-label { border: 1px solid var(--accent); color: var(--accent); }
+.call-result { color: #3fb37f; font-weight: 600; }
+.call-threw { color: var(--error); font-weight: 600; }
+/* Parts 13b-13c: what a frame waits for, and the values its calls returned. */
+.call-link { margin: 2px 0 4px; font-size: 12.5px; }
+.call-line code { font-family: Consolas, ui-monospace, monospace; }
+.call-line .badge { margin-left: 6px; }
+mark.call-waiting, mark.call-filled { border-radius: 4px; padding: 0 3px; color: inherit; }
+mark.call-waiting { background: color-mix(in srgb, var(--accent) 18%, transparent); outline: 1px dashed var(--accent); }
+mark.call-filled { background: color-mix(in srgb, #3fb37f 22%, transparent); }
+.call-value { font-weight: 600; margin-left: 2px; }
+mark.call-filled .call-value { color: #3fb37f; }
+mark.call-waiting .call-value { color: var(--accent); }.call-node.current > .call-label .badge { color: #fff; margin-left: 6px; }
+mark.call-waiting, mark.call-filled, .call-line .badge { white-space: nowrap; }

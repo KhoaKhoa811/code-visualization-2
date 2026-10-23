@@ -50,6 +50,7 @@ improvements.
 | 6g | Isolation review, input-wait limit (AC-20), V1 support matrix agreed | Merged |
 | 11a-11d | Step motion: value flights, badges, speed, Motion toggle, index arrows, call/return, collection/object/tree/heap motion ([motion](../specs/motion.md)); 50 unit, 21 browser tests | Merged (PRs #109-#112) |
 | 12a-12d | `Arrays.fill`, `Math.pow`, `String.format`, `Stream.of`, iterators used directly (trace 1.11.0, plan 11) ([library](../specs/library.md)); grid index arrows and returning-frame ghost ([motion](../specs/motion.md)); tracer 139 + backend 102 Java tests with live Docker, 66 contract, 53 unit, 24 browser tests | Done, pushed, awaiting review |
+| 13a-13c | Call relationships: call tree panel, the line each frame waits on, returned values kept until used ([call tree](../specs/call-tree.md)); frontend only; 55 unit, 25 browser tests | Done, pushed, awaiting review (stacked on 12) |
 
 ## Verified environment
 

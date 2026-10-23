@@ -16,6 +16,8 @@ only. For the active task, [handoff.md](handoff.md) is authoritative. History:
 - Merged since: 10d, 6g, 11a-11d (PRs up to #112). V1 support matrix agreed 2026-10-23.
 - Part 12 (approved 2026-10-23: "implement more library calls and Visual"): 12a-12d done on
   `feat/part-12-library-visual`, awaiting review.
+- Part 13 (approved 2026-10-23: "ok, go ahead with all of them"): call tree, waiting lines,
+  kept results; done on `feat/part-13-recursion`, stacked on Part 12, awaiting review.
 - On hold (user: "deployment can hold on"): public-deployment gaps in specs/isolation-review.md
   (auth/quotas/TLS, CPU limit, startup sweep of orphaned `codeviz-run-*` containers, stronger
   sandbox, more slots and persistent state, re-verification on the host).
