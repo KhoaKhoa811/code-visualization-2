@@ -286,4 +286,9 @@ not verbatim transcripts, unless quoted.
   them"), branch feat/part-13-recursion stacked on Part 12: call tree panel (13a), the line a
   frame waits on (13b), returned values kept until the caller's step that contains the call
   (13c; the first rule "next caller step" was wrong for fib(n - 1) + fib(n - 2), caught by the
-  browser test). Frontend only. 55 unit, 25 browser tests.
+  browser test). Frontend only. 55 unit, 25 browser tests.- Part 14 graph view (user: "how about we implement graph? we can starting with 2-dimension
+  array"; -1 is no edge; layered tree-from-start layout), branch feat/part-14-graph: 14a square
+  matrix, 14b neighbour lists (jagged int[][], List<List<Integer>>, List<Integer>[]), 14c index
+  markers (adj.get(u) now counts as indexing) and per-node arrays (visited fills, others labels),
+  14d spec specs/graph-view.md and examples "Graph BFS (matrix)", "Graph DFS (lists)".
+  Frontend only. 62 unit tests, 3 new browser tests.

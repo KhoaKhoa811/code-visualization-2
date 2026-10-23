@@ -49,8 +49,9 @@ improvements.
 | 10d | Problem suite: for-each over collections and map views (1.9.0), lambdas and streams (1.10.0), 51 suite programs, examples; AC-36 ([problem suite](../specs/problem-suite.md)) | Merged |
 | 6g | Isolation review, input-wait limit (AC-20), V1 support matrix agreed | Merged |
 | 11a-11d | Step motion: value flights, badges, speed, Motion toggle, index arrows, call/return, collection/object/tree/heap motion ([motion](../specs/motion.md)); 50 unit, 21 browser tests | Merged (PRs #109-#112) |
-| 12a-12d | `Arrays.fill`, `Math.pow`, `String.format`, `Stream.of`, iterators used directly (trace 1.11.0, plan 11) ([library](../specs/library.md)); grid index arrows and returning-frame ghost ([motion](../specs/motion.md)); tracer 139 + backend 102 Java tests with live Docker, 66 contract, 53 unit, 24 browser tests | Done, pushed, awaiting review |
-| 13a-13c | Call relationships: call tree panel, the line each frame waits on, returned values kept until used ([call tree](../specs/call-tree.md)); frontend only; 55 unit, 25 browser tests | Done, pushed, awaiting review (stacked on 12) |
+| 12a-12d | `Arrays.fill`, `Math.pow`, `String.format`, `Stream.of`, iterators used directly (trace 1.11.0, plan 11) ([library](../specs/library.md)); grid index arrows and returning-frame ghost ([motion](../specs/motion.md)); tracer 139 + backend 102 Java tests with live Docker, 66 contract, 53 unit, 24 browser tests | Merged (PR #113) |
+| 13a-13c | Call relationships: call tree panel, the line each frame waits on, returned values kept until used ([call tree](../specs/call-tree.md)); frontend only; 55 unit, 25 browser tests | Merged |
+| 14a-14d | Graph view: square matrix or neighbour lists confirmed as a graph, levels from a start node, edges lit by each step, index markers, per-node arrays ([graph view](../specs/graph-view.md)); frontend only; 62 unit, 28 browser tests | Done, pushed, awaiting review |
 
 ## Verified environment
 
