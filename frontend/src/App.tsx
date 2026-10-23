@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { REJECT_TEXT, useConsoleView, type ConsoleView } from './api/console.ts';
 import { ApiError, ERROR_TEXT, type Snapshot } from './api/runs.ts';
 import { useRun, type SubmittedRun } from './api/useRun.ts';
-import { JavaEditor, type Marker } from './editor/JavaEditor.tsx';
+import { JavaEditor, type Badge, type Marker } from './editor/JavaEditor.tsx';
+import { rows as complexityRows, shown as shownBound } from './trace/complexity.ts';
 import { EXAMPLES } from './examples.ts';
 import { describe } from './trace/format.ts';
 import { Playback, TraceError, type State } from './trace/playback.ts';
@@ -142,6 +143,11 @@ export function App() {
 
   const markers: Marker[] = useMemo(() => !trace || stale ? [] : trace.diagnostics
     .filter(d => d.source).map(d => ({ range: d.source!, message: `${d.code}: ${d.message}`, warning: d.phase === 'capture' })), [trace, stale]);
+  // Part 15: estimates from the code's shape, shown while the source is the one that ran.
+  const estimates = useMemo(() => !trace || stale ? [] : trace.complexity ?? [], [trace, stale]);
+  const badges: Badge[] = useMemo(() => estimates.map(e => ({ at: e.source.start, text: `time ${shownBound(e)}`,
+    title: [`**${shownBound(e)}** (estimated from the code's shape)`, ...e.reasons.map(r => `- ${r}`)].join('\n') })), [estimates]);
+  const complexity = useMemo(() => complexityRows(usable, estimates), [usable, estimates]);
 
   const go = (next: number) => { setPlaying(false); setCursor(Math.max(0, Math.min(steps, next))); };
 
@@ -197,13 +203,13 @@ export function App() {
                 })}
                 onRemove={c => setStructMappings(list => list.filter(x => x.className !== c))}
                 onDismiss={c => setNotStructs(list => [...list, c])} />}
-              <StatePanel view={view} trees={fittingTrees} heaps={fittingHeaps} graphs={fittingGraphs} structs={fittingStructs} pointers={pointers} leaving={shown.leaving} calls={calls} />
+              <StatePanel view={view} trees={fittingTrees} heaps={fittingHeaps} graphs={fittingGraphs} structs={fittingStructs} pointers={pointers} leaving={shown.leaving} calls={calls} complexity={complexity} />
             </LayoutContext.Provider>
           )}
           {!snap && !submit.isPending && <p className="muted hint">Write Java in the editor and press Run.</p>}
         </section>
         <section className="editor">
-          <JavaEditor value={source} onChange={setSource} readOnly={running} highlight={view?.event?.source ?? null} markers={markers} />
+          <JavaEditor value={source} onChange={setSource} readOnly={running} highlight={view?.event?.source ?? null} markers={markers} badges={badges} />
         </section>
         <section className="console" aria-label="Console">
           <h2>Console</h2>

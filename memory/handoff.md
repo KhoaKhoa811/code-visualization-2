@@ -7,32 +7,34 @@
 
 ## Status
 
-- Updated: 2026-10-23 (Asia/Saigon)
+- Updated: 2026-10-24 (Asia/Saigon)
 - Owner: Claude Code
-- Status: Part 14 (graph view) on `feat/part-14-graph`, from main cd17494 (Parts 12 and 13 merged).
-  Frontend only. Awaiting the user's review and merge.
+- Status: Part 15 (complexity) on `feat/part-15-complexity`, stacked on `feat/part-14-graph`
+  (Part 14 pushed, not merged yet). Awaiting the user's review and merge (14 first).
 - Milestone: V1 complete. Public deployment on hold (user: "deployment can hold on").
 
-## Part 14 roadmap (approved 2026-10-23); spec: specs/graph-view.md
+## Part 15 (approved 2026-10-24: "ok" to 15a + 15b); spec: specs/complexity.md
 
-User choices: order 14a, 14b, 14c is good; "-1" means no edge (0 offered as an alternative);
-layout "a tree grown from a start node, with nodes in layers by distance".
+User intent: "I don't need it to be exactly correct. I just want a result so that I can compare
+those algos". Time complexity only; badge per method plus a ranking panel.
 
-- [x] 14a square matrix confirmed as a graph (f4b2089): directed/undirected (suggested from symmetry),
-      no-edge value, start node; BFS levels, tree edges solid, others dashed; fit problems reported
-- [x] 14b neighbour lists (8eb3456): jagged int[][], List<List<Integer>>, List<Integer>[]; event lighting
-      for get / next / add
-- [x] 14c traversal (6889ab5): index markers (u, v; `adj.get(u)` counts as indexing), linked per-node
-      arrays (boolean fills, others labels), linked writes light nodes
-- [x] 14d spec, examples "Graph BFS (matrix)" and "Graph DFS (lists)", tests, memory
+- [x] 15a `runner/tracer/.../Complexity.java`: estimate per method from javac trees (in the container,
+      during prepare); Analysis.complexity; plan format 12; trace 1.12.0 optional `complexity`
+      (schema `complexityEstimate`); fixtures bumped to 1.12.0
+- [x] 15b frontend: editor badges (`time O(n²)`, hover reasons), Complexity panel (`complexity` panel id)
+      ranking methods by growth with measured calls and inclusive steps (`trace/complexity.ts`)
+- [x] tests: ComplexityTest (4), complexity.test.ts (2), layout test, browser test on example
+      "Compare algorithms"
+- [x] spec and memory
 
 ## Verification
 
-- Frontend: 62 unit passed, build OK. Graph browser tests (14a, 14b, 14c) passed; fixes along the way:
-  step texts ("Read g[4][3] = 3", "Write visited[1]: false → true"), a parameter name clash.
-- Full Playwright run: 28 passed (`.tools/pw-14.log`).
-- Java and contracts unchanged (last Java verify: Part 12, tracer 139, backend 102).
+- Tracer 143 passed (`.tools/tracer-15.log`), contract 66, frontend 64 unit.
+- Root clean verify with live Docker: tracer 143, backend 102 (`.tools/verify-15.log`). Playwright 29 passed
+  (`.tools/pw-15.log`); the first run failed only the new test: Monaco skips decorations on an empty range
+  without `showIfCollapsed`, and renders spaces as non-breaking ones. No run containers left.
 
 ## Next action
 
-Report Part 14 with the PR link; wait for the user's merge and next request.
+Report Part 15 with the PR link (base on Part 14's branch until it merges); wait.
+15c (growth check by re-running with bigger n) was proposed and is not approved.

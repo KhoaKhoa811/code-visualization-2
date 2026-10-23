@@ -10,18 +10,23 @@ self.MonacoEnvironment = { getWorker: () => new EditorWorker() };
 
 export interface Marker { range: SourceRange | null; message: string; warning?: boolean }
 
+/** Part 15a: a note after a source position (a method's complexity estimate), with a hover text. */
+export interface Badge { at: number; text: string; title: string }
+
 interface Props {
   value: string;
   onChange: (value: string) => void;
   readOnly: boolean;
   highlight: SourceRange | null;
   markers: Marker[];
+  badges?: Badge[];
 }
 
-export function JavaEditor({ value, onChange, readOnly, highlight, markers }: Props) {
+export function JavaEditor({ value, onChange, readOnly, highlight, markers, badges = [] }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const editor = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const decorations = useRef<monaco.editor.IEditorDecorationsCollection | null>(null);
+  const notes = useRef<monaco.editor.IEditorDecorationsCollection | null>(null);
   const change = useRef(onChange);
   change.current = onChange;
 
@@ -32,6 +37,7 @@ export function JavaEditor({ value, onChange, readOnly, highlight, markers }: Pr
     });
     editor.current = instance;
     decorations.current = instance.createDecorationsCollection();
+    notes.current = instance.createDecorationsCollection();
     const subscription = instance.onDidChangeModelContent(() => change.current(instance.getValue()));
     return () => { subscription.dispose(); instance.dispose(); };
     // The editor owns its text after creation; changes flow out through onChange.
@@ -72,6 +78,18 @@ export function JavaEditor({ value, onChange, readOnly, highlight, markers }: Pr
         startLineNumber: start.lineNumber, startColumn: start.column, endLineNumber: end.lineNumber, endColumn: end.column };
     }));
   }, [markers]);
+
+  // Part 15a: estimates shown after each method's name line; hovering gives the reasons.
+  useEffect(() => {
+    const model = editor.current?.getModel();
+    if (!model || !notes.current) return;
+    notes.current.set(badges.filter(b => b.at <= model.getValueLength()).map(b => {
+      const line = model.getPositionAt(b.at).lineNumber;
+      const end = model.getLineMaxColumn(line);
+      return { range: new monaco.Range(line, end, line, end), options: { showIfCollapsed: true, // an empty range at the line end
+        after: { content: `  ${b.text}`, inlineClassName: 'complexity-badge' }, hoverMessage: { value: b.title } } };
+    }));
+  }, [badges]);
 
   return <div className="editor-host" ref={host} data-testid="editor" />;
 }

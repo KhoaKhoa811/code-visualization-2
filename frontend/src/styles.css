@@ -304,3 +304,14 @@ body.motion-off .graph-node, body.motion-off .graph-edge path { transition: none
 .graph-node.unknown circle { stroke: var(--warning); stroke-dasharray: 3 3; }
 .graph-swatch { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: color-mix(in srgb, #3fb37f 35%, var(--panel)); border: 2px solid #3fb37f; vertical-align: middle; }
 .graph-pick { margin-left: 6px; white-space: nowrap; }.graph-node.flagged.lit circle { stroke: var(--accent); stroke-width: 3; }
+
+/* Part 15: complexity estimates (from the code's shape) next to measured counts. */
+.complexity-badge { color: #8fbf8f !important; font-style: italic; opacity: .85; }
+.complexity-table { border-collapse: collapse; width: 100%; font-size: 13px; }
+.complexity-table th { text-align: left; color: var(--muted); font-weight: 600; padding: 2px 8px 4px 0; }
+.complexity-table td { padding: 3px 8px 3px 0; vertical-align: top; border-top: 1px solid var(--border); }
+.complexity-table .num { text-align: right; font-family: Consolas, ui-monospace, monospace; }
+.complexity-table .name { font-family: Consolas, ui-monospace, monospace; }
+.complexity-bound { cursor: pointer; font: 700 13px Consolas, ui-monospace, monospace; color: #7ee2b0; }
+.complexity-bound.approximate { color: var(--warning); }
+.complexity-reasons { margin: 4px 0 2px 16px; padding: 0; color: var(--muted); font-size: 12px; }

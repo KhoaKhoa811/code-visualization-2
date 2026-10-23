@@ -19,16 +19,20 @@ import { useLayoutEffect, useRef, useState } from 'react';
 import type { CallsView } from '../trace/calls.ts';
 import { CallTreePanel } from './CallTreePanel.tsx';
 import { CallLink } from './CallLink.tsx';
+import { ComplexityPanel } from './ComplexityPanel.tsx';
+import type { Row as ComplexityRow } from '../trace/complexity.ts';
 
 type ArrayObject = TraceObject & { kind: 'array' };
 
 /** Confirmed tree (Part 9b), heap (Part 9c) and list/stack/queue (Part 10b) mappings that fit this run. */
-export function StatePanel({ view, trees = [], heaps = [], graphs = [], structs = [], pointers = new Map(), leaving, calls }: {
+export function StatePanel({ view, trees = [], heaps = [], graphs = [], structs = [], pointers = new Map(), leaving, calls, complexity = [] }: {
   view: View; trees?: TreeMapping[]; heaps?: HeapMapping[]; graphs?: GraphMapping[]; structs?: StructMapping[]; pointers?: Map<string, Pointer[]>;
   /** 12d: frames the last step ended, drawn from the state before it while they leave. */
   leaving?: { frames: State['frames']; state: State };
   /** Part 13: how the calls up to the cursor relate (call tree, waiting lines, returned values). */
   calls?: CallsView;
+  /** Part 15b: every method's estimate with what this run measured. */
+  complexity?: ComplexityRow[];
 }) {
   // After main returns, show the recorded values it ended with, labelled as such.
   const state = view.beforeEnd ?? view.state;
@@ -81,6 +85,7 @@ export function StatePanel({ view, trees = [], heaps = [], graphs = [], structs 
         ))}
       </Panel>
       {calls && <CallTreePanel calls={calls} state={state} />}
+      <ComplexityPanel rows={complexity} />
       <LibraryPanel view={view} />
       <TreePanel view={view} mappings={trees} />
       <StructPanel view={view} mappings={structs} />
