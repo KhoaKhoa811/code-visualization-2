@@ -39,3 +39,23 @@ test('each step plans motion from its own event only, and backward runs it the o
 
   assert.deepEqual(motionFor(null, state(0), state(0), true), []);
 });
+
+test('a call slides its frame in and carries the arguments; a return carries the result to the caller (11c)', () => {
+  const p = new Playback(fixture('methods'));
+  const views = Array.from({ length: p.steps + 1 }, (_, k) => p.at(k));
+  const state = (k: number) => views[k].beforeEnd ?? views[k].state;
+  const call = views.findIndex(v => v.event?.kind === 'CALL' && v.event.data.parameters.length > 0);
+  const event = views[call].event!;
+  assert.ok(event.kind === 'CALL');
+  const forward = motionFor(event, state(call - 1), state(call), true);
+  assert.deepEqual(forward[0], { kind: 'enter', frame: event.data.frame.frameId });
+  assert.deepEqual(forward.slice(1).map(m => m.kind === 'flight' && m.to), event.data.parameters.map(b => ({ binding: b.bindingId })));
+  assert.ok(motionFor(event, state(call - 1), state(call), false).every(m => m.kind === 'flight' && 'code' in m.to), 'backward: arguments go back');
+
+  const ret = views.findIndex(v => v.event?.kind === 'RETURN' && v.event.data.result !== null);
+  const [back] = motionFor(views[ret].event, state(ret - 1), state(ret), true);
+  const caller = state(ret).frames.at(-1)!;
+  assert.ok(back.kind === 'flight' && 'code' in back.from);
+  assert.deepEqual(back.kind === 'flight' && back.to, { frame: caller.frameId });
+  assert.notEqual(caller.frameId, views[ret].event!.frameId, 'the result goes to the caller, not the returning frame');
+});

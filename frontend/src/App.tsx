@@ -131,7 +131,9 @@ export function App() {
     <div className="app">
       <header className="toolbar">
         <h1>Java Visualizer</h1>
-        <select aria-label="Example" value="" onChange={e => { if (e.target.value) setSource(EXAMPLES[e.target.value]); }}>
+        {/* Shows the chosen example until the code is edited away from it. */}
+        <select aria-label="Example" value={Object.keys(EXAMPLES).find(name => EXAMPLES[name] === source) ?? ''}
+          onChange={e => { if (e.target.value) setSource(EXAMPLES[e.target.value]); }}>
           <option value="">Load example…</option>
           {Object.keys(EXAMPLES).map(name => <option key={name} value={name}>{name}</option>)}
         </select>
