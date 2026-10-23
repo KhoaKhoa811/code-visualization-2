@@ -265,3 +265,21 @@ not verbatim transcripts, unless quoted.
   Committed before the full browser run by mistake; two drag tests failed
   (boxes below the fold) and a follow-up commit scrolls targets into view.
 - Final: 41 unit, 16 browser tests; Java unchanged since 10a's 175-test verify.
+
+## 2026-10-23 - Parts 10d, 6g, 11 and 12 (Claude Code)
+
+- 10d.3-10d.5: lambdas and method references run by covered library calls,
+  sequential streams (trace 1.10.0), problem suite and examples; AC-36 done.
+- 6g: isolation review (specs/isolation-review.md), 30 s input-wait limit
+  from /proc wchan, AC-20 done. V1 support matrix agreed ("1. I agree"); V1
+  functionally complete (36/36 ACs). Public deployment on hold.
+- Part 11 motion (PRs #109-#112): value flights, comparison badges, speed and
+  Motion toggle (11a); index arrows (11b); call/return motion, example picker
+  and icon fixes (11c); collection, object, tree and heap motion (11d).
+- Part 12 (user: "I only need you to implement more library calls and
+  Visual"), branch feat/part-12-library-visual: 12a Arrays.fill, Math.pow;
+  12b String.format and Stream.of (varargs, plan format 11, traced JVM locale
+  en-US); 12c iterators used directly (trace 1.11.0 `iterator` value); 12d grid
+  row/column index arrows, writes indexed by their target, returning-frame
+  ghost. Verify: tracer 139 + backend 102 with live Docker, 66 contract,
+  53 unit tests.

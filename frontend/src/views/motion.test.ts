@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { Playback } from '../trace/playback.ts';
 import type { Trace } from '../trace/types.ts';
-import { motionFor } from './motion.ts';
+import { leavingFrames, motionFor } from './motion.ts';
 
 const fixture = (name: string): Trace => JSON.parse(readFileSync(new URL(`../trace/fixtures/${name}.json`, import.meta.url), 'utf8'));
 
@@ -97,4 +97,34 @@ test('objects: a new object appears, a field write flies into the field and its 
   const [fly, pulse] = motionFor(event, state(write - 1), state(write), true);
   assert.ok(fly.kind === 'flight' && 'field' in fly.to && fly.to.field.name === event.data.field);
   assert.deepEqual(pulse, { kind: 'pulse', at: { treeNode: event.data.objectId } });
+});
+test('a return shows its frame leaving; stepping back shows nothing leaving (12d)', () => {
+  const p = new Playback(fixture('methods'));
+  const views = Array.from({ length: p.steps + 1 }, (_, k) => p.at(k));
+  const state = (k: number) => views[k].beforeEnd ?? views[k].state;
+  const ret = views.findIndex(v => v.event?.kind === 'RETURN');
+  assert.ok(ret > 0);
+  const gone = leavingFrames(state(ret - 1), state(ret));
+  assert.equal(gone.length, 1);
+  assert.equal(gone[0].frameId, views[ret].event!.frameId, 'the returning frame leaves');
+  assert.deepEqual(leavingFrames(state(ret), state(ret - 1)), [], 'back: the frame comes back, nothing leaves');
+  assert.deepEqual(leavingFrames(state(1), state(1)), []);
+});
+
+test('library calls that change an array, or the list an iterator walks, move as in 11d (12a, 12c)', () => {
+  const fill = new Playback(fixture('fill-and-pow'));
+  const views = Array.from({ length: fill.steps + 1 }, (_, k) => fill.at(k));
+  const state = (k: number) => views[k].beforeEnd ?? views[k].state;
+  const range = views.findIndex(v => v.event?.kind === 'LIBRARY' && v.event.data.method.startsWith('java.util.Arrays.fill(int[],int,int,int)'));
+  assert.ok(range > 0);
+  const pulses = motionFor(views[range].event, state(range - 1), state(range), true);
+  assert.deepEqual(pulses.map(m => m.kind === 'pulse' && 'cell' in m.at ? m.at.cell.index : -1), [1, 2], 'the two filled cells pulse');
+
+  const it = new Playback(fixture('iterators'));
+  const iv = Array.from({ length: it.steps + 1 }, (_, k) => it.at(k));
+  const is = (k: number) => iv[k].beforeEnd ?? iv[k].state;
+  const remove = iv.findIndex(v => v.event?.kind === 'LIBRARY' && v.event.data.method === 'java.util.Iterator.remove()');
+  assert.ok(remove > 0);
+  const [out] = motionFor(iv[remove].event, is(remove - 1), is(remove), true);
+  assert.ok(out.kind === 'flight' && out.text === '2' && 'box' in out.from, JSON.stringify(out));
 });

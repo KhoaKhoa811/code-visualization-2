@@ -249,12 +249,33 @@ public class Main {
 
     public static void main(String[] args) {
         int[] a = {4, 2, 3, 1};
-        java.util.Arrays.fill(a, 2, 4, 1);
+        System.arraycopy(a, 3, a, 2, 1);
         int total = 0;
         for (int i = 0; i < a.length; i++) {
             total += square(a[i]);
         }
         System.out.println("total = " + total);
+    }
+}
+`,
+  'Iterator and format': `import java.util.*;
+import java.util.stream.*;
+
+public class Main {
+    public static void main(String[] args) {
+        int[] scores = new int[5];
+        Arrays.fill(scores, 10);
+        scores[2] = 3;
+        List<Integer> kept = new ArrayList<>();
+        for (int s : scores) kept.add(s);
+        Iterator<Integer> it = kept.iterator();
+        while (it.hasNext()) {
+            int s = it.next();
+            if (s < 5) it.remove();
+        }
+        double area = Math.pow(1.5, 2);
+        List<String> tags = Stream.of("b", "a", "c").sorted().toList();
+        System.out.println(String.format("%d kept, area %.2f, first %s", kept.size(), area, tags.get(0)));
     }
 }
 `,

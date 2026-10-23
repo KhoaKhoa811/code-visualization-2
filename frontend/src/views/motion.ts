@@ -35,6 +35,15 @@ const short = (text: string) => text.length > MAX_TEXT ? `${text.slice(0, MAX_TE
  * stored in (from the cell to the code for a read). Backward, the same flight runs the other way,
  * undoing the step; badges are not repeated backward.
  */
+/**
+ * 12d: the frames one step forward ended (a return, or an exception unwinding them), innermost
+ * first, so the call stack can show them leaving. Nothing leaves when stepping back.
+ */
+export function leavingFrames(before: State, after: State): State['frames'] {
+  const kept = new Set(after.frames.map(f => f.frameId));
+  return before.frames.filter(f => !kept.has(f.frameId)).reverse();
+}
+
 export function motionFor(event: ObservableEvent | null, before: State, after: State, forward: boolean): Motion[] {
   if (!event) return [];
   const value = (v: Parameters<typeof formatValue>[0], state: State) => short(formatValue(v, state.objects));

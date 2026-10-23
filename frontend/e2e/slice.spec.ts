@@ -71,7 +71,7 @@ test('statements outside coverage run without visualization while the rest is tr
   }
   await expect(page.getByTestId('step-detail')).toContainText('Ran without visualization (a changed)');
   await expect(page.locator('.step-detail.uncaptured')).toBeVisible();
-  await expect(cells(page, 'a')).toHaveText(['4', '2', '1', '1']); // re-read after Arrays.fill (Arrays.sort is covered since 10d)
+  await expect(cells(page, 'a')).toHaveText(['4', '2', '1', '1']); // re-read after System.arraycopy (Arrays.sort and, since 12a, Arrays.fill are covered)
   await page.screenshot({ path: 'test-results/partial-coverage.png' });
 
   await page.getByTitle('End').click();
@@ -621,6 +621,65 @@ test('a grid, for-each, switch and do-while play back (8c)', async ({ page }) =>
   expect(Math.round(after.x - before.x)).toBe(60);
   expect(Math.round(after.y - before.y)).toBe(40);
   await expect(grid.getByTestId('row').nth(2).getByTestId('cell').locator('.cell-value')).toHaveText(['0', '2', '4', '6']);
+});
+
+test('grid index arrows point at the row and at the cell of the row last indexed (12d)', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.monaco-editor')).toBeVisible();
+  await page.getByLabel('Example').selectOption('Grid and switch');
+  await run(page);
+  const grid = page.getByTestId('array-grid');
+  const forward = page.getByRole('button', { name: 'Step forward' });
+  // Step until grid[r][c] = r * c has run in row 1.
+  for (let i = 0; i < 200 && (await grid.getByTestId('row').nth(1).getByTestId('pointer-c').count()) === 0; i++) await forward.click();
+  const r = grid.locator('.row-pointer[data-testid="pointer-r"]');
+  await expect(r).toHaveAttribute('data-value', '1'); // grid[r]: r points at row 1
+  await expect(r).toHaveText('r ▶');
+  const c = grid.getByTestId('row').nth(1).getByTestId('pointer-c');
+  await expect(c).toHaveText('▲ c'); // grid[r][c]: c points at a cell of row 1 only
+  await expect(grid.getByTestId('pointer-c')).toHaveCount(1);
+  await expect(c).toHaveAttribute('data-value', (await page.getByTestId('var-c').locator('.value').textContent())!.trim());
+  // The row arrow sits beside row 1.
+  const arrow = (await r.boundingBox())!, row = (await grid.getByTestId('row').nth(1).boundingBox())!;
+  expect(arrow.y + arrow.height / 2).toBeGreaterThan(row.y);
+  expect(arrow.y + arrow.height / 2).toBeLessThan(row.y + row.height);
+  await page.screenshot({ path: 'test-results/grid-pointers.png' });
+});
+
+test('Arrays.fill, an iterator, Math.pow, Stream.of and String.format are all traced (12a-12c)', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.monaco-editor')).toBeVisible();
+  await page.getByLabel('Example').selectOption('Iterator and format');
+  await run(page);
+  const summary = page.getByTestId('run-summary');
+  await expect(summary).toContainText('capture complete');
+  await expect(summary).not.toContainText('without capture');
+  await expect(page.getByTestId('console-output')).toHaveText('4 kept, area 2.25, first a\n');
+  const detail = page.getByTestId('step-detail');
+  const forward = page.getByRole('button', { name: 'Step forward' });
+  for (let i = 0; i < 200 && !(await detail.textContent())?.includes('remove()'); i++) await forward.click();
+  await expect(detail).toContainText('remove()');
+  await expect(page.getByTestId('var-it')).toContainText('ArrayList.iterator()');
+  await page.getByTitle('End').click();
+  await expect(page.getByTestId('array-scores').getByTestId('cell').locator('.cell-value')).toHaveText(['10', '10', '3', '10', '10']);
+});
+
+test('a returning frame leaves the call stack while motion is on (12d)', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.monaco-editor')).toBeVisible();
+  await page.getByLabel('Example').selectOption('Recursion and helpers');
+  await run(page);
+  const detail = page.getByTestId('step-detail');
+  const forward = page.getByRole('button', { name: 'Step forward' });
+  for (let i = 0; i < 400 && !(await detail.textContent())?.includes('Return'); i++) await forward.click();
+  await expect(detail).toContainText('Return');
+  const ghost = page.getByTestId('frame-leaving');
+  await expect(ghost).toHaveCount(1);
+  await expect(ghost).toContainText('returned');
+  await forward.click();
+  if (!(await detail.textContent())?.includes('Return')) await expect(ghost).toHaveCount(0); // gone on the next step
+  await page.getByRole('button', { name: 'Step back' }).click();
+  await expect(ghost).toHaveCount(0); // stepping back brings the frame back; nothing leaves
 });
 
 test('a program reads live console input and playback shows the read (8g, AC-19)', async ({ page }) => {

@@ -1,15 +1,18 @@
 # Current state
 
-Last updated: 2026-10-22 (Asia/Saigon). Short summary only; keep it under about
+Last updated: 2026-10-23 (Asia/Saigon). Short summary only; keep it under about
 120 lines. For the active task, [handoff.md](handoff.md) is authoritative.
 History: [archive/](archive/README.md).
 
 ## Milestone and progress
 
-The project is still in the pre-application phase. Milestone 0 (specifications and
-instructions), full isolation verification, Milestone 1 tracing and V1 are **not
-complete**. A first-increment tracer, a minimal noninteractive run API and a
-first frontend slice exist; live console input exists since 8g.
+V1 is functionally complete for Windows-local use: all 36 acceptance cases in
+[V1 scope](../specs/v1-scope.md) are Done and the
+[V1 support matrix](../specs/v1-support-matrix.md) was agreed on 2026-10-23.
+Public multi-user deployment is **not** ready and is on hold by the user; its
+gaps are listed in [isolation review](../specs/isolation-review.md). Parts 11
+(motion) and 12 (more library calls, grid arrows, frame exit) are post-V1
+improvements.
 
 | Part | What it delivered | Status |
 | --- | --- | --- |
@@ -42,7 +45,11 @@ first frontend slice exist; live console input exists since 8g.
 | 9d | Deque/LinkedList shown as stack or queue by explicit choice; Core V1 parts complete; 31 unit, 13 browser tests | Merged (PRs #97-#100 for 9a-9d) |
 | 10a | Separate test inputs: run request 1.2.0 provided input, snapshot 1.1.0 input association ([test inputs](../specs/test-inputs.md)); 175 Java tests with live Docker, 14 browser tests | Done, pushed, awaiting review |
 | 10b | Custom mappings: list, array stack, circular queue views of user classes; revisions; revalidation ([custom mappings](../specs/custom-mappings.md)); 35 unit, 15 browser tests | Done, pushed, awaiting review (stacked on 10a) |
-| 10c | Evidence-based view rankings rank-1 ([rules](../specs/visualization-rules.md)); 41 unit, 16 browser tests | Done, pushed, awaiting review (stacked on 10b) |
+| 10c | Evidence-based view rankings rank-1 ([rules](../specs/visualization-rules.md)); 41 unit, 16 browser tests | Merged |
+| 10d | Problem suite: for-each over collections and map views (1.9.0), lambdas and streams (1.10.0), 51 suite programs, examples; AC-36 ([problem suite](../specs/problem-suite.md)) | Merged |
+| 6g | Isolation review, input-wait limit (AC-20), V1 support matrix agreed | Merged |
+| 11a-11d | Step motion: value flights, badges, speed, Motion toggle, index arrows, call/return, collection/object/tree/heap motion ([motion](../specs/motion.md)); 50 unit, 21 browser tests | Merged (PRs #109-#112) |
+| 12a-12d | `Arrays.fill`, `Math.pow`, `String.format`, `Stream.of`, iterators used directly (trace 1.11.0, plan 11) ([library](../specs/library.md)); grid index arrows and returning-frame ghost ([motion](../specs/motion.md)); tracer 139 + backend 102 Java tests with live Docker, 66 contract, 53 unit, 24 browser tests | Done, pushed, awaiting review |
 
 ## Verified environment
 

@@ -12,7 +12,7 @@ Read [the specification](../../specs/trace-format.md) and
 | 3b | afe8bf6 | Closed structural schema for current operation/frame model | Complete; JSON/local-reference checks and strict Ajv compilation passed |
 | 3c | See Git history: `test: validate trace examples and numeric encodings` | Valid/invalid examples and reproducible checks | Complete; 46 checks passed |
 
-Schema path: `v1/trace.schema.json`. Exact schemaVersion: `1.10.0` (Part 10d added `function` values and `frame.via` in 1.10.0, and for-each steps, `java.util.Iterator.next()` LIBRARY events with an optional `view`, and the `entry` object; Part 8i allowed a `BufferedReader` as the `input` object; Part 8h added the `exception` object, the
+Schema path: `v1/trace.schema.json`. Exact schemaVersion: `1.11.0` (Part 12c added `iterator` values; Part 10d added `function` values and `frame.via` in 1.10.0, and for-each steps, `java.util.Iterator.next()` LIBRARY events with an optional `view`, and the `entry` object; Part 8i allowed a `BufferedReader` as the `input` object; Part 8h added the `exception` object, the
 `CATCH` step, the EXCEPTION `objectId` and union catch types, see [exceptions](../../specs/exceptions.md);
 Part 8g added the `input` object for a `Scanner`, see
 [live console](../../specs/live-console.md); Part 8f added library collections, maps and builders, the `LIBRARY`

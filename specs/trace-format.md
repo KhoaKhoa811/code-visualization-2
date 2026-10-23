@@ -208,7 +208,7 @@ values; section 12 defines additional semantic checks. See the official
 
 | Top-level field | Meaning |
 | --- | --- |
-| schemaVersion | Exactly `1.10.0` (Part 10d: `function` values and frames run `via` a library call; for-each steps over collections and map views, `entry` objects; Part 8i: the `input` object may be a `BufferedReader`; earlier versions retired); reject unrecognized versions rather than silently skipping facts |
+| schemaVersion | Exactly `1.11.0` (Part 12c: `iterator` values; Part 10d: `function` values and frames run `via` a library call; for-each steps over collections and map views, `entry` objects; Part 8i: the `input` object may be a `BufferedReader`; earlier versions retired); reject unrecognized versions rather than silently skipping facts |
 | runId | Nonempty identity for this run; identities below are local to it |
 | source | Exact source text, file `Main.java`, and lowercase SHA-256 of its UTF-8 bytes |
 | execution | Terminal status and human-readable reason; describes execution, not capture completeness |
@@ -291,6 +291,7 @@ ranges follow sections 2–3 and the Java-support specification.
 | EXPRESSION | operator, operands, result; no persistent mutation |
 | CALL | frame, scope, parameters; push new frame and its root scope and parameter bindings; 1.10.0: `frame.via` names the library method that ran this function (a lambda body, methodId `Main.lambda@line:column(...)`, or a helper of Main named by a method reference); such frames come before the LIBRARY step of their call |
 | function value | 1.10.0: `kind: function`, `label` (`lambda at 6:12`, `Integer::sum`, `Comparator.comparing(String::length)`); a value without identity |
+| iterator value | 1.11.0: `kind: iterator` with `label` (`ArrayList.iterator()`) and `objectId`, the collection it iterates; a value without identity or position. Its `hasNext`, `next` and `remove` calls are LIBRARY events with `objectId` null; `remove` has `after` = the collection |
 | stream and optional values | 1.10.0: `kind: stream` with `label`, the calls that made it (`ArrayList.stream().filter(lambda at 5:28)`); `kind: optional` with `label`, its contents (`OptionalInt[30]`); values without identity |
 | RETURN | result, implicit; pop this frame and remove its scopes/bindings; result is JSON null for void, otherwise a typed value |
 | EXCEPTION | exceptionType, message, and since 1.7.0 objectId (the exception object); no successful mutation or result for the failing operation; the exception is in flight until a CATCH |

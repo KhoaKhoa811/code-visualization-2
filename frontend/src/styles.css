@@ -248,6 +248,16 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 }
 body.motion-off .pointer { transition: none; }
 .pointer-outside { margin-left: 8px; font: 600 12px Consolas, monospace; color: var(--warning); }
+/* Part 12d: row arrows to the left of a grid's rows. */
+.rows.has-pointers { position: relative; }
+/* Part 12d: a frame that just returned leaves the call stack. */
+.frame.leaving { pointer-events: none; overflow: hidden; animation: frame-leave .5s ease-in forwards; }
+@keyframes frame-leave {
+  0% { opacity: 1; transform: none; max-height: 400px; }
+  60% { opacity: 0; transform: translateX(48px); max-height: 400px; margin-bottom: 8px; }
+  100% { opacity: 0; transform: translateX(48px); max-height: 0; margin-bottom: 0; }
+}
+body.motion-off .frame.leaving { display: none; }
 /* Playback icons: one drawn set, centred in each button. */
 .controls button { display: inline-flex; align-items: center; justify-content: center; min-width: 36px; }
 .controls button svg { display: block; }

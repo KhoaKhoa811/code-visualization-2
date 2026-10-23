@@ -94,3 +94,21 @@ Elements carry `data-collection`, `data-item`, `data-box` (arrays, collections, 
 `data-heap`; tree nodes already had `data-tree-node`, and heap nodes `data-heap-index`.
 
 Part 11 (motion) is complete.
+
+## Grids and returning frames (Part 12d, 2026-10-23, user: "implement ... Visual")
+
+- **Grid arrows.** The same rule as 11b: an access written literally `…[name]`, up to the cursor.
+  `g[i][j]` records a read of `g` written `g[i]` and a read of row `g[i]` written `g[i][j]`.
+  - `i` is drawn as `i ▶` to the left of row `i`, measured from the rendered rows; it slides
+    between rows while Motion is on. A value outside the rows (including the row count, after
+    the loop) is a note by the grid's name.
+  - `j` is drawn as `▲ j` under the cells of the one row the program indexed with `j` most
+    recently (by recorded step), not under every row it ever indexed.
+  - This works at every depth of nesting; a row shared by two indices shows its arrows once.
+- **Returning frames.** One step forward that ends frames (a return, or an exception unwinding
+  them) draws each ended frame, with the values it ended with, at the top of the call stack,
+  marked `returned`; it slides away and fades in about half a second. It is drawn only while
+  Motion is on and only for that one step; stepping back, or jumping, draws nothing leaving.
+- **Library changes (12a, 12c).** A static call that changes an array (`Arrays.fill`,
+  `Arrays.sort`) pulses its changed cells, and an iterator's `remove()` moves like a list's
+  `remove`: the removed value flies out of the list.
