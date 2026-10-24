@@ -36,6 +36,9 @@ only. For the active task, [handoff.md](handoff.md) is authoritative. History:
   complicated code, 19a-19f on `feat/part-19-structures`, awaiting review. Spec: specs/structure-detection.md.
   Possible later (not approved): object graphs with several parents drawn as graphs, tries labelled by
   letter, edge lists and grids as graphs, binary trees with parent pointers in the tree view.
+- 2026-10-24: the user is still not satisfied with how code is visualized, but declined the researched
+  suggestions (step explanations, predict mode, bigger steps, focus mode, inline values, legend, error pictures,
+  a memory view): "all that things you just said are not what I want". Stopped there; ask what they want next.
 - Never merge pull requests; the user merges.
 
 ## Part 7 roadmap (trace engine and first visible slice)
