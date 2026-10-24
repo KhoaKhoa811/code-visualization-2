@@ -4,14 +4,14 @@ import { EXAMPLES } from '../src/examples.ts';
 const cells = (page: Page, name: string) => page.getByTestId(`array-${name}`).getByTestId('cell').locator('.cell-value');
 
 /** Part 19f: the confirm-by-hand editors sit under "Choose fields yourself" in the Structures card. */
-test('three columns: state at the side, structures in the center, every object shown (23)', async ({ page }) => {
+test('three columns: state at the side, structures and objects in the center, every object shown (23)', async ({ page }) => {
   await page.goto('/');
   await page.getByLabel('Example').selectOption('Tree sort');
   await run(page);
   await page.getByTitle('End').click();
   const side = page.getByRole('region', { name: 'Program state' }), center = page.getByRole('region', { name: 'Visualization' });
   await expect(side.getByRole('region', { name: 'Call stack' })).toHaveCount(1);
-  await expect(side.getByRole('region', { name: 'Objects' })).toHaveCount(1);
+  await expect(center.getByRole('region', { name: 'Objects' })).toHaveCount(1);
   await expect(center.getByRole('region', { name: 'Trees' })).toHaveCount(1);
   await expect(center.getByRole('region', { name: 'Arrays' })).toHaveCount(1);
   const s = (await side.boundingBox())!, c = (await center.boundingBox())!, e = (await page.locator('.editor').boundingBox())!;
@@ -228,14 +228,14 @@ test('dragging diagram boxes and reordering panels changes layout only (9a, AC-1
   await page.getByRole('button', { name: 'Step back' }).click();
   expect(Math.round((await head.boundingBox())!.x - before.x)).toBe(90); // layout survives stepping
 
-  // Panels: drop the Objects title onto the Call tree panel just above it (23: both in the side
-  // column); Objects takes its place and the call tree moves after it.
+  // Panels: drop the Objects title onto the Arrays panel below it (23: both in the center column);
+  // Objects takes its place and Arrays moves up one.
   const objects = page.getByRole('region', { name: 'Objects' });
-  const callTree = page.getByRole('region', { name: 'Call tree' });
-  await callTree.scrollIntoViewIfNeeded();
-  await objects.locator('.panel-handle').dragTo(callTree.locator('.panel-handle'));
-  await expect(objects).toHaveCSS('order', '1');
-  await expect(callTree).toHaveCSS('order', '2');
+  const arraysPanel = page.getByRole('region', { name: 'Arrays' });
+  await arraysPanel.scrollIntoViewIfNeeded();
+  await objects.locator('.panel-handle').dragTo(arraysPanel.locator('.panel-handle'));
+  await expect(objects).toHaveCSS('order', '7');
+  await expect(arraysPanel).toHaveCSS('order', '6');
 
   await page.getByRole('button', { name: 'Reset layout' }).click();
   await expect(objects).toHaveCSS('order', '6'); // after variables, calls (13a), collections, trees, structures, heaps

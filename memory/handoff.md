@@ -17,11 +17,11 @@
 ## "object visualization should show all the objecft"); spec: specs/three-column-layout.md
 
 - [x] columns side 1fr | center 1.4fr | editor+console 1.15fr; StatePanel `part: 'side' | 'center'`;
-      controls and step text sticky at the top of the center
+      controls and step text sticky at the top of the center; Objects in the center (user follow-up)
 - [x] ActionOverlay moved to `main.layout`, redrawn on scroll/resize, ends hidden by a scrolled column skipped
 - [x] Objects bug: Part 14's `.graph { display: block }` (graph view svg) overrode the Objects panel; now
       `svg.graph`; objects in top-down depth layers that wrap
-- [x] tests: browser "(23)"; Playwright viewport 1600x900 (config); 9a drag test drops on the Call tree;
+- [x] tests: browser "(23)"; Playwright viewport 1600x900 (config); 9a drag test drops Objects on Arrays (both center);
       22 test uses a tall viewport
 - [x] spec, memory
 

@@ -33,7 +33,7 @@ type ArrayObject = TraceObject & { kind: 'array' };
 
 /** Confirmed tree (Part 9b), heap (Part 9c) and list/stack/queue (Part 10b) mappings that fit this run. */
 export function StatePanel({ part, view, trees = [], heaps = [], graphs = [], structs = [], pointers = new Map(), leaving, calls, complexity = [], childTrees = [], chains = [], modes = {}, dp = null }: {
-  /** Part 23: the side column (variables, call stack, call tree, objects, complexity) or the center (structures). */
+  /** Part 23: the side column (variables, call stack, call tree, complexity) or the center (structures and objects). */
   part: 'side' | 'center';
   view: View; trees?: TreeMapping[]; heaps?: HeapMapping[]; graphs?: GraphMapping[]; structs?: StructMapping[]; pointers?: Map<string, Pointer[]>;
   /** 12d: frames the last step ended, drawn from the state before it while they leave. */
@@ -101,7 +101,6 @@ export function StatePanel({ part, view, trees = [], heaps = [], graphs = [], st
         ))}
       </Panel>
       {calls && <CallTreePanel calls={calls} state={state} />}
-      <ObjectGraph view={view} />
       <ComplexityPanel rows={complexity} />
     </div>
   );
@@ -114,6 +113,7 @@ export function StatePanel({ part, view, trees = [], heaps = [], graphs = [], st
       <StructPanel view={view} mappings={structs} />
       <HeapPanel view={view} mappings={heaps} />
       <GraphPanel view={view} mappings={graphs} pointers={pointers} />
+      <ObjectGraph view={view} />
       <Panel id="arrays" label="Arrays" title="Arrays">
         {topLevel.length === 0 && <p className="muted">No arrays yet.</p>}
         {topLevel.map(array => {

@@ -210,8 +210,8 @@ export function App() {
           {submit.isPending ? 'Submitting…' : snap && !finished ? `${PHASE_TEXT[snap.phase]}…` : ''}
         </span>
       </header>
-      {/* Part 23: three columns. Side: run facts, variables, call stack, call tree, objects, complexity.
-          Center (widest): playback controls and the structures (arrays, trees, heaps, graphs, ...).
+      {/* Part 23: three columns. Side: run facts, variables, call stack, call tree, complexity.
+          Center (widest): playback controls, the structures (arrays, trees, heaps, graphs, ...) and objects.
           Right: editor and console. One action overlay spans the columns so arrows can cross them. */}
       <LayoutContext.Provider value={layoutApi}>
       <main className="layout">

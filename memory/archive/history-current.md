@@ -340,7 +340,7 @@ not verbatim transcripts, unless quoted.
   Branch feat/part-22-actions stacked on 21.
 - Part 23 three-column layout (user: "Screen will split into 3 part ... the center is a bit bigger than other
   2", and "object visualization should show all the objecft"): StatePanel part side/center; side = run summary,
-  structures card, call stack, call tree, objects, complexity; center = sticky controls + structures; ActionOverlay
+  structures card, call stack, call tree, complexity; center = sticky controls + structures + objects (user follow-up`n  "move object component to [c]enter part"); ActionOverlay
   moved to main.layout, redrawn on scroll/resize, ends clipped by a scrolled column skipped. Objects bug: Part 14's
   `.graph { display: block }` (graph view svg) overrode the Objects panel's flex columns; now `svg.graph`;
   objects laid out in top-down layers. Branch feat/part-23-layout stacked on 22.
