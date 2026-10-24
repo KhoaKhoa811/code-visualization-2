@@ -7,7 +7,8 @@ import type { State } from './playback.ts';
 import type { TraceObject, Value } from './types.ts';
 
 export type StructMapping =
-  | { kind: 'list'; className: string; value: string; next: string }
+  /** prev (Part 19c): the link that mirrors next, for a doubly linked list. */
+  | { kind: 'list'; className: string; value: string; next: string; prev?: string }
   /** top is the number of elements (count) or the index of the top element (index). */
   | { kind: 'stack'; className: string; storage: string; top: string; topIs: 'count' | 'index' }
   /** rear is the next free slot (next) or the last element (last); size, when mapped, decides empty versus full. */
@@ -78,8 +79,9 @@ export interface Chain {
 }
 
 /** Chains from the nodes no other node links to (variables' first); a cycle-only group still shows. */
-export function projectList(state: State, m: StructMapping & { kind: 'list' }, rootOrder: string[] = []): { chains: Chain[]; conflicts: string[] } {
-  const nodes = objectsOf(state, m.className);
+export function projectList(state: State, m: StructMapping & { kind: 'list' }, rootOrder: string[] = [], live?: Set<string>): { chains: Chain[]; conflicts: string[] } {
+  // Part 19c: with live, only nodes the program can still reach (an unlinked node keeps stale links).
+  const nodes = objectsOf(state, m.className).filter(n => !live || live.has(n.objectId));
   const byId = new Map(nodes.map(n => [n.objectId, n]));
   const incoming = new Map<string, string[]>();
   for (const n of nodes) {

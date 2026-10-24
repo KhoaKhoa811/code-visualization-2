@@ -335,3 +335,23 @@ body.motion-off .bar-fill { transition: none; }
 @keyframes var-moved { 0% { transform: scale(1.5); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 45%, transparent); } 100% { transform: none; box-shadow: none; } }
 body.motion-off .var-tag.moved { animation: none; }.string-cells { display: inline-flex; vertical-align: top; }
 .cell.char { min-width: 26px; }
+
+/* Part 19: trees with children, chained tables, prev links, held-by chips, the structures card. */
+.edge-label { font: 600 10px Consolas, ui-monospace, monospace; fill: var(--muted); }
+.chain-slots { display: flex; flex-direction: column; gap: 4px; }
+.chain-slot { display: flex; align-items: center; gap: 6px; padding: 2px 4px; border-radius: 6px; }
+.chain-slot.read { background: var(--read); }
+.chain-slot.write { background: var(--write); }
+.chain-index { min-width: 22px; text-align: right; font: 11px Consolas, monospace; color: var(--muted); }
+.chain-link { display: inline-flex; align-items: center; gap: 4px; }
+.chain-arrow { color: var(--muted); }
+.chain-node { display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--border); border-radius: 6px; padding: 2px 6px; font-family: Consolas, ui-monospace, monospace; }
+.chain-node.read { border-color: var(--read); }
+.chain-node.write { border-color: var(--write); }
+.chain-key { font-weight: 700; }
+.chain-value { color: var(--muted); }
+.graph-arrows path.back { stroke: #8fbf8f; stroke-dasharray: 4 3; }
+.ref-tag { font: 600 10px Consolas, ui-monospace, monospace; color: var(--muted); border: 1px solid var(--border); border-radius: 8px; padding: 0 5px; line-height: 15px; }
+.rank-action { margin: 0 6px; font-size: 11px; padding: 0 7px; border-radius: 10px; }
+.manual-mappings { margin-top: 6px; }
+.manual-mappings > summary { cursor: pointer; color: var(--muted); }

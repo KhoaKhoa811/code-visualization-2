@@ -309,3 +309,16 @@ not verbatim transcripts, unless quoted.
   array writes and heat colours for number grids, 18b bars, 18c shading between two index arrows,
   18d variable tags on nodes, 18e strings as character boxes with s.charAt(i) arrows. Example "DP
   and two pointers". Frontend only; 66 unit tests.
+## 2026-10-24 - Parts 14-19 (Claude Code)
+
+- 14 graph view, 15 complexity estimates, 16 template, 17 backtracking fixes, 18 visual (computed-from
+  arrows, heat, bars, ranges, node tags, string boxes): merged (PRs up to #119).
+- Part 19 (user: improve data structure detection for complicated code mixing structures; "show them
+  automatically"). A probe of five programs found: a trie and a chaining hash table crashed under
+  instrumentation (JVM verify error: arrays of traced objects used primitive helpers, 19a); an LRU cache
+  and an n-ary tree were untraced (collection fields of traced classes and their initializers, 19b); a heap
+  class read as a stack; prev/next read as a tree. 19c-19f: detect.ts rank-2 (roles from reachable objects,
+  mirror pairs, parent pointers, children fields, chains, heap order from swap values), automatic display
+  of Strong unambiguous candidates, one Structures card with "Choose fields yourself", new views for trees
+  with children and chained tables, prev arrows, held-by tags. Verify needed three runs: Docker Desktop had
+  just started and two live backend tests hit infrastructure timeouts (containers removed by name).

@@ -1,6 +1,6 @@
 # Current state
 
-Last updated: 2026-10-23 (Asia/Saigon). Short summary only; keep it under about
+Last updated: 2026-10-24 (Asia/Saigon). Short summary only; keep it under about
 120 lines. For the active task, [handoff.md](handoff.md) is authoritative.
 History: [archive/](archive/README.md).
 
@@ -51,11 +51,12 @@ improvements.
 | 11a-11d | Step motion: value flights, badges, speed, Motion toggle, index arrows, call/return, collection/object/tree/heap motion ([motion](../specs/motion.md)); 50 unit, 21 browser tests | Merged (PRs #109-#112) |
 | 12a-12d | `Arrays.fill`, `Math.pow`, `String.format`, `Stream.of`, iterators used directly (trace 1.11.0, plan 11) ([library](../specs/library.md)); grid index arrows and returning-frame ghost ([motion](../specs/motion.md)); tracer 139 + backend 102 Java tests with live Docker, 66 contract, 53 unit, 24 browser tests | Merged (PR #113) |
 | 13a-13c | Call relationships: call tree panel, the line each frame waits on, returned values kept until used ([call tree](../specs/call-tree.md)); frontend only; 55 unit, 25 browser tests | Merged |
-| 14a-14d | Graph view: square matrix or neighbour lists confirmed as a graph, levels from a start node, edges lit by each step, index markers, per-node arrays ([graph view](../specs/graph-view.md)); frontend only; 62 unit, 28 browser tests | Done, pushed, awaiting review |
-| 15a-15b | Complexity estimates per method from the code's shape (trace 1.12.0 `complexity`, plan 12) with editor badges and a ranking panel next to measured calls/steps ([complexity](../specs/complexity.md)); stacked on 14 | Done, pushed, awaiting review |
-| 16 | "New program (template)" first in the example picker: common imports and an empty main (frontend only) | Done, pushed, awaiting review (stacked on 15) |
-| 17 | Backtracking review: copy constructors of covered collections/maps (`new ArrayList<>(path)`) traced and checked; complexity counts two separate recursing `if`s as two calls; suite programs B1-B4 | Done, pushed, awaiting review (stacked on 16) |
-| 18a-18e | Visual: write "computed from" arrows and heat colours for DP grids, bars, range between two arrows, variable tags on nodes, strings as character boxes with charAt arrows ([motion](../specs/motion.md)); frontend only | Done, pushed, awaiting review (stacked on 17) |
+| 14a-14d | Graph view: square matrix or neighbour lists confirmed as a graph, levels from a start node, edges lit by each step, index markers, per-node arrays ([graph view](../specs/graph-view.md)); frontend only; 62 unit, 28 browser tests | Merged |
+| 15a-15b | Complexity estimates per method from the code's shape (trace 1.12.0 `complexity`, plan 12) with editor badges and a ranking panel next to measured calls/steps ([complexity](../specs/complexity.md)); stacked on 14 | Merged |
+| 16 | "New program (template)" first in the example picker: common imports and an empty main (frontend only) | Merged |
+| 17 | Backtracking review: copy constructors of covered collections/maps (`new ArrayList<>(path)`) traced and checked; complexity counts two separate recursing `if`s as two calls; suite programs B1-B4 | Merged |
+| 18a-18e | Visual: write "computed from" arrows and heat colours for DP grids, bars, range between two arrows, variable tags on nodes, strings as character boxes with charAt arrows ([motion](../specs/motion.md)); frontend only | Merged |
+| 19a-19f | Structure detection for complicated code: arrays of traced objects no longer break the program (19a); classes with collection fields and field initializers traced (19b); rank-2 detection from recorded objects (doubly linked lists, trees with children, tries, chained hash tables, heaps in a class, graphs of index lists), automatic display of Strong unambiguous structures, one Structures card, held-by tags ([structure detection](../specs/structure-detection.md)) | Done, pushed, awaiting review |
 
 ## Verified environment
 

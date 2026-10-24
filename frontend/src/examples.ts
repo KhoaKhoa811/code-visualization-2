@@ -379,6 +379,66 @@ public class Main {
     }
 }
 `,
+  'Mixed structures': `import java.util.*;
+
+public class Main {
+    // An LRU cache: a map into a doubly linked list.
+    static class Node { int key, val; Node prev, next; Node(int k, int v) { key = k; val = v; } }
+    static class LRU {
+        int cap;
+        Map<Integer, Node> map = new HashMap<>();
+        Node head = new Node(0, 0), tail = new Node(0, 0);
+        LRU(int c) { cap = c; head.next = tail; tail.prev = head; }
+        void remove(Node n) { n.prev.next = n.next; n.next.prev = n.prev; }
+        void addFront(Node n) { n.next = head.next; n.prev = head; head.next.prev = n; head.next = n; }
+        int get(int k) { Node n = map.get(k); if (n == null) return -1; remove(n); addFront(n); return n.val; }
+        void put(int k, int v) {
+            Node n = map.get(k);
+            if (n != null) { n.val = v; remove(n); addFront(n); return; }
+            if (map.size() == cap) { Node last = tail.prev; remove(last); map.remove(last.key); }
+            n = new Node(k, v);
+            map.put(k, n);
+            addFront(n);
+        }
+    }
+
+    // A trie: children kept in an array by letter.
+    static class TrieNode { TrieNode[] kids = new TrieNode[26]; boolean end; }
+    static void insert(TrieNode root, String w) {
+        TrieNode cur = root;
+        for (int i = 0; i < w.length(); i++) {
+            int c = w.charAt(i) - 'a';
+            if (cur.kids[c] == null) cur.kids[c] = new TrieNode();
+            cur = cur.kids[c];
+        }
+        cur.end = true;
+    }
+
+    // A hash table with chaining: an array of linked entries.
+    static class Entry { int key, val; Entry next; Entry(int k, int v, Entry n) { key = k; val = v; next = n; } }
+    static class Table {
+        Entry[] buckets = new Entry[4];
+        void put(int k, int v) {
+            int b = k % 4;
+            for (Entry e = buckets[b]; e != null; e = e.next) if (e.key == k) { e.val = v; return; }
+            buckets[b] = new Entry(k, v, buckets[b]);
+        }
+    }
+
+    public static void main(String[] args) {
+        LRU cache = new LRU(3);
+        cache.put(1, 10); cache.put(2, 20); cache.put(3, 30);
+        cache.get(1);
+        cache.put(4, 40);
+        TrieNode root = new TrieNode();
+        insert(root, "to");
+        insert(root, "tea");
+        Table table = new Table();
+        table.put(1, 10); table.put(5, 50); table.put(2, 20);
+        System.out.println(cache.get(2) + " " + cache.get(1) + " " + root.kids[19].kids[4].kids[0].end + " " + table.buckets[1].val);
+    }
+}
+`,
   'Grid and switch': `public class Main {
     public static void main(String[] args) {
         int[][] grid = new int[3][4];

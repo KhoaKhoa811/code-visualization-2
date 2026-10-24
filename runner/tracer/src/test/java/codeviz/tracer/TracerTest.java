@@ -1425,6 +1425,77 @@ class TracerTest {
         assertEquals(List.of(), uncaptured(tree));
     }
 
+    @Test void aHeapClassAndAMixedProgramAreTraced() throws Exception { // Part 19: fixtures for structure detection
+        Run heap = run("heap-class", """
+                public class Main {
+                    static class MinHeap {
+                        int[] a = new int[8];
+                        int size;
+                        void push(int x) {
+                            a[size] = x;
+                            int i = size++;
+                            while (i > 0 && a[(i - 1) / 2] > a[i]) { int p = (i - 1) / 2; int t = a[i]; a[i] = a[p]; a[p] = t; i = p; }
+                        }
+                        int pop() {
+                            int top = a[0];
+                            a[0] = a[--size];
+                            int i = 0;
+                            while (true) {
+                                int l = 2 * i + 1, r = l + 1, m = i;
+                                if (l < size && a[l] < a[m]) m = l;
+                                if (r < size && a[r] < a[m]) m = r;
+                                if (m == i) break;
+                                int t = a[i]; a[i] = a[m]; a[m] = t;
+                                i = m;
+                            }
+                            return top;
+                        }
+                    }
+                    public static void main(String[] args) {
+                        MinHeap h = new MinHeap();
+                        h.push(5); h.push(3); h.push(8); h.push(1); h.push(2);
+                        System.out.println(h.pop() + " " + h.pop());
+                    }
+                }
+                """);
+        assertComplete(heap, "completed");
+        assertEquals("1 2\n", heap.result().stdout());
+
+        Run mixed = run("mixed-structures", """
+                import java.util.*;
+                public class Main {
+                    static class Tree { int key; Tree left, right; Tree(int k) { key = k; } }
+                    static Tree insert(Tree t, int k) {
+                        if (t == null) return new Tree(k);
+                        if (k < t.key) t.left = insert(t.left, k); else t.right = insert(t.right, k);
+                        return t;
+                    }
+                    public static void main(String[] args) {
+                        Tree root = null;
+                        for (int k : new int[]{5, 3, 8, 1, 4}) root = insert(root, k);
+                        List<List<Integer>> adj = new ArrayList<>();
+                        for (int i = 0; i < 4; i++) adj.add(new ArrayList<>());
+                        adj.get(0).add(1); adj.get(1).add(0); adj.get(0).add(2); adj.get(2).add(0); adj.get(2).add(3); adj.get(3).add(2);
+                        int[] dist = new int[4];
+                        Arrays.fill(dist, -1);
+                        Deque<Integer> queue = new ArrayDeque<>();
+                        queue.offer(0); dist[0] = 0;
+                        while (!queue.isEmpty()) {
+                            int u = queue.poll();
+                            for (int v : adj.get(u)) if (dist[v] < 0) { dist[v] = dist[u] + 1; queue.offer(v); }
+                        }
+                        Deque<Integer> stack = new ArrayDeque<>();
+                        for (int d : dist) stack.push(d);
+                        int top = stack.pop() + stack.pop() + stack.pop();
+                        System.out.println(root.key + " " + dist[3] + " " + top);
+                    }
+                }
+                """);
+        assertComplete(mixed, "completed");
+        assertEquals("5 2 4\n", mixed.result().stdout());
+        assertEquals(List.of(), uncaptured(mixed));
+    }
+
     @Test void printingLibraryValuesAndReverseOrderCollections() throws Exception {
         Run r = main("print-and-reverse", """
                 java.util.PriorityQueue<Integer> pq = new java.util.PriorityQueue<>(java.util.Collections.reverseOrder());

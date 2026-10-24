@@ -1,6 +1,6 @@
 # Next steps
 
-Last updated: 2026-10-23 (Asia/Saigon). Short roadmap and approval boundaries
+Last updated: 2026-10-24 (Asia/Saigon). Short roadmap and approval boundaries
 only. For the active task, [handoff.md](handoff.md) is authoritative. History:
 [archive/](archive/README.md).
 
@@ -31,6 +31,11 @@ only. For the active task, [handoff.md](handoff.md) is authoritative. History:
   sandbox, more slots and persistent state, re-verification on the host).
 - Remaining optional ideas, each needing approval: user classes with inheritance, interfaces,
   records, enums; `switch` on String or enum; comparators kept inside sorted collections.
+- Parts 14-18 merged (PRs up to #119).
+- Part 19 (approved 2026-10-24: "1. it's right 2. show them automatically"): structure detection for
+  complicated code, 19a-19f on `feat/part-19-structures`, awaiting review. Spec: specs/structure-detection.md.
+  Possible later (not approved): object graphs with several parents drawn as graphs, tries labelled by
+  letter, edge lists and grids as graphs, binary trees with parent pointers in the tree view.
 - Never merge pull requests; the user merges.
 
 ## Part 7 roadmap (trace engine and first visible slice)

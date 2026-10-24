@@ -23,8 +23,11 @@ import { GraphMappings } from './views/GraphMappings.tsx';
 import { graphProblem, type GraphMapping } from './trace/graph.ts';
 import { StructMappings } from './views/StructMappings.tsx';
 import { structProblem, type Confirmed, type StructMapping } from './trace/structures.ts';
-import { assess } from './trace/rankings.ts';
-import { SuggestedViews } from './views/SuggestedViews.tsx';
+import { StructuresCard } from './views/StructuresCard.tsx';
+import { detectState } from './trace/detect.ts';
+import { isObservable } from './trace/types.ts';
+import type { ChildrenMapping } from './trace/children.ts';
+import type { ChainMapping } from './trace/chains.ts';
 
 const PHASE_TEXT: Record<Snapshot['phase'], string> = {
   queued: 'Queued', preparing: 'Preparing container', compiling: 'Compiling', executing: 'Running',
@@ -81,9 +84,30 @@ export function App() {
   const fittingStructs = useMemo(() => structMappings.filter(m => structProblem(m, fields) === null), [structMappings, fields]);
   const steps = usable?.steps ?? 0;
   const view = useMemo(() => usable ? usable.at(cursor) : null, [usable, cursor]);
-  // Part 10c: rankings from the facts up to the cursor only; confirmed mappings give the field roles.
-  const assessments = useMemo(() => usable && view ? assess(usable, view.cursor, { trees: treeMappings, structs: structMappings }) : [],
-    [usable, view, treeMappings, structMappings]);
+  // Part 19f: structures detected from the facts up to the cursor (rank-2); a Strong candidate that is
+  // its subject's only Strong one is drawn automatically, unless hidden. Confirmed mappings come first.
+  const detected = useMemo(() => usable && view ? detectState(view.beforeEnd ?? view.state,
+    usable.trace.events.slice(0, usable.boundary(view.cursor)).filter(isObservable), view.cursor) : [], [usable, view]);
+  const [hiddenShapes, setHiddenShapes] = useState<string[]>([]);
+  const [shownShapes, setShownShapes] = useState<string[]>([]);
+  const drawnKeys = useMemo(() => new Set(detected.filter(d => d.shape && (d.auto ? !hiddenShapes.includes(d.key) : shownShapes.includes(d.key))).map(d => d.key)),
+    [detected, hiddenShapes, shownShapes]);
+  const auto = useMemo(() => {
+    const out = { trees: [] as TreeMapping[], structs: [] as StructMapping[], heaps: [] as HeapMapping[], graphs: [] as GraphMapping[],
+      nested: [] as ChildrenMapping[], chains: [] as ChainMapping[], modes: {} as Record<string, 'stack' | 'queue'> };
+    for (const d of detected) {
+      if (!drawnKeys.has(d.key) || !d.shape) continue;
+      const s = d.shape;
+      if (s.kind === 'tree' && !fittingTrees.some(m => m.className === s.mapping.className)) out.trees.push(s.mapping);
+      if ((s.kind === 'list' || s.kind === 'array stack' || s.kind === 'array queue') && !fittingStructs.some(m => m.className === s.mapping.className)) out.structs.push(s.mapping);
+      if (s.kind === 'heap' && !fittingHeaps.some(m => m.array === s.mapping.array && m.owner === s.mapping.owner)) out.heaps.push(s.mapping);
+      if (s.kind === 'graph' && !fittingGraphs.some(m => m.array === s.mapping.array)) out.graphs.push(s.mapping);
+      if (s.kind === 'children') out.nested.push(s.mapping);
+      if (s.kind === 'chains') out.chains.push(s.mapping);
+      if (s.kind === 'deque') out.modes[s.variable] = s.mode;
+    }
+    return out;
+  }, [detected, drawnKeys, fittingTrees, fittingStructs, fittingHeaps, fittingGraphs]);
 
   // Part 11a: play speed, and motion (on unless the system asks for reduced motion; remembered per browser).
   const [speed, setSpeed] = useState(1);
@@ -187,7 +211,10 @@ export function App() {
                 <span className="muted">Drag panels by their title and diagram boxes anywhere; layout never changes the recording.</span>
                 <button onClick={() => setLayout(initialLayout())}>Reset layout</button>
               </div>
-              <SuggestedViews assessments={assessments} cursor={view.cursor} />
+              <StructuresCard detected={detected} cursor={view.cursor} drawn={drawnKeys}
+                onHide={key => { setHiddenShapes(list => [...list, key]); setShownShapes(list => list.filter(k => k !== key)); }}
+                onShow={key => { setShownShapes(list => [...list, key]); setHiddenShapes(list => list.filter(k => k !== key)); }}
+                manual={<>
               <TreeMappings fields={fields} mappings={treeMappings} dismissed={notTrees}
                 onConfirm={m => setTreeMappings(list => [...list.filter(x => x.className !== m.className), m])}
                 onRemove={c => setTreeMappings(list => list.filter(x => x.className !== c))}
@@ -206,7 +233,9 @@ export function App() {
                 })}
                 onRemove={c => setStructMappings(list => list.filter(x => x.className !== c))}
                 onDismiss={c => setNotStructs(list => [...list, c])} />}
-              <StatePanel view={view} trees={fittingTrees} heaps={fittingHeaps} graphs={fittingGraphs} structs={fittingStructs} pointers={pointers} leaving={shown.leaving} calls={calls} complexity={complexity} flow={flow} />
+                </>} />
+              <StatePanel view={view} trees={[...fittingTrees, ...auto.trees]} heaps={[...fittingHeaps, ...auto.heaps]} graphs={[...fittingGraphs, ...auto.graphs]}
+                structs={[...fittingStructs, ...auto.structs]} childTrees={auto.nested} chains={auto.chains} modes={auto.modes} pointers={pointers} leaving={shown.leaving} calls={calls} complexity={complexity} flow={flow} />
             </LayoutContext.Provider>
           )}
           {!snap && !submit.isPending && <p className="muted hint">Write Java in the editor and press Run.</p>}
