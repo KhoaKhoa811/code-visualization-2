@@ -19,7 +19,7 @@ export type ArrayLook = 'heat' | 'bars';
 
 export type CollectionMode = 'stack' | 'queue';
 
-export const PANELS = ['variables', 'calls', 'collections', 'trees', 'structures', 'heaps', 'objects', 'arrays', 'strings', 'graphs', 'complexity', 'nested'] as const; // 14a: graphs last, so earlier orders stay
+export const PANELS = ['variables', 'calls', 'collections', 'trees', 'structures', 'heaps', 'objects', 'arrays', 'strings', 'graphs', 'complexity', 'nested', 'dp'] as const; // 14a: graphs last, so earlier orders stay
 
 export function initialLayout(): Layout {
   return { order: [...PANELS], offsets: {}, modes: {}, looks: {} };

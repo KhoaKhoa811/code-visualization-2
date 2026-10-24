@@ -9,37 +9,29 @@
 
 - Updated: 2026-10-24 (Asia/Saigon)
 - Owner: Claude Code
-- Status: Part 19 (structure detection for complicated code) on `feat/part-19-structures`, from main 1508259
-  (Parts 14-18 merged). Awaiting the user's review and merge.
-- Milestone: V1 complete. Public deployment on hold (user: "deployment can hold on").
+- Status: Part 20 (DP tables) on `feat/part-20-dp`, stacked on `feat/part-19-structures` (not merged yet).
+  Merge 19 first. Frontend only (plus a tracer test that makes DP fixtures).
+- Milestone: V1 complete. Public deployment on hold.
 
-## Part 19 roadmap (approved 2026-10-24: "1. it's right 2. show them automatically"); spec: specs/structure-detection.md
+## Part 20 (user: "did our app handle dynamic programming ... I want its visualization to have a full matrix
+## of how it store the value and reuse it", then "yes, please implement it"); spec: specs/dp-view.md
 
-- [x] 19a fix: arrays of traced objects (`Node[]`) used primitive helpers in Instrumenter (ALOAD/ASTORE) ->
-      JVM VerifyError; now every non-primitive element uses the reference helpers (commit af2338c)
-- [x] 19b traced classes may have covered collection fields of traced objects (`List<Node>`, `Map<K, Node>`)
-      and field initializers `= new ArrayList<>()` / `new Node(0, 0)` (Analyzer tracedClasses, simpleInitializer)
-- [x] 19c `frontend/src/trace/detect.ts` rank-2 over rank-1: mirror pairs (doubly linked list), parent
-      pointers, children fields (`children.ts`), chains (`chains.ts`), heap in a class and heap order from
-      swap values, graphs of index lists; `reach.ts` (reachable objects, held-by)
-- [x] 19d views: list view prev arrows and reachable nodes only, `NestedPanel` (trees with children, tables
-      of chains), heap view with `owner`
-- [x] 19e held-by tags (`map[3]`, `buckets[1]`, `cache.head`) in VarTags
-- [x] 19f `StructuresCard` replaces SuggestedViews: hide/show, "Choose fields yourself" holds the old editors;
-      App draws auto shapes after confirmed mappings; deque modes from detection
-- [x] tests: TracerTest 19a/19b/fixture programs; detect.test.ts (4); browser 10c rewritten, 9b hide then
-      confirm, 9a hides the auto views, new "(19)" mixed-structures test; example "Mixed structures"
+- [x] 20a bottom-up: `trace/dataflow.ts` `originOf` (reads and calls of a write's statement), `trace/dp.ts`
+      `dpLog` / `dpTables`, `views/DpPanel.tsx` (panel `dp`, full width): computed / not yet (default or fill
+      shown dimmed), #order, reuse badges, the step's explanation (other arrays named), click a cell for
+      came-from and used-by arrows
+- [x] 20b top-down: writes after recursion in the writing call; memo arrays and integer-keyed maps
+      (put/get); one reuse per call between table writes
+- [x] 20c examples "DP: Fibonacci with a memo", "DP: 0/1 knapsack" (grid paths is in "DP and two pointers");
+      TracerTest `dynamicProgrammingProgramsAreTraced` (fixtures dp-grid, dp-memo, dp-knapsack); dp.test.ts (3);
+      browser test "(20)"
 - [x] spec, memory
 
 ## Verification
 
-- Root clean verify with live Docker: tracer 151, backend 102 (`.tools/verify-19.log`). The first two runs
-  failed on Docker infrastructure timeouts right after Docker Desktop started (different live tests each
-  time); the leftover test containers were removed by name; the third run passed.
-- Frontend 70 unit, build; full Playwright 33 passed (`.tools/pw-19.log`). Earlier runs: 32/33 (the 9a drag test,
-  fixed by hiding the auto views there), then 24 failed after one run container hung in Docker and held the
-  single run slot (removed by name; the mixed test then passed 3 times in a row). No run containers left.
+- Frontend unit 73 (with layout test update), build; full Playwright 34 passed (`.tools/pw-20.log`); no run containers left.
+- Java main code unchanged since Part 19's verify (tracer 151, backend 102); the new tracer test passed alone.
 
 ## Next action
 
-Report Part 19 with the PR link; wait for the merge and the next request.
+Report Part 20 with the PR link; wait. Known limit: static fields of Main are not traced.

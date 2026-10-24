@@ -942,6 +942,50 @@ test('a variable referring to a node is a tag on it (18d)', async ({ page }) => 
   await expect(page.getByTestId('var-tag-head').first()).toBeVisible();
 });
 
+test('a DP table shows every cell: computed or not yet, where it came from, and its reuses (20)', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.monaco-editor')).toBeVisible();
+  await page.getByLabel('Example').selectOption('DP: 0/1 knapsack');
+  await run(page);
+  await expect(page.getByTestId('console-output')).toHaveText('35\n');
+  const table = page.getByTestId('dp-best');
+  const now = table.getByTestId('dp-now');
+  const forward = page.getByRole('button', { name: 'Step forward' });
+  // Step to best[2][4] = max(best[2][4], best[1][1] + value[1]): it is computed from cells of the table.
+  // The table appears once the program has filled cells from cells (it is not a DP table at step 0).
+  const said = async (l: typeof now) => (await l.count()) ? (await l.textContent()) ?? '' : '';
+  for (let i = 0; i < 400 && !(await said(now)).includes('stores 35'); i++) await forward.click();
+  await expect(now).toContainText('stores 35 in best[2][4] from weight[1] = 3, best[1][1] = 15, value[1] = 20');
+  await expect(table.locator('.dp-cell.now-write')).toHaveCount(1);
+  await expect(table.locator('.dp-cell.now-source')).toHaveCount(1); // best[1][1] (best[2][4] itself is not an arrow)
+  await expect(table.locator('[data-state="empty"]').first()).toBeVisible(); // later rows are not computed yet
+  await table.scrollIntoViewIfNeeded();
+  await table.screenshot({ path: 'test-results/dp-knapsack.png' });
+
+  // At the end: click a cell to see what it came from and which cells used it.
+  await page.getByTitle('End').click();
+  await expect(table.locator('[data-state="empty"]')).toHaveCount(5); // row 0 keeps Java's default 0: a base row never computed
+  await table.locator('[data-dp-cell]').nth(5 + 1).click(); // best[1][1]
+  await expect(table.getByTestId('dp-detail')).toContainText('best[1][1] = 15: computed at step');
+  await expect(table.getByTestId('dp-detail')).toContainText('used by');
+  await expect(table.getByTestId('dp-arrows')).not.toHaveAttribute('data-count', '0');
+
+  // Top-down: the memo's -1 cells are not computed; a stored value is reused instead of recomputed.
+  await page.getByLabel('Example').selectOption('DP: Fibonacci with a memo');
+  await run(page);
+  await expect(page.getByTestId('console-output')).toHaveText('13\n');
+  const memo = page.getByTestId('dp-memo');
+  const memoNow = memo.getByTestId('dp-now');
+  for (let i = 0; i < 400 && !(await said(memoNow)).includes('reuses memo['); i++) await forward.click();
+  await expect(memoNow).toContainText('stored at step');
+  await expect(memo.locator('.dp-cell.now-reuse')).toHaveCount(1);
+  await page.getByTitle('End').click();
+  await expect(memo.getByTestId('dp-reuses').first()).toBeVisible();
+  await expect(memo.locator('[data-state="initial"]')).toHaveCount(2); // memo[0] and memo[1] keep their -1 fill
+  await memo.scrollIntoViewIfNeeded();
+  await memo.screenshot({ path: 'test-results/dp-memo.png' });
+});
+
 test('a program reads live console input and playback shows the read (8g, AC-19)', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('.monaco-editor')).toBeVisible();
