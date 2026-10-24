@@ -1300,8 +1300,29 @@ class TracerTest {
         assertEquals("1\n", u.result().stdout());
     }
 
-    @Test void printingLibraryValuesAndReverseOrderCollections() throws Exception {
-        Run r = main("print-and-reverse", """
+@Test void backtrackingProgramsAreTracedIncludingCopiesOfThePath() throws Exception { // Part 17
+        Run subsets = main("subsets-copy", """
+                java.util.List<java.util.List<Integer>> out = new java.util.ArrayList<>();
+                java.util.List<Integer> path = new java.util.ArrayList<>();
+                path.add(1); path.add(2);
+                out.add(new java.util.ArrayList<>(path));
+                path.remove(path.size() - 1);
+                out.add(new java.util.ArrayList<>(path));
+                java.util.Set<Integer> seen = new java.util.HashSet<>(path);
+                java.util.Deque<Integer> d = new java.util.ArrayDeque<>(out.get(0));
+                java.util.Map<String, Integer> m = new java.util.TreeMap<>();
+                m.put("b", 2); m.put("a", 1);
+                java.util.Map<String, Integer> copy = new java.util.LinkedHashMap<>(m);
+                System.out.println(out + " " + seen + " " + d + " " + copy);""");
+        assertComplete(subsets, "completed");
+        assertEquals("[[1, 2], [1]] [1] [1, 2] {a=1, b=2}\n", subsets.result().stdout());
+        assertEquals(List.of(), uncaptured(subsets));
+        assertInOrder(textSteps(subsets.trace()), "ALLOCATE [1,2] @new java.util.ArrayList<>(path)",
+                "ALLOCATE [1] @new java.util.ArrayList<>(path)", "ALLOCATE [1] @new java.util.HashSet<>(path)",
+                "ALLOCATE [1,2] @new java.util.ArrayDeque<>(out.get(0))", "ALLOCATE {\"a\"=1,\"b\"=2} @new java.util.LinkedHashMap<>(m)");
+    }
+
+    @Test void printingLibraryValuesAndReverseOrderCollections() throws Exception {        Run r = main("print-and-reverse", """
                 java.util.PriorityQueue<Integer> pq = new java.util.PriorityQueue<>(java.util.Collections.reverseOrder());
                 pq.add(1); pq.add(5); pq.add(3);
                 System.out.println(pq.poll());

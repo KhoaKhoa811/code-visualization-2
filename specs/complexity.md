@@ -30,8 +30,9 @@ parameter) counts as n, and literal constants as O(1). A grid n × m therefore r
   library calls have listed costs (for example `Arrays.sort` n log n, `ArrayList.contains` n,
   `HashMap.get` 1, `TreeMap.put` and `PriorityQueue.poll` log n, `String.substring` n); others 1.
   Lambdas are not followed.
-- **Direct recursion**: from the number of self-calls one invocation makes (calls in different
-  branches are alternatives, one of them runs) and how an argument shrinks, with the work besides
+- **Direct recursion**: from the number of self-calls one invocation makes (Part 17: statements in
+  sequence add up, so two separate `if`s that each recurse are two calls; only the then and else of
+  one `if`, the two sides of one `?:`, or the cases of one `switch` are alternatives) and how an argument shrinks, with the work besides
   the calls `f(n) = n^d log^k n`:
   - a parameter minus a constant (`n - 1`): one call n · f(n); `a ≥ 2` calls aⁿ.
   - halved (`n / 2`, `mid`, `(lo + hi) / 2`): the master theorem for `a T(n/2) + f(n)`.

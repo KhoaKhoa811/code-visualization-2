@@ -115,6 +115,14 @@ Part 10d ([problem suite](problem-suite.md)):
     iterator variable may have advanced it unseen, so the builder drops its iterators; a later
     use stops capture rather than show a guessed position. Iterating a `PriorityQueue` or a map
     view directly stays uncaptured.
+- Part 17 (approved 2026-10-24, "please fix both"): copy constructors of covered collections and maps,
+  as backtracking saves its path (`res.add(new ArrayList<>(path))`): `ArrayList`, `LinkedList`,
+  `ArrayDeque`, `HashSet`, `LinkedHashSet`, `TreeSet` from a covered collection, and `HashMap`,
+  `LinkedHashMap`, `TreeMap` from a covered map. One ALLOCATE step with the copy's contents. The
+  recorder records the source with the copy (`libCopy`), and the builder checks the recorded
+  contents against the JDK's own copy of the source mirror (in order for lists, deques and linked
+  collections; as sets or maps for hashed ones). `PriorityQueue` copies stay uncaptured: a priority
+  queue may adopt its source's comparator.
 - 10d.5: string concatenation may include a printable library value (`"in order: " + list`):
   the operand reads as the JDK's own `toString` of the trusted mirror, checked against the
   recorded result.
@@ -124,7 +132,7 @@ Element types: boxed primitives (`Integer`, `Long`, `Double`, `Character`,
 `hashCode` or `compareTo`, arrays, and these collections (nested). Keys of hashed
 and sorted collections and `PriorityQueue` elements must be boxed primitives or
 `String`. Constructors take no arguments (or a capacity; `StringBuilder` may take
-a `String`). Boxing and unboxing are matched in bytecode but are not steps; boxed
+a `String`; since Part 17 the listed copy constructors take a covered collection or map). Boxing and unboxing are matched in bytecode but are not steps; boxed
 values are shown as values (their identity is not modeled, so `==` between two
 boxed values stays uncaptured).
 

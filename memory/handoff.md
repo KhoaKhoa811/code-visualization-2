@@ -9,38 +9,37 @@
 
 - Updated: 2026-10-24 (Asia/Saigon)
 - Owner: Claude Code
-- Status: Part 15 (complexity) on `feat/part-15-complexity`, stacked on `feat/part-14-graph`
-  (Part 14 pushed, not merged yet). Awaiting the user's review and merge (14 first).
+- Status: Part 17 (backtracking fixes) done on `feat/part-17-backtracking`. Branch stack, none merged yet:
+  main <- 14 graph <- 15 complexity <- 16 template <- 17 backtracking. Merge in that order.
 - Milestone: V1 complete. Public deployment on hold (user: "deployment can hold on").
 
-## Part 15 (approved 2026-10-24: "ok" to 15a + 15b); spec: specs/complexity.md
+## Part 17 (user: "please review the code to see if we handle backtracking yet?", then "please fix both")
 
-User intent: "I don't need it to be exactly correct. I just want a result so that I can compare
-those algos". Time complexity only; badge per method plus a ranking panel.
+Review (a probe of four programs): permutations, N-queens and parentheses traced completely; subsets
+with `res.add(new ArrayList<>(path))` went partial (copy constructors uncovered); the complexity of two
+separate recursing `if`s showed O(n²) instead of O(2ⁿ).
 
-- [x] 15a `runner/tracer/.../Complexity.java`: estimate per method from javac trees (in the container,
-      during prepare); Analysis.complexity; plan format 12; trace 1.12.0 optional `complexity`
-      (schema `complexityEstimate`); fixtures bumped to 1.12.0
-- [x] 15b frontend: editor badges (`time O(n²)`, hover reasons), Complexity panel (`complexity` panel id)
-      ranking methods by growth with measured calls and inclusive steps (`trace/complexity.ts`)
-- [x] tests: ComplexityTest (4), complexity.test.ts (2), layout test, browser test on example
-      "Compare algorithms"
-- [x] spec and memory
+- [x] copy constructors of ArrayList, LinkedList, ArrayDeque, HashSet, LinkedHashSet, TreeSet (from a
+      covered collection) and HashMap, LinkedHashMap, TreeMap (from a covered map): Analyzer `COPYABLE`,
+      site operator "copy", Instrumenter spills the source, Recorder `libCopy`, TraceBuilder `checkCopy`
+      against the JDK's copy of the source mirror. PriorityQueue copies stay uncaptured.
+- [x] Complexity: self-calls counted per statement (`count`): sequences add, if/else, ?: and switch cases
+      are alternatives
+- [x] tests: TracerTest `backtrackingProgramsAreTracedIncludingCopiesOfThePath`, ComplexityTest (gen, pick),
+      ProblemSuiteTest B1-B4
+- [x] specs: library.md, complexity.md, problem-suite.md; memory
 
-## Verification
+## Earlier on the stack
 
-- Tracer 143 passed (`.tools/tracer-15.log`), contract 66, frontend 64 unit.
-- Root clean verify with live Docker: tracer 143, backend 102 (`.tools/verify-15.log`). Playwright 29 passed
-  (`.tools/pw-15.log`); the first run failed only the new test: Monaco skips decorations on an empty range
-  without `showIfCollapsed`, and renders spaces as non-breaking ones. No run containers left.
+- Part 15 (complexity estimates, specs/complexity.md): verified tracer 143, backend 102, Playwright 29.
+  15c (growth check by re-running with bigger n) was proposed and is not approved.
+- Part 16 ("New program (template)" in the picker): verified 64 unit, build, Playwright tests 16 and 11c.
 
-## Part 16 (user request 2026-10-24)
+## Verification (Part 17)
 
-- [x] "New program (template)" first in the picker (`frontend/src/examples.ts`); browser test "(16)".
-  Verified: 64 unit, build, Playwright tests 16 and 11c (the full suite last ran on Part 15: 29 passed).
-  Branch `feat/part-16-template`, stacked on Part 15.
+- Root clean verify with live Docker: tracer 148, backend 102 (`.tools/verify-17.log`).
+- Frontend 64 unit, build, Playwright 30 passed (`.tools/pw-17.log`); no run containers left.
 
 ## Next action
 
-Report Part 15 with the PR link (base on Part 14's branch until it merges); wait.
-15c (growth check by re-running with bigger n) was proposed and is not approved.
+Report Part 17 with the PR link; wait for merges and the next request.

@@ -114,6 +114,12 @@ class ComplexityTest {
                 static int power(int b, int e) { if (e == 0) return 1; int h = power(b, e / 2); return e % 2 == 0 ? h * h : h * h * b; }
                 static int sumTo(int n) { return n == 0 ? 0 : n + sumTo(n - 1); }
                 static void perms(int[] a, int k) { if (k == a.length) return; for (int i = k; i < a.length; i++) perms(a, k + 1); }
+                static void gen(StringBuilder sb, int open, int close, int n) {
+                    if (sb.length() == 2 * n) return;
+                    if (open < n) { sb.append('('); gen(sb, open + 1, close, n); sb.deleteCharAt(sb.length() - 1); }
+                    if (close < open) { sb.append(')'); gen(sb, open, close + 1, n); sb.deleteCharAt(sb.length() - 1); }
+                }
+                static int pick(int n, boolean left) { if (n == 0) return 0; return left ? pick(n - 1, true) : pick(n - 1, false); }
                 """);
         bound(all, "fact", "O(n)", false);
         bound(all, "fib", "O(2ⁿ)", false);
@@ -124,6 +130,9 @@ class ComplexityTest {
         bound(all, "power", "O(log n)", false);
         bound(all, "sumTo", "O(n)", false);
         bound(all, "perms", "O(2ⁿ)", true);
+        // Part 17: two separate ifs can both run: two self-calls; then/else and ?: are alternatives.
+        bound(all, "gen", "O(2ⁿ)", false);
+        bound(all, "pick", "O(n)", false);
     }
 
     @Test void estimatesTravelInThePlanAndTheTraceNamesFramesTheSameWay() throws Exception {

@@ -715,6 +715,15 @@ public final class Recorder {
         line(site + " " + r + " " + body);
     }
 
+    /** Part 17: a copy made by a library copy constructor, with its contents and then the source it copied. */
+    public static void libCopy(Object o, Object source, int site) {
+        String s = ref(source);
+        String r = fresh(o);
+        if (r.equals("?")) return;
+        String body = contents(o);
+        line(site + " " + r + " " + body + " " + s);
+    }
+
     public static void libFail(Throwable e, int site) { fail(site, e); }
 
     /** Part 10d: the collection (or map) a for-each iterates, before its iterator() (or view) call. */

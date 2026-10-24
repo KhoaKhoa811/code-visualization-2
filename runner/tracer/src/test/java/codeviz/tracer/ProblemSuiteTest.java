@@ -509,6 +509,48 @@ class ProblemSuiteTest {
                 }
             }
             """);
+        // Part 17: backtracking (choose, recurse, undo), including a copy of the path.
+        P.put("B1 permutations", main("""
+            static void permute(int[] a, boolean[] used, int[] cur, int k) {
+                if (k == a.length) { System.out.println(Arrays.toString(cur)); return; }
+                for (int i = 0; i < a.length; i++) {
+                    if (used[i]) continue;
+                    used[i] = true; cur[k] = a[i];
+                    permute(a, used, cur, k + 1);
+                    used[i] = false;
+                }
+            }
+            public static void main(String[] args) { int[] a = {1, 2, 3}; permute(a, new boolean[3], new int[3], 0); }"""));
+        P.put("B2 subsets with a path list", main("""
+            static void subsets(int[] a, int i, List<Integer> path, List<List<Integer>> out) {
+                if (i == a.length) { out.add(new ArrayList<>(path)); return; }
+                subsets(a, i + 1, path, out);
+                path.add(a[i]);
+                subsets(a, i + 1, path, out);
+                path.remove(path.size() - 1);
+            }
+            public static void main(String[] args) { List<List<Integer>> out = new ArrayList<>(); subsets(new int[]{1, 2}, 0, new ArrayList<>(), out); System.out.println(out); }"""));
+        P.put("B3 n-queens", main("""
+            static boolean safe(int[] col, int r, int c) {
+                for (int i = 0; i < r; i++) if (col[i] == c || Math.abs(col[i] - c) == r - i) return false;
+                return true;
+            }
+            static int solve(int[] col, int r, int n) {
+                if (r == n) return 1;
+                int count = 0;
+                for (int c = 0; c < n; c++) {
+                    if (safe(col, r, c)) { col[r] = c; count += solve(col, r + 1, n); col[r] = -1; }
+                }
+                return count;
+            }
+            public static void main(String[] args) { int n = 4; int[] col = new int[n]; Arrays.fill(col, -1); System.out.println(solve(col, 0, n)); }"""));
+        P.put("B4 parentheses with a StringBuilder", main("""
+            static void gen(StringBuilder sb, int open, int close, int n, List<String> out) {
+                if (sb.length() == 2 * n) { out.add(sb.toString()); return; }
+                if (open < n) { sb.append('('); gen(sb, open + 1, close, n, out); sb.deleteCharAt(sb.length() - 1); }
+                if (close < open) { sb.append(')'); gen(sb, open, close + 1, n, out); sb.deleteCharAt(sb.length() - 1); }
+            }
+            public static void main(String[] args) { List<String> out = new ArrayList<>(); gen(new StringBuilder(), 0, 0, 2, out); System.out.println(out); }"""));
         P.put("E3 stream pipeline example", """
             import java.util.*;
 
@@ -540,7 +582,9 @@ class ProblemSuiteTest {
             Map.entry("F11", "A,B,C"), Map.entry("F12", "[8, 5] 5.333333333333333 true 2"), Map.entry("K1", "false"),
             Map.entry("F7", "{1=[2, 3], 2=[1, 3], 3=[1, 2]}"), Map.entry("F8", "[5, 7]"), Map.entry("F10", "8 true false"),
             Map.entry("A1v", "[7, 8, 9]"), Map.entry("R1v", "in order: [1, 3, 4, 5, 8]"), Map.entry("M1v", "be 2\nnot 1\nor 1\nto 2"),
-            Map.entry("F2v", "56"), Map.entry("E1", "and: 1\ncat: 1\nhat: 1\nthe: 2"), Map.entry("E2", "anagrams"), Map.entry("E3", "22"));
+            Map.entry("F2v", "56"), Map.entry("E1", "and: 1\ncat: 1\nhat: 1\nthe: 2"), Map.entry("E2", "anagrams"), Map.entry("E3", "22"),
+            Map.entry("B1", "[1, 2, 3]\n[1, 3, 2]\n[2, 1, 3]\n[2, 3, 1]\n[3, 1, 2]\n[3, 2, 1]"), Map.entry("B2", "[[], [2], [1], [1, 2]]"),
+            Map.entry("B3", "2"), Map.entry("B4", "[(()), ()()]"));
 
     @TestFactory Stream<DynamicTest> everyProgramTracesCompletelyWithoutUncapturedStatements() {
         return P.entrySet().stream().map(e -> DynamicTest.dynamicTest(e.getKey(), () -> {
