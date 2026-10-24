@@ -332,3 +332,9 @@ not verbatim transcripts, unless quoted.
   plain variables written there; targets cell/variable/field/collection; call arguments into parameters;
   swaps from two writes exchanging previous values within 4 steps), FlowOverlay over all panels (also
   heap nodes for swaps), replaced the Part 18 per-array arrows. Branch feat/part-21-arrows stacked on 20.
+- Part 22 step actions (user: "please implement all of them. but make sure we don't overload actions in one
+  visualization"): actions.ts (swap, rewire, move, compare, return, stack, slot, flow; ghost; jumpAt for back/skip
+  code jumps), ActionOverlay replaced FlowOverlay, editor margin arrow, Arrows switch. Budget: 3 actions by priority
+  plus 1 ghost; an action drops value arrows to its own target; a compare drops the motion badge. Chaining tracer
+  test program now indexes buckets[k % 4] directly (fixture regenerated). Unit 81, full Playwright 36 passed.
+  Branch feat/part-22-actions stacked on 21.

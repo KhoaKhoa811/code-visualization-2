@@ -19,8 +19,8 @@ import { useLayoutEffect, useRef, useState } from 'react';
 import { numeric } from '../trace/format.ts';
 import { setLook, type ArrayLook } from './layout.ts';
 import { useLayout } from './Draggable.tsx';
-import type { FlowArrow } from '../trace/flows.ts';
-import { FlowOverlay } from './FlowOverlay.tsx';
+import type { Action } from '../trace/actions.ts';
+import { ActionOverlay } from './ActionOverlay.tsx';
 import type { CallsView } from '../trace/calls.ts';
 import { CallTreePanel } from './CallTreePanel.tsx';
 import { CallLink } from './CallLink.tsx';
@@ -34,7 +34,7 @@ import type { Row as ComplexityRow } from '../trace/complexity.ts';
 type ArrayObject = TraceObject & { kind: 'array' };
 
 /** Confirmed tree (Part 9b), heap (Part 9c) and list/stack/queue (Part 10b) mappings that fit this run. */
-export function StatePanel({ view, trees = [], heaps = [], graphs = [], structs = [], pointers = new Map(), leaving, calls, complexity = [], flows = [], childTrees = [], chains = [], modes = {}, dp = null }: {
+export function StatePanel({ view, trees = [], heaps = [], graphs = [], structs = [], pointers = new Map(), leaving, calls, complexity = [], actions = [], childTrees = [], chains = [], modes = {}, dp = null }: {
   view: View; trees?: TreeMapping[]; heaps?: HeapMapping[]; graphs?: GraphMapping[]; structs?: StructMapping[]; pointers?: Map<string, Pointer[]>;
   /** 12d: frames the last step ended, drawn from the state before it while they leave. */
   leaving?: { frames: State['frames']; state: State };
@@ -42,8 +42,8 @@ export function StatePanel({ view, trees = [], heaps = [], graphs = [], structs 
   calls?: CallsView;
   /** Part 15b: every method's estimate with what this run measured. */
   complexity?: ComplexityRow[];
-  /** Part 21: where the values this step stored came from, as arrows over every panel. */
-  flows?: FlowArrow[];
+  /** Parts 21-22: the step's actions over every panel (value arrows, swaps, rewiring, ...). */
+  actions?: Action[];
   /** Part 19d: trees with children in a field, and arrays of chains (shown when detected). */
   childTrees?: ChildrenMapping[]; chains?: ChainMapping[];
   /** Part 19f: a deque shown as a stack or queue because it was detected so (the user's choice wins). */
@@ -149,7 +149,7 @@ export function StatePanel({ view, trees = [], heaps = [], graphs = [], structs 
         })}
       </Panel>
       <StringsPanel view={view} pointers={pointers} />
-      <FlowOverlay arrows={flows} />
+      <ActionOverlay actions={actions} />
     </div>
   );
 }

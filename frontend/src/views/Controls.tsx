@@ -9,6 +9,9 @@ interface Props {
   onSpeed: (speed: number) => void;
   motion: boolean;
   onMotion: (motion: boolean) => void;
+  /** Part 22: the step's arrows and actions on the picture. */
+  arrows: boolean;
+  onArrows: (arrows: boolean) => void;
 }
 
 export const SPEEDS = [0.5, 1, 2, 4];
@@ -27,7 +30,7 @@ function Icon({ name }: { name: keyof typeof ICON_PATHS }) {
   return <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false"><path d={ICON_PATHS[name]} fill="currentColor" /></svg>;
 }
 
-export function Controls({ cursor, steps, playing, onCursor, onPlaying, speed, onSpeed, motion, onMotion }: Props) {
+export function Controls({ cursor, steps, playing, onCursor, onPlaying, speed, onSpeed, motion, onMotion, arrows, onArrows }: Props) {
   return (
     <div className="controls" aria-label="Playback">
       <button onClick={() => onCursor(0)} disabled={cursor === 0} title="Restart" aria-label="Restart"><Icon name="restart" /></button>
@@ -42,6 +45,9 @@ export function Controls({ cursor, steps, playing, onCursor, onPlaying, speed, o
       </select>
       <label className="motion-toggle" title="Animate each step: values travel to where they are stored">
         <input type="checkbox" checked={motion} onChange={e => onMotion(e.target.checked)} /> Motion
+      </label>
+      <label className="motion-toggle" title="Show what each step does on the picture: where values came from, swaps, links, comparisons, jumps">
+        <input type="checkbox" checked={arrows} onChange={e => onArrows(e.target.checked)} /> Arrows
       </label>
     </div>
   );

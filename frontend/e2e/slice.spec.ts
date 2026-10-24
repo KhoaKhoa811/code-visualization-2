@@ -905,7 +905,7 @@ test('a DP write shows the cells it was computed from; heat, bars, ranges and st
   // 18a: paths[1][1] = paths[0][1] + paths[1][0]: two arrows into the written cell.
   for (let i = 0; i < 300 && !(await detail.textContent())?.includes('Write paths[1][1]'); i++) await forward.click();
   const grid = page.getByTestId('array-paths');
-  await expect(page.getByTestId('flow-overlay')).toHaveAttribute('data-count', '2'); // 21: drawn by the shared overlay
+  await expect(page.getByTestId('action-overlay')).toHaveAttribute('data-count', '2'); // 21-22: drawn by the shared overlay
   await grid.scrollIntoViewIfNeeded();
   await grid.screenshot({ path: 'test-results/dp-flow.png' });
   await grid.getByTestId('look-heat').click();
@@ -991,20 +991,55 @@ test('flow arrows: a swap is a double arrow between the two cells, and each writ
   await expect(page.locator('.monaco-editor')).toBeVisible();
   await page.getByLabel('Example').selectOption('Bubble sort');
   await run(page);
-  const overlay = page.getByTestId('flow-overlay');
+  const overlay = page.getByTestId('action-overlay');
   const forward = page.getByRole('button', { name: 'Step forward' });
   const detail = page.getByTestId('step-detail');
   // int t = a[j]: an arrow from the cell to the variable.
   for (let i = 0; i < 200 && !(await detail.textContent())?.includes('Declare int t'); i++) await forward.click();
   await expect(overlay).toHaveAttribute('data-count', '1');
   // ... a[j + 1] = t completes the swap: a double arrow between the two cells, and t into the cell.
-  for (let i = 0; i < 20 && (await overlay.getAttribute('data-swaps')) !== '1'; i++) await forward.click();
-  await expect(overlay).toHaveAttribute('data-swaps', '1');
-  await expect(page.locator('.flow-label')).toHaveText('swap');
+  const swap = page.getByTestId('action-swap');
+  for (let i = 0; i < 20 && (await swap.count()) === 0; i++) await forward.click();
+  await expect(swap).toHaveCount(1);
+  await expect(swap.locator('.action-label')).toHaveText('swap');
+  await expect(page.getByTestId('action-ghost')).toHaveCount(1); // the value the write replaced, crossed out
   await page.screenshot({ path: 'test-results/flow-swap.png' });
-  // A step that stores nothing draws no arrow.
-  for (let i = 0; i < 20 && !/ [<>] /.test((await detail.textContent()) ?? ''); i++) await forward.click(); // a comparison
+  // 22: the next comparison of two cells is a bracket between them with its verdict, not a value arrow.
+  for (let i = 0; i < 30 && !(await overlay.getAttribute('data-kinds'))?.includes('compare'); i++) await forward.click();
+  await expect(detail).toContainText(' > '); // a[j] > a[j + 1]; a loop condition like j < n gets no bracket
+  await expect(page.locator('[data-testid="action-yes"], [data-testid="action-no"]')).toHaveCount(1);
+  await expect(page.getByTestId('action-value')).toHaveCount(0);
+});
+
+test('actions: links rewired, a pointer moving, push and pop, code jumps, and the Arrows switch (22)', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.monaco-editor')).toBeVisible();
+  await page.getByLabel('Example').selectOption('Mixed structures');
+  await run(page);
+  const forward = page.getByRole('button', { name: 'Step forward' });
+  const overlay = page.getByTestId('action-overlay');
+  // An LRU link change: the old link crossed out in red, the new one in green.
+  for (let i = 0; i < 300 && !(await overlay.getAttribute('data-kinds'))?.includes('rewire'); i++) await forward.click();
+  await expect(page.getByTestId('action-new').first()).toBeAttached();
+  await page.screenshot({ path: 'test-results/action-rewire.png' });
+
+  // Bubble sort: the inner loop goes round again: a jump arrow back up in the code margin.
+  await page.getByLabel('Example').selectOption('Bubble sort');
+  await run(page);
+  const jump = page.getByTestId('code-jump');
+  for (let i = 0; i < 60 && !((await jump.count()) && (await jump.getAttribute('data-kind')) === 'back'); i++) await forward.click();
+  await expect(jump).toHaveAttribute('data-kind', 'back');
+  // Arrows off: no actions and no jump.
+  await page.getByLabel('Arrows').uncheck();
+  await expect(page.getByTestId('code-jump')).toHaveCount(0);
   await expect(overlay).toHaveAttribute('data-count', '0');
+  await page.getByLabel('Arrows').check();
+
+  // A queue: offer goes in, poll comes out (Graph BFS keeps its queue in a deque).
+  await page.getByLabel('Example').selectOption('Graph BFS (matrix)');
+  await run(page);
+  for (let i = 0; i < 400 && !(await overlay.getAttribute('data-kinds'))?.includes('stack'); i++) await forward.click();
+  await expect(page.getByTestId('action-stack').locator('.action-label')).toHaveText(/^(add|offer) \d+$/);
 });
 
 test('a program reads live console input and playback shows the read (8g, AC-19)', async ({ page }) => {

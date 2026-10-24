@@ -1355,9 +1355,8 @@ class TracerTest {
                     static class Table {
                         Entry[] buckets = new Entry[4];
                         void put(int k, int v) {
-                            int b = k % 4;
-                            for (Entry e = buckets[b]; e != null; e = e.next) if (e.key == k) { e.val = v; return; }
-                            buckets[b] = new Entry(k, v, buckets[b]);
+                            for (Entry e = buckets[k % 4]; e != null; e = e.next) if (e.key == k) { e.val = v; return; }
+                            buckets[k % 4] = new Entry(k, v, buckets[k % 4]);
                         }
                     }
                     public static void main(String[] args) {
