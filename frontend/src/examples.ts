@@ -1,5 +1,21 @@
 // Starter programs are conveniences only; tracing never depends on their text.
 export const EXAMPLES: Record<string, string> = {
+  // Part 16: a blank program with the common imports and main already written.
+  'New program (template)': `import java.util.*;
+import java.util.function.*;
+import java.util.stream.*;
+
+public class Main {
+    // Helper methods go here, for example:
+    // static int square(int x) { return x * x; }
+
+    public static void main(String[] args) {
+        // Write your code here.
+        // To read input: Scanner in = new Scanner(System.in);
+
+    }
+}
+`,
   'Bubble sort': `public class Main {
     public static void main(String[] args) {
         int[] a = {5, 2, 4, 1, 3};
