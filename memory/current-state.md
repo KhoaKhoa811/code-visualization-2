@@ -61,6 +61,7 @@ improvements.
 | 21 | Flow arrows over every panel: where each stored value came from (cells, fields, variables, collection items, string characters, call arguments into parameters) and double swap arrows on arrays and heap views ([flow arrows](../specs/flow-arrows.md)); frontend only; stacked on 20 | Done, pushed, awaiting review |
 | 22 | Step actions with a budget: comparison bracket, link rewiring, moving reference variables, return arrow from the call tree, push/pop arrows, hash slot arrow, old-value ghost, code jumps in the editor margin; at most 3 actions + 1 ghost per step, Arrows switch ([step actions](../specs/step-actions.md)); frontend only; stacked on 21 | Done, pushed, awaiting review |
 | 23 | Three-column layout: side (run facts, variables, call stack, call tree, complexity), center (controls, structures, objects; widest), right (editor, console); one action overlay across columns, redrawn on scroll; Objects bug fixed (graph view's `.graph` rule hid the object columns), objects in top-down depth layers ([three-column layout](../specs/three-column-layout.md)); frontend only; stacked on 22 | Done, pushed, awaiting review |
+| 24 | Panel toggles: a ▾/▸ button on every panel title closes the panel to its title and opens it again; kept across steps and runs, Reset layout opens all ([panel toggles](../specs/panel-toggles.md)); frontend only; stacked on 23 | Done, pushed, awaiting review |
 
 ## Verified environment
 

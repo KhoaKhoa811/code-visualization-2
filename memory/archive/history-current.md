@@ -344,3 +344,6 @@ not verbatim transcripts, unless quoted.
   moved to main.layout, redrawn on scroll/resize, ends clipped by a scrolled column skipped. Objects bug: Part 14's
   `.graph { display: block }` (graph view svg) overrode the Objects panel's flex columns; now `svg.graph`;
   objects laid out in top-down layers. Branch feat/part-23-layout stacked on 22.
+- Part 24 panel toggles (user: "add a toggle option for every component"): Layout.closed + toggleClosed; Panel
+  header button (data-testid toggle-<id>, aria-expanded), closed panel renders only its title; survives runs,
+  Reset layout opens all. User declined auto-detecting matrix graphs. Branch feat/part-24-toggles stacked on 23.

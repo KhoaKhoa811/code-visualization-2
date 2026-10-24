@@ -426,4 +426,8 @@ section[data-panel="dp"] { grid-column: 1 / -1; }
 .code-jump path { fill: none; stroke: #4f8cff; stroke-width: 2; }
 .code-jump.skip path { stroke: #9aa3b5; stroke-dasharray: 4 3; }
 .code-jump marker path { fill: #4f8cff; stroke: none; }
-.code-jump-label { font: 700 12px sans-serif; fill: #4f8cff; text-anchor: end; }
+.code-jump-label { font: 700 12px sans-serif; fill: #4f8cff; text-anchor: end; }/* Part 24: every panel can be closed to its title and opened again. */
+.panel-toggle { background: none; border: none; color: var(--muted); padding: 0 6px 0 0; font-size: 12px; line-height: 1; cursor: pointer; }
+.panel-toggle:hover { color: var(--text); }
+.panel.closed { padding-bottom: 2px; }
+.panel.closed > .panel-handle { margin-bottom: 6px; }

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { forNewRun, initialLayout, movePanel, panelOrder, setMode, setOffset } from './layout.ts';
+import { forNewRun, initialLayout, movePanel, panelOrder, setMode, setOffset, toggleClosed } from './layout.ts';
 
 test('panels reorder by moving one to another one\'s place (9a)', () => {
   const start = initialLayout();
@@ -32,4 +32,14 @@ test('a deque view choice belongs to a variable and survives runs (9d)', () => {
   assert.deepEqual(next.offsets, {});
   assert.deepEqual(setMode(next, 'stack', null).modes, {}, 'Deque restores the class view');
   assert.deepEqual(initialLayout().modes, {}, 'Reset layout clears choices');
+});
+
+test('a panel closes and opens again; closed panels stay closed for a new run (24)', () => {
+  const start = initialLayout();
+  assert.deepEqual(start.closed, []);
+  const closed = toggleClosed(toggleClosed(start, 'objects'), 'calls');
+  assert.deepEqual(closed.closed, ['objects', 'calls']);
+  assert.deepEqual(toggleClosed(closed, 'objects').closed, ['calls']);
+  assert.deepEqual(forNewRun(setOffset(closed, 'object:o2', 5, 5)).closed, ['objects', 'calls']);
+  assert.deepEqual(initialLayout().closed, [], 'Reset layout opens every panel');
 });

@@ -13,6 +13,8 @@ export interface Layout {
   modes: Record<string, CollectionMode>;
   /** Part 18: how an array is drawn, by variable name: heat colours (a grid) or bars (numbers). */
   looks: Record<string, ArrayLook>;
+  /** Part 24: panels the user closed (only their title shows); kept across runs until Reset layout. */
+  closed: string[];
 }
 
 export type ArrayLook = 'heat' | 'bars';
@@ -22,7 +24,7 @@ export type CollectionMode = 'stack' | 'queue';
 export const PANELS = ['variables', 'calls', 'collections', 'trees', 'structures', 'heaps', 'objects', 'arrays', 'strings', 'graphs', 'complexity', 'nested', 'dp'] as const; // 14a: graphs last, so earlier orders stay
 
 export function initialLayout(): Layout {
-  return { order: [...PANELS], offsets: {}, modes: {}, looks: {} };
+  return { order: [...PANELS], offsets: {}, modes: {}, looks: {}, closed: [] };
 }
 
 /** Moves panel {@code from} to the position of {@code to}; the panels between shift by one. */
@@ -56,6 +58,12 @@ export function setLook(layout: Layout, name: string, look: ArrayLook | null): L
   const looks = { ...layout.looks };
   if (look === null) delete looks[name]; else looks[name] = look;
   return { ...layout, looks };
+}
+
+/** Part 24: closes an open panel or opens a closed one. */
+export function toggleClosed(layout: Layout, key: string): Layout {
+  const closed = layout.closed.includes(key) ? layout.closed.filter(k => k !== key) : [...layout.closed, key];
+  return { ...layout, closed };
 }
 
 /** CSS order of a panel in the grid. */

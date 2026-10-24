@@ -29,6 +29,37 @@ test('three columns: state at the side, structures and objects in the center, ev
   expect(await graph.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
   await page.screenshot({ path: 'test-results/three-columns.png' });
 });
+test('every panel closes to its title and opens again (24)', async ({ page }) => {
+  await page.goto('/');
+  await page.getByLabel('Example').selectOption('Tree sort');
+  await run(page);
+  await page.getByTitle('End').click();
+  const panels = page.locator('section.panel');
+  const count = await panels.count();
+  expect(count).toBeGreaterThan(5);
+  await expect(page.locator('.panel-toggle')).toHaveCount(count); // one switch per panel
+  // Close Objects: only its title stays; the other panels are untouched.
+  const objects = page.getByRole('region', { name: 'Objects' });
+  await page.getByTestId('toggle-objects').click();
+  await expect(objects).toHaveClass(/closed/);
+  await expect(page.getByTestId('object-graph')).toHaveCount(0);
+  await expect(page.getByTestId('toggle-objects')).toHaveAttribute('aria-expanded', 'false');
+  await expect(page.getByRole('region', { name: 'Trees' })).not.toHaveClass(/closed/);
+  // Still closed after stepping and after a new run.
+  await page.getByRole('button', { name: 'Step back' }).click();
+  await expect(page.getByTestId('object-graph')).toHaveCount(0);
+  await run(page);
+  await page.getByTitle('End').click();
+  await expect(page.getByTestId('object-graph')).toHaveCount(0);
+  await page.getByTestId('toggle-objects').click();
+  await expect(page.getByTestId('object-graph')).toBeVisible();
+  // Reset layout opens every closed panel.
+  await page.getByTestId('toggle-variables').click();
+  await page.getByTestId('toggle-calls').click();
+  await expect(page.locator('section.panel.closed')).toHaveCount(2);
+  await page.getByRole('button', { name: 'Reset layout' }).click();
+  await expect(page.locator('section.panel.closed')).toHaveCount(0);
+});
 async function openManual(page: Page) {
   const d = page.getByTestId('manual-mappings');
   if (!(await d.evaluate(e => (e as HTMLDetailsElement).open))) await d.locator('summary').click();
