@@ -714,6 +714,109 @@ test('the call tree keeps every call with its result, and a caller shows what it
   await expect(tree).toHaveCount(0);
 });
 
+test('a matrix confirmed as a graph is drawn by levels, follows writes and lights the edge a step reads (14a)', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.monaco-editor')).toBeVisible();
+  await page.getByLabel('Example').selectOption('Graph BFS (matrix)');
+  await run(page);
+  await expect(page.getByTestId('run-summary')).toContainText('capture complete');
+  await expect(page.getByTestId('console-output')).toHaveText('[0, 1, 2, 3, 4]\n');
+  await page.getByTitle('End').click();
+  await page.getByRole('button', { name: 'Show a variable as a graph…' }).click();
+  await expect(page.getByLabel('Graph variable')).toHaveValue('g');
+  await expect(page.getByLabel('Graph form')).toHaveValue('matrix');
+  await expect(page.getByLabel('Graph edges')).toHaveValue('undirected'); // suggested: symmetric at this step
+  await expect(page.getByTestId('graph-hint')).toContainText('5 nodes, 6 edges; symmetric');
+  await page.getByRole('button', { name: 'Show as graph' }).click();
+
+  const graph = page.getByTestId('graph-g');
+  await expect(graph.getByTestId('graph-node')).toHaveCount(5);
+  await expect(graph.getByTestId('graph-edge')).toHaveCount(6);
+  await expect(graph.locator('[data-testid="graph-edge"][data-tree="true"]')).toHaveCount(4); // the level tree from node 0
+  await expect(graph.locator('[data-node="0"]')).toHaveAttribute('data-level', '0');
+  await expect(graph.locator('[data-node="4"]')).toHaveAttribute('data-level', '3');
+  await expect(graph.locator('.graph-weight').first()).toBeVisible(); // weights other than 1 are drawn
+  await graph.scrollIntoViewIfNeeded();
+  await graph.screenshot({ path: 'test-results/graph-matrix.png' });
+
+  // Back in the BFS: the step reading g[u][v] lights that edge (or no edge is lit when the cell is -1).
+  const detail = page.getByTestId('step-detail');
+  const back = page.getByRole('button', { name: 'Step back' });
+  for (let i = 0; i < 200 && (await graph.locator('.graph-edge.lit').count()) === 0; i++) await back.click();
+  await expect(graph.locator('.graph-edge.lit')).toHaveCount(1);
+  await expect(detail).toContainText('Read g[4][3] = 3'); // the last edge BFS reads
+  const lit = graph.locator('.graph-edge.lit');
+  expect([await lit.getAttribute('data-from'), await lit.getAttribute('data-to')].sort()).toEqual(['3', '4']);
+
+  // Before the edges are written there are fewer edges; before g exists the view says so.
+  await page.getByTitle('Restart').click();
+  await expect(graph).toContainText('not in scope');
+});
+
+test('neighbour lists confirmed as a graph: a DFS lights each edge it walks (14b)', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.monaco-editor')).toBeVisible();
+  await page.getByLabel('Example').selectOption('Graph DFS (lists)');
+  await run(page);
+  const summary = page.getByTestId('run-summary');
+  await expect(summary).toContainText('capture complete');
+  await expect(summary).not.toContainText('without capture');
+  await expect(page.getByTestId('console-output')).toHaveText('[0, 1, 3, 2, 4, 5]\n');
+  await page.getByTitle('End').click();
+  await page.getByRole('button', { name: 'Show a variable as a graph…' }).click();
+  await page.getByLabel('Graph variable').selectOption('adj');
+  await expect(page.getByLabel('Graph form')).toHaveValue('lists');
+  await expect(page.getByLabel('Graph edges')).toHaveValue('undirected'); // every edge is listed both ways
+  await expect(page.getByLabel('Graph no edge')).toHaveCount(0); // only for a matrix
+  await page.getByRole('button', { name: 'Show as graph' }).click();
+
+  const graph = page.getByTestId('graph-adj');
+  await expect(graph.getByTestId('graph-node')).toHaveCount(6);
+  await expect(graph.getByTestId('graph-edge')).toHaveCount(6);
+  await expect(graph.locator('[data-testid="graph-edge"][data-tree="true"]')).toHaveCount(5);
+  await expect(graph.locator('[data-node="5"]')).toHaveAttribute('data-level', '4');
+  await graph.scrollIntoViewIfNeeded();
+  await graph.screenshot({ path: 'test-results/graph-lists.png' });
+
+  // Step back into the DFS: the for-each's next() over adj.get(u) lights edge u - v.
+  const back = page.getByRole('button', { name: 'Step back' });
+  for (let i = 0; i < 300 && (await graph.locator('.graph-edge.lit').count()) === 0; i++) await back.click();
+  await expect(graph.locator('.graph-edge.lit')).toHaveCount(1);
+  // Before the lists are filled the graph has fewer edges, never edges from later steps.
+  await page.getByTitle('Restart').click();
+  await expect(graph).toContainText('not in scope');
+});
+
+test('a linked visited array colours the nodes and the index variables mark them (14c)', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.monaco-editor')).toBeVisible();
+  await page.getByLabel('Example').selectOption('Graph BFS (matrix)');
+  await run(page);
+  await page.getByTitle('End').click();
+  await page.getByRole('button', { name: 'Show a variable as a graph…' }).click();
+  await page.getByLabel('Graph node array visited').check();
+  await page.getByRole('button', { name: 'Show as graph' }).click();
+  const graph = page.getByTestId('graph-g');
+  await expect(graph.getByTestId('graph-legend')).toContainText('visited[i] is true');
+  await expect(graph.locator('.graph-node.flagged')).toHaveCount(5); // every node was visited
+
+  // Back inside the BFS loop: u (g[u]) and v (g[u][v]) mark their nodes; fewer nodes are visited
+  // at the first read, and a write to visited[v] lights node v.
+  const back = page.getByRole('button', { name: 'Step back' });
+  for (let i = 0; i < 300 && (await graph.getByTestId('graph-marker').count()) < 2; i++) await back.click();
+  await expect(graph.getByTestId('graph-marker').filter({ hasText: 'u' })).toHaveCount(1);
+  await expect(graph.getByTestId('graph-marker').filter({ hasText: 'v' })).toHaveCount(1);
+  await page.getByTitle('Restart').click();
+  const forward = page.getByRole('button', { name: 'Step forward' });
+  const detail = page.getByTestId('step-detail');
+  for (let i = 0; i < 400 && !(await detail.textContent())?.includes('Write visited[1]: false → true'); i++) await forward.click();
+  await expect(detail).toContainText('Write visited[1]: false → true');
+  await expect(graph.locator('.graph-node.lit')).toHaveAttribute('data-node', '1');
+  await expect(graph.locator('.graph-node.flagged')).toHaveCount(2); // 0, then 1: only what is recorded so far
+  await graph.scrollIntoViewIfNeeded();
+  await graph.screenshot({ path: 'test-results/graph-traversal.png' });
+});
+
 test('a program reads live console input and playback shows the read (8g, AC-19)', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('.monaco-editor')).toBeVisible();

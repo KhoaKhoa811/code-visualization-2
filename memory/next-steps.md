@@ -17,7 +17,11 @@ only. For the active task, [handoff.md](handoff.md) is authoritative. History:
 - Part 12 (approved 2026-10-23: "implement more library calls and Visual"): 12a-12d done on
   `feat/part-12-library-visual`, awaiting review.
 - Part 13 (approved 2026-10-23: "ok, go ahead with all of them"): call tree, waiting lines,
-  kept results; done on `feat/part-13-recursion`, stacked on Part 12, awaiting review.
+  kept results. Parts 12 and 13 merged (PRs #113, #114).
+- Part 14 (approved 2026-10-23: graph view, start with 2D arrays; -1 is no edge; layered "tree from a
+  start node" layout): 14a matrix, 14b neighbour lists, 14c markers and per-node arrays, 14d examples
+  and tests, on `feat/part-14-graph`, awaiting review. Possible later: weighted lists ({to, w} rows),
+  user classes as graph nodes, a confirmed "grid as graph" (maze) view; each needs approval.
 - On hold (user: "deployment can hold on"): public-deployment gaps in specs/isolation-review.md
   (auth/quotas/TLS, CPU limit, startup sweep of orphaned `codeviz-run-*` containers, stronger
   sandbox, more slots and persistent state, re-verification on the host).

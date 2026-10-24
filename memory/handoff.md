@@ -9,28 +9,30 @@
 
 - Updated: 2026-10-23 (Asia/Saigon)
 - Owner: Claude Code
-- Status: Part 13 done on `feat/part-13-recursion`, stacked on `feat/part-12-library-visual`
-  (Part 12 is pushed and not merged yet). Frontend only. Pushed; awaiting review and merge.
+- Status: Part 14 (graph view) on `feat/part-14-graph`, from main cd17494 (Parts 12 and 13 merged).
+  Frontend only. Awaiting the user's review and merge.
 - Milestone: V1 complete. Public deployment on hold (user: "deployment can hold on").
 
-## Part 13 (approved 2026-10-23: "ok, go ahead with all of them"); spec: specs/call-tree.md
+## Part 14 roadmap (approved 2026-10-23); spec: specs/graph-view.md
 
-- [x] 13a call tree panel (`calls` panel id, after the call stack): every call up to the cursor
-      under its caller, arguments, `→ result` / `done` / `threw`, running path outlined, 200-call bound
-- [x] 13b each waiting frame shows its call's source line with the call marked and `⏳ fib(2)`
-- [x] 13c returned values fill the mark (`fib(n - 1) = 2`) until the caller's first later step whose
-      code contains the call (or code past the call's line); shown on that step, then gone
-- [x] tests: calls.test.ts (2), layout test updated; browser test with the new example
-      "Fibonacci (call tree)"; screenshot test-results/call-tree.png
-- [x] memory and spec updated
+User choices: order 14a, 14b, 14c is good; "-1" means no edge (0 offered as an alternative);
+layout "a tree grown from a start node, with nodes in layers by distance".
+
+- [x] 14a square matrix confirmed as a graph (f4b2089): directed/undirected (suggested from symmetry),
+      no-edge value, start node; BFS levels, tree edges solid, others dashed; fit problems reported
+- [x] 14b neighbour lists (8eb3456): jagged int[][], List<List<Integer>>, List<Integer>[]; event lighting
+      for get / next / add
+- [x] 14c traversal (6889ab5): index markers (u, v; `adj.get(u)` counts as indexing), linked per-node
+      arrays (boolean fills, others labels), linked writes light nodes
+- [x] 14d spec, examples "Graph BFS (matrix)" and "Graph DFS (lists)", tests, memory
 
 ## Verification
 
-- Frontend: 55 unit passed, build OK. Playwright: new test passed after fixes (selector matched
-  main; first value-use rule cleared fib(n - 1) at the `n - 2` step). Full run 24 passed, 1 failed (9a drag test: Objects panel order is 6 now, since the calls panel), fixed and rerun: passed. 25/25.
-- Java and contracts unchanged since Part 12's verify (tracer 139, backend 102, contract 66).
+- Frontend: 62 unit passed, build OK. Graph browser tests (14a, 14b, 14c) passed; fixes along the way:
+  step texts ("Read g[4][3] = 3", "Write visited[1]: false → true"), a parameter name clash.
+- Full Playwright run: 28 passed (`.tools/pw-14.log`).
+- Java and contracts unchanged (last Java verify: Part 12, tracer 139, backend 102).
 
 ## Next action
 
-Report Part 13 with the PR link (base it on Part 12, or on main after Part 12 merges); wait.
-Restart the local app for the user afterwards (it is stopped during Playwright).
+Report Part 14 with the PR link; wait for the user's merge and next request.

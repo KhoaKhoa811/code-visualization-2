@@ -224,6 +224,64 @@ public class Main {
     }
 }
 `,
+  'Graph BFS (matrix)': `import java.util.*;
+
+public class Main {
+    public static void main(String[] args) {
+        int n = 5;
+        int[][] g = new int[n][n];
+        for (int[] row : g) Arrays.fill(row, -1);
+        int[][] roads = {{0, 1, 4}, {0, 2, 1}, {2, 1, 2}, {1, 3, 5}, {2, 3, 8}, {3, 4, 3}};
+        for (int[] r : roads) {
+            g[r[0]][r[1]] = r[2];
+            g[r[1]][r[0]] = r[2];
+        }
+        boolean[] visited = new boolean[n];
+        Deque<Integer> queue = new ArrayDeque<>();
+        queue.add(0);
+        visited[0] = true;
+        List<Integer> order = new ArrayList<>();
+        while (!queue.isEmpty()) {
+            int u = queue.poll();
+            order.add(u);
+            for (int v = 0; v < n; v++) {
+                if (g[u][v] != -1 && !visited[v]) {
+                    visited[v] = true;
+                    queue.add(v);
+                }
+            }
+        }
+        System.out.println(order);
+    }
+}
+`,
+  'Graph DFS (lists)': `import java.util.*;
+
+public class Main {
+    static void dfs(List<List<Integer>> adj, boolean[] seen, int u, List<Integer> order) {
+        seen[u] = true;
+        order.add(u);
+        for (int v : adj.get(u)) {
+            if (!seen[v]) dfs(adj, seen, v, order);
+        }
+    }
+
+    public static void main(String[] args) {
+        int n = 6;
+        int[][] edges = {{0, 1}, {0, 2}, {1, 3}, {2, 3}, {3, 4}, {5, 4}};
+        List<List<Integer>> adj = new ArrayList<>();
+        for (int i = 0; i < n; i++) adj.add(new ArrayList<>());
+        for (int[] e : edges) {
+            adj.get(e[0]).add(e[1]);
+            adj.get(e[1]).add(e[0]);
+        }
+        boolean[] seen = new boolean[n];
+        List<Integer> order = new ArrayList<>();
+        dfs(adj, seen, 0, order);
+        System.out.println(order);
+    }
+}
+`,
   'Grid and switch': `public class Main {
     public static void main(String[] args) {
         int[][] grid = new int[3][4];

@@ -11,6 +11,8 @@ export interface Pointer { name: string; frameId: string; value: number; last: n
 interface Access { step: number; frameId: string; name: string; arrayId: string }
 
 const INDEX = /\[\s*([A-Za-z_$][\w$]*)\s*\]$/;
+/** 14c: a list read written literally `….get(name)` indexes it the same way (`adj.get(u)`). */
+const GET = /\.get\(\s*([A-Za-z_$][\w$]*)\s*\)$/;
 const cache = new WeakMap<Playback, Access[]>();
 
 /**
@@ -30,6 +32,11 @@ function accesses(playback: Playback): Access[] {
   found = [];
   const text = playback.trace.source.text;
   for (const e of playback.trace.events) {
+    if (e.kind === 'LIBRARY' && e.data.objectId && e.data.method.endsWith('.get(int)')) {
+      const got = GET.exec(text.slice(e.source.start, e.source.end));
+      if (got) found.push({ step: e.step, frameId: e.frameId, name: got[1], arrayId: e.data.objectId });
+      continue;
+    }
     if ((e.kind !== 'ARRAY_READ' && e.kind !== 'ARRAY_WRITE') || !('step' in e)) continue;
     const match = INDEX.exec(target(text.slice(e.source.start, e.source.end)));
     if (match) found.push({ step: e.step, frameId: e.frameId, name: match[1], arrayId: e.data.objectId });
@@ -51,7 +58,8 @@ export function pointersAt(playback: Playback, k: number, state: State): Map<str
     if (seen.has(key)) { const known = seen.get(key); if (known) known.last = a.step; continue; }
     const binding = state.bindings.find(b => b.frameId === a.frameId && b.name === a.name);
     const value = binding ? intValue(binding.value) : null;
-    if (value === null || state.objects.get(a.arrayId)?.kind !== 'array') { seen.set(key, null); continue; }
+    const kind = state.objects.get(a.arrayId)?.kind;
+    if (value === null || kind !== 'array' && kind !== 'collection') { seen.set(key, null); continue; }
     const pointer = { name: a.name, frameId: a.frameId, value, last: a.step };
     seen.set(key, pointer);
     const list = out.get(a.arrayId) ?? [];

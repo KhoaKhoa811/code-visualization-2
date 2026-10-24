@@ -283,3 +283,24 @@ mark.call-filled { background: color-mix(in srgb, #3fb37f 22%, transparent); }
 mark.call-filled .call-value { color: #3fb37f; }
 mark.call-waiting .call-value { color: var(--accent); }.call-node.current > .call-label .badge { color: #fff; margin-left: 6px; }
 mark.call-waiting, mark.call-filled, .call-line .badge { white-space: nowrap; }
+/* Part 14a: graphs drawn by levels from a start node; tree edges solid, other edges dashed. */
+.graph { display: block; overflow: visible; }
+.graph-edge path { fill: none; stroke: var(--muted); stroke-width: 1.6; transition: d .35s ease-in-out, stroke .2s; }
+.graph-edge.extra path { stroke-dasharray: 5 4; opacity: .8; }
+.graph-edge.unknown path { stroke: var(--warning); stroke-dasharray: 2 3; }
+.graph-edge.lit path { stroke: var(--accent); stroke-width: 3; }
+.graph-edge.lit.write path { stroke: #e0a83a; }
+.graph-arrowhead { fill: var(--muted); }
+.graph-weight { font: 600 11px Consolas, ui-monospace, monospace; fill: var(--text, #ddd); text-anchor: middle; paint-order: stroke; stroke: var(--panel, #1e1f24); stroke-width: 3px; }
+.graph-node { transition: transform .35s ease-in-out; }
+.graph-node circle { fill: var(--panel, #1e1f24); stroke: var(--border); stroke-width: 2; }
+.graph-node.root circle { stroke: var(--accent); }
+.graph-node.lit circle { stroke: var(--accent); stroke-width: 3; fill: color-mix(in srgb, var(--accent) 25%, transparent); }
+.graph-label { font: 700 12px Consolas, ui-monospace, monospace; fill: currentColor; text-anchor: middle; }
+body.motion-off .graph-node, body.motion-off .graph-edge path { transition: none; }/* Part 14c: index variables above nodes, linked arrays (visited[i], dist[i]) on them. */
+.graph-marker { font: 700 11px Consolas, ui-monospace, monospace; fill: var(--accent); text-anchor: middle; }
+.graph-value { font: 600 10.5px Consolas, ui-monospace, monospace; fill: var(--muted); text-anchor: middle; }
+.graph-node.flagged circle { fill: color-mix(in srgb, #3fb37f 35%, var(--panel)); stroke: #3fb37f; }
+.graph-node.unknown circle { stroke: var(--warning); stroke-dasharray: 3 3; }
+.graph-swatch { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: color-mix(in srgb, #3fb37f 35%, var(--panel)); border: 2px solid #3fb37f; vertical-align: middle; }
+.graph-pick { margin-left: 6px; white-space: nowrap; }.graph-node.flagged.lit circle { stroke: var(--accent); stroke-width: 3; }
