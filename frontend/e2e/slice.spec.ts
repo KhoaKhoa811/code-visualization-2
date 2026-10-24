@@ -4,6 +4,31 @@ import { EXAMPLES } from '../src/examples.ts';
 const cells = (page: Page, name: string) => page.getByTestId(`array-${name}`).getByTestId('cell').locator('.cell-value');
 
 /** Part 19f: the confirm-by-hand editors sit under "Choose fields yourself" in the Structures card. */
+test('three columns: state at the side, structures in the center, every object shown (23)', async ({ page }) => {
+  await page.goto('/');
+  await page.getByLabel('Example').selectOption('Tree sort');
+  await run(page);
+  await page.getByTitle('End').click();
+  const side = page.getByRole('region', { name: 'Program state' }), center = page.getByRole('region', { name: 'Visualization' });
+  await expect(side.getByRole('region', { name: 'Call stack' })).toHaveCount(1);
+  await expect(side.getByRole('region', { name: 'Objects' })).toHaveCount(1);
+  await expect(center.getByRole('region', { name: 'Trees' })).toHaveCount(1);
+  await expect(center.getByRole('region', { name: 'Arrays' })).toHaveCount(1);
+  const s = (await side.boundingBox())!, c = (await center.boundingBox())!, e = (await page.locator('.editor').boundingBox())!;
+  expect(s.x < c.x && c.x < e.x && c.width > s.width && c.width > e.width).toBe(true);
+  // Objects in depth layers top to bottom: all five fit inside the Objects panel, none cut off.
+  const graph = page.getByTestId('object-graph');
+  await graph.scrollIntoViewIfNeeded();
+  const g = (await graph.boundingBox())!;
+  const boxes = graph.locator('.object');
+  await expect(boxes).toHaveCount(5);
+  for (const b of await boxes.all()) {
+    const r = (await b.boundingBox())!;
+    expect(r.x >= g.x - 1 && r.x + r.width <= g.x + g.width + 1).toBe(true);
+  }
+  expect(await graph.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+  await page.screenshot({ path: 'test-results/three-columns.png' });
+});
 async function openManual(page: Page) {
   const d = page.getByTestId('manual-mappings');
   if (!(await d.evaluate(e => (e as HTMLDetailsElement).open))) await d.locator('summary').click();
@@ -203,11 +228,14 @@ test('dragging diagram boxes and reordering panels changes layout only (9a, AC-1
   await page.getByRole('button', { name: 'Step back' }).click();
   expect(Math.round((await head.boundingBox())!.x - before.x)).toBe(90); // layout survives stepping
 
-  // Panels: drop the Objects title onto the Variables panel; Objects moves first in the grid.
+  // Panels: drop the Objects title onto the Call tree panel just above it (23: both in the side
+  // column); Objects takes its place and the call tree moves after it.
   const objects = page.getByRole('region', { name: 'Objects' });
-  await objects.locator('.panel-handle').dragTo(page.getByRole('region', { name: 'Call stack' }));
-  await expect(objects).toHaveCSS('order', '0');
-  await expect(page.getByRole('region', { name: 'Call stack' })).toHaveCSS('order', '1');
+  const callTree = page.getByRole('region', { name: 'Call tree' });
+  await callTree.scrollIntoViewIfNeeded();
+  await objects.locator('.panel-handle').dragTo(callTree.locator('.panel-handle'));
+  await expect(objects).toHaveCSS('order', '1');
+  await expect(callTree).toHaveCSS('order', '2');
 
   await page.getByRole('button', { name: 'Reset layout' }).click();
   await expect(objects).toHaveCSS('order', '6'); // after variables, calls (13a), collections, trees, structures, heaps
@@ -1012,6 +1040,7 @@ test('flow arrows: a swap is a double arrow between the two cells, and each writ
 });
 
 test('actions: links rewired, a pointer moving, push and pop, code jumps, and the Arrows switch (22)', async ({ page }) => {
+  await page.setViewportSize({ width: 1600, height: 2400 }); // 23: an end scrolled out of its column draws nothing
   await page.goto('/');
   await expect(page.locator('.monaco-editor')).toBeVisible();
   await page.getByLabel('Example').selectOption('Mixed structures');

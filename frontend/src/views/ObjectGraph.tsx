@@ -11,8 +11,8 @@ import { Draggable, Panel } from './Draggable.tsx';
 type ObjectNode = TraceObject & { kind: 'object' };
 interface Arrow { key: string; d: string }
 
-/** Breadth-first columns from objects that variables or array elements refer to. */
-function columns(state: State): ObjectNode[][] {
+/** Breadth-first layers from objects that variables or array elements refer to. */
+function layers(state: State): ObjectNode[][] {
   const objects = [...state.objects.values()].filter((o): o is ObjectNode => o.kind === 'object');
   const depth = new Map<string, number>();
   const queue: string[] = [];
@@ -46,7 +46,7 @@ export function ObjectGraph({ view }: { view: View }) {
   const focus = view.focus;
   const container = useRef<HTMLDivElement>(null);
   const [arrows, setArrows] = useState<Arrow[]>([]);
-  const layout = columns(state);
+  const layout = layers(state);
 
   useLayoutEffect(() => {
     const root = container.current;
@@ -58,10 +58,11 @@ export function ObjectGraph({ view }: { view: View }) {
       if (!target) return;
       const a = dot.getBoundingClientRect(), b = target.getBoundingClientRect();
       const x1 = a.left + a.width / 2 - base.left, y1 = a.top + a.height / 2 - base.top;
-      const forward = b.left > a.right;
-      const x2 = (forward ? b.left : b.right) - base.left, y2 = b.top + 14 - base.top;
+      // Part 23: layers run top to bottom (the side column is narrow); a deeper object is entered at its top.
+      const forward = b.top > a.bottom;
+      const x2 = (forward ? b.left + b.width / 2 : b.right) - base.left, y2 = (forward ? b.top - 2 : b.top + 14) - base.top;
       const d = forward
-        ? `M ${x1} ${y1} C ${x1 + 40} ${y1}, ${x2 - 40} ${y2}, ${x2} ${y2}`
+        ? `M ${x1} ${y1} C ${x1 + 30} ${y1}, ${x2} ${y2 - 40}, ${x2} ${y2}`
         : `M ${x1} ${y1} C ${x1 + 60} ${y1 + 30}, ${x2 + 60} ${y2 - 30}, ${x2} ${y2}`; // back-edge or self-reference
       next.push({ key: `${dot.dataset.from}-${dot.dataset.refTo}`, d });
     });
@@ -81,7 +82,7 @@ export function ObjectGraph({ view }: { view: View }) {
           {arrows.map(a => <path key={a.key} d={a.d} markerEnd="url(#arrow-head)" />)}
         </svg>
         {layout.map((column, c) => (
-          <div className="graph-column" key={c}>
+          <div className="graph-layer" key={c}>
             {column.map(o => {
               const names = namesOf(state, o.objectId);
               const allocated = focus.objectId === o.objectId && focus.access === 'allocate' || focus.touched?.includes(o.objectId);

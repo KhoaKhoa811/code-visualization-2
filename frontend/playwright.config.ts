@@ -11,7 +11,8 @@ export default defineConfig({
   expect: { timeout: 60_000 },
   workers: 1,
   reporter: 'list',
-  use: { baseURL: 'http://127.0.0.1:5173', channel: 'msedge', headless: true, trace: 'retain-on-failure' },
+  use: { baseURL: 'http://127.0.0.1:5173', channel: 'msedge', viewport: { width: 1600, height: 900 }, // Part 23: three columns need a desktop width
+    headless: true, trace: 'retain-on-failure' },
   webServer: [
     {
       command: `${java} -jar ../backend/target/backend-0.0.1-SNAPSHOT.jar`,

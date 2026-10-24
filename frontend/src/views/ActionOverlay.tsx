@@ -3,7 +3,9 @@
 // value, a push or pop, a hash slot, and the replaced value crossed out. Placed from the measured
 // elements after layout; an action whose ends are not drawn is left out. The set is chosen and
 // limited by actionsAt, so one picture never carries more than a few at once.
-import { useLayoutEffect, useRef, useState } from 'react';
+// Part 23: the overlay spans the side and center columns, which scroll on their own; it is redrawn on
+// scroll and resize, and an end scrolled out of its column is not drawn.
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { Action } from '../trace/actions.ts';
 import { elementOf, type Anchor } from './motion.ts';
 
@@ -22,6 +24,16 @@ interface Ghost { x: number; y: number; text: string }
 export function ActionOverlay({ actions }: { actions: Action[] }) {
   const svg = useRef<SVGSVGElement>(null);
   const [drawn, setDrawn] = useState<{ shapes: Shape[]; ghosts: Ghost[] }>({ shapes: [], ghosts: [] });
+  const [, redraw] = useState(0);
+  useEffect(() => {
+    const host = svg.current?.parentElement;
+    if (!host) return;
+    let frame = 0;
+    const later = () => { cancelAnimationFrame(frame); frame = requestAnimationFrame(() => redraw(n => n + 1)); };
+    host.addEventListener('scroll', later, true);
+    window.addEventListener('resize', later);
+    return () => { cancelAnimationFrame(frame); host.removeEventListener('scroll', later, true); window.removeEventListener('resize', later); };
+  }, []);
   useLayoutEffect(() => {
     const host = svg.current?.parentElement;
     if (!host) return;
@@ -32,7 +44,15 @@ export function ActionOverlay({ actions }: { actions: Action[] }) {
       if (!el && 'cell' in a) el = document.querySelector(`[data-object="${CSS.escape(a.cell.objectId)}"][data-index="${a.cell.index}"]`);
       if (!el || !host.contains(el)) return null;
       const r = el.getBoundingClientRect();
-      return r.width > 0 && r.height > 0 ? r : null;
+      if (r.width <= 0 || r.height <= 0) return null;
+      // Hidden by a scrolled column or panel: its centre is outside a clipping box around it.
+      const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+      for (let p = el.parentElement; p && p !== host; p = p.parentElement) {
+        if (getComputedStyle(p).overflow === 'visible') continue;
+        const box = p.getBoundingClientRect();
+        if (cx < box.left || cx > box.right || cy < box.top || cy > box.bottom) return null;
+      }
+      return r;
     };
     const shapes: Shape[] = [], ghosts: Ghost[] = [];
     /** A curved arrow between two drawn places; same-row places get an arc over their tops. */

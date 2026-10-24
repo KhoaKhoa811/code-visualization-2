@@ -338,3 +338,9 @@ not verbatim transcripts, unless quoted.
   plus 1 ghost; an action drops value arrows to its own target; a compare drops the motion badge. Chaining tracer
   test program now indexes buckets[k % 4] directly (fixture regenerated). Unit 81, full Playwright 36 passed.
   Branch feat/part-22-actions stacked on 21.
+- Part 23 three-column layout (user: "Screen will split into 3 part ... the center is a bit bigger than other
+  2", and "object visualization should show all the objecft"): StatePanel part side/center; side = run summary,
+  structures card, call stack, call tree, objects, complexity; center = sticky controls + structures; ActionOverlay
+  moved to main.layout, redrawn on scroll/resize, ends clipped by a scrolled column skipped. Objects bug: Part 14's
+  `.graph { display: block }` (graph view svg) overrode the Objects panel's flex columns; now `svg.graph`;
+  objects laid out in top-down layers. Branch feat/part-23-layout stacked on 22.

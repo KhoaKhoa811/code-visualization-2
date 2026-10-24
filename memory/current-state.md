@@ -60,6 +60,7 @@ improvements.
 | 20a-20c | DP tables: arrays and integer-keyed maps filled from their own cells (bottom-up) or by recursive calls then reused (top-down) shown as a full matrix: computed / not yet, fill order, reuse counts, what each cell came from and what used it ([DP view](../specs/dp-view.md)); frontend only; stacked on 19 | Done, pushed, awaiting review |
 | 21 | Flow arrows over every panel: where each stored value came from (cells, fields, variables, collection items, string characters, call arguments into parameters) and double swap arrows on arrays and heap views ([flow arrows](../specs/flow-arrows.md)); frontend only; stacked on 20 | Done, pushed, awaiting review |
 | 22 | Step actions with a budget: comparison bracket, link rewiring, moving reference variables, return arrow from the call tree, push/pop arrows, hash slot arrow, old-value ghost, code jumps in the editor margin; at most 3 actions + 1 ghost per step, Arrows switch ([step actions](../specs/step-actions.md)); frontend only; stacked on 21 | Done, pushed, awaiting review |
+| 23 | Three-column layout: side (run facts, variables, call stack, call tree, objects, complexity), center (controls, structures; widest), right (editor, console); one action overlay across columns, redrawn on scroll; Objects bug fixed (graph view's `.graph` rule hid the object columns), objects in top-down depth layers ([three-column layout](../specs/three-column-layout.md)); frontend only; stacked on 22 | Done, pushed, awaiting review |
 
 ## Verified environment
 
