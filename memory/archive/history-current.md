@@ -304,4 +304,8 @@ not verbatim transcripts, unless quoted.
   traced, subsets with res.add(new ArrayList<>(path)) partial (copy constructors uncovered), and
   the complexity of two separate recursing ifs as O(n²). Fixed: copy constructors (libCopy record,
   builder checks the JDK's copy of the source mirror), and a per-statement self-call count. Suite
-  B1-B4 added. Branch feat/part-17-backtracking stacked on Part 16. Tracer 148.
+  B1-B4 added. Branch feat/part-17-backtracking stacked on Part 16. Tracer 148.- Part 18 visual (user: "Do you have any ideas to improve the visualization?" then "ok" to the
+  recommended order), branch feat/part-18-visual stacked on Part 17: 18a computed-from arrows on
+  array writes and heat colours for number grids, 18b bars, 18c shading between two index arrows,
+  18d variable tags on nodes, 18e strings as character boxes with s.charAt(i) arrows. Example "DP
+  and two pointers". Frontend only; 66 unit tests.

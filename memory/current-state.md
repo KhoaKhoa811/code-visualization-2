@@ -55,6 +55,7 @@ improvements.
 | 15a-15b | Complexity estimates per method from the code's shape (trace 1.12.0 `complexity`, plan 12) with editor badges and a ranking panel next to measured calls/steps ([complexity](../specs/complexity.md)); stacked on 14 | Done, pushed, awaiting review |
 | 16 | "New program (template)" first in the example picker: common imports and an empty main (frontend only) | Done, pushed, awaiting review (stacked on 15) |
 | 17 | Backtracking review: copy constructors of covered collections/maps (`new ArrayList<>(path)`) traced and checked; complexity counts two separate recursing `if`s as two calls; suite programs B1-B4 | Done, pushed, awaiting review (stacked on 16) |
+| 18a-18e | Visual: write "computed from" arrows and heat colours for DP grids, bars, range between two arrows, variable tags on nodes, strings as character boxes with charAt arrows ([motion](../specs/motion.md)); frontend only | Done, pushed, awaiting review (stacked on 17) |
 
 ## Verified environment
 

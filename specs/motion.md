@@ -112,3 +112,26 @@ Part 11 (motion) is complete.
 - **Library changes (12a, 12c).** A static call that changes an array (`Arrays.fill`,
   `Arrays.sort`) pulses its changed cells, and an iterator's `remove()` moves like a list's
   `remove`: the removed value flies out of the list.
+
+## Arrays, DP tables, strings and node tags (Part 18, 2026-10-24, user: "ok")
+
+Presentation only, from recorded facts at the cursor; nothing is inferred about the algorithm.
+
+- **18a, computed from.** A step that writes an array cell draws arrows from the cells it read to
+  the cell it wrote: the recorded reads of the same frame inside the write's own code
+  (`dp[i][j] = dp[i - 1][j] + dp[i][j - 1]`), going back until the frame ran other code. Reads in
+  calls inside the statement run in other frames and are passed over; fetching a row of a grid
+  (`dp[i - 1]`) is not a source, and neither is the written cell itself. Arrows are drawn when
+  source and target are in the same array box (`trace/dataflow.ts`, `FlowLayer`).
+- **18a, heat colours.** A number grid can be switched (per variable name, "heat colours") to
+  colour each cell by its value on one scale for the whole grid at this step.
+- **18b, bars.** A number array can be switched ("bars") to bars whose height is the value
+  (negative values below in red); bars change height as values are written. Index arrows, motion
+  and highlights work as for cells.
+- **18c, a range.** When exactly two index arrows point at cells of one array (`left` and `right`,
+  `lo` and `hi` when the code indexes with them), the cells between them are shaded.
+- **18d, variable tags.** Variables (not field paths) referring to an object, tree node or list
+  node are tags on it (`cur`, `head`); a tag pulses on the step that declared or assigned it.
+- **18e, strings.** A string named by a variable (up to 60 characters) is drawn as character boxes
+  with indices; `s.charAt(i)`, written literally with a variable, makes `i` an arrow under them,
+  by the 11b rule. Longer strings stay text.

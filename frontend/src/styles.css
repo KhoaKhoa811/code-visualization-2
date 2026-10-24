@@ -315,3 +315,23 @@ body.motion-off .graph-node, body.motion-off .graph-edge path { transition: none
 .complexity-bound { cursor: pointer; font: 700 13px Consolas, ui-monospace, monospace; color: #7ee2b0; }
 .complexity-bound.approximate { color: var(--warning); }
 .complexity-reasons { margin: 4px 0 2px 16px; padding: 0; color: var(--muted); font-size: 12px; }
+/* Part 18: array looks, ranges between two arrows, and what a write was computed from. */
+.array { position: relative; }
+.look-toggle { margin-left: 8px; font-size: 11px; padding: 1px 7px; border-radius: 10px; }
+.look-toggle.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+.cells.bars { align-items: flex-end; }
+.cell.bar { display: flex; flex-direction: column; justify-content: flex-end; min-height: 120px; background: transparent; border-color: transparent; }
+.bar-fill { width: 100%; min-width: 22px; border-radius: 4px 4px 0 0; background: color-mix(in srgb, var(--accent) 70%, var(--panel)); transition: height .35s ease-in-out; }
+.bar-fill.negative { background: color-mix(in srgb, var(--error) 60%, var(--panel)); }
+.cell.bar.write .bar-fill { background: var(--write); }
+.cell.bar.read .bar-fill { background: var(--read); }
+body.motion-off .bar-fill { transition: none; }
+.cell.in-range { box-shadow: inset 0 -3px 0 var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--panel)); }
+.flow-layer { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+.flow-layer path { fill: none; stroke: #e0a83a; stroke-width: 2; }
+.flow-layer marker path { fill: #e0a83a; stroke: none; }.var-tags { display: inline-flex; gap: 3px; margin-left: 4px; vertical-align: middle; }
+.var-tag { font: 700 10.5px Consolas, ui-monospace, monospace; color: #fff; background: var(--accent); border-radius: 8px; padding: 0 6px; line-height: 16px; }
+.var-tag.moved { animation: var-moved .6s ease-out; }
+@keyframes var-moved { 0% { transform: scale(1.5); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 45%, transparent); } 100% { transform: none; box-shadow: none; } }
+body.motion-off .var-tag.moved { animation: none; }.string-cells { display: inline-flex; vertical-align: top; }
+.cell.char { min-width: 26px; }

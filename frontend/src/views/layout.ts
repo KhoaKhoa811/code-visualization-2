@@ -11,14 +11,18 @@ export interface Layout {
   offsets: Record<string, Offset>;
   /** Part 9d: the chosen view of a deque or linked list, by variable name (it survives runs). */
   modes: Record<string, CollectionMode>;
+  /** Part 18: how an array is drawn, by variable name: heat colours (a grid) or bars (numbers). */
+  looks: Record<string, ArrayLook>;
 }
+
+export type ArrayLook = 'heat' | 'bars';
 
 export type CollectionMode = 'stack' | 'queue';
 
 export const PANELS = ['variables', 'calls', 'collections', 'trees', 'structures', 'heaps', 'objects', 'arrays', 'strings', 'graphs', 'complexity'] as const; // 14a: graphs last, so earlier orders stay
 
 export function initialLayout(): Layout {
-  return { order: [...PANELS], offsets: {}, modes: {} };
+  return { order: [...PANELS], offsets: {}, modes: {}, looks: {} };
 }
 
 /** Moves panel {@code from} to the position of {@code to}; the panels between shift by one. */
@@ -45,6 +49,13 @@ export function setMode(layout: Layout, name: string, mode: CollectionMode | nul
   const modes = { ...layout.modes };
   if (mode === null) delete modes[name]; else modes[name] = mode;
   return { ...layout, modes };
+}
+
+/** Part 18: draws an array (by variable name) with heat colours or bars; null restores its cells. */
+export function setLook(layout: Layout, name: string, look: ArrayLook | null): Layout {
+  const looks = { ...layout.looks };
+  if (look === null) delete looks[name]; else looks[name] = look;
+  return { ...layout, looks };
 }
 
 /** CSS order of a panel in the grid. */

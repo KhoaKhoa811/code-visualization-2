@@ -11,6 +11,7 @@ import { Controls } from './views/Controls.tsx';
 import { clearMotion, leavingFrames, motionFor, playMotion } from './views/motion.ts';
 import { pointersAt } from './trace/pointers.ts';
 import { callsAt } from './trace/calls.ts';
+import { flowAt } from './trace/dataflow.ts';
 import { StatePanel } from './views/StatePanel.tsx';
 import { LayoutContext } from './views/Draggable.tsx';
 import { forNewRun, initialLayout } from './views/layout.ts';
@@ -105,6 +106,8 @@ export function App() {
   const pointers = useMemo(() => usable && view ? pointersAt(usable, view.cursor, view.beforeEnd ?? view.state) : new Map(), [usable, view]);
   // Part 13: the calls made up to the cursor and how they relate.
   const calls = useMemo(() => usable && view ? callsAt(usable, view) : undefined, [usable, view]);
+  // Part 18a: the cells this step's array write read.
+  const flow = useMemo(() => usable && view ? flowAt(usable, view) : null, [usable, view]);
 
   useEffect(() => {
     if (!playing || !usable) return;
@@ -203,7 +206,7 @@ export function App() {
                 })}
                 onRemove={c => setStructMappings(list => list.filter(x => x.className !== c))}
                 onDismiss={c => setNotStructs(list => [...list, c])} />}
-              <StatePanel view={view} trees={fittingTrees} heaps={fittingHeaps} graphs={fittingGraphs} structs={fittingStructs} pointers={pointers} leaving={shown.leaving} calls={calls} complexity={complexity} />
+              <StatePanel view={view} trees={fittingTrees} heaps={fittingHeaps} graphs={fittingGraphs} structs={fittingStructs} pointers={pointers} leaving={shown.leaving} calls={calls} complexity={complexity} flow={flow} />
             </LayoutContext.Provider>
           )}
           {!snap && !submit.isPending && <p className="muted hint">Write Java in the editor and press Run.</p>}

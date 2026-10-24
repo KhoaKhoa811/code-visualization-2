@@ -2,7 +2,8 @@
 // and depth; edges are the recorded left/right references. A node reached twice or through a
 // cycle is drawn once and the extra link is dashed and reported, never repaired (AC-34).
 import { useLayoutEffect, useRef, useState } from 'react';
-import { formatValue, namesOf, shortClass } from '../trace/format.ts';
+import { formatValue, shortClass } from '../trace/format.ts';
+import { VarTags } from './VarTags.tsx';
 import type { View } from '../trace/playback.ts';
 import { positions, projectTree, type Child, type TreeMapping, type TreeNode } from '../trace/tree.ts';
 import { Draggable, Panel } from './Draggable.tsx';
@@ -70,8 +71,6 @@ function Tree({ view, mapping }: { view: View; mapping: TreeMapping }) {
         </svg>
         {nodes.map(n => {
           const p = pos.get(n.objectId)!;
-          // Variables naming the node (one per name: frames of a recursion often share one).
-          const names = [...new Set(namesOf(state, n.objectId).filter(name => !name.includes('.')))].slice(0, 2);
           const hit = focus.objectId === n.objectId ? ` ${focus.access ?? ''}` : '';
           return (
             <Draggable id={`tree:${n.objectId}`} key={n.objectId} className={`tree-node${hit}${n.value.kind === 'unknown' ? ' unknown' : ''}`}
@@ -79,7 +78,7 @@ function Tree({ view, mapping }: { view: View; mapping: TreeMapping }) {
                        style={{ left: p.x * DX, top: p.y * DY }}>
               <span className="tree-value">{formatValue(n.value, state.objects)}</span>
               {hit && focus.field && <span className="tree-field">.{focus.field}</span>}
-              {names.length > 0 && <span className="tree-names">{names.join(' = ')}</span>}
+              <VarTags view={view} objectId={n.objectId} />
               {marker(n.left, 'L')}{marker(n.right, 'R')}
             </Draggable>
           );

@@ -347,6 +347,38 @@ public class Main {
     }
 }
 `,
+  'DP and two pointers': `public class Main {
+    public static void main(String[] args) {
+        // Grid paths: each cell is computed from the cell above and the cell to the left.
+        int n = 4, m = 5;
+        int[][] paths = new int[n][m];
+        for (int r = 0; r < n; r++) {
+            for (int c = 0; c < m; c++) {
+                if (r == 0 || c == 0) paths[r][c] = 1;
+                else paths[r][c] = paths[r - 1][c] + paths[r][c - 1];
+            }
+        }
+        // Two pointers moving towards each other.
+        int[] a = {1, 3, 4, 7, 9, 12, 15};
+        int want = 19, left = 0, right = a.length - 1;
+        while (left < right) {
+            int sum = a[left] + a[right];
+            if (sum == want) break;
+            if (sum < want) left++; else right--;
+        }
+        // A palindrome check over the characters of a string.
+        String s = "racecar";
+        int i = 0, j = s.length() - 1;
+        boolean palindrome = true;
+        while (i < j) {
+            if (s.charAt(i) != s.charAt(j)) { palindrome = false; break; }
+            i++;
+            j--;
+        }
+        System.out.println(paths[n - 1][m - 1] + " " + left + " " + right + " " + palindrome);
+    }
+}
+`,
   'Grid and switch': `public class Main {
     public static void main(String[] args) {
         int[][] grid = new int[3][4];

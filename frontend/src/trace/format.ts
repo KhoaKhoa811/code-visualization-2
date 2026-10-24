@@ -66,6 +66,16 @@ export function stringText(object: TraceObject & { kind: 'string' }): string {
 }
 
 /** IEEE-754 bit pattern (8 or 16 hex digits) to its Java decimal-ish text. */
+/** Part 18: a numeric value as a number (for heat colours and bars), or null when it is not a number. */
+export function numeric(v: Value): number | null {
+  switch (v.kind) {
+    case 'byte': case 'short': case 'int': case 'long': return Number(v.value);
+    case 'char': return v.value;
+    case 'float': case 'double': { const n = Number(fromBits(v.bits)); return Number.isFinite(n) ? n : null; }
+    default: return null;
+  }
+}
+
 export function fromBits(bits: string): string {
   const view = new DataView(new ArrayBuffer(8));
   let number: number;
