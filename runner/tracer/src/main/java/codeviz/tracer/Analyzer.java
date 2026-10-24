@@ -38,7 +38,7 @@ final class Analyzer {
      */
     record Analysis(String source, List<Diagnostic> compileErrors, List<Diagnostic> unsupported, List<Diagnostic> uncaptured,
                     Map<String, byte[]> classes, Map<String, List<Item>> plans, Map<Integer, Site> sites, String rootScope,
-                    boolean interactive) {
+                    boolean interactive, List<Complexity.Estimate> complexity) {
         /** Part 8g: the source refers to System.in, so the run gets standard input and the interactive deadline. */
         boolean traceable() { return compileErrors.isEmpty() && unsupported.isEmpty(); }
     }
@@ -85,6 +85,7 @@ final class Analyzer {
         List<Diagnostic> errors = new ArrayList<>();
         List<Diagnostic> unsupported = new ArrayList<>();
         Walker walker = null;
+        List<Complexity.Estimate> complexity = List.of();
         try {
             Iterable<? extends CompilationUnitTree> units = task.parse();
             task.analyze();
@@ -93,6 +94,7 @@ final class Analyzer {
                 CompilationUnitTree unit = units.iterator().next();
                 walker = new Walker(unit, Trees.instance(task), task.getElements(), task.getTypes(), unsupported);
                 walker.unit();
+                complexity = Complexity.estimate(unit, Trees.instance(task)); // Part 15a: from the code's shape only
                 task.generate();
                 errors.clear(); // diagnostics accumulate; take the full list again
                 errors.addAll(compileErrors(collector));
@@ -103,9 +105,9 @@ final class Analyzer {
             try { memory.close(); } catch (IOException ignored) { }
         }
         if (walker == null || !errors.isEmpty())
-            return new Analysis(source, errors, unsupported, List.of(), Map.of(), Map.of(), Map.of(), null, false);
+            return new Analysis(source, errors, unsupported, List.of(), Map.of(), Map.of(), Map.of(), null, false, complexity);
         return new Analysis(source, errors, unsupported, List.copyOf(walker.uncaptured), Map.copyOf(classes), Map.copyOf(walker.plans),
-                Map.copyOf(walker.sites), walker.rootScope, walker.interactive);
+                Map.copyOf(walker.sites), walker.rootScope, walker.interactive, complexity);
     }
 
     private static List<Diagnostic> compileErrors(DiagnosticCollector<JavaFileObject> collector) {

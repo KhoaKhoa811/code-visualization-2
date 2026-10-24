@@ -152,7 +152,7 @@ final class TraceBuilder {
         diagnostics.addAll(analysis.uncaptured());
         if (e.diagnostic() != null) diagnostics.add(e.diagnostic());
         return envelope(analysis.source(), runId, e.status(), e.reason(), "unavailable",
-                "Visualization does not cover this program yet; output only.", diagnostics, null, List.of(), List.of());
+                "Visualization does not cover this program yet; output only.", diagnostics, null, List.of(), List.of(), analysis.complexity());
     }
 
     /** Traced run: rebuild trace-v1 from raw records. */
@@ -205,7 +205,7 @@ final class TraceBuilder {
         if (stop.diagnostic() != null) diagnostics.add(0, stop.diagnostic());
         if (initialState == null) {
             return envelope(analysis.source(), runId, stop.status(), stop.reason(), "unavailable",
-                    "No trustworthy initial state was recorded.", diagnostics, null, List.of(), List.of());
+                    "No trustworthy initial state was recorded.", diagnostics, null, List.of(), List.of(), analysis.complexity());
         }
 
         boolean exited = outcome.cause() == Tracer.Cause.EXIT;
@@ -262,7 +262,7 @@ final class TraceBuilder {
             stepEnds.set(stepEnds.size() - 1, events.size()); // final cursor applies terminal bookkeeping
         }
         return envelope(analysis.source(), runId, executionStatus, executionReason, captureStatus, captureReason,
-                diagnostics, initialState, events, stepEnds);
+                diagnostics, initialState, events, stepEnds, analysis.complexity());
     }
 
     // ---- records ------------------------------------------------------------------
@@ -1854,14 +1854,22 @@ final class TraceBuilder {
     static String envelope(String source, String runId, String executionStatus, String executionReason,
                            String captureStatus, String captureReason, List<Diagnostic> diagnostics,
                            Map<String, Object> initialState, List<Map<String, Object>> events, List<Integer> stepEnds) {
+        return envelope(source, runId, executionStatus, executionReason, captureStatus, captureReason, diagnostics, initialState, events, stepEnds, List.of());
+    }
+
+    /** Part 15a: with the complexity estimates of the analysis (absent when there are none). */
+    static String envelope(String source, String runId, String executionStatus, String executionReason,
+                           String captureStatus, String captureReason, List<Diagnostic> diagnostics,
+                           Map<String, Object> initialState, List<Map<String, Object>> events, List<Integer> stepEnds,
+                           List<Complexity.Estimate> complexity) {
         List<Object> diagnosticJson = new ArrayList<>();
         for (Diagnostic d : diagnostics) {
             Map<String, Object> map = ordered("phase", d.phase(), "code", d.code(), "message", d.message());
             if (d.start() != null) map.put("source", ordered("start", d.start(), "end", d.end()));
             diagnosticJson.add(map);
         }
-        return Json.write(ordered(
-                "schemaVersion", "1.11.0",
+        Map<String, Object> trace = ordered(
+                "schemaVersion", "1.12.0",
                 "runId", runId,
                 "source", ordered("file", Analyzer.FILE, "text", source, "sha256", sha256(source)),
                 "execution", ordered("status", executionStatus, "reason", executionReason),
@@ -1869,7 +1877,17 @@ final class TraceBuilder {
                 "diagnostics", diagnosticJson,
                 "initialState", initialState,
                 "events", events,
-                "stepEnds", stepEnds));
+                "stepEnds", stepEnds);
+        if (!complexity.isEmpty()) {
+            List<Object> estimates = new ArrayList<>();
+            for (Complexity.Estimate e : complexity) {
+                estimates.add(ordered("methodId", e.methodId(), "name", e.name(), "bound", e.cost().text(),
+                        "growth", ordered("exponentialBase", e.cost().base(), "polynomial", Double.toString(e.cost().poly()), "logarithmic", e.cost().log()),
+                        "approximate", e.approximate(), "reasons", e.reasons(), "source", ordered("start", e.start(), "end", e.end())));
+            }
+            trace.put("complexity", estimates);
+        }
+        return Json.write(trace);
     }
 
     static String sha256(String text) {

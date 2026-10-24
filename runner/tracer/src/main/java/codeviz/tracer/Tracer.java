@@ -50,7 +50,8 @@ public final class Tracer {
                     "The compiled code did not match the visualization plan (" + e.getMessage()
                             + "); the program can still run with output only.", null, null));
             Analysis outputOnly = new Analysis(analysis.source(), analysis.compileErrors(), List.copyOf(unsupported),
-                    analysis.uncaptured(), analysis.classes(), analysis.plans(), analysis.sites(), analysis.rootScope(), analysis.interactive());
+                    analysis.uncaptured(), analysis.classes(), analysis.plans(), analysis.sites(), analysis.rootScope(), analysis.interactive(),
+                    analysis.complexity());
             return new Prepared(outputOnly, analysis.classes(), false);
         }
     }

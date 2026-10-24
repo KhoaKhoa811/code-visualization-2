@@ -208,7 +208,7 @@ values; section 12 defines additional semantic checks. See the official
 
 | Top-level field | Meaning |
 | --- | --- |
-| schemaVersion | Exactly `1.11.0` (Part 12c: `iterator` values; Part 10d: `function` values and frames run `via` a library call; for-each steps over collections and map views, `entry` objects; Part 8i: the `input` object may be a `BufferedReader`; earlier versions retired); reject unrecognized versions rather than silently skipping facts |
+| schemaVersion | Exactly `1.12.0` (Part 15a: optional `complexity` estimates, never runtime facts; Part 12c: `iterator` values; Part 10d: `function` values and frames run `via` a library call; for-each steps over collections and map views, `entry` objects; Part 8i: the `input` object may be a `BufferedReader`; earlier versions retired); reject unrecognized versions rather than silently skipping facts |
 | runId | Nonempty identity for this run; identities below are local to it |
 | source | Exact source text, file `Main.java`, and lowercase SHA-256 of its UTF-8 bytes |
 | execution | Terminal status and human-readable reason; describes execution, not capture completeness |

@@ -15,7 +15,7 @@ import java.util.*;
  * source's SHA-256 so the reader can reject a plan for different text.
  */
 final class PlanCodec {
-    static final int VERSION = 11; // 2: regions (8a); 3: primitives (8b); 4: switch, arrays (8c); 5: methods (8d); 6: objects (8e); 7: interactive (8g); 8: exceptions (8h); 9: iteration (10d); 10: lambdas (10d); 11: varargs, iterators (12)
+    static final int VERSION = 12; // 2: regions (8a); 3: primitives (8b); 4: switch, arrays (8c); 5: methods (8d); 6: objects (8e); 7: interactive (8g); 8: exceptions (8h); 9: iteration (10d); 10: lambdas (10d); 11: varargs, iterators (12); 12: complexity estimates (15)
 
     private PlanCodec() { }
 
@@ -81,7 +81,22 @@ final class PlanCodec {
                 "unsupported", diagnostics(a.unsupported()),
                 "uncaptured", diagnostics(a.uncaptured()),
                 "sites", sites,
-                "conds", conds));
+                "conds", conds,
+                "complexity", a.complexity().stream().map(PlanCodec::estimate).toList()));
+    }
+
+    /** Part 15a: one estimate in the plan (the same fields the trace shows, plus the growth). */
+    private static Map<String, Object> estimate(Complexity.Estimate e) {
+        return TraceBuilder.ordered("methodId", e.methodId(), "name", e.name(), "base", e.cost().base(), "poly", Double.toString(e.cost().poly()),
+                "log", e.cost().log(), "approximate", e.approximate(), "reasons", e.reasons(), "start", e.start(), "end", e.end());
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Complexity.Estimate readEstimate(Map<String, Object> m) {
+        return new Complexity.Estimate((String) m.get("methodId"), (String) m.get("name"),
+                new Complexity.Cost(((Long) m.get("base")).intValue(), Double.parseDouble((String) m.get("poly")), ((Long) m.get("log")).intValue()),
+                Boolean.TRUE.equals(m.get("approximate")), ((List<Object>) m.get("reasons")).stream().map(String.class::cast).toList(),
+                ((Long) m.get("start")).intValue(), ((Long) m.get("end")).intValue());
     }
 
     record Decoded(Analysis analysis, boolean traced) { }
@@ -173,7 +188,8 @@ final class PlanCodec {
             }
         }
         Analysis analysis = new Analysis(source, readDiagnostics(root.get("compileErrors")), readDiagnostics(root.get("unsupported")),
-                readDiagnostics(root.get("uncaptured")), Map.of(), Map.of(), Map.copyOf(sites), (String) root.get("rootScope"), Boolean.TRUE.equals(root.get("interactive")));
+                readDiagnostics(root.get("uncaptured")), Map.of(), Map.of(), Map.copyOf(sites), (String) root.get("rootScope"), Boolean.TRUE.equals(root.get("interactive")),
+                ((List<Object>) root.get("complexity")).stream().map(o -> readEstimate((Map<String, Object>) o)).toList());
         return new Decoded(analysis, (Boolean) root.get("traced"));
     }
 

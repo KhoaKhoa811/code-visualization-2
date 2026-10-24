@@ -93,7 +93,7 @@ export interface Diagnostic {
 }
 
 export interface Trace {
-  schemaVersion: '1.11.0';
+  schemaVersion: '1.12.0';
   runId: string;
   source: { file: 'Main.java'; text: string; sha256: string };
   execution: { status: ExecutionStatus; reason: string };
@@ -102,6 +102,22 @@ export interface Trace {
   initialState: InitialState | null;
   events: TraceEvent[];
   stepEnds: number[];
+  /** 1.12.0 (Part 15a): best-effort estimates from the code's shape; never runtime facts. */
+  complexity?: ComplexityEstimate[];
+}
+
+export interface ComplexityEstimate {
+  methodId: string;
+  name: string;
+  /** For example O(n log n). */
+  bound: string;
+  /** Ordering key: exponentialBase^n when above 0, else n^polynomial log^logarithmic n. */
+  growth: { exponentialBase: number; polynomial: string; logarithmic: number };
+  /** Some part was guessed (a while loop, a split it could not read). */
+  approximate: boolean;
+  reasons: string[];
+  /** The method's name in the source. */
+  source: SourceRange;
 }
 
 export const OBSERVABLE_KINDS = new Set(['DECLARE', 'ASSIGN', 'UPDATE', 'ALLOCATE', 'ARRAY_READ', 'ARRAY_LENGTH',

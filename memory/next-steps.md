@@ -21,7 +21,11 @@ only. For the active task, [handoff.md](handoff.md) is authoritative. History:
 - Part 14 (approved 2026-10-23: graph view, start with 2D arrays; -1 is no edge; layered "tree from a
   start node" layout): 14a matrix, 14b neighbour lists, 14c markers and per-node arrays, 14d examples
   and tests, on `feat/part-14-graph`, awaiting review. Possible later: weighted lists ({to, w} rows),
-  user classes as graph nodes, a confirmed "grid as graph" (maze) view; each needs approval.
+  user classes as graph nodes, a confirmed "grid as graph" (maze) view; each needs approval
+  (user 2026-10-24: "no need these options right now").
+- Part 15 (approved 2026-10-24): 15a estimates from the code's shape, 15b badges and ranking panel, on
+  `feat/part-15-complexity` stacked on Part 14, awaiting review. Proposed later: 15c growth check (re-run
+  with bigger n and plot), not approved yet.
 - On hold (user: "deployment can hold on"): public-deployment gaps in specs/isolation-review.md
   (auth/quotas/TLS, CPU limit, startup sweep of orphaned `codeviz-run-*` containers, stronger
   sandbox, more slots and persistent state, re-verification on the host).

@@ -1,12 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/KhoaKhoa811/code-visualization-2/contracts/trace/v1/trace.schema.json",
-  "title": "Recorded Java trace 1.11.0",
+  "title": "Recorded Java trace 1.12.0",
   "description": "Candidate contract. Structural validity is not proof of Java execution or semantic replay correctness.",
   "type": "object",
   "properties": {
     "schemaVersion": {
-      "const": "1.11.0"
+      "const": "1.12.0"
     },
     "runId": {
       "$ref": "#/$defs/id"
@@ -24,6 +24,13 @@
       "type": "array",
       "items": {
         "$ref": "#/$defs/diagnostic"
+      }
+    },
+    "complexity": {
+      "description": "1.12.0 (Part 15a): a best-effort time-complexity estimate per method, from the shape of the code only. Not a runtime fact and not a proof; absent when there are no estimates.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/complexityEstimate"
       }
     },
     "initialState": {
@@ -146,6 +153,30 @@
     }
   ],
   "$defs": {
+    "complexityEstimate": {
+      "type": "object",
+      "properties": {
+        "methodId": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "bound": { "type": "string", "pattern": "^O\\(.+\\)$" },
+        "growth": {
+          "type": "object",
+          "description": "Ordering key: exponentialBase^n when it is above 0, otherwise n^polynomial log^logarithmic n.",
+          "properties": {
+            "exponentialBase": { "type": "integer", "minimum": 0 },
+            "polynomial": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)?$" },
+            "logarithmic": { "type": "integer", "minimum": 0 }
+          },
+          "required": ["exponentialBase", "polynomial", "logarithmic"],
+          "additionalProperties": false
+        },
+        "approximate": { "type": "boolean" },
+        "reasons": { "type": "array", "items": { "type": "string" } },
+        "source": { "$ref": "#/$defs/sourceRange" }
+      },
+      "required": ["methodId", "name", "bound", "growth", "approximate", "reasons", "source"],
+      "additionalProperties": false
+    },
     "id": {
       "type": "string",
       "minLength": 1

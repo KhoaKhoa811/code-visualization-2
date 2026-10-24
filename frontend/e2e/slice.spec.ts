@@ -817,6 +817,30 @@ test('a linked visited array colours the nodes and the index variables mark them
   await graph.screenshot({ path: 'test-results/graph-traversal.png' });
 });
 
+test('each method gets an estimated complexity, ranked next to what the run measured (15)', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.monaco-editor')).toBeVisible();
+  await page.getByLabel('Example').selectOption('Compare algorithms');
+  await run(page);
+  await expect(page.getByTestId('console-output')).toHaveText('4 4 8\n');
+  // Badges after each method's line in the editor.
+  await expect(page.locator('.complexity-badge').first()).toBeVisible();
+  const badges = await page.locator('.complexity-badge').allTextContents();
+  expect(badges.map(b => b.replace(/\s+/g, ' ').trim())).toEqual(expect.arrayContaining(['time O(n)', 'time ≈ O(log n)', 'time O(n²)', 'time ≈ O(n log n)'])); // lines in view
+
+  const table = page.getByTestId('complexity');
+  await table.scrollIntoViewIfNeeded();
+  const order = await table.getByTestId('complexity-row').evaluateAll(rows => rows.map(r => r.getAttribute('data-method')));
+  expect(order).toEqual(['binarySearch', 'linearSearch', 'mergeSort', 'bubbleSort', 'fib', 'main']); // main calls fib
+  const row = (name: string) => table.locator(`[data-method="${name}"]`);
+  await expect(row('fib').getByTestId('complexity-bound')).toHaveText('O(2ⁿ)');
+  await expect(row('fib').getByTestId('complexity-calls')).toHaveText('25'); // fib(6) makes 25 calls
+  await expect(row('mergeSort').getByTestId('complexity-calls')).toHaveText('11');
+  await row('mergeSort').getByTestId('complexity-bound').click(); // the reasons open
+  await expect(row('mergeSort')).toContainText('on half the input');
+  await table.screenshot({ path: 'test-results/complexity.png' });
+});
+
 test('a program reads live console input and playback shows the read (8g, AC-19)', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('.monaco-editor')).toBeVisible();

@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "1.11.0",
+  "schemaVersion": "1.12.0",
   "runId": "example-failed-write",
   "source": {
     "file": "Main.java",

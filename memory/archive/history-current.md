@@ -291,4 +291,9 @@ not verbatim transcripts, unless quoted.
   matrix, 14b neighbour lists (jagged int[][], List<List<Integer>>, List<Integer>[]), 14c index
   markers (adj.get(u) now counts as indexing) and per-node arrays (visited fills, others labels),
   14d spec specs/graph-view.md and examples "Graph BFS (matrix)", "Graph DFS (lists)".
-  Frontend only. 62 unit tests, 3 new browser tests.
+  Frontend only. 62 unit tests, 3 new browser tests.- Part 15 complexity (user: "I don't need it to be exactly correct. I just want a result so
+  that I can compare those algos"), branch feat/part-15-complexity stacked on Part 14: 15a
+  Complexity.java (javac trees in the container; loops, nesting, calls, library costs, recursion
+  by master theorem; guesses marked approximate), carried in the plan (format 12) and trace
+  1.12.0 `complexity`; 15b editor badges and a Complexity panel ranking methods with measured
+  calls/steps. Tracer 143 tests (ComplexityTest 4), contract 66, frontend 64 unit.

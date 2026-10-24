@@ -282,6 +282,55 @@ public class Main {
     }
 }
 `,
+  'Compare algorithms': `public class Main {
+    static int linearSearch(int[] a, int x) {
+        for (int i = 0; i < a.length; i++) if (a[i] == x) return i;
+        return -1;
+    }
+
+    static int binarySearch(int[] a, int x) {
+        int lo = 0, hi = a.length - 1;
+        while (lo <= hi) {
+            int mid = (lo + hi) / 2;
+            if (a[mid] == x) return mid;
+            if (a[mid] < x) lo = mid + 1; else hi = mid - 1;
+        }
+        return -1;
+    }
+
+    static void bubbleSort(int[] a) {
+        for (int i = 0; i < a.length - 1; i++)
+            for (int j = 0; j < a.length - 1 - i; j++)
+                if (a[j] > a[j + 1]) { int t = a[j]; a[j] = a[j + 1]; a[j + 1] = t; }
+    }
+
+    static void mergeSort(int[] a, int lo, int hi) {
+        if (lo >= hi) return;
+        int mid = (lo + hi) / 2;
+        mergeSort(a, lo, mid);
+        mergeSort(a, mid + 1, hi);
+        int[] t = new int[hi - lo + 1];
+        int i = lo, j = mid + 1, k = 0;
+        while (i <= mid && j <= hi) t[k++] = a[i] <= a[j] ? a[i++] : a[j++];
+        while (i <= mid) t[k++] = a[i++];
+        while (j <= hi) t[k++] = a[j++];
+        for (k = 0; k < t.length; k++) a[lo + k] = t[k];
+    }
+
+    static int fib(int n) {
+        if (n < 2) return n;
+        return fib(n - 1) + fib(n - 2);
+    }
+
+    public static void main(String[] args) {
+        int[] a = {5, 2, 8, 1, 9, 3};
+        int[] b = {5, 2, 8, 1, 9, 3};
+        bubbleSort(a);
+        mergeSort(b, 0, b.length - 1);
+        System.out.println(linearSearch(a, 8) + " " + binarySearch(b, 8) + " " + fib(6));
+    }
+}
+`,
   'Grid and switch': `public class Main {
     public static void main(String[] args) {
         int[][] grid = new int[3][4];
