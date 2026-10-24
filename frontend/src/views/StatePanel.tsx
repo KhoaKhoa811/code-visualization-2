@@ -19,7 +19,8 @@ import { useLayoutEffect, useRef, useState } from 'react';
 import { numeric } from '../trace/format.ts';
 import { setLook, type ArrayLook } from './layout.ts';
 import { useLayout } from './Draggable.tsx';
-import type { Flow } from '../trace/dataflow.ts';
+import type { FlowArrow } from '../trace/flows.ts';
+import { FlowOverlay } from './FlowOverlay.tsx';
 import type { CallsView } from '../trace/calls.ts';
 import { CallTreePanel } from './CallTreePanel.tsx';
 import { CallLink } from './CallLink.tsx';
@@ -33,7 +34,7 @@ import type { Row as ComplexityRow } from '../trace/complexity.ts';
 type ArrayObject = TraceObject & { kind: 'array' };
 
 /** Confirmed tree (Part 9b), heap (Part 9c) and list/stack/queue (Part 10b) mappings that fit this run. */
-export function StatePanel({ view, trees = [], heaps = [], graphs = [], structs = [], pointers = new Map(), leaving, calls, complexity = [], flow = null, childTrees = [], chains = [], modes = {}, dp = null }: {
+export function StatePanel({ view, trees = [], heaps = [], graphs = [], structs = [], pointers = new Map(), leaving, calls, complexity = [], flows = [], childTrees = [], chains = [], modes = {}, dp = null }: {
   view: View; trees?: TreeMapping[]; heaps?: HeapMapping[]; graphs?: GraphMapping[]; structs?: StructMapping[]; pointers?: Map<string, Pointer[]>;
   /** 12d: frames the last step ended, drawn from the state before it while they leave. */
   leaving?: { frames: State['frames']; state: State };
@@ -41,8 +42,8 @@ export function StatePanel({ view, trees = [], heaps = [], graphs = [], structs 
   calls?: CallsView;
   /** Part 15b: every method's estimate with what this run measured. */
   complexity?: ComplexityRow[];
-  /** Part 18a: the cells this step's array write was computed from. */
-  flow?: Flow | null;
+  /** Part 21: where the values this step stored came from, as arrows over every panel. */
+  flows?: FlowArrow[];
   /** Part 19d: trees with children in a field, and arrays of chains (shown when detected). */
   childTrees?: ChildrenMapping[]; chains?: ChainMapping[];
   /** Part 19f: a deque shown as a stack or queue because it was detected so (the user's choice wins). */
@@ -129,7 +130,6 @@ export function StatePanel({ view, trees = [], heaps = [], graphs = [], structs 
             const r = e.kind === 'ref' ? state.objects.get(e.objectId) : undefined;
             return r?.kind === 'array' ? [r.objectId] : [];
           }) : [];
-          const inBox = flow && [array.objectId, ...rows].includes(flow.target.objectId) ? flow : null;
           return (
             <Draggable id={`array:${array.objectId}`} data-box={array.objectId} className={`array${active && focus.access === 'allocate' || focus.touched?.includes(array.objectId) ? ' allocated' : ''}`} key={array.objectId}
                  data-testid={`array-${names[0] ?? array.objectId}`}>
@@ -144,12 +144,12 @@ export function StatePanel({ view, trees = [], heaps = [], graphs = [], structs 
               </div>
               <ArrayBody array={array} state={state} focus={focus} depth={0} pointers={indices} all={pointers} look={look}
                          heat={look === 'heat' ? range(state, rows) : undefined} />
-              {inBox && inBox.sources.length > 0 && <FlowLayer flow={inBox} />}
             </Draggable>
           );
         })}
       </Panel>
       <StringsPanel view={view} pointers={pointers} />
+      <FlowOverlay arrows={flows} />
     </div>
   );
 }
@@ -274,45 +274,6 @@ function range(state: State, rows: string[]): { min: number; max: number } {
     for (const e of r.elements) { const n = numeric(e); if (n !== null) { min = Math.min(min, n); max = Math.max(max, n); } }
   }
   return min === Infinity ? { min: 0, max: 0 } : { min, max };
-}
-
-/**
- * Part 18a: arrows from the cells a write read to the cell it wrote, in the array's box, placed
- * from the measured cells (rows and cells vary in size and wrap).
- */
-function FlowLayer({ flow }: { flow: Flow }) {
-  const anchor = useRef<SVGSVGElement>(null);
-  const [paths, setPaths] = useState<string[]>([]);
-  useLayoutEffect(() => {
-    const box = anchor.current?.parentElement;
-    if (!box) return;
-    const base = box.getBoundingClientRect();
-    const at = (c: { objectId: string; index: number }) => {
-      const cell = box.querySelector<HTMLElement>(`[data-object="${c.objectId}"][data-index="${c.index}"]`);
-      if (!cell) return null;
-      const r = cell.getBoundingClientRect();
-      return { x: r.left + r.width / 2 - base.left, y: r.top + r.height / 2 - base.top };
-    };
-    const to = at(flow.target);
-    const next = to ? flow.sources.flatMap(s => {
-      const from = at(s);
-      if (!from) return [];
-      // Bend sideways so arrows between neighbours in one row stay visible.
-      const mx = (from.x + to.x) / 2 + (to.y - from.y) * 0.25, my = (from.y + to.y) / 2 - Math.max(18, Math.abs(to.x - from.x) * 0.25);
-      return [`M ${from.x} ${from.y} Q ${mx} ${my} ${to.x} ${to.y}`];
-    }) : [];
-    if (JSON.stringify(next) !== JSON.stringify(paths)) setPaths(next);
-  });
-  return (
-    <svg ref={anchor} className="flow-layer" aria-hidden="true" data-testid="flow-arrows" data-count={paths.length}>
-      <defs>
-        <marker id="flow-head" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-          <path d="M 0 0 L 10 5 L 0 10 z" />
-        </marker>
-      </defs>
-      {paths.map((d, i) => <path key={i} d={d} markerEnd="url(#flow-head)" />)}
-    </svg>
-  );
 }
 
 /** 12d: row arrows to the left of a grid's rows, placed from the measured rows; they slide like cell arrows. */
