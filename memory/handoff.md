@@ -9,26 +9,26 @@
 
 - Updated: 2026-10-25 (Asia/Saigon)
 - Owner: Claude Code
-- Status: Part 22 (step actions) on `feat/part-22-actions`. Stack, none merged: main <- 19 structures <- 20 DP
-  <- 21 arrows <- 22 actions. Merge in that order. Frontend only (plus one tracer test program).
+- Status: Part 23 (three-column layout) on `feat/part-23-layout`. Stack, none merged: main <- 19 structures
+  <- 20 DP <- 21 arrows <- 22 actions <- 23 layout. Merge in that order. Frontend only.
 - Milestone: V1 complete. Public deployment on hold.
 
-## Part 22 (user: "very good. please implement all of them. but make sure we don't overload actions in one
-## visualization"); spec: specs/step-actions.md
+## Part 23 (user: "Screen will split into 3 part ... center is a bit bigger than other 2", and the bug
+## "object visualization should show all the objecft"); spec: specs/three-column-layout.md
 
-- [x] `trace/actions.ts`: `actionsAt` (swap, rewire, move, compare, return, stack, slot, flow, ghost) with the
-      budget (3 by priority + 1 ghost, suppression of duplicate value arrows); `jumpAt` (back / skip)
-- [x] `views/ActionOverlay.tsx` replaced `FlowOverlay.tsx`; `motion.ts` anchors `node`, `callNode`
-- [x] editor margin jump arrow (`JavaEditor` `jump`), Arrows switch in Controls (`codeviz.arrows`)
-- [x] chaining tracer test program indexes `buckets[k % 4]`; fixture regenerated
-- [x] tests: actions.test.ts (4); browser 21 test updated, new "(22)"
+- [x] columns side 1fr | center 1.4fr | editor+console 1.15fr; StatePanel `part: 'side' | 'center'`;
+      controls and step text sticky at the top of the center; Objects in the center (user follow-up)
+- [x] ActionOverlay moved to `main.layout`, redrawn on scroll/resize, ends hidden by a scrolled column skipped
+- [x] Objects bug: Part 14's `.graph { display: block }` (graph view svg) overrode the Objects panel; now
+      `svg.graph`; objects in top-down depth layers that wrap
+- [x] tests: browser "(23)"; Playwright viewport 1600x900 (config); 9a drag test drops Objects on Arrays (both center);
+      22 test uses a tall viewport
 - [x] spec, memory
 
 ## Verification
 
-- Frontend unit 81, build; full Playwright 36 passed (`.tools/pw-22.log`); no run containers left.
-- Java unchanged apart from the TracerTest program text.
+- Frontend unit 81, build; full Playwright 37 passed (`.tools/pw-23.log`); no run containers left.
 
 ## Next action
 
-Report Part 22 with the PR link; wait for merges and the next request.
+Report Part 23 with the PR link; wait for merges and the next request.

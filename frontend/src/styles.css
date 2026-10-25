@@ -33,13 +33,17 @@ button, select {
 button:disabled { opacity: .45; cursor: default; }
 button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
 
+/* Part 23: side (state and calls) | center (structures, widest) | editor over console. */
 .layout {
-  flex: 1; min-height: 0; display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  flex: 1; min-height: 0; display: grid; position: relative;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) minmax(0, 1.15fr);
   grid-template-rows: minmax(0, 2fr) minmax(0, 1fr);
-  grid-template-areas: 'visual editor' 'visual console';
+  grid-template-areas: 'side visual editor' 'side visual console';
 }
-.visual { grid-area: visual; overflow: auto; padding: 12px; border-right: 1px solid var(--border); }
+.side { grid-area: side; overflow: auto; padding: 12px; border-right: 1px solid var(--border); }
+.visual { grid-area: visual; overflow: auto; padding: 0 12px 12px; border-right: 1px solid var(--border); }
+.visual-head { position: sticky; top: 0; z-index: 6; background: var(--bg); padding-top: 12px; }
+.side-state { grid-template-columns: minmax(0, 1fr); }
 .editor { grid-area: editor; min-height: 0; }
 .editor-host { width: 100%; height: 100%; }
 .console { grid-area: console; overflow: auto; padding: 10px 12px; border-top: 1px solid var(--border); background: var(--panel); }
@@ -50,7 +54,7 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 .console-input input { flex: 1; font-family: Consolas, 'Cascadia Mono', monospace; padding: 4px 6px; }
 .console-input p { margin: 4px 0 0; }
 
-.controls { display: flex; align-items: center; gap: 6px; margin-bottom: 10px; }
+.controls { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 10px; }
 .controls input[type='range'] { flex: 1; }
 .step-count { color: var(--muted); min-width: 110px; text-align: right; }
 
@@ -121,11 +125,11 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 .frame:not(.active) .bindings { opacity: .7; }
 
 /* Part 8e: object graph. Columns by reference distance from variables; arrows are references. */
-.graph { position: relative; display: flex; gap: 48px; align-items: flex-start; overflow-x: auto; padding: 4px 4px 12px; }
+.graph { position: relative; display: flex; flex-direction: column; gap: 36px; align-items: flex-start; overflow-x: auto; padding: 4px 4px 12px; }
 .graph-arrows { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
 .graph-arrows path { fill: none; stroke: var(--accent); stroke-width: 1.5; }
 .graph-arrows marker path { fill: var(--accent); stroke: none; }
-.graph-column { display: flex; flex-direction: column; gap: 14px; }
+.graph-layer { display: flex; flex-wrap: wrap; gap: 14px 24px; }
 .object { min-width: 120px; border: 1px solid var(--border); border-radius: 6px; background: var(--panel-2); font-family: Consolas, monospace; position: relative; z-index: 1; }
 .object.allocated { outline: 2px solid var(--accent); outline-offset: 2px; }
 .object-label { padding: 4px 8px; border-bottom: 1px solid var(--border); white-space: nowrap; }
@@ -284,7 +288,7 @@ mark.call-filled .call-value { color: #3fb37f; }
 mark.call-waiting .call-value { color: var(--accent); }.call-node.current > .call-label .badge { color: #fff; margin-left: 6px; }
 mark.call-waiting, mark.call-filled, .call-line .badge { white-space: nowrap; }
 /* Part 14a: graphs drawn by levels from a start node; tree edges solid, other edges dashed. */
-.graph { display: block; overflow: visible; }
+svg.graph { display: block; overflow: visible; } /* the graph view; not the Objects panel's div.graph */
 .graph-edge path { fill: none; stroke: var(--muted); stroke-width: 1.6; transition: d .35s ease-in-out, stroke .2s; }
 .graph-edge.extra path { stroke-dasharray: 5 4; opacity: .8; }
 .graph-edge.unknown path { stroke: var(--warning); stroke-dasharray: 2 3; }

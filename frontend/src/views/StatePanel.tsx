@@ -19,8 +19,6 @@ import { useLayoutEffect, useRef, useState } from 'react';
 import { numeric } from '../trace/format.ts';
 import { setLook, type ArrayLook } from './layout.ts';
 import { useLayout } from './Draggable.tsx';
-import type { Action } from '../trace/actions.ts';
-import { ActionOverlay } from './ActionOverlay.tsx';
 import type { CallsView } from '../trace/calls.ts';
 import { CallTreePanel } from './CallTreePanel.tsx';
 import { CallLink } from './CallLink.tsx';
@@ -34,7 +32,9 @@ import type { Row as ComplexityRow } from '../trace/complexity.ts';
 type ArrayObject = TraceObject & { kind: 'array' };
 
 /** Confirmed tree (Part 9b), heap (Part 9c) and list/stack/queue (Part 10b) mappings that fit this run. */
-export function StatePanel({ view, trees = [], heaps = [], graphs = [], structs = [], pointers = new Map(), leaving, calls, complexity = [], actions = [], childTrees = [], chains = [], modes = {}, dp = null }: {
+export function StatePanel({ part, view, trees = [], heaps = [], graphs = [], structs = [], pointers = new Map(), leaving, calls, complexity = [], childTrees = [], chains = [], modes = {}, dp = null }: {
+  /** Part 23: the side column (variables, call stack, call tree, complexity) or the center (structures and objects). */
+  part: 'side' | 'center';
   view: View; trees?: TreeMapping[]; heaps?: HeapMapping[]; graphs?: GraphMapping[]; structs?: StructMapping[]; pointers?: Map<string, Pointer[]>;
   /** 12d: frames the last step ended, drawn from the state before it while they leave. */
   leaving?: { frames: State['frames']; state: State };
@@ -42,8 +42,6 @@ export function StatePanel({ view, trees = [], heaps = [], graphs = [], structs 
   calls?: CallsView;
   /** Part 15b: every method's estimate with what this run measured. */
   complexity?: ComplexityRow[];
-  /** Parts 21-22: the step's actions over every panel (value arrows, swaps, rewiring, ...). */
-  actions?: Action[];
   /** Part 19d: trees with children in a field, and arrays of chains (shown when detected). */
   childTrees?: ChildrenMapping[]; chains?: ChainMapping[];
   /** Part 19f: a deque shown as a stack or queue because it was detected so (the user's choice wins). */
@@ -60,8 +58,8 @@ export function StatePanel({ view, trees = [], heaps = [], graphs = [], structs 
   const nested = new Set(arrays.flatMap(a => a.elements.flatMap(e => (e.kind === 'ref' ? [e.objectId] : []))));
   const bound = new Set(state.bindings.flatMap(b => (b.value.kind === 'ref' ? [b.value.objectId] : [])));
   const topLevel = arrays.filter(a => bound.has(a.objectId) || !nested.has(a.objectId));
-  return (
-    <div className="state">
+  if (part === 'side') return (
+    <div className="state side-state">
       <Panel id="variables" label="Call stack" title={state.frames.length > 1 ? `Call stack (${state.frames.length} frames)` : 'Variables'}>
         {view.beforeEnd && <p className="muted" data-testid="ended-note">main has returned; showing the values it ended with.</p>}
         {state.frames.length === 0 && !leaving?.frames.length && <p className="muted">No active frame.</p>}
@@ -104,6 +102,10 @@ export function StatePanel({ view, trees = [], heaps = [], graphs = [], structs 
       </Panel>
       {calls && <CallTreePanel calls={calls} state={state} />}
       <ComplexityPanel rows={complexity} />
+    </div>
+  );
+  return (
+    <div className="state">
       <LibraryPanel view={view} modes={modes} />
       <NestedPanel view={view} trees={childTrees} chains={chains} />
       <DpPanel view={view} dp={dp} />
@@ -149,7 +151,6 @@ export function StatePanel({ view, trees = [], heaps = [], graphs = [], structs 
         })}
       </Panel>
       <StringsPanel view={view} pointers={pointers} />
-      <ActionOverlay actions={actions} />
     </div>
   );
 }

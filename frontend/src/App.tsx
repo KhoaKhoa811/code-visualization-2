@@ -14,6 +14,7 @@ import { callsAt } from './trace/calls.ts';
 import { actionsAt, jumpAt } from './trace/actions.ts';
 import { dpLog, dpTables } from './trace/dp.ts';
 import { StatePanel } from './views/StatePanel.tsx';
+import { ActionOverlay } from './views/ActionOverlay.tsx';
 import { LayoutContext } from './views/Draggable.tsx';
 import { forNewRun, initialLayout } from './views/layout.ts';
 import { TreeMappings } from './views/TreeMappings.tsx';
@@ -209,19 +210,15 @@ export function App() {
           {submit.isPending ? 'Submitting…' : snap && !finished ? `${PHASE_TEXT[snap.phase]}…` : ''}
         </span>
       </header>
+      {/* Part 23: three columns. Side: run facts, variables, call stack, call tree, complexity.
+          Center (widest): playback controls, the structures (arrays, trees, heaps, graphs, ...) and objects.
+          Right: editor and console. One action overlay spans the columns so arrows can cross them. */}
+      <LayoutContext.Provider value={layoutApi}>
       <main className="layout">
-        <section className="visual">
-          <Controls cursor={view?.cursor ?? 0} steps={steps} playing={playing} onCursor={go} onPlaying={setPlaying}
-            speed={speed} onSpeed={setSpeed} motion={motion} onMotion={changeMotion} arrows={arrowsOn} onArrows={changeArrows} />
+        <section className="side" aria-label="Program state">
           <RunSummary snapshot={finished ? snap : undefined} playback={playback} stale={stale} given={run?.input ?? null} inputChanged={inputChanged} />
           {view && (
-            <div className={`step-detail${view.event?.kind === 'UNCAPTURED' ? ' uncaptured' : ''}`} data-testid="step-detail">
-              {view.event ? <><b>Step {view.cursor}:</b> {describe(view.event, view.beforeEnd ?? view.state, usable?.trace.source.text)}</> : 'Initial state (before the first operation).'}
-              {view.terminal && view.cursor > 0 && <span className="muted"> (end of recording)</span>}
-            </div>
-          )}
-          {view && (
-            <LayoutContext.Provider value={layoutApi}>
+            <>
               <div className="layout-bar">
                 <span className="muted">Drag panels by their title and diagram boxes anywhere; layout never changes the recording.</span>
                 <button onClick={() => setLayout(initialLayout())}>Reset layout</button>
@@ -249,10 +246,23 @@ export function App() {
                 onRemove={c => setStructMappings(list => list.filter(x => x.className !== c))}
                 onDismiss={c => setNotStructs(list => [...list, c])} />}
                 </>} />
-              <StatePanel view={view} trees={[...fittingTrees, ...auto.trees]} heaps={[...fittingHeaps, ...auto.heaps]} graphs={[...fittingGraphs, ...auto.graphs]}
-                structs={[...fittingStructs, ...auto.structs]} childTrees={auto.nested} chains={auto.chains} modes={auto.modes} pointers={pointers} leaving={shown.leaving} calls={calls} complexity={complexity} actions={actions} dp={dp} />
-            </LayoutContext.Provider>
+              <StatePanel part="side" view={view} leaving={shown.leaving} calls={calls} complexity={complexity} />
+            </>
           )}
+        </section>
+        <section className="visual" aria-label="Visualization">
+          <div className="visual-head">
+            <Controls cursor={view?.cursor ?? 0} steps={steps} playing={playing} onCursor={go} onPlaying={setPlaying}
+              speed={speed} onSpeed={setSpeed} motion={motion} onMotion={changeMotion} arrows={arrowsOn} onArrows={changeArrows} />
+            {view && (
+              <div className={`step-detail${view.event?.kind === 'UNCAPTURED' ? ' uncaptured' : ''}`} data-testid="step-detail">
+                {view.event ? <><b>Step {view.cursor}:</b> {describe(view.event, view.beforeEnd ?? view.state, usable?.trace.source.text)}</> : 'Initial state (before the first operation).'}
+                {view.terminal && view.cursor > 0 && <span className="muted"> (end of recording)</span>}
+              </div>
+            )}
+          </div>
+          {view && <StatePanel part="center" view={view} trees={[...fittingTrees, ...auto.trees]} heaps={[...fittingHeaps, ...auto.heaps]} graphs={[...fittingGraphs, ...auto.graphs]}
+            structs={[...fittingStructs, ...auto.structs]} childTrees={auto.nested} chains={auto.chains} modes={auto.modes} pointers={pointers} dp={dp} />}
           {!snap && !submit.isPending && <p className="muted hint">Write Java in the editor and press Run.</p>}
         </section>
         <section className="editor">
@@ -286,7 +296,9 @@ export function App() {
             <p className="muted" data-testid="console-input">Input sent: {live.sent.map(line => JSON.stringify(line)).join(', ')}</p>
           )}
         </section>
+        <ActionOverlay actions={actions} />
       </main>
+      </LayoutContext.Provider>
     </div>
   );
 }

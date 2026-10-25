@@ -46,6 +46,9 @@ only. For the active task, [handoff.md](handoff.md) is authoritative. History:
   `feat/part-21-arrows`, stacked on Part 20, awaiting review. Spec: specs/flow-arrows.md.
 - Part 22 (approved 2026-10-25: all 8 recommended step actions, "make sure we don't overload actions in one
   visualization"): `feat/part-22-actions`, stacked on Part 21, awaiting review. Spec: specs/step-actions.md.
+- Part 23 (approved 2026-10-25: three columns, the center a bit bigger, to make arrows clearer; plus the
+  Objects bug "should show all the objecft"): `feat/part-23-layout`, stacked on Part 22, awaiting review.
+  Spec: specs/three-column-layout.md.
 - Never merge pull requests; the user merges.
 
 ## Part 7 roadmap (trace engine and first visible slice)
