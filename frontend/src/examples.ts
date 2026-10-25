@@ -439,6 +439,44 @@ public class Main {
     }
 }
 `,
+  'DP: Fibonacci with a memo': `import java.util.*;
+
+public class Main {
+    // Top-down: compute once, store in memo, reuse the stored value next time.
+    static long fib(int n, long[] memo) {
+        if (n < 2) return n;
+        if (memo[n] != -1) return memo[n];
+        long r = fib(n - 1, memo) + fib(n - 2, memo);
+        memo[n] = r;
+        return r;
+    }
+
+    public static void main(String[] args) {
+        long[] memo = new long[8];
+        Arrays.fill(memo, -1);
+        System.out.println(fib(7, memo));
+    }
+}
+`,
+  'DP: 0/1 knapsack': `public class Main {
+    public static void main(String[] args) {
+        int[] weight = {1, 3, 4};
+        int[] value = {15, 20, 30};
+        int cap = 4;
+        // best[i][c]: the best value using the first i items with capacity c.
+        int[][] best = new int[weight.length + 1][cap + 1];
+        for (int i = 1; i <= weight.length; i++) {
+            for (int c = 0; c <= cap; c++) {
+                best[i][c] = best[i - 1][c];
+                if (weight[i - 1] <= c) {
+                    best[i][c] = Math.max(best[i][c], best[i - 1][c - weight[i - 1]] + value[i - 1]);
+                }
+            }
+        }
+        System.out.println(best[weight.length][cap]);
+    }
+}
+`,
   'Grid and switch': `public class Main {
     public static void main(String[] args) {
         int[][] grid = new int[3][4];

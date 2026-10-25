@@ -12,6 +12,7 @@ import { clearMotion, leavingFrames, motionFor, playMotion } from './views/motio
 import { pointersAt } from './trace/pointers.ts';
 import { callsAt } from './trace/calls.ts';
 import { flowAt } from './trace/dataflow.ts';
+import { dpLog, dpTables } from './trace/dp.ts';
 import { StatePanel } from './views/StatePanel.tsx';
 import { LayoutContext } from './views/Draggable.tsx';
 import { forNewRun, initialLayout } from './views/layout.ts';
@@ -132,6 +133,13 @@ export function App() {
   const calls = useMemo(() => usable && view ? callsAt(usable, view) : undefined, [usable, view]);
   // Part 18a: the cells this step's array write read.
   const flow = useMemo(() => usable && view ? flowAt(usable, view) : null, [usable, view]);
+  // Part 20: arrays and integer-keyed maps the program fills from itself (dynamic programming), at the cursor.
+  const dp = useMemo(() => {
+    if (!usable || !view) return null;
+    const state = view.beforeEnd ?? view.state;
+    const ids = [...new Set(state.bindings.flatMap(b => b.value.kind === 'ref' ? [b.value.objectId] : []))];
+    return { tables: dpTables(usable, view.cursor, state, ids), log: dpLog(usable) };
+  }, [usable, view]);
 
   useEffect(() => {
     if (!playing || !usable) return;
@@ -235,7 +243,7 @@ export function App() {
                 onDismiss={c => setNotStructs(list => [...list, c])} />}
                 </>} />
               <StatePanel view={view} trees={[...fittingTrees, ...auto.trees]} heaps={[...fittingHeaps, ...auto.heaps]} graphs={[...fittingGraphs, ...auto.graphs]}
-                structs={[...fittingStructs, ...auto.structs]} childTrees={auto.nested} chains={auto.chains} modes={auto.modes} pointers={pointers} leaving={shown.leaving} calls={calls} complexity={complexity} flow={flow} />
+                structs={[...fittingStructs, ...auto.structs]} childTrees={auto.nested} chains={auto.chains} modes={auto.modes} pointers={pointers} leaving={shown.leaving} calls={calls} complexity={complexity} flow={flow} dp={dp} />
             </LayoutContext.Provider>
           )}
           {!snap && !submit.isPending && <p className="muted hint">Write Java in the editor and press Run.</p>}

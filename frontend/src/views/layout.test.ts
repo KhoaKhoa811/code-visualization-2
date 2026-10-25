@@ -4,14 +4,14 @@ import { forNewRun, initialLayout, movePanel, panelOrder, setMode, setOffset } f
 
 test('panels reorder by moving one to another one\'s place (9a)', () => {
   const start = initialLayout();
-  assert.deepEqual(start.order, ['variables', 'calls', 'collections', 'trees', 'structures', 'heaps', 'objects', 'arrays', 'strings', 'graphs', 'complexity', 'nested']);
+  assert.deepEqual(start.order, ['variables', 'calls', 'collections', 'trees', 'structures', 'heaps', 'objects', 'arrays', 'strings', 'graphs', 'complexity', 'nested', 'dp']);
   const moved = movePanel(start, 'arrays', 'variables');
-  assert.deepEqual(moved.order, ['arrays', 'variables', 'calls', 'collections', 'trees', 'structures', 'heaps', 'objects', 'strings', 'graphs', 'complexity', 'nested']);
-  assert.deepEqual(movePanel(moved, 'arrays', 'strings').order, ['variables', 'calls', 'collections', 'trees', 'structures', 'heaps', 'objects', 'strings', 'arrays', 'graphs', 'complexity', 'nested']);
+  assert.deepEqual(moved.order, ['arrays', 'variables', 'calls', 'collections', 'trees', 'structures', 'heaps', 'objects', 'strings', 'graphs', 'complexity', 'nested', 'dp']);
+  assert.deepEqual(movePanel(moved, 'arrays', 'strings').order, ['variables', 'calls', 'collections', 'trees', 'structures', 'heaps', 'objects', 'strings', 'arrays', 'graphs', 'complexity', 'nested', 'dp']);
   assert.equal(movePanel(start, 'arrays', 'arrays'), start, 'dropping on itself changes nothing');
   assert.equal(movePanel(start, 'unknown', 'arrays'), start);
   assert.equal(panelOrder(moved, 'arrays'), 0);
-  assert.equal(panelOrder(moved, 'not-a-panel'), 12, 'unknown panels go last');
+  assert.equal(panelOrder(moved, 'not-a-panel'), 13, 'unknown panels go last');
 });
 
 test('element offsets are layout only and end with the run (9a)', () => {

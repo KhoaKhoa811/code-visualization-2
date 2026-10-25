@@ -1496,6 +1496,61 @@ class TracerTest {
         assertEquals(List.of(), uncaptured(mixed));
     }
 
+    @Test void dynamicProgrammingProgramsAreTraced() throws Exception { // Part 20: fixtures for the DP view
+        Run grid = main("dp-grid", """
+                int n = 3, m = 4;
+                int[][] paths = new int[n][m];
+                for (int r = 0; r < n; r++)
+                    for (int c = 0; c < m; c++)
+                        if (r == 0 || c == 0) paths[r][c] = 1;
+                        else paths[r][c] = paths[r - 1][c] + paths[r][c - 1];
+                System.out.println(paths[n - 1][m - 1]);""");
+        assertComplete(grid, "completed");
+        assertEquals("10\n", grid.result().stdout());
+
+        Run memo = run("dp-memo", """
+                import java.util.*;
+                public class Main {
+                    static long fib(int n, long[] memo) {
+                        if (n < 2) return n;
+                        if (memo[n] != -1) return memo[n];
+                        long r = fib(n - 1, memo) + fib(n - 2, memo);
+                        memo[n] = r;
+                        return r;
+                    }
+                    static long fibMap(int n, Map<Integer, Long> memo) {
+                        if (n < 2) return n;
+                        if (memo.containsKey(n)) return memo.get(n);
+                        long r = fibMap(n - 1, memo) + fibMap(n - 2, memo);
+                        memo.put(n, r);
+                        return r;
+                    }
+                    public static void main(String[] args) {
+                        long[] memo = new long[7];
+                        Arrays.fill(memo, -1);
+                        Map<Integer, Long> cache = new HashMap<>();
+                        System.out.println(fib(6, memo) + " " + fibMap(6, cache));
+                    }
+                }
+                """);
+        assertComplete(memo, "completed");
+        assertEquals("8 8\n", memo.result().stdout());
+        assertEquals(List.of(), uncaptured(memo));
+
+        Run knap = main("dp-knapsack", """
+                int[] w = {1, 3, 4}, v = {15, 20, 30};
+                int cap = 4;
+                int[][] best = new int[w.length + 1][cap + 1];
+                for (int i = 1; i <= w.length; i++)
+                    for (int c = 0; c <= cap; c++) {
+                        best[i][c] = best[i - 1][c];
+                        if (w[i - 1] <= c) best[i][c] = Math.max(best[i][c], best[i - 1][c - w[i - 1]] + v[i - 1]);
+                    }
+                System.out.println(best[w.length][cap]);""");
+        assertComplete(knap, "completed");
+        assertEquals("35\n", knap.result().stdout());
+    }
+
     @Test void printingLibraryValuesAndReverseOrderCollections() throws Exception {
         Run r = main("print-and-reverse", """
                 java.util.PriorityQueue<Integer> pq = new java.util.PriorityQueue<>(java.util.Collections.reverseOrder());

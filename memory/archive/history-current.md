@@ -321,4 +321,10 @@ not verbatim transcripts, unless quoted.
   mirror pairs, parent pointers, children fields, chains, heap order from swap values), automatic display
   of Strong unambiguous candidates, one Structures card with "Choose fields yourself", new views for trees
   with children and chained tables, prev arrows, held-by tags. Verify needed three runs: Docker Desktop had
-  just started and two live backend tests hit infrastructure timeouts (containers removed by name).
+  just started and two live backend tests hit infrastructure timeouts (containers removed by name).- Part 20 DP tables (user: "did our app handle dynamic programming ... a full matrix of how it store the
+  value and reuse it"): dp.ts (dpLog: writes with reads and calls of their statement or the recursive
+  calls since the last write, Arrays.fill as initial, map put/get with integer keys; dpTables: bottom-up
+  when 2 writes compute from own cells, not copies; top-down when 2 writes follow recursion and a cell is
+  reused), DpPanel (computed / not yet with dimmed default or fill, #order, reuse badges, step explanation
+  naming other arrays, click a cell for from/used-by arrows). Examples "DP: Fibonacci with a memo",
+  "DP: 0/1 knapsack". Branch feat/part-20-dp stacked on 19.
