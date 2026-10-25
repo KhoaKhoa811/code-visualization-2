@@ -9,28 +9,26 @@
 
 - Updated: 2026-10-25 (Asia/Saigon)
 - Owner: Claude Code
-- Status: Part 21 (flow arrows) on `feat/part-21-arrows`. Stack, none merged: main <- 19 structures <- 20 DP
-  <- 21 arrows. Merge in that order. Frontend only.
+- Status: Part 22 (step actions) on `feat/part-22-actions`. Stack, none merged: main <- 19 structures <- 20 DP
+  <- 21 arrows <- 22 actions. Merge in that order. Frontend only (plus one tracer test program).
 - Milestone: V1 complete. Public deployment on hold.
 
-## Part 21 (user: "I find the arrow you implemented in dp visualization is very good. Can you implement it for
-## all other visualizations. For example, there will be an arrow when there are swap. The rest of use case,
-## please review and implement them all"); spec: specs/flow-arrows.md
+## Part 22 (user: "very good. please implement all of them. but make sure we don't overload actions in one
+## visualization"); spec: specs/step-actions.md
 
-- [x] `trace/flows.ts`: sources = same-frame reads on the value side of the step's statement (cells, fields,
-      `s.charAt(i)` character, `list.get(i)` item, poll/pop/peek collection) + plain variables written there;
-      targets: cell, variable, field, collection; calls: each argument into its parameter; `swapOf` (two writes
-      exchanging the cells' previous values within 4 steps)
-- [x] `views/FlowOverlay.tsx` over the whole state area (anchors from `motion.ts` `elementOf`), swaps also on
-      heap-view nodes; same-row arcs over the tops; replaced the Part 18 `FlowLayer` in the Arrays panel
-- [x] tests: flows.test.ts (4); browser "(21)" on Bubble sort; the 18 test now counts on the overlay
+- [x] `trace/actions.ts`: `actionsAt` (swap, rewire, move, compare, return, stack, slot, flow, ghost) with the
+      budget (3 by priority + 1 ghost, suppression of duplicate value arrows); `jumpAt` (back / skip)
+- [x] `views/ActionOverlay.tsx` replaced `FlowOverlay.tsx`; `motion.ts` anchors `node`, `callNode`
+- [x] editor margin jump arrow (`JavaEditor` `jump`), Arrows switch in Controls (`codeviz.arrows`)
+- [x] chaining tracer test program indexes `buckets[k % 4]`; fixture regenerated
+- [x] tests: actions.test.ts (4); browser 21 test updated, new "(22)"
 - [x] spec, memory
 
 ## Verification
 
-- Frontend unit 77, build; full Playwright 35 passed (`.tools/pw-21.log`); no run containers left.
-- Java unchanged since Part 19's verify.
+- Frontend unit 81, build; full Playwright 36 passed (`.tools/pw-22.log`); no run containers left.
+- Java unchanged apart from the TracerTest program text.
 
 ## Next action
 
-Report Part 21 with the PR link; wait for merges and the next request.
+Report Part 22 with the PR link; wait for merges and the next request.

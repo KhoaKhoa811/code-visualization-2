@@ -3,7 +3,7 @@
 import * as monaco from 'monaco-editor/editor';
 import 'monaco-editor/languages/definitions/java/register';
 import EditorWorker from 'monaco-editor/editor/editor.worker?worker';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { SourceRange } from '../trace/types.ts';
 
 self.MonacoEnvironment = { getWorker: () => new EditorWorker() };
@@ -20,13 +20,16 @@ interface Props {
   highlight: SourceRange | null;
   markers: Marker[];
   badges?: Badge[];
+  /** Part 22: a jump into this step's line from the line before (a loop going round, a branch skipped). */
+  jump?: { from: number; to: number; kind: 'back' | 'skip' } | null;
 }
 
-export function JavaEditor({ value, onChange, readOnly, highlight, markers, badges = [] }: Props) {
+export function JavaEditor({ value, onChange, readOnly, highlight, markers, badges = [], jump = null }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const editor = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const decorations = useRef<monaco.editor.IEditorDecorationsCollection | null>(null);
   const notes = useRef<monaco.editor.IEditorDecorationsCollection | null>(null);
+  const [scroll, setScroll] = useState(0); // redraws the jump arrow when the code scrolls
   const change = useRef(onChange);
   change.current = onChange;
 
@@ -34,12 +37,14 @@ export function JavaEditor({ value, onChange, readOnly, highlight, markers, badg
     const instance = monaco.editor.create(host.current!, {
       value, language: 'java', theme: 'vs-dark', automaticLayout: true, minimap: { enabled: false },
       fontSize: 14, scrollBeyondLastLine: false, tabSize: 4, insertSpaces: true,
+      lineDecorationsWidth: 26, // Part 22: room for the jump arrow beside the line numbers
     });
     editor.current = instance;
     decorations.current = instance.createDecorationsCollection();
     notes.current = instance.createDecorationsCollection();
     const subscription = instance.onDidChangeModelContent(() => change.current(instance.getValue()));
-    return () => { subscription.dispose(); instance.dispose(); };
+    const scrolled = instance.onDidScrollChange(() => setScroll(s => s + 1));
+    return () => { subscription.dispose(); scrolled.dispose(); instance.dispose(); };
     // The editor owns its text after creation; changes flow out through onChange.
   }, []);
 
@@ -91,5 +96,27 @@ export function JavaEditor({ value, onChange, readOnly, highlight, markers, badg
     }));
   }, [badges]);
 
-  return <div className="editor-host" ref={host} data-testid="editor" />;
+  // Part 22: the jump arrow, in the margin between the line numbers and the code.
+  let arrow: { d: string; label: { x: number; y: number }; kind: 'back' | 'skip' } | null = null;
+  const instance = editor.current;
+  if (jump && instance) {
+    void scroll;
+    const half = instance.getOption(monaco.editor.EditorOption.lineHeight) / 2;
+    const y = (line: number) => instance.getTopForLineNumber(line) - instance.getScrollTop() + half;
+    const x = instance.getLayoutInfo().decorationsLeft + 20;
+    const y1 = y(jump.from), y2 = y(jump.to), bow = Math.min(18, 6 + Math.abs(y2 - y1) / 8);
+    arrow = { d: `M ${x} ${y1} C ${x - bow} ${y1}, ${x - bow} ${y2}, ${x} ${y2}`, label: { x: x - bow - 2, y: (y1 + y2) / 2 }, kind: jump.kind };
+  }
+  return (
+    <div className="editor-wrap">
+      <div className="editor-host" ref={host} data-testid="editor" />
+      {arrow && (
+        <svg className={`code-jump ${arrow.kind}`} aria-hidden="true" data-testid="code-jump" data-kind={arrow.kind}>
+          <defs><marker id="jump-head" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" /></marker></defs>
+          <path d={arrow.d} markerEnd="url(#jump-head)" />
+          <text x={arrow.label.x} y={arrow.label.y} className="code-jump-label">{arrow.kind === 'back' ? '↺' : '⤼'}</text>
+        </svg>
+      )}
+    </div>
+  );
 }

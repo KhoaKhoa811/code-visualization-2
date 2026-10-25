@@ -395,3 +395,31 @@ section[data-panel="dp"] { grid-column: 1 / -1; }
 #flow-value path { fill: #e0a83a; }
 #flow-swap path { fill: #e05a8a; }
 .flow-label { font: 700 11px Consolas, ui-monospace, monospace; fill: #e05a8a; text-anchor: middle; paint-order: stroke; stroke: var(--bg); stroke-width: 3px; }
+/* Part 22: step actions, each with its own colour; replaces the Part 21 flow overlay styles. */
+.action-overlay { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; z-index: 5; }
+.action path { fill: none; stroke-width: 2.2; }
+.action.value path, .act-head.value { stroke: #e0a83a; fill: #e0a83a; }
+.action.swap path { stroke: #e05a8a; stroke-width: 2.6; } .act-head.swap { fill: #e05a8a; }
+.action.old path { stroke: #e05a5a; stroke-dasharray: 5 4; opacity: .8; } .act-head.old { fill: #e05a5a; }
+.action.new path { stroke: #3fb37f; stroke-width: 2.6; } .act-head.new { fill: #3fb37f; }
+.action.move path { stroke: #4f8cff; stroke-dasharray: 6 3; } .act-head.move { fill: #4f8cff; }
+.action.yes path { stroke: #3fb37f; } .action.no path { stroke: #e05a5a; }
+.action.return path { stroke: #b07cf0; } .act-head.return { fill: #b07cf0; }
+.action.stack path { stroke: #2fb7c8; } .act-head.stack { fill: #2fb7c8; }
+.action.slot path { stroke: #2fb7c8; stroke-dasharray: 3 3; } .act-head.slot { fill: #2fb7c8; }
+.action path[d] { fill: none; }
+.act-head { stroke: none; }
+.action-label { font: 700 11px Consolas, ui-monospace, monospace; text-anchor: middle; paint-order: stroke; stroke: var(--bg); stroke-width: 3px; fill: var(--text); }
+.action.swap .action-label { fill: #e05a8a; } .action.yes .action-label { fill: #3fb37f; } .action.no .action-label { fill: #e05a5a; }
+.action.new .action-label { fill: #3fb37f; } .action.move .action-label { fill: #4f8cff; } .action.return .action-label { fill: #b07cf0; }
+.action.stack .action-label, .action.slot .action-label { fill: #2fb7c8; text-anchor: start; }
+.action-cross { font: 700 13px sans-serif; fill: #e05a5a; text-anchor: middle; }
+.action-ghost text { font: 600 11px Consolas, ui-monospace, monospace; fill: var(--muted); }
+.action-ghost line { stroke: #e05a5a; stroke-width: 1.5; }
+/* The code jump in the editor margin. */
+.editor-wrap { position: relative; width: 100%; height: 100%; }
+.code-jump { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; z-index: 3; }
+.code-jump path { fill: none; stroke: #4f8cff; stroke-width: 2; }
+.code-jump.skip path { stroke: #9aa3b5; stroke-dasharray: 4 3; }
+.code-jump marker path { fill: #4f8cff; stroke: none; }
+.code-jump-label { font: 700 12px sans-serif; fill: #4f8cff; text-anchor: end; }

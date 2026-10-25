@@ -14,7 +14,7 @@ const same = (a: Value, b: Value) => JSON.stringify(a) === JSON.stringify(b);
 const sameAnchor = (a: Anchor, b: Anchor) => JSON.stringify(a) === JSON.stringify(b);
 
 /** Where the step's value side starts in its code: after its assignment operator, or inside the last call's parentheses. */
-function rightStart(code: string): number {
+export function rightStart(code: string): number {
   let depth = 0;
   for (let i = 0; i < code.length; i++) {
     const ch = code[i];
@@ -51,7 +51,7 @@ export function plainVariables(code: string): string[] {
 }
 
 /** Recorded reads of the same frame inside the value side of the statement of events[at] (from offset from), as anchors. */
-function readsOf(events: TraceEvent[], at: number, from: number, to = Infinity): Anchor[] {
+export function readsOf(events: TraceEvent[], at: number, from: number, to = Infinity): Anchor[] {
   const step = events[at] as ObservableEvent;
   const out: Anchor[] = [];
   for (let i = at - 1; i >= 0; i--) {

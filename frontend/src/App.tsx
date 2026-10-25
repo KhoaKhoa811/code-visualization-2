@@ -11,7 +11,7 @@ import { Controls } from './views/Controls.tsx';
 import { clearMotion, leavingFrames, motionFor, playMotion } from './views/motion.ts';
 import { pointersAt } from './trace/pointers.ts';
 import { callsAt } from './trace/calls.ts';
-import { flowsAt } from './trace/flows.ts';
+import { actionsAt, jumpAt } from './trace/actions.ts';
 import { dpLog, dpTables } from './trace/dp.ts';
 import { StatePanel } from './views/StatePanel.tsx';
 import { LayoutContext } from './views/Draggable.tsx';
@@ -132,7 +132,12 @@ export function App() {
   // Part 13: the calls made up to the cursor and how they relate.
   const calls = useMemo(() => usable && view ? callsAt(usable, view) : undefined, [usable, view]);
   // Part 21: where the values this step stored came from (and swaps), drawn over every panel.
-  const flows = useMemo(() => usable && view ? flowsAt(usable, view) : [], [usable, view]);
+  // Part 22: the step's actions (value arrows, swaps, rewiring, moves, comparisons, returns, push/pop, hash
+  // slots, the replaced value), chosen and limited per step, and the code jump; all can be switched off.
+  const [arrowsOn, setArrowsOn] = useState(() => { try { return localStorage.getItem('codeviz.arrows') !== 'off'; } catch { return true; } });
+  const changeArrows = (on: boolean) => { setArrowsOn(on); try { localStorage.setItem('codeviz.arrows', on ? 'on' : 'off'); } catch { /* not remembered */ } };
+  const actions = useMemo(() => usable && view && arrowsOn ? actionsAt(usable, view) : [], [usable, view, arrowsOn]);
+  const jump = useMemo(() => usable && view && arrowsOn ? jumpAt(usable, view) : null, [usable, view, arrowsOn]);
   // Part 20: arrays and integer-keyed maps the program fills from itself (dynamic programming), at the cursor.
   const dp = useMemo(() => {
     if (!usable || !view) return null;
@@ -167,14 +172,16 @@ export function App() {
     if (!motion || !view || !before.view || before.playback !== usable) return;
     const delta = view.cursor - before.view.cursor;
     const stateOf = (v: NonNullable<typeof view>) => v.beforeEnd ?? v.state;
-    const motions = delta === 1 ? motionFor(view.event, stateOf(before.view), stateOf(view), true)
+    const planned = delta === 1 ? motionFor(view.event, stateOf(before.view), stateOf(view), true)
       : delta === -1 ? motionFor(before.view.event, stateOf(view), stateOf(before.view), false) : [];
+    // Part 22: a comparison drawn on the picture is not repeated as a badge at the code.
+    const motions = actions.some(a => a.kind === 'compare') ? planned.filter(m => m.kind !== 'badge') : planned;
     if (motions.length === 0) { clearMotion(); return; }
     // Two frames: React has committed, the editor has drawn the step's highlight.
     let second = 0;
     const first = requestAnimationFrame(() => { second = requestAnimationFrame(() => playMotion(motions, Math.min(650, stepTime * 0.7))); });
     return () => { cancelAnimationFrame(first); cancelAnimationFrame(second); };
-  }, [view, usable, motion, stepTime]);
+  }, [view, usable, motion, stepTime, actions]);
 
   const markers: Marker[] = useMemo(() => !trace || stale ? [] : trace.diagnostics
     .filter(d => d.source).map(d => ({ range: d.source!, message: `${d.code}: ${d.message}`, warning: d.phase === 'capture' })), [trace, stale]);
@@ -205,7 +212,7 @@ export function App() {
       <main className="layout">
         <section className="visual">
           <Controls cursor={view?.cursor ?? 0} steps={steps} playing={playing} onCursor={go} onPlaying={setPlaying}
-            speed={speed} onSpeed={setSpeed} motion={motion} onMotion={changeMotion} />
+            speed={speed} onSpeed={setSpeed} motion={motion} onMotion={changeMotion} arrows={arrowsOn} onArrows={changeArrows} />
           <RunSummary snapshot={finished ? snap : undefined} playback={playback} stale={stale} given={run?.input ?? null} inputChanged={inputChanged} />
           {view && (
             <div className={`step-detail${view.event?.kind === 'UNCAPTURED' ? ' uncaptured' : ''}`} data-testid="step-detail">
@@ -243,13 +250,13 @@ export function App() {
                 onDismiss={c => setNotStructs(list => [...list, c])} />}
                 </>} />
               <StatePanel view={view} trees={[...fittingTrees, ...auto.trees]} heaps={[...fittingHeaps, ...auto.heaps]} graphs={[...fittingGraphs, ...auto.graphs]}
-                structs={[...fittingStructs, ...auto.structs]} childTrees={auto.nested} chains={auto.chains} modes={auto.modes} pointers={pointers} leaving={shown.leaving} calls={calls} complexity={complexity} flows={flows} dp={dp} />
+                structs={[...fittingStructs, ...auto.structs]} childTrees={auto.nested} chains={auto.chains} modes={auto.modes} pointers={pointers} leaving={shown.leaving} calls={calls} complexity={complexity} actions={actions} dp={dp} />
             </LayoutContext.Provider>
           )}
           {!snap && !submit.isPending && <p className="muted hint">Write Java in the editor and press Run.</p>}
         </section>
         <section className="editor">
-          <JavaEditor value={source} onChange={setSource} readOnly={running} highlight={view?.event?.source ?? null} markers={markers} badges={badges} />
+          <JavaEditor value={source} onChange={setSource} readOnly={running} highlight={view?.event?.source ?? null} markers={markers} badges={badges} jump={jump} />
         </section>
         <section className="console" aria-label="Console">
           <h2>Console</h2>

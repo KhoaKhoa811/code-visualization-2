@@ -12,7 +12,9 @@ export type Anchor = { code: true } | { binding: string } | { cell: { objectId: 
   // 11d: an item of a collection, map or builder (its index as recorded), a whole box (array,
   // collection or object), a field of an object, a tree node, a node of a heap view.
   | { item: { objectId: string; index: number } } | { box: string } | { field: { objectId: string; name: string } }
-  | { treeNode: string } | { heapNode: { objectId: string; index: number } };
+  | { treeNode: string } | { heapNode: { objectId: string; index: number } }
+  // Part 22: an object wherever a structure view draws it (list, tree, children, object graph), and a call-tree node.
+  | { node: string } | { callNode: string };
 
 export type Motion =
   // A value travels from one place to another; `leaving` is the value it replaces, dropping away.
@@ -167,6 +169,11 @@ export function elementOf(anchor: Anchor): Element | null {
   if ('box' in anchor) return q(`[data-box="${e(anchor.box)}"]`);
   if ('field' in anchor) return q(`.object[data-object="${e(anchor.field.objectId)}"] [data-testid="field-${e(anchor.field.name)}"]`);
   if ('treeNode' in anchor) return q(`[data-tree-node="${e(anchor.treeNode)}"]`);
+  if ('node' in anchor) {
+    const id = e(anchor.node);
+    return q(`[data-list-node="${id}"]`) ?? q(`[data-tree-node="${id}"]`) ?? q(`[data-child-node="${id}"]`) ?? q(`.object[data-object="${id}"]`);
+  }
+  if ('callNode' in anchor) return q(`.call-node[data-frame="${e(anchor.callNode)}"] > .call-label`);
   return q(`[data-heap="${e(anchor.heapNode.objectId)}"] [data-heap-index="${anchor.heapNode.index}"]`);
 }
 
