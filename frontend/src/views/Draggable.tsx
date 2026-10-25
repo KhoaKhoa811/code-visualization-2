@@ -2,7 +2,7 @@
 // panel; diagram elements move by a pointer drag. Neither changes values, references or
 // the playback cursor.
 import { createContext, useContext, useRef, type HTMLAttributes, type ReactNode } from 'react';
-import { movePanel, panelOrder, setOffset, type Layout } from './layout.ts';
+import { movePanel, panelOrder, setOffset, toggleClosed, type Layout } from './layout.ts';
 
 interface LayoutApi { layout: Layout; update: (change: (layout: Layout) => Layout) => void }
 
@@ -16,11 +16,12 @@ export function useLayout(): LayoutApi {
 
 const PANEL_TYPE = 'application/x-codeviz-panel';
 
-/** A grid panel; its header is the drag handle for reordering. */
+/** A grid panel; its header is the drag handle for reordering, and its button closes or opens it (Part 24). */
 export function Panel({ id, title, label, testId, children }: { id: string; title: ReactNode; label: string; testId?: string; children: ReactNode }) {
   const { layout, update } = useLayout();
+  const closed = layout.closed.includes(id);
   return (
-    <section className="panel" aria-label={label} data-panel={id} data-testid={testId} style={{ order: panelOrder(layout, id) }}
+    <section className={`panel${closed ? ' closed' : ''}`} aria-label={label} data-panel={id} data-testid={testId} style={{ order: panelOrder(layout, id) }}
              onDragOver={e => { if (e.dataTransfer.types.includes(PANEL_TYPE)) e.preventDefault(); }}
              onDrop={e => {
                const from = e.dataTransfer.getData(PANEL_TYPE);
@@ -30,9 +31,13 @@ export function Panel({ id, title, label, testId, children }: { id: string; titl
              }}>
       <h2 className="panel-handle" draggable title="Drag onto another panel to reorder"
           onDragStart={e => { e.dataTransfer.setData(PANEL_TYPE, id); e.dataTransfer.effectAllowed = 'move'; }}>
+        <button className="panel-toggle" aria-expanded={!closed} aria-label={`${closed ? 'Open' : 'Close'} ${label}`}
+                title={closed ? 'Open' : 'Close'} data-testid={`toggle-${id}`} onClick={() => update(l => toggleClosed(l, id))}>
+          {closed ? '▸' : '▾'}
+        </button>
         {title}
       </h2>
-      {children}
+      {!closed && children}
     </section>
   );
 }

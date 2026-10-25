@@ -49,6 +49,10 @@ only. For the active task, [handoff.md](handoff.md) is authoritative. History:
 - Part 23 (approved 2026-10-25: three columns, the center a bit bigger, to make arrows clearer; plus the
   Objects bug "should show all the objecft"): `feat/part-23-layout`, stacked on Part 22, awaiting review.
   Spec: specs/three-column-layout.md.
+- Part 24 (approved 2026-10-25: "a toggle option for every component so if I don't want to see them, I can
+  close them"): `feat/part-24-toggles`, stacked on Part 23, awaiting review. Spec: specs/panel-toggles.md.
+- Declined 2026-10-25: automatic detection of adjacency matrices as graphs ("no need"); a matrix graph is
+  still shown through Choose fields yourself.
 - Never merge pull requests; the user merges.
 
 ## Part 7 roadmap (trace engine and first visible slice)
