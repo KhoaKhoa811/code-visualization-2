@@ -7,31 +7,30 @@
 
 ## Status
 
-- Updated: 2026-10-24 (Asia/Saigon)
+- Updated: 2026-10-25 (Asia/Saigon)
 - Owner: Claude Code
-- Status: Part 20 (DP tables) on `feat/part-20-dp`, stacked on `feat/part-19-structures` (not merged yet).
-  Merge 19 first. Frontend only (plus a tracer test that makes DP fixtures).
+- Status: Part 21 (flow arrows) on `feat/part-21-arrows`. Stack, none merged: main <- 19 structures <- 20 DP
+  <- 21 arrows. Merge in that order. Frontend only.
 - Milestone: V1 complete. Public deployment on hold.
 
-## Part 20 (user: "did our app handle dynamic programming ... I want its visualization to have a full matrix
-## of how it store the value and reuse it", then "yes, please implement it"); spec: specs/dp-view.md
+## Part 21 (user: "I find the arrow you implemented in dp visualization is very good. Can you implement it for
+## all other visualizations. For example, there will be an arrow when there are swap. The rest of use case,
+## please review and implement them all"); spec: specs/flow-arrows.md
 
-- [x] 20a bottom-up: `trace/dataflow.ts` `originOf` (reads and calls of a write's statement), `trace/dp.ts`
-      `dpLog` / `dpTables`, `views/DpPanel.tsx` (panel `dp`, full width): computed / not yet (default or fill
-      shown dimmed), #order, reuse badges, the step's explanation (other arrays named), click a cell for
-      came-from and used-by arrows
-- [x] 20b top-down: writes after recursion in the writing call; memo arrays and integer-keyed maps
-      (put/get); one reuse per call between table writes
-- [x] 20c examples "DP: Fibonacci with a memo", "DP: 0/1 knapsack" (grid paths is in "DP and two pointers");
-      TracerTest `dynamicProgrammingProgramsAreTraced` (fixtures dp-grid, dp-memo, dp-knapsack); dp.test.ts (3);
-      browser test "(20)"
+- [x] `trace/flows.ts`: sources = same-frame reads on the value side of the step's statement (cells, fields,
+      `s.charAt(i)` character, `list.get(i)` item, poll/pop/peek collection) + plain variables written there;
+      targets: cell, variable, field, collection; calls: each argument into its parameter; `swapOf` (two writes
+      exchanging the cells' previous values within 4 steps)
+- [x] `views/FlowOverlay.tsx` over the whole state area (anchors from `motion.ts` `elementOf`), swaps also on
+      heap-view nodes; same-row arcs over the tops; replaced the Part 18 `FlowLayer` in the Arrays panel
+- [x] tests: flows.test.ts (4); browser "(21)" on Bubble sort; the 18 test now counts on the overlay
 - [x] spec, memory
 
 ## Verification
 
-- Frontend unit 73 (with layout test update), build; full Playwright 34 passed (`.tools/pw-20.log`); no run containers left.
-- Java main code unchanged since Part 19's verify (tracer 151, backend 102); the new tracer test passed alone.
+- Frontend unit 77, build; full Playwright 35 passed (`.tools/pw-21.log`); no run containers left.
+- Java unchanged since Part 19's verify.
 
 ## Next action
 
-Report Part 20 with the PR link; wait. Known limit: static fields of Main are not traced.
+Report Part 21 with the PR link; wait for merges and the next request.

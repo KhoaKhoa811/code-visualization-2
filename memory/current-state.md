@@ -58,6 +58,7 @@ improvements.
 | 18a-18e | Visual: write "computed from" arrows and heat colours for DP grids, bars, range between two arrows, variable tags on nodes, strings as character boxes with charAt arrows ([motion](../specs/motion.md)); frontend only | Merged |
 | 19a-19f | Structure detection for complicated code: arrays of traced objects no longer break the program (19a); classes with collection fields and field initializers traced (19b); rank-2 detection from recorded objects (doubly linked lists, trees with children, tries, chained hash tables, heaps in a class, graphs of index lists), automatic display of Strong unambiguous structures, one Structures card, held-by tags ([structure detection](../specs/structure-detection.md)) | Done, pushed, awaiting review |
 | 20a-20c | DP tables: arrays and integer-keyed maps filled from their own cells (bottom-up) or by recursive calls then reused (top-down) shown as a full matrix: computed / not yet, fill order, reuse counts, what each cell came from and what used it ([DP view](../specs/dp-view.md)); frontend only; stacked on 19 | Done, pushed, awaiting review |
+| 21 | Flow arrows over every panel: where each stored value came from (cells, fields, variables, collection items, string characters, call arguments into parameters) and double swap arrows on arrays and heap views ([flow arrows](../specs/flow-arrows.md)); frontend only; stacked on 20 | Done, pushed, awaiting review |
 
 ## Verified environment
 

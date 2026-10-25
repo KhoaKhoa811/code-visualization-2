@@ -152,8 +152,8 @@ function layer(): HTMLElement {
   return element;
 }
 
-/** The page element an anchor names, or null when it is not drawn. */
-function elementOf(anchor: Anchor): Element | null {
+/** The page element an anchor names, or null when it is not drawn (Part 21: also used by the flow arrows). */
+export function elementOf(anchor: Anchor): Element | null {
   const q = (s: string) => document.querySelector(s);
   const e = (s: string) => CSS.escape(s);
   if ('code' in anchor) return q('.step-highlight-text');

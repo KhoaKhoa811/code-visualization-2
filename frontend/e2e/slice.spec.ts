@@ -905,7 +905,7 @@ test('a DP write shows the cells it was computed from; heat, bars, ranges and st
   // 18a: paths[1][1] = paths[0][1] + paths[1][0]: two arrows into the written cell.
   for (let i = 0; i < 300 && !(await detail.textContent())?.includes('Write paths[1][1]'); i++) await forward.click();
   const grid = page.getByTestId('array-paths');
-  await expect(grid.getByTestId('flow-arrows')).toHaveAttribute('data-count', '2');
+  await expect(page.getByTestId('flow-overlay')).toHaveAttribute('data-count', '2'); // 21: drawn by the shared overlay
   await grid.scrollIntoViewIfNeeded();
   await grid.screenshot({ path: 'test-results/dp-flow.png' });
   await grid.getByTestId('look-heat').click();
@@ -984,6 +984,27 @@ test('a DP table shows every cell: computed or not yet, where it came from, and 
   await expect(memo.locator('[data-state="initial"]')).toHaveCount(2); // memo[0] and memo[1] keep their -1 fill
   await memo.scrollIntoViewIfNeeded();
   await memo.screenshot({ path: 'test-results/dp-memo.png' });
+});
+
+test('flow arrows: a swap is a double arrow between the two cells, and each write points back to what it read (21)', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.monaco-editor')).toBeVisible();
+  await page.getByLabel('Example').selectOption('Bubble sort');
+  await run(page);
+  const overlay = page.getByTestId('flow-overlay');
+  const forward = page.getByRole('button', { name: 'Step forward' });
+  const detail = page.getByTestId('step-detail');
+  // int t = a[j]: an arrow from the cell to the variable.
+  for (let i = 0; i < 200 && !(await detail.textContent())?.includes('Declare int t'); i++) await forward.click();
+  await expect(overlay).toHaveAttribute('data-count', '1');
+  // ... a[j + 1] = t completes the swap: a double arrow between the two cells, and t into the cell.
+  for (let i = 0; i < 20 && (await overlay.getAttribute('data-swaps')) !== '1'; i++) await forward.click();
+  await expect(overlay).toHaveAttribute('data-swaps', '1');
+  await expect(page.locator('.flow-label')).toHaveText('swap');
+  await page.screenshot({ path: 'test-results/flow-swap.png' });
+  // A step that stores nothing draws no arrow.
+  for (let i = 0; i < 20 && !/ [<>] /.test((await detail.textContent()) ?? ''); i++) await forward.click(); // a comparison
+  await expect(overlay).toHaveAttribute('data-count', '0');
 });
 
 test('a program reads live console input and playback shows the read (8g, AC-19)', async ({ page }) => {

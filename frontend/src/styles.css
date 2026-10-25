@@ -386,3 +386,12 @@ body.motion-off .var-tag.moved { animation: none; }.string-cells { display: inli
 .dp-now code, .dp-detail code { font-family: Consolas, ui-monospace, monospace; }/* Part 20: a DP table uses the whole width of the panel grid, and scrolls when wider still. */
 section[data-panel="dp"] { grid-column: 1 / -1; }
 .dp-block { overflow-x: auto; }
+
+/* Part 21: flow arrows over every panel: where a stored value came from, and swaps. */
+.state { position: relative; }
+.flow-overlay { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; z-index: 5; }
+.flow-arrow path { fill: none; stroke: #e0a83a; stroke-width: 2.2; }
+.flow-arrow.swap path { stroke: #e05a8a; stroke-width: 2.6; }
+#flow-value path { fill: #e0a83a; }
+#flow-swap path { fill: #e05a8a; }
+.flow-label { font: 700 11px Consolas, ui-monospace, monospace; fill: #e05a8a; text-anchor: middle; paint-order: stroke; stroke: var(--bg); stroke-width: 3px; }

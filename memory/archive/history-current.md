@@ -327,4 +327,8 @@ not verbatim transcripts, unless quoted.
   when 2 writes compute from own cells, not copies; top-down when 2 writes follow recursion and a cell is
   reused), DpPanel (computed / not yet with dimmed default or fill, #order, reuse badges, step explanation
   naming other arrays, click a cell for from/used-by arrows). Examples "DP: Fibonacci with a memo",
-  "DP: 0/1 knapsack". Branch feat/part-20-dp stacked on 19.
+  "DP: 0/1 knapsack". Branch feat/part-20-dp stacked on 19.- Part 21 flow arrows (user liked the DP arrows: "implement it for all other visualizations ... an arrow
+  when there are swap"): flows.ts (sources = same-frame reads on the value side of the statement plus
+  plain variables written there; targets cell/variable/field/collection; call arguments into parameters;
+  swaps from two writes exchanging previous values within 4 steps), FlowOverlay over all panels (also
+  heap nodes for swaps), replaced the Part 18 per-array arrows. Branch feat/part-21-arrows stacked on 20.

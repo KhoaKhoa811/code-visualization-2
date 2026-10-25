@@ -42,6 +42,8 @@ only. For the active task, [handoff.md](handoff.md) is authoritative. History:
 - Part 20 (approved 2026-10-24: "a full matrix of how it store the value and reuse it", "yes, please implement
   it"): DP tables on `feat/part-20-dp`, stacked on Part 19, awaiting review. Spec: specs/dp-view.md. Known
   limit: static fields of Main are not traced (memo tables in static fields run uncaptured); a candidate next task.
+- Part 21 (approved 2026-10-25: arrows like the DP view in all visualizations, swaps included): flow arrows on
+  `feat/part-21-arrows`, stacked on Part 20, awaiting review. Spec: specs/flow-arrows.md.
 - Never merge pull requests; the user merges.
 
 ## Part 7 roadmap (trace engine and first visible slice)

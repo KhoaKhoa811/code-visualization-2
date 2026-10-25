@@ -11,7 +11,7 @@ import { Controls } from './views/Controls.tsx';
 import { clearMotion, leavingFrames, motionFor, playMotion } from './views/motion.ts';
 import { pointersAt } from './trace/pointers.ts';
 import { callsAt } from './trace/calls.ts';
-import { flowAt } from './trace/dataflow.ts';
+import { flowsAt } from './trace/flows.ts';
 import { dpLog, dpTables } from './trace/dp.ts';
 import { StatePanel } from './views/StatePanel.tsx';
 import { LayoutContext } from './views/Draggable.tsx';
@@ -131,8 +131,8 @@ export function App() {
   const pointers = useMemo(() => usable && view ? pointersAt(usable, view.cursor, view.beforeEnd ?? view.state) : new Map(), [usable, view]);
   // Part 13: the calls made up to the cursor and how they relate.
   const calls = useMemo(() => usable && view ? callsAt(usable, view) : undefined, [usable, view]);
-  // Part 18a: the cells this step's array write read.
-  const flow = useMemo(() => usable && view ? flowAt(usable, view) : null, [usable, view]);
+  // Part 21: where the values this step stored came from (and swaps), drawn over every panel.
+  const flows = useMemo(() => usable && view ? flowsAt(usable, view) : [], [usable, view]);
   // Part 20: arrays and integer-keyed maps the program fills from itself (dynamic programming), at the cursor.
   const dp = useMemo(() => {
     if (!usable || !view) return null;
@@ -243,7 +243,7 @@ export function App() {
                 onDismiss={c => setNotStructs(list => [...list, c])} />}
                 </>} />
               <StatePanel view={view} trees={[...fittingTrees, ...auto.trees]} heaps={[...fittingHeaps, ...auto.heaps]} graphs={[...fittingGraphs, ...auto.graphs]}
-                structs={[...fittingStructs, ...auto.structs]} childTrees={auto.nested} chains={auto.chains} modes={auto.modes} pointers={pointers} leaving={shown.leaving} calls={calls} complexity={complexity} flow={flow} dp={dp} />
+                structs={[...fittingStructs, ...auto.structs]} childTrees={auto.nested} chains={auto.chains} modes={auto.modes} pointers={pointers} leaving={shown.leaving} calls={calls} complexity={complexity} flows={flows} dp={dp} />
             </LayoutContext.Provider>
           )}
           {!snap && !submit.isPending && <p className="muted hint">Write Java in the editor and press Run.</p>}
