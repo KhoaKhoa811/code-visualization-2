@@ -20,6 +20,7 @@ import { numeric } from '../trace/format.ts';
 import { setLook, type ArrayLook } from './layout.ts';
 import { useLayout } from './Draggable.tsx';
 import type { CallsView } from '../trace/calls.ts';
+import type { SlidingWindow } from '../trace/window.ts';
 import { CallTreePanel } from './CallTreePanel.tsx';
 import { CallLink } from './CallLink.tsx';
 import { ComplexityPanel } from './ComplexityPanel.tsx';
@@ -32,10 +33,12 @@ import type { Row as ComplexityRow } from '../trace/complexity.ts';
 type ArrayObject = TraceObject & { kind: 'array' };
 
 /** Confirmed tree (Part 9b), heap (Part 9c) and list/stack/queue (Part 10b) mappings that fit this run. */
-export function StatePanel({ part, view, trees = [], heaps = [], graphs = [], structs = [], pointers = new Map(), leaving, calls, complexity = [], childTrees = [], chains = [], modes = {}, dp = null }: {
+export function StatePanel({ part, view, trees = [], heaps = [], graphs = [], structs = [], pointers = new Map(), windows = new Map(), leaving, calls, complexity = [], childTrees = [], chains = [], modes = {}, dp = null }: {
   /** Part 23: the side column (variables, call stack, call tree, complexity) or the center (structures and objects). */
   part: 'side' | 'center';
   view: View; trees?: TreeMapping[]; heaps?: HeapMapping[]; graphs?: GraphMapping[]; structs?: StructMapping[]; pointers?: Map<string, Pointer[]>;
+  /** Part 25: sliding windows over arrays and strings at the cursor. */
+  windows?: Map<string, SlidingWindow[]>;
   /** 12d: frames the last step ended, drawn from the state before it while they leave. */
   leaving?: { frames: State['frames']; state: State };
   /** Part 13: how the calls up to the cursor relate (call tree, waiting lines, returned values). */
@@ -144,13 +147,13 @@ export function StatePanel({ part, view, trees = [], heaps = [], graphs = [], st
                           onClick={() => update(l => setLook(l, name, look ? null : canLook))}>{canLook === 'heat' ? 'heat colours' : 'bars'}</button>
                 )}
               </div>
-              <ArrayBody array={array} state={state} focus={focus} depth={0} pointers={indices} all={pointers} look={look}
+              <ArrayBody array={array} state={state} focus={focus} depth={0} pointers={indices} all={pointers} look={look} windows={windows.get(array.objectId)}
                          heat={look === 'heat' ? range(state, rows) : undefined} />
             </Draggable>
           );
         })}
       </Panel>
-      <StringsPanel view={view} pointers={pointers} />
+      <StringsPanel view={view} pointers={pointers} windows={windows} />
     </div>
   );
 }
@@ -160,10 +163,12 @@ export function StatePanel({ part, view, trees = [], heaps = [], graphs = [], st
  * the grid's own index variables point at rows, and a variable that indexed rows points at cells
  * of the row it indexed last (`g[i][j]`: `i ▶` at row i, `▲ j` under that row).
  */
-function ArrayBody({ array, state, focus, depth, pointers = [], all = new Map(), look, heat }: {
+function ArrayBody({ array, state, focus, depth, pointers = [], all = new Map(), look, heat, windows = [] }: {
   array: ArrayObject; state: State; focus: Focus; depth: number; pointers?: Pointer[]; all?: Map<string, Pointer[]>;
   /** Part 18: bars (a number array) or heat colours (cells of a number grid, scaled by heat). */
   look?: ArrayLook; heat?: { min: number; max: number };
+  /** Part 25: sliding windows over this array's cells. */
+  windows?: SlidingWindow[];
 }) {
   const active = focus.objectId === array.objectId;
   if (!array.elementType.endsWith('[]') || depth > 3) {
@@ -173,7 +178,7 @@ function ArrayBody({ array, state, focus, depth, pointers = [], all = new Map(),
     const between = ends.length === 2 && ends[0] !== ends[1] ? [Math.min(...ends), Math.max(...ends)] : null;
     const tallest = look === 'bars' ? Math.max(1, ...array.elements.map(e => Math.abs(numeric(e) ?? 0))) : 1;
     return (
-      <div className={`cells${inside.length ? ' has-pointers' : ''}${look === 'bars' ? ' bars' : ''}`} data-testid={look === 'bars' ? 'bars' : undefined}>
+      <div className={`cells${inside.length ? ' has-pointers' : ''}${windows.length ? ' has-window' : ''}${look === 'bars' ? ' bars' : ''}`} data-testid={look === 'bars' ? 'bars' : undefined}>
         {array.elements.length === 0 && <span className="muted">empty</span>}
         {array.elements.map((element, index) => {
           const hit = active && focus.index === index ? ` ${focus.access}` : '';
@@ -192,6 +197,7 @@ function ArrayBody({ array, state, focus, depth, pointers = [], all = new Map(),
           );
         })}
         {inside.length > 0 && <PointerLayer pointers={inside} />}
+        {windows.length > 0 && <WindowLayer windows={windows} />}
       </div>
     );
   }
@@ -264,6 +270,47 @@ function PointerLayer({ pointers }: { pointers: Pointer[] }) {
   );
 }
 
+/**
+ * Part 25: a sliding window as a box around its cells, labelled with what it holds, placed from the
+ * measured cells. The cell that entered at this step is marked +, the one that left is marked −.
+ */
+function WindowLayer({ windows }: { windows: SlidingWindow[] }) {
+  const anchor = useRef<HTMLSpanElement>(null);
+  const [spots, setSpots] = useState('[]');
+  useLayoutEffect(() => {
+    const cells = anchor.current?.parentElement;
+    if (!cells) return;
+    const box = (i: number | null) => i === null ? null : cells.querySelector<HTMLElement>(`:scope > [data-index="${i}"]`);
+    const placed = windows.map(w => {
+      const a = box(w.lo), b = box(w.hi), inn = box(w.entered), out = box(w.left);
+      if (!a || !b) return null;
+      const spot = (el: HTMLElement | null) => el ? [el.offsetLeft + el.offsetWidth - 2, el.offsetTop - 2] : null; // the cell's top-right corner
+      return { x: a.offsetLeft - 4, y: a.offsetTop - 4, w: b.offsetLeft + b.offsetWidth - a.offsetLeft + 8,
+        h: Math.max(a.offsetTop + a.offsetHeight, b.offsetTop + b.offsetHeight) - a.offsetTop + 8, inn: spot(inn), out: spot(out) };
+    });
+    const json = JSON.stringify(placed);
+    if (json !== spots) setSpots(json);
+  });
+  const at = JSON.parse(spots) as ({ x: number; y: number; w: number; h: number; inn: number[] | null; out: number[] | null } | null)[];
+  return (
+    <span ref={anchor} className="pointer-layer" aria-hidden="true">
+      {windows.map((w, i) => {
+        const s = at[i];
+        return s && (
+          <span key={`${w.label}-${i}`}>
+            <span className="window-box" data-testid="window" data-lo={w.lo} data-hi={w.hi}
+              style={{ transform: `translate(${s.x}px, ${s.y}px)`, width: s.w, height: s.h }}>
+              <span className="window-label">{w.label} · size {w.hi - w.lo + 1}</span>
+            </span>
+            {s.inn && <span className="window-mark in" data-testid="window-in" style={{ transform: `translate(calc(${s.inn[0]}px - 50%), calc(${s.inn[1]}px - 50%))` }}>+</span>}
+            {s.out && <span className="window-mark out" data-testid="window-out" style={{ transform: `translate(calc(${s.out[0]}px - 50%), calc(${s.out[1]}px - 50%))` }}>−</span>}
+          </span>
+        );
+      })}
+    </span>
+  );
+}
+
 const NUMBERS = new Set(['byte', 'short', 'int', 'long', 'float', 'double', 'char']);
 
 /** Part 18a: the smallest and largest number in a grid's rows, for heat colours (one scale for the grid). */
@@ -311,7 +358,7 @@ function RowPointerLayer({ pointers }: { pointers: Pointer[] }) {
 }
 
 /** 18e: strings named by variables, as character boxes; `s.charAt(i)` makes `i` an arrow, as for arrays. Long strings stay text. */
-function StringsPanel({ view, pointers }: { view: View; pointers: Map<string, Pointer[]> }) {
+function StringsPanel({ view, pointers, windows }: { view: View; pointers: Map<string, Pointer[]>; windows: Map<string, SlidingWindow[]> }) {
   const state = view.beforeEnd ?? view.state;
   const strings = [...state.objects.values()].filter((o): o is TraceObject & { kind: 'string' } => o.kind === 'string')
     .filter(o => namesOf(state, o.objectId).length > 0);
@@ -321,11 +368,12 @@ function StringsPanel({ view, pointers }: { view: View; pointers: Map<string, Po
       {strings.map(s => {
         const text = stringText(s);
         const arrows = (pointers.get(s.objectId) ?? []).filter(p => p.value >= 0 && p.value <= s.utf16.length);
+        const around = windows.get(s.objectId) ?? [];
         return (
           <div key={s.objectId} className="string-row" data-testid={`string-${namesOf(state, s.objectId)[0]}`}>
             <span className="name">{namesOf(state, s.objectId).join(' = ')}</span>{' '}
             {s.utf16.length === 0 || s.utf16.length > 60 ? JSON.stringify(text) : (
-              <div className={`cells string-cells${arrows.length ? ' has-pointers' : ''}`}>
+              <div className={`cells string-cells${arrows.length ? ' has-pointers' : ''}${around.length ? ' has-window' : ''}`}>
                 {s.utf16.map((u, i) => (
                   <div className="cell char" key={i} data-testid="char" data-object={s.objectId} data-index={i}>
                     <div className="cell-value">{u === 32 ? '␣' : String.fromCharCode(u)}</div>
@@ -333,6 +381,7 @@ function StringsPanel({ view, pointers }: { view: View; pointers: Map<string, Po
                   </div>
                 ))}
                 {arrows.length > 0 && <PointerLayer pointers={arrows} />}
+                {around.length > 0 && <WindowLayer windows={around} />}
               </div>
             )}
           </div>

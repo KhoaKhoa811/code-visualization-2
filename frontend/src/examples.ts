@@ -379,6 +379,46 @@ public class Main {
     }
 }
 `,
+  'Sliding window': `import java.util.*;
+
+public class Main {
+    public static void main(String[] args) {
+        // Fixed size: the largest sum of 3 neighbours.
+        int[] a = {2, 1, 5, 1, 3, 2};
+        int k = 3, sum = 0, best = 0;
+        for (int r = 0; r < a.length; r++) {
+            sum += a[r];
+            if (r >= k) sum -= a[r - k];
+            if (r >= k - 1) best = Math.max(best, sum);
+        }
+        // Growing and shrinking: the shortest run with a sum of at least 7.
+        int[] b = {2, 3, 1, 2, 4, 3};
+        int left = 0, total = 0, shortest = Integer.MAX_VALUE;
+        for (int right = 0; right < b.length; right++) {
+            total += b[right];
+            while (total >= 7) {
+                shortest = Math.min(shortest, right - left + 1);
+                total -= b[left];
+                left++;
+            }
+        }
+        // Characters: the longest substring without a repeated letter.
+        String s = "abcabcbb";
+        Set<Character> seen = new HashSet<>();
+        int lo = 0, longest = 0;
+        for (int hi = 0; hi < s.length(); hi++) {
+            char c = s.charAt(hi);
+            while (seen.contains(c)) {
+                seen.remove(s.charAt(lo));
+                lo++;
+            }
+            seen.add(c);
+            longest = Math.max(longest, hi - lo + 1);
+        }
+        System.out.println(best + " " + shortest + " " + longest);
+    }
+}
+`,
   'Mixed structures': `import java.util.*;
 
 public class Main {

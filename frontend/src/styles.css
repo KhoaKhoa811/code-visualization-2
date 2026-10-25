@@ -431,3 +431,11 @@ section[data-panel="dp"] { grid-column: 1 / -1; }
 .panel-toggle:hover { color: var(--text); }
 .panel.closed { padding-bottom: 2px; }
 .panel.closed > .panel-handle { margin-bottom: 6px; }
+/* Part 25: a sliding window: a box around its cells, labelled with what it holds; + entered, − left. */
+.cells.has-window { position: relative; padding-top: 22px; margin-top: 2px; }
+.window-box { position: absolute; left: 0; top: 0; border: 2px solid #3fb37f; border-radius: 9px; background: color-mix(in srgb, #3fb37f 9%, transparent); transition: transform .3s ease-in-out, width .3s ease-in-out; }
+.window-label { position: absolute; left: -2px; top: -20px; white-space: nowrap; font: 700 11px Consolas, ui-monospace, monospace; color: #3fb37f; }
+.window-mark { position: absolute; left: 0; top: 0; width: 16px; height: 16px; border-radius: 50%; font: 700 12px/16px Consolas, monospace; text-align: center; color: #fff; z-index: 3; }
+.window-mark.in { background: #3fb37f; }
+.window-mark.out { background: #e05a5a; }
+body.motion-off .window-box { transition: none; }

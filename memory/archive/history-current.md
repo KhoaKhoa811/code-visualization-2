@@ -347,3 +347,8 @@ not verbatim transcripts, unless quoted.
 - Part 24 panel toggles (user: "add a toggle option for every component"): Layout.closed + toggleClosed; Panel
   header button (data-testid toggle-<id>, aria-expanded), closed panel renders only its title; survives runs,
   Reset layout opens all. User declined auto-detecting matrix graphs. Branch feat/part-24-toggles stacked on 23.
+- Parts 19-24 merged by the user. Part 25 sliding window (user: "I want you to visualization for sliding window"):
+  window.ts (enter/leave moves from compound assigns, ++/--, collection add/remove, map put/merge with -1; the one
+  cell read, or a variable last set from one cell; window = entered minus left, shown from the first leave while
+  contiguous), WindowLayer box + label + +/- marks in arrays and strings, example "Sliding window", fixture
+  sliding-window.json from TracerTest. Docker Desktop had to be started (C:\Users\nguye\AppData\Local\Programs\DockerDesktop).

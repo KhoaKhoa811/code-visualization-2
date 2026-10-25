@@ -10,6 +10,7 @@ import { Playback, TraceError, type State } from './trace/playback.ts';
 import { Controls } from './views/Controls.tsx';
 import { clearMotion, leavingFrames, motionFor, playMotion } from './views/motion.ts';
 import { pointersAt } from './trace/pointers.ts';
+import { windowsAt } from './trace/window.ts';
 import { callsAt } from './trace/calls.ts';
 import { actionsAt, jumpAt } from './trace/actions.ts';
 import { dpLog, dpTables } from './trace/dp.ts';
@@ -130,6 +131,8 @@ export function App() {
   useEffect(() => { document.body.classList.toggle('motion-off', !motion); }, [motion]);
   // Part 11b: index arrows from the recorded accesses up to the cursor.
   const pointers = useMemo(() => usable && view ? pointersAt(usable, view.cursor, view.beforeEnd ?? view.state) : new Map(), [usable, view]);
+  // Part 25: sliding windows (cells added into an aggregate and not yet taken out) up to the cursor.
+  const windows = useMemo(() => usable && view ? windowsAt(usable, view.cursor, view.beforeEnd ?? view.state) : new Map(), [usable, view]);
   // Part 13: the calls made up to the cursor and how they relate.
   const calls = useMemo(() => usable && view ? callsAt(usable, view) : undefined, [usable, view]);
   // Part 21: where the values this step stored came from (and swaps), drawn over every panel.
@@ -262,7 +265,7 @@ export function App() {
             )}
           </div>
           {view && <StatePanel part="center" view={view} trees={[...fittingTrees, ...auto.trees]} heaps={[...fittingHeaps, ...auto.heaps]} graphs={[...fittingGraphs, ...auto.graphs]}
-            structs={[...fittingStructs, ...auto.structs]} childTrees={auto.nested} chains={auto.chains} modes={auto.modes} pointers={pointers} dp={dp} />}
+            structs={[...fittingStructs, ...auto.structs]} childTrees={auto.nested} chains={auto.chains} modes={auto.modes} pointers={pointers} windows={windows} dp={dp} />}
           {!snap && !submit.isPending && <p className="muted hint">Write Java in the editor and press Run.</p>}
         </section>
         <section className="editor">
