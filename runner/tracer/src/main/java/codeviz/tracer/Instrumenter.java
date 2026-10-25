@@ -700,7 +700,8 @@ final class Instrumenter {
             }
             case ALOAD -> {
                 String element = Analyzer.component(site.javaType);
-                if (element.endsWith("[]") || element.equals("java.lang.String")) {
+                // Part 19a: every non-primitive element (arrays, String, objects of traced classes) is a reference.
+                if (!HELPER_PREFIX.containsKey(element)) {
                     list.insertBefore(insn, siteConstant(site));
                     MethodInsnNode load = call("aaload", "([Ljava/lang/Object;II)Ljava/lang/Object;");
                     list.set(insn, load);
@@ -712,7 +713,7 @@ final class Instrumenter {
             }
             case ASTORE -> {
                 String element = Analyzer.component(site.javaType);
-                boolean reference = element.endsWith("[]") || element.equals("java.lang.String");
+                boolean reference = !HELPER_PREFIX.containsKey(element); // Part 19a: objects of traced classes too
                 String array = reference ? "[Ljava/lang/Object;" : descriptorOf(site.javaType);
                 replace(list, insn, site, (reference ? "a" : HELPER_PREFIX.get(element)) + "astore",
                         "(" + array + "I" + (reference ? "Ljava/lang/Object;" : loadDescriptor(element)) + "I)V");

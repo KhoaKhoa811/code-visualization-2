@@ -9,28 +9,37 @@
 
 - Updated: 2026-10-24 (Asia/Saigon)
 - Owner: Claude Code
-- Status: Part 18 (visual) done on `feat/part-18-visual`. Branch stack, none merged yet:
-  main <- 14 graph <- 15 complexity <- 16 template <- 17 backtracking <- 18 visual. Merge in that order.
+- Status: Part 19 (structure detection for complicated code) on `feat/part-19-structures`, from main 1508259
+  (Parts 14-18 merged). Awaiting the user's review and merge.
 - Milestone: V1 complete. Public deployment on hold (user: "deployment can hold on").
 
-## Part 18 (user: "Do you have any ideas to improve the visualization?", then "ok" to the recommended order)
+## Part 19 roadmap (approved 2026-10-24: "1. it's right 2. show them automatically"); spec: specs/structure-detection.md
 
-Spec: specs/motion.md "Arrays, DP tables, strings and node tags (Part 18)". Frontend only.
-
-- [x] 18a `trace/dataflow.ts` flowAt (reads of the same frame inside the write's code; row fetches and the
-      target itself excluded), `FlowLayer` arrows in the array box; heat colours toggle for number grids
-      (`layout.looks`, `setLook`)
-- [x] 18b bars toggle for number arrays (`.cell.bar`, `.bar-fill`)
-- [x] 18c shading between exactly two index arrows (`.in-range`)
-- [x] 18d `views/VarTags.tsx` on object graph, tree and list nodes; pulses on the declaring/assigning step
-- [x] 18e strings as character boxes; `….charAt(name)` counts as indexing in `trace/pointers.ts`
-- [x] tests: dataflow.test.ts (2), browser tests "(18a-18c, 18e)" and "(18d)"; example "DP and two pointers"
+- [x] 19a fix: arrays of traced objects (`Node[]`) used primitive helpers in Instrumenter (ALOAD/ASTORE) ->
+      JVM VerifyError; now every non-primitive element uses the reference helpers (commit af2338c)
+- [x] 19b traced classes may have covered collection fields of traced objects (`List<Node>`, `Map<K, Node>`)
+      and field initializers `= new ArrayList<>()` / `new Node(0, 0)` (Analyzer tracedClasses, simpleInitializer)
+- [x] 19c `frontend/src/trace/detect.ts` rank-2 over rank-1: mirror pairs (doubly linked list), parent
+      pointers, children fields (`children.ts`), chains (`chains.ts`), heap in a class and heap order from
+      swap values, graphs of index lists; `reach.ts` (reachable objects, held-by)
+- [x] 19d views: list view prev arrows and reachable nodes only, `NestedPanel` (trees with children, tables
+      of chains), heap view with `owner`
+- [x] 19e held-by tags (`map[3]`, `buckets[1]`, `cache.head`) in VarTags
+- [x] 19f `StructuresCard` replaces SuggestedViews: hide/show, "Choose fields yourself" holds the old editors;
+      App draws auto shapes after confirmed mappings; deque modes from detection
+- [x] tests: TracerTest 19a/19b/fixture programs; detect.test.ts (4); browser 10c rewritten, 9b hide then
+      confirm, 9a hides the auto views, new "(19)" mixed-structures test; example "Mixed structures"
+- [x] spec, memory
 
 ## Verification
 
-- Frontend 66 unit, build; Part 18 browser tests passed; full Playwright 32 passed (`.tools/pw-18.log`); no run containers left.
-- Java unchanged since Part 17's verify (tracer 148, backend 102).
+- Root clean verify with live Docker: tracer 151, backend 102 (`.tools/verify-19.log`). The first two runs
+  failed on Docker infrastructure timeouts right after Docker Desktop started (different live tests each
+  time); the leftover test containers were removed by name; the third run passed.
+- Frontend 70 unit, build; full Playwright 33 passed (`.tools/pw-19.log`). Earlier runs: 32/33 (the 9a drag test,
+  fixed by hiding the auto views there), then 24 failed after one run container hung in Docker and held the
+  single run slot (removed by name; the mixed test then passed 3 times in a row). No run containers left.
 
 ## Next action
 
-Report Part 18 with the PR link; wait for merges and the next request.
+Report Part 19 with the PR link; wait for the merge and the next request.

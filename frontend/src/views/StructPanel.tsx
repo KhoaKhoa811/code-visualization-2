@@ -8,21 +8,34 @@ import { VarTags } from './VarTags.tsx';
 import type { State, View } from '../trace/playback.ts';
 import { projectList, projectQueue, projectStack, type ArrayView, type StructMapping } from '../trace/structures.ts';
 import { Draggable, Panel } from './Draggable.tsx';
+import { reachable } from '../trace/reach.ts';
 
 const GX = 96, GY = 64;
 
-interface Line { key: string; d: string; repeat: boolean }
+interface Line { key: string; d: string; repeat: boolean; back?: boolean }
 
 function ListView({ view, mapping }: { view: View; mapping: StructMapping & { kind: 'list' } }) {
   const state = view.beforeEnd ?? view.state;
   const focus = view.focus;
   const roots = state.bindings.flatMap(b => (b.value.kind === 'ref' ? [b.value.objectId] : []));
-  const { chains, conflicts } = projectList(state, mapping, roots);
+  // Part 19d: a doubly linked list shows the nodes the program can still reach, and its prev links.
+  const live = mapping.prev ? reachable(state) : undefined;
+  const { chains, conflicts } = projectList(state, mapping, roots, live);
+  const all = [...state.objects.values()].filter(o => o.kind === 'object' && o.className === mapping.className).length;
   const container = useRef<HTMLDivElement>(null);
   const [lines, setLines] = useState<Line[]>([]);
-  const links: { from: string; to: string; repeat: boolean }[] = [];
+  const links: { from: string; to: string; repeat: boolean; back?: boolean }[] = [];
+  const prevOf = (id: string) => {
+    const o = state.objects.get(id);
+    const v = o?.kind === 'object' && mapping.prev ? o.fields.find(f => f.name === mapping.prev)?.value : undefined;
+    return v?.kind === 'ref' ? v.objectId : null;
+  };
   for (const c of chains) {
-    c.nodes.forEach((n, i) => { if (i + 1 < c.nodes.length) links.push({ from: n.objectId, to: c.nodes[i + 1].objectId, repeat: false }); });
+    c.nodes.forEach((n, i) => {
+      if (i + 1 >= c.nodes.length) return;
+      links.push({ from: n.objectId, to: c.nodes[i + 1].objectId, repeat: false });
+      if (mapping.prev && prevOf(c.nodes[i + 1].objectId) === n.objectId) links.push({ from: c.nodes[i + 1].objectId, to: n.objectId, repeat: false, back: true });
+    });
     if (c.end.kind === 'repeat') links.push({ from: c.nodes[c.nodes.length - 1].objectId, to: c.end.objectId, repeat: true });
   }
   useLayoutEffect(() => {
@@ -34,6 +47,11 @@ function ListView({ view, mapping }: { view: View; mapping: StructMapping & { ki
     for (const l of links) {
       const a = box(l.from), b = box(l.to);
       if (!a || !b) continue;
+      if (l.back) { // prev: from the left of the later node back to the earlier one, below the next arrow
+        const x1 = a.left - base.left, y1 = a.bottom - 6 - base.top, x2 = b.right - base.left, y2 = b.bottom - 6 - base.top;
+        next.push({ key: `back-${l.from}-${l.to}`, repeat: false, back: true, d: `M ${x1} ${y1} Q ${(x1 + x2) / 2} ${y1 + 16} ${x2} ${y2}` });
+        continue;
+      }
       const x1 = a.right - base.left, y1 = a.top + a.height / 2 - base.top;
       const forward = b.left >= a.right;
       const x2 = (forward ? b.left : b.left + b.width / 2) - base.left, y2 = (forward ? b.top + b.height / 2 : b.bottom) - base.top;
@@ -46,7 +64,10 @@ function ListView({ view, mapping }: { view: View; mapping: StructMapping & { ki
   const width = Math.max(...chains.map(c => c.nodes.length)) * GX + 70;
   return (
     <div className="struct-block" data-testid={`list-${shortClass(mapping.className)}`}>
-      <div className="array-label">{shortClass(mapping.className)} <span className="muted">list · value {mapping.value} · next {mapping.next}</span></div>
+      <div className="array-label">{shortClass(mapping.className)} <span className="muted">{mapping.prev ? 'doubly linked list' : 'list'} · value {mapping.value} · next {mapping.next}{mapping.prev ? ` · prev ${mapping.prev}` : ''}</span></div>
+      {live && all > chains.reduce((s, c) => s + c.nodes.length, 0) && (
+        <p className="muted" data-testid="list-unreachable">{all - chains.reduce((s, c) => s + c.nodes.length, 0)} node(s) the program no longer reaches are not drawn.</p>
+      )}
       {conflicts.length > 0 && <p className="warning" data-testid="list-conflicts">Not a simple list here: {conflicts.join(', ')} (drawn as recorded).</p>}
       <div className="tree list-chains" ref={container} style={{ width, height: chains.length * GY + 20 }}>
         <svg className="graph-arrows" aria-hidden="true">
@@ -55,7 +76,7 @@ function ListView({ view, mapping }: { view: View; mapping: StructMapping & { ki
               <path d="M 0 0 L 10 5 L 0 10 z" />
             </marker>
           </defs>
-          {lines.map(l => <path key={l.key} d={l.d} className={l.repeat ? 'repeat' : undefined} markerEnd="url(#list-head)" />)}
+          {lines.map(l => <path key={l.key} d={l.d} className={l.repeat ? 'repeat' : l.back ? 'back' : undefined} markerEnd="url(#list-head)" data-testid={l.back ? 'list-prev' : undefined} />)}
         </svg>
         {chains.map((c, row) => c.nodes.map((n, i) => {
           const hit = focus.objectId === n.objectId ? ` ${focus.access ?? ''}` : '';

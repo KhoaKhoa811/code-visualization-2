@@ -266,6 +266,8 @@ final class Analyzer {
                     || !c.getTypeParameters().isEmpty() || c.getModifiers().getFlags().contains(Modifier.ABSTRACT)
                     || extended.contains(element(c)));
             for (ClassTree c : candidates) classes.put(javaType(c), null); // names first: fields may refer to each other
+            // Part 19b: and as collection elements (List<Node> children), unless equals/hashCode/compareTo would run user code.
+            for (ClassTree c : candidates) if (identityClass(c)) plainClasses.add(javaType(c));
             boolean changed = true;
             while (changed) { // a class with a field of an untraced type is untraced, which may untrace others
                 changed = false;
@@ -275,7 +277,7 @@ final class Analyzer {
                     for (Tree member : c.getMembers()) {
                         if (member instanceof VariableTree v && !v.getModifiers().getFlags().contains(Modifier.STATIC) && !localType(javaType(v))) ok = false;
                     }
-                    if (!ok) { classes.remove(javaType(c)); it.remove(); changed = true; }
+                    if (!ok) { classes.remove(javaType(c)); plainClasses.remove(javaType(c)); it.remove(); changed = true; }
                 }
             }
             for (ClassTree c : candidates) {
@@ -294,13 +296,16 @@ final class Analyzer {
                 site.fields = List.copyOf(fields);
                 classes.put(site.javaType, site);
                 classTrees.put(site.javaType, c);
-                boolean identity = true; // equals/hashCode/compareTo would run user code inside library calls
-                for (Tree member : c.getMembers()) {
-                    if (member instanceof MethodTree m && List.of("equals", "hashCode", "compareTo").contains(m.getName().toString())) identity = false;
-                }
-                if (identity) plainClasses.add(site.javaType);
             }
             return candidates;
+        }
+
+        /** A class without equals, hashCode or compareTo: library calls on its objects run no user code. */
+        private static boolean identityClass(ClassTree c) {
+            for (Tree member : c.getMembers()) {
+                if (member instanceof MethodTree m && List.of("equals", "hashCode", "compareTo").contains(m.getName().toString())) return false;
+            }
+            return true;
         }
 
         /**
@@ -354,7 +359,11 @@ final class Analyzer {
             return true;
         }
 
-        /** No this(...) call, no instance initializer blocks, and only constant, null or constant-array field initializers. */
+        /**
+         * No this(...) call, no instance initializer blocks, and only simple field initializers: constants, null,
+         * constant arrays, and (Part 19b) an empty covered collection or map, or an object of a traced class
+         * built from simple arguments (Node head = new Node(0, 0)).
+         */
         private boolean simpleConstructor(MethodTree m, ClassTree owner) {
             List<? extends StatementTree> body = m.getBody().getStatements();
             if (!body.isEmpty() && body.get(0) instanceof ExpressionStatementTree s && s.getExpression() instanceof MethodInvocationTree call
@@ -370,6 +379,11 @@ final class Analyzer {
         private boolean simpleInitializer(ExpressionTree e) {
             e = strip(e);
             if (isConstant(e) || e.getKind() == Tree.Kind.NULL_LITERAL) return true;
+            if (e instanceof NewClassTree c && c.getClassBody() == null) { // Part 19b
+                String type = javaType(c), raw = erasure(type);
+                if (CONSTRUCTIBLE.contains(raw) && !raw.equals(SCANNER) && !raw.equals(READER) && c.getArguments().isEmpty() && libraryType(type)) return true;
+                return classes.containsKey(type) && c.getArguments().stream().allMatch(this::simpleInitializer);
+            }
             if (!(e instanceof NewArrayTree n) || !array(javaType(n))) return false;
             if (n.getInitializers() != null) return n.getInitializers().stream().allMatch(this::simpleInitializer);
             return n.getDimensions().size() <= 3 && n.getDimensions().stream().allMatch(this::isConstant);

@@ -1322,7 +1322,182 @@ class TracerTest {
                 "ALLOCATE [1,2] @new java.util.ArrayDeque<>(out.get(0))", "ALLOCATE {\"a\"=1,\"b\"=2} @new java.util.LinkedHashMap<>(m)");
     }
 
-    @Test void printingLibraryValuesAndReverseOrderCollections() throws Exception {        Run r = main("print-and-reverse", """
+    // ---- Part 19: structures of user classes -----------------------------------------------
+
+    @Test void fieldsHoldingArraysOfTracedObjectsRunAndAreTraced() throws Exception { // Part 19a
+        Run trie = run("trie", """
+                public class Main {
+                    static class TrieNode { TrieNode[] kids = new TrieNode[26]; boolean end; }
+                    static void insert(TrieNode root, String w) {
+                        TrieNode cur = root;
+                        for (int i = 0; i < w.length(); i++) {
+                            int c = w.charAt(i) - 'a';
+                            if (cur.kids[c] == null) cur.kids[c] = new TrieNode();
+                            cur = cur.kids[c];
+                        }
+                        cur.end = true;
+                    }
+                    public static void main(String[] args) {
+                        TrieNode root = new TrieNode();
+                        insert(root, "to");
+                        insert(root, "tea");
+                        System.out.println(root.kids[19] != null);
+                    }
+                }
+                """);
+        assertComplete(trie, "completed");
+        assertEquals("true\n", trie.result().stdout());
+        assertEquals(List.of(), uncaptured(trie));
+
+        Run table = run("chaining", """
+                public class Main {
+                    static class Entry { int key, val; Entry next; Entry(int k, int v, Entry n) { key = k; val = v; next = n; } }
+                    static class Table {
+                        Entry[] buckets = new Entry[4];
+                        void put(int k, int v) {
+                            int b = k % 4;
+                            for (Entry e = buckets[b]; e != null; e = e.next) if (e.key == k) { e.val = v; return; }
+                            buckets[b] = new Entry(k, v, buckets[b]);
+                        }
+                    }
+                    public static void main(String[] args) {
+                        Table t = new Table();
+                        t.put(1, 10); t.put(5, 50); t.put(2, 20); t.put(1, 11);
+                        System.out.println(t.buckets[1].val + " " + t.buckets[1].next.val);
+                    }
+                }
+                """);
+        assertComplete(table, "completed");
+        assertEquals("50 11\n", table.result().stdout());
+        assertEquals(List.of(), uncaptured(table));
+    }
+
+    @Test void classesWithCollectionFieldsAndFieldInitializersAreTraced() throws Exception { // Part 19b
+        Run lru = run("lru", """
+                import java.util.*;
+                public class Main {
+                    static class Node { int key, val; Node prev, next; Node(int k, int v) { key = k; val = v; } }
+                    static class LRU {
+                        int cap;
+                        Map<Integer, Node> map = new HashMap<>();
+                        Node head = new Node(0, 0), tail = new Node(0, 0);
+                        LRU(int c) { cap = c; head.next = tail; tail.prev = head; }
+                        void remove(Node n) { n.prev.next = n.next; n.next.prev = n.prev; }
+                        void addFront(Node n) { n.next = head.next; n.prev = head; head.next.prev = n; head.next = n; }
+                        int get(int k) { Node n = map.get(k); if (n == null) return -1; remove(n); addFront(n); return n.val; }
+                        void put(int k, int v) {
+                            Node n = map.get(k);
+                            if (n != null) { n.val = v; remove(n); addFront(n); return; }
+                            if (map.size() == cap) { Node last = tail.prev; remove(last); map.remove(last.key); }
+                            n = new Node(k, v);
+                            map.put(k, n);
+                            addFront(n);
+                        }
+                    }
+                    public static void main(String[] args) {
+                        LRU c = new LRU(2);
+                        c.put(1, 1); c.put(2, 2); c.get(1); c.put(3, 3);
+                        System.out.println(c.get(2) + " " + c.get(3));
+                    }
+                }
+                """);
+        assertComplete(lru, "completed");
+        assertEquals("-1 3\n", lru.result().stdout());
+        assertEquals(List.of(), uncaptured(lru));
+
+        Run tree = run("nary", """
+                import java.util.*;
+                public class Main {
+                    static class Node { int val; List<Node> children = new ArrayList<>(); Node(int v) { val = v; } }
+                    static int sum(Node n) { int s = n.val; for (Node c : n.children) s += sum(c); return s; }
+                    public static void main(String[] args) {
+                        Node root = new Node(1);
+                        Node a = new Node(2);
+                        root.children.add(a);
+                        root.children.add(new Node(3));
+                        a.children.add(new Node(4));
+                        System.out.println(sum(root));
+                    }
+                }
+                """);
+        assertComplete(tree, "completed");
+        assertEquals("10\n", tree.result().stdout());
+        assertEquals(List.of(), uncaptured(tree));
+    }
+
+    @Test void aHeapClassAndAMixedProgramAreTraced() throws Exception { // Part 19: fixtures for structure detection
+        Run heap = run("heap-class", """
+                public class Main {
+                    static class MinHeap {
+                        int[] a = new int[8];
+                        int size;
+                        void push(int x) {
+                            a[size] = x;
+                            int i = size++;
+                            while (i > 0 && a[(i - 1) / 2] > a[i]) { int p = (i - 1) / 2; int t = a[i]; a[i] = a[p]; a[p] = t; i = p; }
+                        }
+                        int pop() {
+                            int top = a[0];
+                            a[0] = a[--size];
+                            int i = 0;
+                            while (true) {
+                                int l = 2 * i + 1, r = l + 1, m = i;
+                                if (l < size && a[l] < a[m]) m = l;
+                                if (r < size && a[r] < a[m]) m = r;
+                                if (m == i) break;
+                                int t = a[i]; a[i] = a[m]; a[m] = t;
+                                i = m;
+                            }
+                            return top;
+                        }
+                    }
+                    public static void main(String[] args) {
+                        MinHeap h = new MinHeap();
+                        h.push(5); h.push(3); h.push(8); h.push(1); h.push(2);
+                        System.out.println(h.pop() + " " + h.pop());
+                    }
+                }
+                """);
+        assertComplete(heap, "completed");
+        assertEquals("1 2\n", heap.result().stdout());
+
+        Run mixed = run("mixed-structures", """
+                import java.util.*;
+                public class Main {
+                    static class Tree { int key; Tree left, right; Tree(int k) { key = k; } }
+                    static Tree insert(Tree t, int k) {
+                        if (t == null) return new Tree(k);
+                        if (k < t.key) t.left = insert(t.left, k); else t.right = insert(t.right, k);
+                        return t;
+                    }
+                    public static void main(String[] args) {
+                        Tree root = null;
+                        for (int k : new int[]{5, 3, 8, 1, 4}) root = insert(root, k);
+                        List<List<Integer>> adj = new ArrayList<>();
+                        for (int i = 0; i < 4; i++) adj.add(new ArrayList<>());
+                        adj.get(0).add(1); adj.get(1).add(0); adj.get(0).add(2); adj.get(2).add(0); adj.get(2).add(3); adj.get(3).add(2);
+                        int[] dist = new int[4];
+                        Arrays.fill(dist, -1);
+                        Deque<Integer> queue = new ArrayDeque<>();
+                        queue.offer(0); dist[0] = 0;
+                        while (!queue.isEmpty()) {
+                            int u = queue.poll();
+                            for (int v : adj.get(u)) if (dist[v] < 0) { dist[v] = dist[u] + 1; queue.offer(v); }
+                        }
+                        Deque<Integer> stack = new ArrayDeque<>();
+                        for (int d : dist) stack.push(d);
+                        int top = stack.pop() + stack.pop() + stack.pop();
+                        System.out.println(root.key + " " + dist[3] + " " + top);
+                    }
+                }
+                """);
+        assertComplete(mixed, "completed");
+        assertEquals("5 2 4\n", mixed.result().stdout());
+        assertEquals(List.of(), uncaptured(mixed));
+    }
+
+    @Test void printingLibraryValuesAndReverseOrderCollections() throws Exception {
+        Run r = main("print-and-reverse", """
                 java.util.PriorityQueue<Integer> pq = new java.util.PriorityQueue<>(java.util.Collections.reverseOrder());
                 pq.add(1); pq.add(5); pq.add(3);
                 System.out.println(pq.poll());

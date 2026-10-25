@@ -16,6 +16,8 @@ export interface HeapMapping {
   bound: 'count' | 'last';
   /** The order whose violations are observed (never enforced). */
   order: 'max' | 'min';
+  /** Part 19d: a class whose objects hold the heap: array and size are then its fields. */
+  owner?: string;
 }
 
 type ArrayObject = TraceObject & { kind: 'array' };
@@ -84,7 +86,11 @@ function number(v: Value): number | null {
 
 /** The heap at a state, or null when the array variable is not in scope at this cursor. */
 export function projectHeap(state: State, mapping: HeapMapping): HeapView | null {
-  const ref = lookup(state, mapping.array);
+  // Part 19d: inside an object of the owner class, the array and the size are its fields.
+  const holder = mapping.owner ? [...state.objects.values()].find(o => o.kind === 'object' && o.className === mapping.owner) : undefined;
+  const read = (name: string) => holder?.kind === 'object' ? holder.fields.find(f => f.name === name)?.value : lookup(state, name);
+  if (mapping.owner && !holder) return null;
+  const ref = read(mapping.array);
   if (!ref || ref.kind !== 'ref') return null;
   const array = state.objects.get(ref.objectId);
   if (!array || array.kind !== 'array') return null;
@@ -92,7 +98,7 @@ export function projectHeap(state: State, mapping: HeapMapping): HeapView | null
   let boundary: number | null = length;
   let boundaryNote: string | null = null;
   if (mapping.size !== null) {
-    const v = lookup(state, mapping.size);
+    const v = read(mapping.size);
     const n = v ? number(v) : null;
     if (n === null) {
       boundary = null;

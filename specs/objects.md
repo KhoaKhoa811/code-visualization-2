@@ -88,3 +88,22 @@ Two 8a tests now use a generic `Util<T>` class, because a plain helper class is
 now traced. Root reactor `clean verify` with live Docker: 149 Java tests (tracer
 63, backend 86). Contract: 58 tests. Frontend: 17 reducer tests, build, and 7
 Playwright tests against the real backend and Docker.
+
+## Part 19a-19b: structures built from user classes (2026-10-24)
+
+Approved by the user on 2026-10-24 (Part 19 roadmap, "1. it's right").
+
+- **19a (a bug fix):** an array whose elements are objects of a traced class (`TrieNode[] kids`,
+  `Entry[] buckets`) used the primitive array helpers, so the instrumented program failed JVM
+  verification and did not run. Every non-primitive element (arrays, `String`, traced objects) now
+  uses the reference helpers.
+- **19b:** a traced class's instance fields may also have covered library types holding traced
+  objects (`List<Node> children`, `Map<Integer, Node> map`, `Deque<Node>`): traced classes are
+  registered as collection elements before field types are checked. Field initializers may also
+  be an empty covered collection or map (`= new ArrayList<>()`, `= new HashMap<>()`) or an object
+  of a traced class built from simple arguments (`Node head = new Node(0, 0)`); they run in the
+  constructor as before (an ALLOCATE or CALL step, then a FIELD_WRITE). A class with
+  `equals`, `hashCode` or `compareTo` still cannot be a collection element.
+
+Tests: a trie and a chaining hash table (19a), an LRU cache (a map into a doubly linked list) and
+an n-ary tree (19b), each traced completely with no uncaptured statement.

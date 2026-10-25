@@ -3,6 +3,12 @@ import { EXAMPLES } from '../src/examples.ts';
 
 const cells = (page: Page, name: string) => page.getByTestId(`array-${name}`).getByTestId('cell').locator('.cell-value');
 
+/** Part 19f: the confirm-by-hand editors sit under "Choose fields yourself" in the Structures card. */
+async function openManual(page: Page) {
+  const d = page.getByTestId('manual-mappings');
+  if (!(await d.evaluate(e => (e as HTMLDetailsElement).open))) await d.locator('summary').click();
+}
+
 async function run(page: Page) {
   await page.getByRole('button', { name: 'Run', exact: true }).click();
   await expect(page.getByTestId('run-summary')).toBeVisible();
@@ -173,6 +179,9 @@ test('dragging diagram boxes and reordering panels changes layout only (9a, AC-1
   await run(page);
   await expect(page.getByTestId('run-summary')).toContainText('capture complete');
   await page.getByTitle('End').click();
+  // 19f: the list and the tree are shown automatically; this test is about layout, so they are hidden.
+  await page.getByTestId('hide-Main.Node|list').click();
+  await page.getByTestId('hide-Main.Tree|tree').click();
   const count = await page.getByTestId('step-count').textContent();
 
   const head = page.getByTestId('object-head');
@@ -214,10 +223,14 @@ test('a confirmed node mapping draws a tree sort as a binary search tree (9b, AC
   await expect(page.getByTestId('run-summary')).toContainText('capture complete');
   await expect(page.getByTestId('console-output')).toHaveText('1 2 5 6 8 \n');
 
-  // Nothing is drawn as a tree until the mapping is confirmed.
-  await expect(page.getByTestId('suggestion-Node')).toContainText('it may be a binary tree node (value key, children left / right)');
+  // 19f: a Strong tree that nothing else competes with is shown automatically, and can be hidden.
   await page.getByTitle('End').click();
+  await expect(page.getByRole('region', { name: 'Trees' })).toHaveCount(1);
+  await page.getByTestId('hide-Main.Node|tree').click();
   await expect(page.getByRole('region', { name: 'Trees' })).toHaveCount(0);
+  // Choosing the fields by hand still works, and a confirmed mapping comes first.
+  await openManual(page);
+  await expect(page.getByTestId('suggestion-Node')).toContainText('it may be a binary tree node (value key, children left / right)');
   await page.getByTestId('suggestion-Node').getByRole('button', { name: 'Show as tree' }).click();
   await expect(page.getByTestId('mapping-Node')).toContainText('Node shown as a tree');
 
@@ -271,6 +284,7 @@ test('an array confirmed as a heap shows synchronized array and tree views of he
 
   // Nothing is a heap until the user says so: array, indexing, size variable, order.
   await expect(page.getByRole('region', { name: 'Heaps' })).toHaveCount(0);
+  await openManual(page);
   await page.getByRole('button', { name: 'Show an array as a heap…' }).click();
   await page.getByLabel('Heap array').selectOption('a');
   await page.getByLabel('Heap size').selectOption('end');
@@ -323,7 +337,8 @@ test('custom field names map to a list and a circular queue, and a renamed field
   await expect(page.getByTestId('run-summary')).toContainText('capture complete');
   await expect(page.getByTestId('console-output')).toHaveText('30 1 2 3\n');
 
-  // Suggestions from field types; nothing is drawn until confirmed.
+  // Suggestions from field types, confirmed by hand.
+  await openManual(page);
   await expect(page.getByTestId('struct-suggestion-Cell')).toContainText('it may be a linked list node (value item, next after)');
   await expect(page.getByTestId('struct-suggestion-Ring')).toContainText('it may be a stack or a queue');
   await page.getByTestId('struct-suggestion-Cell').getByRole('button', { name: 'Show as list' }).click();
@@ -353,6 +368,7 @@ test('custom field names map to a list and a circular queue, and a renamed field
   await page.keyboard.press('Control+V');
   await run(page);
   await expect(page.getByTestId('console-output')).toHaveText('30 1 2 3\n');
+  await openManual(page);
   await expect(page.getByTestId('struct-mapping-Cell')).toContainText('does not fit this run: Main.Cell has no field after');
   await expect(page.getByTestId('list-Cell')).toHaveCount(0);
   await page.getByTestId('struct-mapping-Cell').getByRole('button', { name: 'Change' }).click();
@@ -363,19 +379,20 @@ test('custom field names map to a list and a circular queue, and a renamed field
   await expect(nodes).toHaveCount(3);
 });
 
-test('suggested views are ranked from the facts so far, restored on rewind, and never switch the view (10c, AC-32, AC-33)', async ({ page }) => {
+test('structures are detected from the facts so far, restored on rewind, and shown automatically only when Strong and unambiguous (10c, 19f, AC-32, AC-33)', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('.monaco-editor')).toBeVisible();
   await page.getByLabel('Example').selectOption('Tree sort');
   await run(page);
   await expect(page.getByTestId('run-summary')).toContainText('capture complete');
   const rankings = page.getByTestId('rankings');
-  const tree = page.getByTestId('ranking-Main.Node-tree');
+  const tree = page.getByTestId('ranking-Main.Node-binary tree');
 
-  // Step until the first node exists: one node is only Weak evidence for a tree.
+  // Step until the first node exists: one node is only Weak evidence for a tree, and nothing is drawn.
   const forward = page.getByRole('button', { name: 'Step forward' });
   for (let i = 0; i < 40 && (await tree.count()) === 0; i++) await forward.click();
   await expect(tree.locator('.rank-level')).toHaveText('Weak');
+  await expect(page.getByRole('region', { name: 'Trees' })).toHaveCount(0);
   const early = await page.getByTestId('step-count').textContent();
   const earlyText = await rankings.textContent();
 
@@ -383,25 +400,46 @@ test('suggested views are ranked from the facts so far, restored on rewind, and 
   await expect(tree.locator('.rank-level')).toHaveText('Strong');
   await expect(tree).toContainText('5 nodes, 4 links');
   await expect(tree).toContainText('observed: search-tree order holds');
-  await expect(rankings).toContainText('rank-1, steps 1–');
-  await expect(page.getByRole('region', { name: 'Trees' })).toHaveCount(0); // a ranking never switches the view on
+  await expect(tree).toContainText('shown automatically');
+  await expect(rankings).toContainText('rank-2, steps 1–');
+  await expect(page.getByRole('region', { name: 'Trees' })).toHaveCount(1);
 
-  // Back to the same cursor: the same assessment (no later facts leak into it).
+  // Back to the same cursor: the same assessment (no later facts leak into it), and the tree is gone again.
   await page.getByTitle('Restart').click();
   while ((await page.getByTestId('step-count').textContent()) !== early) await forward.click();
   await expect(rankings).toHaveText(earlyText!);
+  await expect(page.getByRole('region', { name: 'Trees' })).toHaveCount(0);
 
-  // The heap-sort array: swaps between parent and child indices rank it, and order is only observed.
+  // The heap-sort array: parent-child swaps restoring max-heap order make it a max-heap, shown automatically.
   await page.getByLabel('Example').selectOption('Heap sort');
   await run(page);
   await expect(page.getByTestId('run-summary')).toContainText('capture complete');
   await page.getByTitle('End').click();
-  await expect(page.getByTestId('ranking-a-max-heap').locator('.rank-level')).toHaveText('Strong');
-  await expect(page.getByTestId('ranking-a-max-heap')).toContainText('observed: max-heap order fails'); // sorted ascending at the end
-  await expect(page.getByRole('region', { name: 'Heaps' })).toHaveCount(0);
+  const heap = page.getByTestId('ranking-a-max-heap');
+  await expect(heap.locator('.rank-level')).toHaveText('Strong');
+  await expect(heap).toContainText('restoring max-heap order');
+  await expect(heap).toContainText('observed: max-heap order fails'); // sorted ascending at the end
+  await expect(page.getByRole('region', { name: 'Heaps' })).toHaveCount(1);
   await page.screenshot({ path: 'test-results/rankings.png' });
 });
 
+test('mixed structures in one program are each detected and drawn: a tree, a graph, a queue and a stack (19)', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.monaco-editor')).toBeVisible();
+  await page.getByLabel('Example').selectOption('Mixed structures');
+  await run(page);
+  await expect(page.getByTestId('run-summary')).toContainText('capture complete');
+  await expect(page.getByTestId('run-summary')).not.toContainText('without capture');
+  await page.getByTitle('End').click();
+  await expect(page.getByTestId('ranking-Main.Node-doubly linked list')).toContainText('shown automatically');
+  await expect(page.getByTestId('ranking-Main.TrieNode-trie')).toContainText('shown automatically');
+  await expect(page.getByTestId('list-Node').getByTestId('list-prev').first()).toBeAttached(); // prev links drawn back
+  await expect(page.getByTestId('list-Node').getByTestId('ref-tag').first()).toBeVisible(); // map[k] holds the node
+  await expect(page.getByTestId('children-TrieNode').getByTestId('child-node')).toHaveCount(5);
+  await expect(page.getByTestId('chains-buckets').getByTestId('chain-node')).toHaveCount(3);
+  await page.getByTestId('nested').scrollIntoViewIfNeeded();
+  await page.screenshot({ path: 'test-results/mixed-structures.png', fullPage: true });
+});
 test('recursive calls get their own frames and returns restore the caller (8d)', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('.monaco-editor')).toBeVisible();
@@ -722,6 +760,7 @@ test('a matrix confirmed as a graph is drawn by levels, follows writes and light
   await expect(page.getByTestId('run-summary')).toContainText('capture complete');
   await expect(page.getByTestId('console-output')).toHaveText('[0, 1, 2, 3, 4]\n');
   await page.getByTitle('End').click();
+  await openManual(page);
   await page.getByRole('button', { name: 'Show a variable as a graph…' }).click();
   await expect(page.getByLabel('Graph variable')).toHaveValue('g');
   await expect(page.getByLabel('Graph form')).toHaveValue('matrix');
@@ -763,6 +802,7 @@ test('neighbour lists confirmed as a graph: a DFS lights each edge it walks (14b
   await expect(summary).not.toContainText('without capture');
   await expect(page.getByTestId('console-output')).toHaveText('[0, 1, 3, 2, 4, 5]\n');
   await page.getByTitle('End').click();
+  await openManual(page);
   await page.getByRole('button', { name: 'Show a variable as a graph…' }).click();
   await page.getByLabel('Graph variable').selectOption('adj');
   await expect(page.getByLabel('Graph form')).toHaveValue('lists');
@@ -793,6 +833,7 @@ test('a linked visited array colours the nodes and the index variables mark them
   await page.getByLabel('Example').selectOption('Graph BFS (matrix)');
   await run(page);
   await page.getByTitle('End').click();
+  await openManual(page);
   await page.getByRole('button', { name: 'Show a variable as a graph…' }).click();
   await page.getByLabel('Graph node array visited').check();
   await page.getByRole('button', { name: 'Show as graph' }).click();

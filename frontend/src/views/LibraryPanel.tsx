@@ -126,7 +126,7 @@ function ModeSwitch({ name, variable, mode }: { name: string; variable: string; 
   );
 }
 
-export function LibraryPanel({ view }: { view: View }) {
+export function LibraryPanel({ view, modes = {} }: { view: View; modes?: Record<string, CollectionMode> }) {
   const { layout } = useLayout();
   const state = view.beforeEnd ?? view.state;
   const focus: Focus = view.focus;
@@ -140,7 +140,7 @@ export function LibraryPanel({ view }: { view: View }) {
         const name = shortName(o.className);
         // A view choice belongs to a variable, so it applies again in later steps and runs.
         const switchable = SWITCHABLE.has(name) && o.kind === 'collection' && names.length > 0;
-        const mode = switchable ? layout.modes[names[0]] : undefined;
+        const mode = switchable ? layout.modes[names[0]] ?? modes[names[0]] : undefined; // Part 19f: detected, unless the user chose
         const active = focus.objectId === o.objectId || focus.touched?.includes(o.objectId);
         return (
           <Draggable id={`collection:${o.objectId}`} className={`library${active ? ` ${focus.access === 'write' || focus.touched ? 'changed' : 'read'}` : ''}`} key={o.objectId}

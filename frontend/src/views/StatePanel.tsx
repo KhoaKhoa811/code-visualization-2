@@ -24,12 +24,15 @@ import type { CallsView } from '../trace/calls.ts';
 import { CallTreePanel } from './CallTreePanel.tsx';
 import { CallLink } from './CallLink.tsx';
 import { ComplexityPanel } from './ComplexityPanel.tsx';
+import { NestedPanel } from './NestedPanel.tsx';
+import type { ChildrenMapping } from '../trace/children.ts';
+import type { ChainMapping } from '../trace/chains.ts';
 import type { Row as ComplexityRow } from '../trace/complexity.ts';
 
 type ArrayObject = TraceObject & { kind: 'array' };
 
 /** Confirmed tree (Part 9b), heap (Part 9c) and list/stack/queue (Part 10b) mappings that fit this run. */
-export function StatePanel({ view, trees = [], heaps = [], graphs = [], structs = [], pointers = new Map(), leaving, calls, complexity = [], flow = null }: {
+export function StatePanel({ view, trees = [], heaps = [], graphs = [], structs = [], pointers = new Map(), leaving, calls, complexity = [], flow = null, childTrees = [], chains = [], modes = {} }: {
   view: View; trees?: TreeMapping[]; heaps?: HeapMapping[]; graphs?: GraphMapping[]; structs?: StructMapping[]; pointers?: Map<string, Pointer[]>;
   /** 12d: frames the last step ended, drawn from the state before it while they leave. */
   leaving?: { frames: State['frames']; state: State };
@@ -39,6 +42,10 @@ export function StatePanel({ view, trees = [], heaps = [], graphs = [], structs 
   complexity?: ComplexityRow[];
   /** Part 18a: the cells this step's array write was computed from. */
   flow?: Flow | null;
+  /** Part 19d: trees with children in a field, and arrays of chains (shown when detected). */
+  childTrees?: ChildrenMapping[]; chains?: ChainMapping[];
+  /** Part 19f: a deque shown as a stack or queue because it was detected so (the user's choice wins). */
+  modes?: Record<string, 'stack' | 'queue'>;
 }) {
   const { layout, update } = useLayout();
   // After main returns, show the recorded values it ended with, labelled as such.
@@ -93,7 +100,8 @@ export function StatePanel({ view, trees = [], heaps = [], graphs = [], structs 
       </Panel>
       {calls && <CallTreePanel calls={calls} state={state} />}
       <ComplexityPanel rows={complexity} />
-      <LibraryPanel view={view} />
+      <LibraryPanel view={view} modes={modes} />
+      <NestedPanel view={view} trees={childTrees} chains={chains} />
       <TreePanel view={view} mappings={trees} />
       <StructPanel view={view} mappings={structs} />
       <HeapPanel view={view} mappings={heaps} />
