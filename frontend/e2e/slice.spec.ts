@@ -60,6 +60,30 @@ test('every panel closes to its title and opens again (24)', async ({ page }) =>
   await page.getByRole('button', { name: 'Reset layout' }).click();
   await expect(page.locator('section.panel.closed')).toHaveCount(0);
 });
+test('a sliding window is a box over its cells: + for the cell that entered, − for the one that left (25)', async ({ page }) => {
+  await page.goto('/');
+  await page.getByLabel('Example').selectOption('Sliding window');
+  await run(page);
+  const forward = page.getByRole('button', { name: 'Step forward' });
+  const window = page.getByTestId('array-a').getByTestId('window');
+  // Not a window while the sum only grows; the first time a[0] is taken back out it is one.
+  for (let i = 0; i < 80 && (await window.count()) === 0; i++) {
+    await expect(page.getByTestId('window')).toHaveCount(0);
+    await forward.click();
+  }
+  await expect(window).toHaveAttribute('data-lo', '1');
+  await expect(window).toHaveAttribute('data-hi', '3');
+  await expect(window).toContainText('sum = 7 · size 3');
+  await expect(page.getByTestId('array-a').getByTestId('window-out')).toHaveCount(1);
+  // The next cell entering grows it to 1..4 with a + mark.
+  for (let i = 0; i < 20 && (await window.getAttribute('data-hi')) !== '4'; i++) await forward.click();
+  await expect(page.getByTestId('array-a').getByTestId('window-in')).toHaveCount(1);
+  // Characters in a set: the window over the string.
+  const chars = page.getByTestId('string-s').getByTestId('window');
+  for (let i = 0; i < 300 && (await chars.count()) === 0; i++) await forward.click();
+  await expect(chars).toContainText('seen (2) · size 2');
+  await page.screenshot({ path: 'test-results/sliding-window.png' });
+});
 async function openManual(page: Page) {
   const d = page.getByTestId('manual-mappings');
   if (!(await d.evaluate(e => (e as HTMLDetailsElement).open))) await d.locator('summary').click();

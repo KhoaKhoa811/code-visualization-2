@@ -1550,6 +1550,54 @@ class TracerTest {
         assertEquals("35\n", knap.result().stdout());
     }
 
+    @Test void slidingWindowProgramsAreTraced() throws Exception { // Part 25: fixture for sliding windows
+        Run windows = main("sliding-window", """
+                int[] a = {2, 1, 5, 1, 3, 2};
+                int k = 3, sum = 0, best = 0;
+                for (int r = 0; r < a.length; r++) {
+                    sum += a[r];
+                    if (r >= k) sum -= a[r - k];
+                    if (r >= k - 1) best = Math.max(best, sum);
+                }
+                int[] b = {2, 3, 1, 2, 4, 3};
+                int left = 0, total = 0, shortest = Integer.MAX_VALUE;
+                for (int right = 0; right < b.length; right++) {
+                    total += b[right];
+                    while (total >= 7) {
+                        shortest = Math.min(shortest, right - left + 1);
+                        total -= b[left];
+                        left++;
+                    }
+                }
+                String s = "abcabcbb";
+                java.util.Set<Character> seen = new java.util.HashSet<>();
+                int lo = 0, longest = 0;
+                for (int hi = 0; hi < s.length(); hi++) {
+                    char c = s.charAt(hi);
+                    while (seen.contains(c)) {
+                        seen.remove(s.charAt(lo));
+                        lo++;
+                    }
+                    seen.add(c);
+                    longest = Math.max(longest, hi - lo + 1);
+                }
+                int[] freq = new int[26];
+                String t = "aabca";
+                int from = 0, most = 0;
+                for (int to = 0; to < t.length(); to++) {
+                    freq[t.charAt(to) - 'a']++;
+                    while (freq[t.charAt(to) - 'a'] > 2) {
+                        freq[t.charAt(from) - 'a']--;
+                        from++;
+                    }
+                    most = Math.max(most, to - from + 1);
+                }
+                System.out.println(best + " " + shortest + " " + longest + " " + most);""");
+        assertComplete(windows, "completed");
+        assertEquals("9 2 3 4\n", windows.result().stdout());
+        assertEquals(List.of(), uncaptured(windows));
+    }
+
     @Test void printingLibraryValuesAndReverseOrderCollections() throws Exception {
         Run r = main("print-and-reverse", """
                 java.util.PriorityQueue<Integer> pq = new java.util.PriorityQueue<>(java.util.Collections.reverseOrder());

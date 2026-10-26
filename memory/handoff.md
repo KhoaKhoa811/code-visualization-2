@@ -9,23 +9,24 @@
 
 - Updated: 2026-10-25 (Asia/Saigon)
 - Owner: Claude Code
-- Status: Part 24 (panel toggles) on `feat/part-24-toggles`. Stack, none merged: main <- 19 structures <- 20 DP
-  <- 21 arrows <- 22 actions <- 23 layout <- 24 toggles. Merge in that order. Frontend only.
+- Status: Parts 19-24 merged into main. Part 25 (sliding window) on `feat/part-25-sliding-window`, from main.
 - Milestone: V1 complete. Public deployment on hold.
 
-## Part 24 (user: "add a toggle option for every component so if I don't want to see them, I can close
-## them"); spec: specs/panel-toggles.md
+## Part 25 (user: "I want you to visualization for sliding window"); spec: specs/sliding-window.md
 
-- [x] `layout.ts` `closed` + `toggleClosed`; `Panel` header button ▾/▸ (`toggle-<id>`), closed = title only
-- [x] kept across steps and runs; Reset layout opens all
-- [x] tests: layout.test.ts (24); browser "(24)"
+- [x] `trace/window.ts` `windowsAt`: enter/leave moves of one cell into an aggregate (compound assigns,
+      ++/--, collection add/remove, map put/merge with -1; a variable last set from one cell stands for it);
+      window = entered minus left, shown from the first leave while contiguous
+- [x] `StatePanel` `WindowLayer`: box, label `name = value · size n`, + / − corner marks; arrays and strings
+- [x] example "Sliding window"; fixture `sliding-window.json` from `TracerTest.slidingWindowProgramsAreTraced`
+- [x] tests: window.test.ts (2); browser "(25)"
 - [x] spec, memory
-- Declined by the user the same day: auto-detecting adjacency matrices as graphs.
 
 ## Verification
 
-- Frontend unit 82, build; full Playwright 38 passed (`.tools/pw-24.log`); no run containers left.
+- Tracer test slidingWindowProgramsAreTraced passed; frontend unit 84, build; full Playwright 39 passed (`.tools/pw-25.log`); no run containers left. A first full run right after starting Docker Desktop failed: one run was killed (137) and later runs stayed Queued; a rerun was clean.
+- Docker Desktop was not running; started from C:\Users\nguye\AppData\Local\Programs\DockerDesktop.
 
 ## Next action
 
-Report Part 24 with the PR link; wait for merges and the next request.
+Report Part 25 with the PR link; wait for the merge and the next request.
