@@ -1,4 +1,4 @@
-# Current agent handoff
+﻿# Current agent handoff
 
 <!-- Snapshot file: REPLACE the whole content on every update; never append.
      Keep it under ~100 lines. At task end, fold outcomes into current-state.md,
@@ -7,26 +7,19 @@
 
 ## Status
 
-- Updated: 2026-10-25 (Asia/Saigon)
+- Updated: 2026-10-27 (Asia/Saigon)
 - Owner: Claude Code
-- Status: Parts 19-24 merged into main. Part 25 (sliding window) on `feat/part-25-sliding-window`, from main.
+- Status: Parts 1-25 merged into main. Root README.md on `docs/readme` (user: "Please write a readme file to
+  conclude the project").
 - Milestone: V1 complete. Public deployment on hold.
 
-## Part 25 (user: "I want you to visualization for sliding window"); spec: specs/sliding-window.md
+## README
 
-- [x] `trace/window.ts` `windowsAt`: enter/leave moves of one cell into an aggregate (compound assigns,
-      ++/--, collection add/remove, map put/merge with -1; a variable last set from one cell stands for it);
-      window = entered minus left, shown from the first leave while contiguous
-- [x] `StatePanel` `WindowLayer`: box, label `name = value · size n`, + / − corner marks; arrays and strings
-- [x] example "Sliding window"; fixture `sliding-window.json` from `TracerTest.slidingWindowProgramsAreTraced`
-- [x] tests: window.test.ts (2); browser "(25)"
-- [x] spec, memory
-
-## Verification
-
-- Tracer test slidingWindowProgramsAreTraced passed; frontend unit 84, build; full Playwright 39 passed (`.tools/pw-25.log`); no run containers left. A first full run right after starting Docker Desktop failed: one run was killed (137) and later runs stayed Queued; a rerun was clean.
-- Docker Desktop was not running; started from C:\Users\nguye\AppData\Local\Programs\DockerDesktop.
+- [x] What the app does, how it works (backend, container, tracer, playback), local run and test commands,
+      repository layout, status and known limits, how it was built
+- [x] Checked: every linked path exists; container restrictions match ContainerProfile.java; example count
+      (26 plus the template); commands as used in this project's verification
 
 ## Next action
 
-Report Part 25 with the PR link; wait for the merge and the next request.
+Report the README with the PR link; no further task is approved.
