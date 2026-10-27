@@ -53,7 +53,9 @@ only. For the active task, [handoff.md](handoff.md) is authoritative. History:
   close them"): `feat/part-24-toggles`, stacked on Part 23, awaiting review. Spec: specs/panel-toggles.md.
 - Parts 19-24 merged into main by the user (2026-10-25).
 - Part 25 (approved 2026-10-25: "I want you to visualization for sliding window"): `feat/part-25-sliding-window`,
-  from main, awaiting review. Spec: specs/sliding-window.md.
+  from main; merged by the user.
+- README (requested 2026-10-27: "Please write a readme file to conclude the project"): `docs/readme`, awaiting review.
+  No further task is approved; ask the user what is next.
 - Declined 2026-10-25: automatic detection of adjacency matrices as graphs ("no need"); a matrix graph is
   still shown through Choose fields yourself.
 - Never merge pull requests; the user merges.

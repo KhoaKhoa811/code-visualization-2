@@ -62,7 +62,9 @@ improvements.
 | 22 | Step actions with a budget: comparison bracket, link rewiring, moving reference variables, return arrow from the call tree, push/pop arrows, hash slot arrow, old-value ghost, code jumps in the editor margin; at most 3 actions + 1 ghost per step, Arrows switch ([step actions](../specs/step-actions.md)); frontend only; stacked on 21 | Merged |
 | 23 | Three-column layout: side (run facts, variables, call stack, call tree, complexity), center (controls, structures, objects; widest), right (editor, console); one action overlay across columns, redrawn on scroll; Objects bug fixed (graph view's `.graph` rule hid the object columns), objects in top-down depth layers ([three-column layout](../specs/three-column-layout.md)); frontend only; stacked on 22 | Merged |
 | 24 | Panel toggles: a ▾/▸ button on every panel title closes the panel to its title and opens it again; kept across steps and runs, Reset layout opens all ([panel toggles](../specs/panel-toggles.md)); frontend only; stacked on 23 | Merged |
-| 25 | Sliding window: cells added into an aggregate (sum += a[r], set.add, freq[..]++, map put/merge) and not yet taken out, boxed over the array or string with the aggregate's label and size, + / − marks for the cell that entered or left; shown from the first leave while contiguous ([sliding window](../specs/sliding-window.md)); frontend + one tracer test program | Done, pushed, awaiting review |
+| 25 | Sliding window: cells added into an aggregate (sum += a[r], set.add, freq[..]++, map put/merge) and not yet taken out, boxed over the array or string with the aggregate's label and size, + / − marks for the cell that entered or left; shown from the first leave while contiguous ([sliding window](../specs/sliding-window.md)); frontend + one tracer test program | Merged |
+
+| Docs | Root README.md concluding the project: features, how it works, running locally, tests, layout, status and limits | Done, pushed, awaiting review |
 
 ## Verified environment
 

@@ -352,3 +352,5 @@ not verbatim transcripts, unless quoted.
   cell read, or a variable last set from one cell; window = entered minus left, shown from the first leave while
   contiguous), WindowLayer box + label + +/- marks in arrays and strings, example "Sliding window", fixture
   sliding-window.json from TracerTest. Docker Desktop had to be started (C:\Users\nguye\AppData\Local\Programs\DockerDesktop).
+- 2026-10-27: Part 25 merged. Root README.md written to conclude the project (features, architecture, local run and test
+  commands, repository layout, status and known limits); branch docs/readme.
